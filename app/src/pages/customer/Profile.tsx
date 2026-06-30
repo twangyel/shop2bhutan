@@ -33,10 +33,11 @@ type MenuGroup = {
 };
 
 type ProfileLike = {
-  full_name?: string;
-  name?: string;
-  phone?: string;
-  dzongkhag?: string;
+  full_name?: string | null;
+  name?: string | null;
+  phone?: string | null;
+  dzongkhag?: string | null;
+  avatar_url?: string | null;
 };
 
 const menuGroups: MenuGroup[] = [
@@ -94,6 +95,9 @@ export default function Profile() {
     user?.email ||
     'Sign in to manage your profile';
 
+  const displayPhone = profile?.phone?.trim() || null;
+  const displayDzongkhag = profile?.dzongkhag?.trim() || null;
+
   const totalOrders = orders.length;
   const totalAddresses = 3;
   const pendingOrders = orders.filter((order) =>
@@ -116,6 +120,11 @@ export default function Profile() {
 
         <h2 className="text-lg font-bold text-white">{displayName}</h2>
         <p className="text-sm text-white/80">{displayEmail}</p>
+        {(displayPhone || displayDzongkhag) && (
+          <p className="text-xs text-white/75 mt-0.5">
+            {[displayPhone, displayDzongkhag].filter(Boolean).join(' • ')}
+          </p>
+        )}
 
         {context?.role && context.role !== 'anon' && (
           <p className="text-xs text-white/80 mt-1">Role: {context.role}</p>

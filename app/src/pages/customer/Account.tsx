@@ -35,10 +35,11 @@ const menuGroups = [
 ];
 
 type ProfileLike = {
-  full_name?: string;
-  name?: string;
-  phone?: string;
-  dzongkhag?: string;
+  full_name?: string | null;
+  name?: string | null;
+  phone?: string | null;
+  dzongkhag?: string | null;
+  avatar_url?: string | null;
 };
 
 export default function Account() {
@@ -59,6 +60,9 @@ export default function Account() {
     context?.email ||
     user?.email ||
     'Sign in to manage your orders';
+
+  const displayPhone = profile?.phone?.trim() || null;
+  const displayDzongkhag = profile?.dzongkhag?.trim() || null;
 
   const pendingOrders = orders.filter((o) =>
     ['pending_confirmation', 'quoted', 'payment_pending'].includes(o.status)
@@ -81,6 +85,11 @@ export default function Account() {
           <div>
             <h2 className="text-lg font-bold text-gray-900">{displayName}</h2>
             <p className="text-sm text-neutral-500">{displayEmail}</p>
+            {(displayPhone || displayDzongkhag) && (
+              <p className="text-xs text-neutral-500 mt-0.5">
+                {[displayPhone, displayDzongkhag].filter(Boolean).join(' • ')}
+              </p>
+            )}
             <p className="text-xs text-neutral-400 mt-0.5">
               {appSettings.orderCoverage.shortLabel}
             </p>
