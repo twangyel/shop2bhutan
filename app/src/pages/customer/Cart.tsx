@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Minus, Plus, Trash2, MapPin, ShoppingCart, ArrowRight } from 'lucide-react';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/contexts/AppContext';
 import { deliveryHubs, appSettings } from '@/data/mockData';
 import EmptyState from '@/components/shared/EmptyState';
 

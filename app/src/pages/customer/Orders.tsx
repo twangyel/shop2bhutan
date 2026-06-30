@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SlidersHorizontal, Package } from 'lucide-react';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/contexts/AppContext';
 import OrderCard from '@/components/shared/OrderCard';
 import EmptyState from '@/components/shared/EmptyState';
 

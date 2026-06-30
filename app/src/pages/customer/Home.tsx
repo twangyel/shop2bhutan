@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Search, Bell, MapPin, ChevronDown } from 'lucide-react';
 import { products } from '@/data/mockData';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/contexts/AppContext';
 import Logo from '@/components/shared/Logo';
 
 import HeroBanner from '@/components/customer/HeroBanner';

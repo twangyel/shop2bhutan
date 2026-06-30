@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Check } from 'lucide-react';
 import { addresses, deliveryHubs } from '@/data/mockData';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/contexts/AppContext';
 
 export default function Checkout() {
   const navigate = useNavigate();

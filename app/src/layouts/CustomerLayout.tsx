@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Home, ShoppingBag, Package, User, ShoppingCart } from 'lucide-react';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/contexts/AppContext';
 
 const tabs = [
   { path: '/', label: 'Home', icon: Home },

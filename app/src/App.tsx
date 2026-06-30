@@ -1,5 +1,7 @@
+import { AuthDebugBox } from './components/AuthDebugBox';
+
 import { Routes, Route } from 'react-router-dom';
-import { AppProvider } from '@/context/AppContext';
+import { AppProvider } from '@/contexts/AppContext';
 
 // Layouts
 import CustomerLayout from '@/layouts/CustomerLayout';
@@ -48,55 +50,59 @@ import AdminParcelRequests from '@/pages/admin/ParcelRequests';
 
 export default function App() {
   return (
-    <AppProvider>
-      <Routes>
-        {/* Auth Routes - No Layout */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
+    <>
+      <AuthDebugBox />
 
-        {/* Customer Routes */}
-        <Route element={<CustomerLayout />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/catalog" element={<Catalog />} />
-          <Route path="/product/:id" element={<ProductDetail />} />
-          <Route path="/paste-link" element={<PasteLink />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/checkout" element={<Checkout />} />
-          <Route path="/quotation/:orderId" element={<QuotationReview />} />
-          <Route path="/payment/:orderId" element={<PaymentUpload />} />
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/order/:id" element={<OrderDetail />} />
-          <Route path="/account" element={<Account />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/addresses" element={<Addresses />} />
-          <Route path="/support" element={<Support />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/parcel" element={<Parcel />} />
-          <Route path="/parcel-booking/:tripId" element={<ParcelBooking />} />
-          <Route path="/my-parcels" element={<MyParcels />} />
-        </Route>
+      <AppProvider>
+        <Routes>
+          {/* Auth Routes - No Layout */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
 
-        {/* Admin Routes */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="orders" element={<OrdersPanel />} />
-          <Route path="orders/:id" element={<AdminOrderDetail />} />
-          <Route path="quotation/:id" element={<QuotationBuilder />} />
-          <Route path="parcels" element={<AdminParcelTrips />} />
-          <Route path="parcel-requests" element={<AdminParcelRequests />} />
-          <Route path="payments" element={<PaymentsVerification />} />
-          <Route path="customers" element={<CustomersPanel />} />
-          <Route path="products" element={<ProductCMS />} />
-          <Route path="banners" element={<BannerCMS />} />
-          <Route path="categories" element={<CategoryCMS />} />
-          <Route path="delivery-fees" element={<DeliveryFeeSettings />} />
-          <Route path="service-charges" element={<ServiceChargeSettings />} />
-          <Route path="payment-methods" element={<PaymentMethodSettings />} />
-          <Route path="settings" element={<AppSettings />} />
-          <Route path="faq" element={<FAQCMS />} />
-        </Route>
-      </Routes>
-    </AppProvider>
+          {/* Customer Routes */}
+          <Route element={<CustomerLayout />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/catalog" element={<Catalog />} />
+            <Route path="/product/:id" element={<ProductDetail />} />
+            <Route path="/paste-link" element={<PasteLink />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/quotation/:orderId" element={<QuotationReview />} />
+            <Route path="/payment/:orderId" element={<PaymentUpload />} />
+            <Route path="/orders" element={<Orders />} />
+            <Route path="/order/:id" element={<OrderDetail />} />
+            <Route path="/account" element={<Account />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/addresses" element={<Addresses />} />
+            <Route path="/support" element={<Support />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route path="/parcel" element={<Parcel />} />
+            <Route path="/parcel-booking/:tripId" element={<ParcelBooking />} />
+            <Route path="/my-parcels" element={<MyParcels />} />
+          </Route>
+
+          {/* Admin Routes */}
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="orders" element={<OrdersPanel />} />
+            <Route path="orders/:id" element={<AdminOrderDetail />} />
+            <Route path="quotation/:id" element={<QuotationBuilder />} />
+            <Route path="parcels" element={<AdminParcelTrips />} />
+            <Route path="parcel-requests" element={<AdminParcelRequests />} />
+            <Route path="payments" element={<PaymentsVerification />} />
+            <Route path="customers" element={<CustomersPanel />} />
+            <Route path="products" element={<ProductCMS />} />
+            <Route path="banners" element={<BannerCMS />} />
+            <Route path="categories" element={<CategoryCMS />} />
+            <Route path="delivery-fees" element={<DeliveryFeeSettings />} />
+            <Route path="service-charges" element={<ServiceChargeSettings />} />
+            <Route path="payment-methods" element={<PaymentMethodSettings />} />
+            <Route path="settings" element={<AppSettings />} />
+            <Route path="faq" element={<FAQCMS />} />
+          </Route>
+        </Routes>
+      </AppProvider>
+    </>
   );
 }

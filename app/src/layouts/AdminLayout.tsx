@@ -4,7 +4,7 @@ import {
   Grid3X3, Image, Truck, Percent, Wallet, Settings, FileText,
   LogOut, ChevronDown, Search, Bell, ClipboardCheck
 } from 'lucide-react';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/contexts/AppContext';
 import { useState } from 'react';
 import Logo from '@/components/shared/Logo';
 

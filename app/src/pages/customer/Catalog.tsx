@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, SlidersHorizontal, ShoppingCart, ArrowLeft, Link2 } from 'lucide-react';
 import { categories, products } from '@/data/mockData';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/contexts/AppContext';
 import ProductCard from '@/components/shared/ProductCard';
 
 type SortOption = 'popular' | 'price-low' | 'price-high' | 'newest' | 'rating';

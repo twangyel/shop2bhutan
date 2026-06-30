@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Share2, Heart, Star, Truck, ShoppingCart, Zap, Minus, Plus } from 'lucide-react';
 import { products, reviews, appSettings } from '@/data/mockData';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/contexts/AppContext';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();

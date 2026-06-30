@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Bell, ShoppingBag, CreditCard, Tag, Info } from 'lucide-react';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/contexts/AppContext';
 import { formatDistanceToNow } from 'date-fns';
 import EmptyState from '@/components/shared/EmptyState';
 

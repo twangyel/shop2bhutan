@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { Star, Plus } from 'lucide-react';
+import type { MouseEvent, KeyboardEvent } from 'react';
 import type { Product } from '@/types';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/contexts/AppContext';
 import { formatEstimatedPrice, formatOriginalPrice, PRICE_DISCLAIMER } from '@/utils/currency';
 
 interface ProductCardProps {
@@ -13,8 +14,20 @@ export default function ProductCard({ product, variant = 'grid' }: ProductCardPr
   const navigate = useNavigate();
   const { addToCart } = useApp();
 
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const goToProduct = () => {
+    navigate(`/product/${product.id}`);
+  };
+
+  const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      goToProduct();
+    }
+  };
+
+  const handleAddToCart = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+
     addToCart({
       id: `cart-${product.id}-${Date.now()}`,
       productId: product.id,
@@ -29,7 +42,6 @@ export default function ProductCard({ product, variant = 'grid' }: ProductCardPr
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : 0;
 
-  // Price block shared between variants
   const PriceBlock = () => (
     <div>
       <div className="flex items-baseline gap-2">
@@ -42,19 +54,27 @@ export default function ProductCard({ product, variant = 'grid' }: ProductCardPr
           </span>
         )}
       </div>
+
       {discount > 0 && (
-        <span className="text-[10px] font-semibold text-red-500">{discount}% OFF</span>
+        <span className="text-[10px] font-semibold text-red-500">
+          {discount}% OFF
+        </span>
       )}
-      <p className="text-[9px] text-neutral-400 mt-0.5 italic">{PRICE_DISCLAIMER}</p>
+
+      <p className="text-[9px] text-neutral-400 mt-0.5 italic">
+        {PRICE_DISCLAIMER}
+      </p>
     </div>
   );
 
-  // Horizontal card for scroll rows
   if (variant === 'horizontal') {
     return (
-      <button
-        onClick={() => navigate(`/product/${product.id}`)}
-        className="flex-shrink-0 w-[168px] bg-white rounded-2xl overflow-hidden shadow-card hover:shadow-lg transition-all active:scale-[0.98] text-left"
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={goToProduct}
+        onKeyDown={handleCardKeyDown}
+        className="flex-shrink-0 w-[168px] bg-white rounded-2xl overflow-hidden shadow-card hover:shadow-lg transition-all active:scale-[0.98] text-left cursor-pointer"
       >
         <div className="relative w-full aspect-square bg-neutral-100">
           <img
@@ -63,11 +83,15 @@ export default function ProductCard({ product, variant = 'grid' }: ProductCardPr
             className="w-full h-full object-cover"
             loading="lazy"
           />
+
           {product.badge && (
             <span
               className={`absolute top-2 left-2 px-2 py-0.5 text-[10px] font-bold rounded-full text-white ${
-                product.badge === 'SALE' ? 'bg-red-500' :
-                product.badge === 'NEW' ? 'bg-emerald-500' : 'bg-amber-500'
+                product.badge === 'SALE'
+                  ? 'bg-red-500'
+                  : product.badge === 'NEW'
+                    ? 'bg-emerald-500'
+                    : 'bg-amber-500'
               }`}
             >
               {product.badge}
@@ -79,24 +103,32 @@ export default function ProductCard({ product, variant = 'grid' }: ProductCardPr
           <h3 className="text-[12px] font-semibold text-gray-900 leading-snug line-clamp-2 min-h-[2.2em]">
             {product.name}
           </h3>
+
           <div className="flex items-center gap-1 mt-1">
             <Star size={11} className="text-amber-500 fill-amber-500" />
-            <span className="text-[10px] font-medium text-neutral-600">{product.rating}</span>
-            <span className="text-[10px] text-neutral-400">({product.reviewCount})</span>
+            <span className="text-[10px] font-medium text-neutral-600">
+              {product.rating}
+            </span>
+            <span className="text-[10px] text-neutral-400">
+              ({product.reviewCount})
+            </span>
           </div>
+
           <div className="mt-1.5">
             <PriceBlock />
           </div>
         </div>
-      </button>
+      </div>
     );
   }
 
-  // Grid card
   return (
-    <button
-      onClick={() => navigate(`/product/${product.id}`)}
-      className="bg-white rounded-2xl overflow-hidden shadow-card hover:shadow-lg transition-all hover:-translate-y-0.5 active:scale-[0.98] text-left"
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={goToProduct}
+      onKeyDown={handleCardKeyDown}
+      className="bg-white rounded-2xl overflow-hidden shadow-card hover:shadow-lg transition-all hover:-translate-y-0.5 active:scale-[0.98] text-left cursor-pointer"
     >
       <div className="relative aspect-square bg-neutral-100">
         <img
@@ -105,19 +137,26 @@ export default function ProductCard({ product, variant = 'grid' }: ProductCardPr
           className="w-full h-full object-cover"
           loading="lazy"
         />
+
         {product.badge && (
           <span
             className={`absolute top-2 left-2 px-2 py-0.5 text-[10px] font-bold rounded-full text-white ${
-              product.badge === 'SALE' ? 'bg-red-500' :
-              product.badge === 'NEW' ? 'bg-emerald-500' : 'bg-amber-500'
+              product.badge === 'SALE'
+                ? 'bg-red-500'
+                : product.badge === 'NEW'
+                  ? 'bg-emerald-500'
+                  : 'bg-amber-500'
             }`}
           >
             {product.badge}
           </span>
         )}
+
         <button
+          type="button"
           onClick={handleAddToCart}
           className="absolute bottom-2 right-2 w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center shadow-md hover:bg-amber-600 active:scale-90 transition-all"
+          aria-label={`Add ${product.name} to cart`}
         >
           <Plus size={16} className="text-white" />
         </button>
@@ -127,15 +166,19 @@ export default function ProductCard({ product, variant = 'grid' }: ProductCardPr
         <h3 className="text-[12px] font-semibold text-gray-900 leading-snug line-clamp-2">
           {product.name}
         </h3>
+
         <div className="flex items-center gap-1 mt-1">
           <Star size={11} className="text-amber-500 fill-amber-500" />
           <span className="text-[10px] text-neutral-600">{product.rating}</span>
-          <span className="text-[10px] text-neutral-400">({product.reviewCount})</span>
+          <span className="text-[10px] text-neutral-400">
+            ({product.reviewCount})
+          </span>
         </div>
+
         <div className="mt-1.5">
           <PriceBlock />
         </div>
       </div>
-    </button>
+    </div>
   );
 }

@@ -1,9 +1,18 @@
 import { useNavigate } from 'react-router-dom';
 import {
-  MapPin, Bell, User, HeadphonesIcon, Settings,
-  LogOut, ChevronRight, ClipboardList, Truck, Wallet
+  MapPin,
+  Bell,
+  User,
+  HeadphonesIcon,
+  Settings,
+  LogOut,
+  ChevronRight,
+  ClipboardList,
+  Truck,
+  Wallet,
 } from 'lucide-react';
-import { useApp } from '@/context/AppContext';
+import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { appSettings } from '@/data/mockData';
 
 const menuGroups = [
@@ -25,30 +34,81 @@ const menuGroups = [
   },
 ];
 
+type ProfileLike = {
+  full_name?: string;
+  name?: string;
+  phone?: string;
+  dzongkhag?: string;
+};
+
 export default function Account() {
   const navigate = useNavigate();
-  const { user, logout, unreadCount, orders } = useApp();
+  const { unreadCount, orders } = useApp();
+  const { user, context, signOut } = useAuth();
+
+  const profile = (context?.profile ?? null) as ProfileLike | null;
+  const isLoggedIn = Boolean(user);
+
+  const displayName =
+    profile?.full_name ||
+    profile?.name ||
+    user?.email?.split('@')[0] ||
+    'Guest';
+
+  const displayEmail =
+    context?.email ||
+    user?.email ||
+    'Sign in to manage your orders';
 
   const pendingOrders = orders.filter((o) =>
     ['pending_confirmation', 'quoted', 'payment_pending'].includes(o.status)
   ).length;
 
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
+  };
+
   return (
     <div className="min-h-screen bg-neutral-50 pb-8">
-      {/* Profile Header */}
       <div className="bg-white border-b border-neutral-100 px-4 pt-6 pb-5">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center border-2 border-amber-200">
-            <span className="text-xl font-bold text-amber-700">{user?.name?.charAt(0) || 'K'}</span>
+            <span className="text-xl font-bold text-amber-700">
+              {displayName.charAt(0).toUpperCase()}
+            </span>
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900">{user?.name || 'Karma Dorji'}</h2>
-            <p className="text-sm text-neutral-500">{user?.email || 'karma.dorji@email.com'}</p>
-            <p className="text-xs text-neutral-400 mt-0.5">{appSettings.orderCoverage.shortLabel}</p>
+            <h2 className="text-lg font-bold text-gray-900">{displayName}</h2>
+            <p className="text-sm text-neutral-500">{displayEmail}</p>
+            <p className="text-xs text-neutral-400 mt-0.5">
+              {appSettings.orderCoverage.shortLabel}
+            </p>
+            {context?.role && context.role !== 'anon' && (
+              <p className="text-[11px] text-amber-600 font-semibold mt-1">
+                Role: {context.role}
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Quick Stats */}
+        {!isLoggedIn && (
+          <div className="grid grid-cols-2 gap-3 mt-5">
+            <button
+              onClick={() => navigate('/login')}
+              className="h-11 rounded-xl bg-amber-500 text-white text-sm font-semibold"
+            >
+              Sign In
+            </button>
+            <button
+              onClick={() => navigate('/register')}
+              className="h-11 rounded-xl bg-neutral-100 text-neutral-700 text-sm font-semibold"
+            >
+              Register
+            </button>
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-3 mt-5">
           {[
             { label: 'Orders', value: orders.length },
@@ -57,7 +117,13 @@ export default function Account() {
           ].map((stat) => (
             <button
               key={stat.label}
-              onClick={() => stat.label === 'Orders' ? navigate('/orders') : stat.label === 'Parcels' ? navigate('/my-parcels') : null}
+              onClick={() =>
+                stat.label === 'Orders'
+                  ? navigate('/orders')
+                  : stat.label === 'Parcels'
+                    ? navigate('/my-parcels')
+                    : null
+              }
               className="bg-neutral-50 rounded-xl p-3 text-center hover:bg-neutral-100 transition-colors"
             >
               <p className="text-lg font-bold text-amber-600">{stat.value}</p>
@@ -67,7 +133,6 @@ export default function Account() {
         </div>
       </div>
 
-      {/* Menu Groups */}
       <div className="px-4 mt-4 space-y-3">
         {menuGroups.map((group, gi) => (
           <div key={gi} className="bg-white rounded-xl overflow-hidden shadow-sm">
@@ -95,14 +160,22 @@ export default function Account() {
           </div>
         ))}
 
-        {/* Logout */}
-        <button
-          onClick={() => { logout(); navigate('/login'); }}
-          className="w-full h-12 bg-red-50 text-red-600 font-semibold rounded-xl flex items-center justify-center gap-2 hover:bg-red-100 transition-colors"
-        >
-          <LogOut size={18} />
-          <span className="text-sm">Logout</span>
-        </button>
+        {isLoggedIn ? (
+          <button
+            onClick={handleLogout}
+            className="w-full h-12 bg-red-50 text-red-600 font-semibold rounded-xl flex items-center justify-center gap-2 hover:bg-red-100 transition-colors"
+          >
+            <LogOut size={18} />
+            <span className="text-sm">Logout</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => navigate('/login')}
+            className="w-full h-12 bg-amber-500 text-white font-semibold rounded-xl flex items-center justify-center gap-2 hover:bg-amber-600 transition-colors"
+          >
+            <span className="text-sm">Sign In</span>
+          </button>
+        )}
       </div>
     </div>
   );
