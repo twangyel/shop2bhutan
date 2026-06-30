@@ -1,4 +1,4 @@
-import { AuthDebugBox } from './components/AuthDebugBox';
+
 
 import { Routes, Route } from 'react-router-dom';
 import { AppProvider } from '@/contexts/AppContext';
@@ -51,7 +51,7 @@ import AdminParcelRequests from '@/pages/admin/ParcelRequests';
 export default function App() {
   return (
     <>
-      <AuthDebugBox />
+     
 
       <AppProvider>
         <Routes>
