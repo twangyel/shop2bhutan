@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import {
   MapPin, Bell, User, HeadphonesIcon, Settings,
-  LogOut, ChevronRight, ClipboardList, Truck
+  LogOut, ChevronRight, ClipboardList, Truck, Wallet
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { appSettings } from '@/data/mockData';
@@ -18,6 +18,7 @@ const menuGroups = [
   {
     items: [
       { icon: MapPin, label: 'Saved Addresses', path: '/addresses' },
+      { icon: Wallet, label: 'Payment History', path: '/orders' },
       { icon: HeadphonesIcon, label: 'Support', path: '/support' },
       { icon: Settings, label: 'Settings', path: '#' },
     ],

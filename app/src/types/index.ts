@@ -326,3 +326,5 @@ export interface CustomerStats {
   totalSpent: number;
   avgOrderValue: number;
 }
+
+export * from './parcel';

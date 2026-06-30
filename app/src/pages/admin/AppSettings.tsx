@@ -1,4 +1,5 @@
 import { Save, Image, Settings, Clock, Wrench } from 'lucide-react';
+import Logo from '@/components/shared/Logo';
 
 const sections = [
   {
@@ -53,8 +54,8 @@ export default function AppSettings() {
           <h3 className="text-sm font-semibold text-gray-900">App Logo</h3>
         </div>
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-amber-500 rounded-xl flex items-center justify-center text-white font-bold text-xl">
-            S2B
+          <div className="w-16 h-16 rounded-xl bg-neutral-50 border border-neutral-100 flex items-center justify-center overflow-hidden">
+            <Logo size="lg" showText={false} />
           </div>
           <div>
             <button className="px-4 py-2 bg-neutral-100 text-neutral-700 text-sm font-medium rounded-lg hover:bg-neutral-200 transition-colors">

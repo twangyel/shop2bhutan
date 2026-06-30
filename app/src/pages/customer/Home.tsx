@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
-import { Search, Bell, MapPin, ChevronDown, ShoppingBag } from 'lucide-react';
+import { Search, Bell, MapPin, ChevronDown } from 'lucide-react';
 import { products } from '@/data/mockData';
 import { useApp } from '@/context/AppContext';
+import Logo from '@/components/shared/Logo';
 
 import HeroBanner from '@/components/customer/HeroBanner';
 import PasteLinkCard from '@/components/customer/PasteLinkCard';
@@ -30,14 +31,7 @@ export default function Home() {
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-neutral-100">
         <div className="px-4 pt-3 pb-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
-                <ShoppingBag size={16} className="text-white" />
-              </div>
-              <span className="text-base font-bold text-gray-900 tracking-tight">
-                Shop2<span className="text-amber-500">Bhutan</span>
-              </span>
-            </div>
+            <Logo size="sm" />
             <button
               onClick={() => navigate('/notifications')}
               className="relative p-2 -mr-2 rounded-full hover:bg-neutral-100 transition-colors"

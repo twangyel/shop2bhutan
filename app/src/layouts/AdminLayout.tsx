@@ -14,7 +14,8 @@ const navGroups = [
     items: [
       { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
       { path: '/admin/orders', label: 'Orders', icon: ClipboardList },
-      { path: '/admin/parcels', label: 'Parcels', icon: ClipboardCheck },
+      { path: '/admin/parcels', label: 'Parcel Trips', icon: ClipboardCheck },
+      { path: '/admin/parcel-requests', label: 'Parcel Requests', icon: Package },
       { path: '/admin/payments', label: 'Payments', icon: CreditCard },
       { path: '/admin/customers', label: 'Customers', icon: Users },
     ]

@@ -8,7 +8,7 @@ export default function ParcelTrips() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     name: '', goingDate: '', returnDate: '',
-    fromLocation: 'Jaigaon, India', toLocation: 'Phuntsholing, Bhutan',
+    fromLocation: 'Customer pickup address', toLocation: 'Phuntsholing, Bhutan',
     description: '',
   });
 
@@ -25,7 +25,7 @@ export default function ParcelTrips() {
       description: form.description, isActive: true,
       createdAt: new Date().toISOString(),
     }]);
-    setForm({ name: '', goingDate: '', returnDate: '', fromLocation: 'Jaigaon, India', toLocation: 'Phuntsholing, Bhutan', description: '' });
+    setForm({ name: '', goingDate: '', returnDate: '', fromLocation: 'Customer pickup address', toLocation: 'Phuntsholing, Bhutan', description: '' });
     setShowForm(false);
   };
 
@@ -52,6 +52,10 @@ export default function ParcelTrips() {
             <div>
               <label className="text-xs font-medium text-neutral-500 uppercase">From</label>
               <input value={form.fromLocation} onChange={(e) => setForm({ ...form, fromLocation: e.target.value })} className="w-full h-9 mt-1 px-3 border border-neutral-200 rounded-lg text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-neutral-500 uppercase">To</label>
+              <input value={form.toLocation} onChange={(e) => setForm({ ...form, toLocation: e.target.value })} className="w-full h-9 mt-1 px-3 border border-neutral-200 rounded-lg text-sm" />
             </div>
             <div>
               <label className="text-xs font-medium text-neutral-500 uppercase">Going Date</label>
