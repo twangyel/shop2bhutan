@@ -1,15 +1,35 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, User } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, User, Phone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import Logo from '@/components/shared/Logo';
+
+function normalizeBhutanPhone(input: string): string | null {
+  const digits = input.replace(/\D/g, '');
+
+  let phone8 = digits;
+
+  if (digits.startsWith('975')) {
+    phone8 = digits.slice(3);
+  }
+
+  if (!/^(17|77)\d{6}$/.test(phone8)) {
+    return null;
+  }
+
+  return phone8;
+}
+
+function isEmailIdentifier(value: string) {
+  return value.includes('@');
+}
 
 export default function Login() {
   const navigate = useNavigate();
   const { refreshContext } = useAuth();
 
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -17,16 +37,51 @@ export default function Login() {
   const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const resolveLoginEmail = async (cleanIdentifier: string) => {
+    if (isEmailIdentifier(cleanIdentifier)) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanIdentifier)) {
+        throw new Error('Invalid email format');
+      }
+
+      return cleanIdentifier.toLowerCase();
+    }
+
+    const normalizedPhone = normalizeBhutanPhone(cleanIdentifier);
+
+    if (!normalizedPhone) {
+      throw new Error('Enter a valid email or Bhutan mobile number.');
+    }
+
+    const { data, error } = await supabase.rpc('get_login_email_by_phone', {
+      p_phone: normalizedPhone,
+    });
+
+    if (error) {
+      throw new Error('Phone login is not ready. Please sign in with email.');
+    }
+
+    if (!data) {
+      throw new Error('Invalid login details. Please check your phone/email and password.');
+    }
+
+    return String(data).toLowerCase();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const newErrors: Record<string, string> = {};
+    const cleanIdentifier = identifier.trim();
 
-    if (!email) newErrors.email = 'Email is required';
-    else if (!email.includes('@')) newErrors.email = 'Invalid email format';
+    if (!cleanIdentifier) {
+      newErrors.identifier = 'Email or phone number is required';
+    }
 
-    if (!password) newErrors.password = 'Password is required';
-    else if (password.length < 6) newErrors.password = 'Min 6 characters';
+    if (!password) {
+      newErrors.password = 'Password is required';
+    } else if (password.length < 6) {
+      newErrors.password = 'Min 6 characters';
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -36,15 +91,25 @@ export default function Login() {
     setSubmitting(true);
     setSubmitError('');
 
+    let loginEmail = '';
+
+    try {
+      loginEmail = await resolveLoginEmail(cleanIdentifier);
+    } catch (err) {
+      setSubmitting(false);
+      setSubmitError(err instanceof Error ? err.message : 'Unable to sign in.');
+      return;
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: loginEmail,
       password,
     });
 
     setSubmitting(false);
 
     if (error) {
-      setSubmitError(error.message || 'Unable to sign in. Please try again.');
+      setSubmitError('Invalid login details. Please check your email/phone and password.');
       return;
     }
 
@@ -59,7 +124,7 @@ export default function Login() {
           <Logo size="xl" />
           <h1 className="text-2xl font-bold text-gray-900 mt-5">Welcome Back</h1>
           <p className="text-sm text-neutral-500 mt-1">
-            Sign in to your Shop2Bhutan account
+            Sign in with email or Bhutan mobile number
           </p>
         </div>
 
@@ -72,28 +137,37 @@ export default function Login() {
 
           <div>
             <label className="block text-xs font-medium text-neutral-700 uppercase tracking-wider mb-1.5">
-              Email Address
+              Email or Phone Number
             </label>
             <div className="relative">
-              <Mail
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
-              />
+              {identifier.includes('@') ? (
+                <Mail
+                  size={18}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                />
+              ) : (
+                <Phone
+                  size={18}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                />
+              )}
               <input
-                type="email"
-                value={email}
+                type="text"
+                value={identifier}
                 onChange={(e) => {
-                  setEmail(e.target.value);
-                  setErrors((p) => ({ ...p, email: '' }));
+                  setIdentifier(e.target.value);
+                  setErrors((p) => ({ ...p, identifier: '' }));
                   setSubmitError('');
                 }}
-                placeholder="your@email.com"
+                placeholder="your@email.com or 17123456"
                 className={`w-full h-12 pl-10 pr-4 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 ${
-                  errors.email ? 'border-red-400' : 'border-neutral-300'
+                  errors.identifier ? 'border-red-400' : 'border-neutral-300'
                 }`}
               />
             </div>
-            {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
+            {errors.identifier && (
+              <p className="text-xs text-red-500 mt-1">{errors.identifier}</p>
+            )}
           </div>
 
           <div>
@@ -183,10 +257,6 @@ export default function Login() {
           >
             Register
           </button>
-        </p>
-
-        <p className="text-center text-xs text-neutral-400 mt-4">
-          Admins can sign in here, then open the admin panel.
         </p>
       </div>
     </div>

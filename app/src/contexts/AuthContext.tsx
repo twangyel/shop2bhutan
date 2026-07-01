@@ -69,6 +69,7 @@ function buildProfileInsert(user: User) {
     'Customer';
 
   const phone = cleanString(metadata.phone);
+  const defaultDzongkhagId = cleanString(metadata.default_dzongkhag_id);
   const avatarUrl = cleanString(metadata.avatar_url) ?? cleanString(metadata.picture);
 
   const payload: Record<string, string> = {
@@ -77,6 +78,7 @@ function buildProfileInsert(user: User) {
   };
 
   if (phone) payload.phone = phone;
+  if (defaultDzongkhagId) payload.default_dzongkhag_id = defaultDzongkhagId;
   if (avatarUrl) payload.avatar_url = avatarUrl;
 
   return payload;
@@ -93,8 +95,6 @@ async function ensureProfileRow(user: User) {
     });
 
   if (error) {
-    // Do not block login/admin guard if profile insert is blocked by RLS/schema.
-    // The session context RPC still runs below and admin role remains separate.
     console.warn('Profile sync skipped:', error.message);
   }
 }

@@ -38,6 +38,7 @@ type ProfileLike = {
   full_name?: string | null;
   name?: string | null;
   phone?: string | null;
+  default_dzongkhag_id?: string | null;
   dzongkhag?: string | null;
   avatar_url?: string | null;
 };
@@ -62,7 +63,9 @@ export default function Account() {
     'Sign in to manage your orders';
 
   const displayPhone = profile?.phone?.trim() || null;
-  const displayDzongkhag = profile?.dzongkhag?.trim() || null;
+  const displayDzongkhag =
+    profile?.default_dzongkhag_id?.trim() || profile?.dzongkhag?.trim() || null;
+  const avatarUrl = profile?.avatar_url?.trim() || null;
 
   const pendingOrders = orders.filter((o) =>
     ['pending_confirmation', 'quoted', 'payment_pending'].includes(o.status)
@@ -77,11 +80,20 @@ export default function Account() {
     <div className="min-h-screen bg-neutral-50 pb-8">
       <div className="bg-white border-b border-neutral-100 px-4 pt-6 pb-5">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center border-2 border-amber-200">
-            <span className="text-xl font-bold text-amber-700">
-              {displayName.charAt(0).toUpperCase()}
-            </span>
-          </div>
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={displayName}
+              className="w-16 h-16 rounded-full object-cover border-2 border-amber-200"
+            />
+          ) : (
+            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center border-2 border-amber-200">
+              <span className="text-xl font-bold text-amber-700">
+                {displayName.charAt(0).toUpperCase()}
+              </span>
+            </div>
+          )}
+
           <div>
             <h2 className="text-lg font-bold text-gray-900">{displayName}</h2>
             <p className="text-sm text-neutral-500">{displayEmail}</p>
