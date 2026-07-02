@@ -116,8 +116,8 @@ function makeAddressText(row: AnyRow, options: DzongkhagOption[]) {
   );
 
   return compactParts([
-    firstString(row, ['delivery_address', 'address_line1', 'address1', 'line1', 'street_address']),
-    firstString(row, ['address_line2', 'address2', 'line2']),
+    firstString(row, ['delivery_address', 'address_line1', 'address1', 'line1', 'street_address', 'town_area', 'town', 'area']),
+    firstString(row, ['address_line2', 'address2', 'line2', 'building', 'building_name', 'house_no', 'flat_no']),
     firstString(row, ['village', 'delivery_village']),
     firstString(row, ['gewog', 'delivery_gewog']),
     dzongkhag,
@@ -326,6 +326,7 @@ export default function RequestBag() {
   const [error, setError] = useState('');
   const [deliveryExpanded, setDeliveryExpanded] = useState(false);
   const [addressLoading, setAddressLoading] = useState(false);
+  const [savedAddress, setSavedAddress] = useState<CustomerAddress | null>(null);
   const [dzongkhagOptions, setDzongkhagOptions] = useState<DzongkhagOption[]>([]);
 
   const [customer, setCustomer] = useState({
@@ -392,18 +393,22 @@ export default function RequestBag() {
       user.email?.split('@')[0] ||
       '';
 
-    const profileAddress = makeDeliveryAddress(profile, dzongkhagOptions);
-
+    // Name/phone can safely come from profile or an already-saved bag.
+    // Delivery address is resolved in the saved-address effect below so the
+    // customer's default saved address always wins over profile dzongkhag.
     setCustomer((prev) => ({
       name: prev.name || bag?.customerName || profileName,
       phone: prev.phone || bag?.customerPhone || profile?.phone?.trim() || '',
-      deliveryAddress: prev.deliveryAddress || bag?.deliveryAddress || profileAddress,
+      deliveryAddress: prev.deliveryAddress || bag?.deliveryAddress || '',
       notes: prev.notes || bag?.customerNotes || '',
     }));
-  }, [user, profile, dzongkhagOptions, bag?.customerName, bag?.customerPhone, bag?.deliveryAddress, bag?.customerNotes]);
+  }, [user, profile, bag?.customerName, bag?.customerPhone, bag?.deliveryAddress, bag?.customerNotes]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setSavedAddress(null);
+      return;
+    }
 
     const activeUserId = user.id;
     let active = true;
@@ -415,12 +420,26 @@ export default function RequestBag() {
         const address = await fetchSavedDefaultAddress(activeUserId, dzongkhagOptions);
         if (!active) return;
 
-        if (address) {
+        setSavedAddress(address);
+
+        if (address?.formattedAddress) {
+          // Saved/default address is the source of truth for Request Bag.
+          // This prevents random switching between profile dzongkhag and
+          // customer_addresses after refresh.
           setCustomer((prev) => ({
-            name: prev.name || address.recipientName,
-            phone: prev.phone || address.phone,
-            deliveryAddress: prev.deliveryAddress || address.formattedAddress,
+            name: address.recipientName || prev.name,
+            phone: address.phone || prev.phone,
+            deliveryAddress: address.formattedAddress,
             notes: prev.notes,
+          }));
+          return;
+        }
+
+        const profileAddress = makeDeliveryAddress(profile, dzongkhagOptions);
+        if (profileAddress) {
+          setCustomer((prev) => ({
+            ...prev,
+            deliveryAddress: prev.deliveryAddress || profileAddress,
           }));
         }
       } finally {
@@ -433,7 +452,7 @@ export default function RequestBag() {
     return () => {
       active = false;
     };
-  }, [user, dzongkhagOptions]);
+  }, [user, profile, dzongkhagOptions]);
 
   const patchItem = async (
     itemId: string,
@@ -472,6 +491,7 @@ export default function RequestBag() {
         ...bag,
         items: bag.items.filter((item) => item.id !== itemId),
       });
+      window.dispatchEvent(new Event('shop2bhutan:request-bag-updated'));
     } catch (err) {
       console.error('Failed to remove Request Bag item:', err);
       setError(err instanceof Error ? err.message : 'Unable to remove item.');
@@ -521,6 +541,7 @@ export default function RequestBag() {
         customerNotes: customer.notes || 'Request Bag quotation request submitted by customer.',
       });
 
+      window.dispatchEvent(new Event('shop2bhutan:request-bag-updated'));
       navigate(`/order/${result.orderId}`, { replace: true });
     } catch (err) {
       console.error('Failed to submit Request Bag:', err);
@@ -662,6 +683,9 @@ export default function RequestBag() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-emerald-900">{customer.name || 'Customer'}</p>
+                      {savedAddress?.label && (
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">{savedAddress.label} address</p>
+                      )}
                       {customer.phone && <p className="text-xs text-emerald-700">{customer.phone}</p>}
                       <p className="mt-1 text-xs leading-5 text-emerald-800">{customer.deliveryAddress}</p>
                     </div>

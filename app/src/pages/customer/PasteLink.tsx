@@ -243,6 +243,7 @@ export default function PasteLink() {
         },
       });
 
+      window.dispatchEvent(new Event('shop2bhutan:request-bag-updated'));
       setSuccessMessage('Added to Request Bag. You can add more items or review your bag.');
       resetForm();
     } catch (err) {

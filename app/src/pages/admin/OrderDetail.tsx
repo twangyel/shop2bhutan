@@ -169,7 +169,7 @@ export default function OrderDetail() {
           </div>
 
           <div className="bg-white rounded-xl p-5 shadow-card">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Shipping Address</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Delivery Address</h3>
             <div className="space-y-2">
               <div className="flex items-start gap-2">
                 <MapPin size={16} className="text-amber-500 mt-0.5 flex-shrink-0" />
@@ -177,9 +177,7 @@ export default function OrderDetail() {
                   <p className="text-sm font-medium">{order.shippingAddress.recipientName}</p>
                   <p className="text-xs text-neutral-500">{order.shippingAddress.phone || '-'}</p>
                   <p className="text-xs text-neutral-600 mt-1">
-                    {[order.shippingAddress.village, order.shippingAddress.gewog, order.shippingAddress.dzongkhag]
-                      .filter(Boolean)
-                      .join(', ') || '-'}
+                    {order.shippingAddress.village || [order.shippingAddress.gewog, order.shippingAddress.dzongkhag].filter(Boolean).join(', ') || '-'}
                   </p>
                   {order.shippingAddress.landmark && (
                     <p className="text-xs text-neutral-500 mt-1">Landmark: {order.shippingAddress.landmark}</p>

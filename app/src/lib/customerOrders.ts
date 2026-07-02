@@ -324,6 +324,17 @@ function makeShippingAddress(row: AnyRow, userId: string, profiles: AnyRow[] = [
   const nested = firstJsonObject(row, ['shipping_address', 'delivery_address_json', 'address'])
   const profile = findProfileForOrder(row, profiles)
   const source = { ...profile, ...row, ...nested }
+  const submittedAddress = firstString(source, ['delivery_address', 'full_address', 'formatted_address'], '')
+  const addressLine = firstString(source, ['address_line1', 'address1', 'line1', 'street_address', 'town_area', 'town', 'area'], '')
+  const buildingLine = firstString(source, ['address_line2', 'address2', 'line2', 'building', 'building_name', 'house_no', 'flat_no'], '')
+  const village = firstString(source, ['village', 'delivery_village'], '')
+  const gewog = firstString(source, ['gewog', 'delivery_gewog'], '')
+  const dzongkhag = firstString(source, ['dzongkhag', 'delivery_dzongkhag', 'delivery_city'], '')
+  const fullAddress = [submittedAddress, addressLine, buildingLine, village, gewog, dzongkhag]
+    .map((part) => cleanText(part))
+    .filter(Boolean)
+    .filter((part, index, arr) => arr.findIndex((x) => x.toLowerCase() === part.toLowerCase()) === index)
+    .join(', ')
 
   return {
     id: firstString(source, ['shipping_address_id', 'address_id'], `addr-${row.id ?? 'order'}`),
@@ -331,9 +342,9 @@ function makeShippingAddress(row: AnyRow, userId: string, profiles: AnyRow[] = [
     label: firstString(source, ['address_label', 'label'], 'Delivery'),
     recipientName: firstString(source, ['recipient_name', 'delivery_name', 'customer_name', 'full_name', 'name'], 'Customer'),
     phone: firstString(source, ['recipient_phone', 'delivery_phone', 'customer_phone', 'phone', 'whatsapp'], ''),
-    dzongkhag: firstString(source, ['dzongkhag', 'delivery_dzongkhag', 'delivery_city'], ''),
-    gewog: firstString(source, ['gewog', 'delivery_gewog'], ''),
-    village: firstString(source, ['village', 'delivery_village', 'delivery_address', 'address_line1'], ''),
+    dzongkhag,
+    gewog,
+    village: fullAddress || village || addressLine || submittedAddress,
     landmark: firstString(source, ['landmark', 'delivery_landmark'], ''),
     isDefault: false,
     deliveryHubId: firstString(source, ['delivery_hub_id', 'hub_id'], 'hub1'),
