@@ -1036,21 +1036,39 @@ async function makeOrderItems(row: AnyRow, relatedItems: AnyRow[]): Promise<Orde
 function makeQuotationItems(quotation: AnyRow, orderItems: OrderItem[], quotationItems: AnyRow[]): QuotationItem[] {
   const quoteId = String(quotation.id ?? '')
   const directItems = quotationItems.filter((item) => String(item.quotation_id ?? item.quote_id ?? '') === quoteId)
+  const findOriginalItem = (quoteItem: AnyRow, index: number) => {
+    const orderItemId = firstString(quoteItem, ['order_item_id'], '')
+    return orderItems.find((orderItem) => orderItem.id === orderItemId) ?? orderItems[index]
+  }
 
   if (directItems.length > 0) {
     return directItems.map((item, index) => {
-      const quantity = firstNumber(item, ['quantity', 'qty'], orderItems[index]?.quantity ?? 1)
-      const unitPrice = firstNumber(item, ['unit_price', 'price', 'quoted_price'], orderItems[index]?.unitPrice ?? 0)
+      const originalItem = findOriginalItem(item, index)
+      const quantity = firstNumber(item, ['quantity', 'qty'], originalItem?.quantity ?? 1)
+      const unitPrice = firstNumber(item, ['unit_price', 'price', 'quoted_price'], originalItem?.unitPrice ?? 0)
+      const productName = firstString(
+        item,
+        ['item_name', 'product_name', 'name', 'title'],
+        originalItem?.productName ?? 'Quoted item'
+      )
+      const productImage = firstString(
+        item,
+        ['product_image', 'image_url', 'image'],
+        originalItem?.productImage ?? PLACEHOLDER_PRODUCT_IMAGE
+      )
 
       return {
         id: firstString(item, ['id'], `quote-item-${quoteId}-${index}`),
-        orderItemId: firstString(item, ['order_item_id'], orderItems[index]?.id ?? ''),
-        productName: firstString(item, ['item_name', 'product_name', 'name', 'title'], orderItems[index]?.productName ?? 'Quoted item'),
-        productImage: firstString(item, ['product_image', 'image_url', 'image'], orderItems[index]?.productImage ?? PLACEHOLDER_PRODUCT_IMAGE),
+        orderItemId: firstString(item, ['order_item_id'], originalItem?.id ?? ''),
+        productName,
+        productImage,
         quantity,
         unitPrice,
         totalPrice: firstNumber(item, ['total_price', 'line_total'], unitPrice * quantity),
         notes: firstString(item, ['notes', 'admin_notes'], ''),
+        sourceUrl: firstString(item, ['source_url', 'product_url', 'url'], originalItem?.sourceUrl ?? ''),
+        sourcePlatform: firstString(item, ['source_platform', 'platform'], originalItem?.sourcePlatform ?? ''),
+        screenshotUrl: firstString(item, ['screenshot_url', 'screenshotUrl'], originalItem?.screenshotUrl ?? ''),
       }
     })
   }
@@ -1063,6 +1081,10 @@ function makeQuotationItems(quotation: AnyRow, orderItems: OrderItem[], quotatio
     quantity: item.quantity,
     unitPrice: item.unitPrice,
     totalPrice: item.unitPrice * item.quantity,
+    notes: item.notes,
+    sourceUrl: item.sourceUrl,
+    sourcePlatform: item.sourcePlatform,
+    screenshotUrl: item.screenshotUrl,
   }))
 }
 

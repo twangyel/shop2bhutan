@@ -160,6 +160,9 @@ export interface QuotationItem {
   unitPrice: number;
   totalPrice: number;
   notes?: string;
+  sourceUrl?: string;
+  sourcePlatform?: string;
+  screenshotUrl?: string;
 }
 
 export interface Quotation {

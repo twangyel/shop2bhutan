@@ -1,49 +1,127 @@
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
+import { ChevronRight, FileText, PackageCheck, ShoppingBag } from 'lucide-react';
 import type { Order } from '@/types';
 import StatusBadge from './StatusBadge';
-import { formatDistanceToNow } from 'date-fns';
 
 interface OrderCardProps {
   order: Order;
 }
 
+function money(value?: number) {
+  const amount = Number(value ?? 0);
+  return `Nu. ${amount.toLocaleString()}`;
+}
+
+function safeDateDistance(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Recently';
+  return formatDistanceToNow(date, { addSuffix: true });
+}
+
+function orderFallbackTotal(order: Order) {
+  return order.items.reduce((sum, item) => sum + Number(item.unitPrice || 0) * Math.max(1, Number(item.quantity) || 1), 0);
+}
+
+function orderTitle(order: Order) {
+  if (order.items.length === 0) return 'Shop2Bhutan request';
+  const first = order.items[0]?.productName || 'Requested product';
+  if (order.items.length === 1) return first;
+  return `${first} + ${order.items.length - 1} more`;
+}
+
 export default function OrderCard({ order }: OrderCardProps) {
   const navigate = useNavigate();
+  const isQuotationReady = order.status === 'quoted' && Boolean(order.quotation);
+  const totalAmount = order.quotation?.totalAmount || orderFallbackTotal(order);
+  const firstItem = order.items[0];
+  const createdText = safeDateDistance(order.createdAt);
+  const title = useMemo(() => orderTitle(order), [order]);
 
   return (
-    <button
-      onClick={() => navigate(`/order/${order.id}`)}
-      className="w-full bg-white rounded-xl shadow-card p-4 text-left hover:shadow-lg transition-shadow"
+    <article
+      className={`overflow-hidden rounded-3xl border bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${
+        isQuotationReady ? 'border-violet-200 ring-1 ring-violet-100' : 'border-neutral-100'
+      }`}
     >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-semibold text-gray-900">#{order.orderNumber}</span>
-        <StatusBadge status={order.status} size="sm" />
-      </div>
-      <p className="text-xs text-neutral-500 mb-3">
-        {formatDistanceToNow(new Date(order.createdAt), { addSuffix: true })}
-      </p>
-
-      <div className="flex items-center gap-2 mb-3">
-        {order.items.slice(0, 3).map((item, i) => (
-          <div
-            key={item.id}
-            className="w-10 h-10 rounded-lg bg-neutral-100 overflow-hidden border border-neutral-200"
-            style={{ marginLeft: i > 0 ? '-8px' : 0, zIndex: 3 - i }}
-          >
-            <img src={item.productImage} alt="" className="w-full h-full object-cover" />
+      <button
+        type="button"
+        onClick={() => navigate(`/order/${order.id}`)}
+        className="w-full p-4 text-left"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">#{order.orderNumber}</p>
+            <h3 className="mt-1 line-clamp-2 text-sm font-bold leading-snug text-gray-950">{title}</h3>
+            <p className="mt-1 text-xs text-neutral-500">{createdText}</p>
           </div>
-        ))}
-        {order.items.length > 3 && (
-          <span className="text-xs text-neutral-500 ml-1">+{order.items.length - 3} more</span>
-        )}
-      </div>
+          <StatusBadge status={order.status} size="sm" />
+        </div>
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-gray-900">
-          Nu. {order.quotation?.totalAmount?.toLocaleString() || order.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0).toLocaleString()}
-        </span>
-        <span className="text-sm text-amber-600 font-medium">View Details →</span>
-      </div>
-    </button>
+        <div className="mt-4 flex items-center gap-3">
+          <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-2xl bg-neutral-100 ring-1 ring-neutral-200">
+            {firstItem?.productImage ? (
+              <img src={firstItem.productImage} alt="" className="h-full w-full object-cover" loading="lazy" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <ShoppingBag size={22} className="text-neutral-300" />
+              </div>
+            )}
+            {order.items.length > 1 && (
+              <span className="absolute bottom-1 right-1 rounded-full bg-gray-950/80 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                +{order.items.length - 1}
+              </span>
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              {firstItem?.sourcePlatform && (
+                <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-neutral-600">
+                  {firstItem.sourcePlatform}
+                </span>
+              )}
+              <span className="text-xs text-neutral-500">
+                {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
+              </span>
+            </div>
+            <div className="mt-2 flex items-end justify-between gap-2">
+              <div>
+                <p className="text-xs text-neutral-500">{order.quotation ? 'Quotation total' : 'Estimated total'}</p>
+                <p className="text-lg font-black tracking-tight text-gray-950">{money(totalAmount)}</p>
+              </div>
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600">
+                Details <ChevronRight size={14} />
+              </span>
+            </div>
+          </div>
+        </div>
+      </button>
+
+      {isQuotationReady && order.quotation && (
+        <div className="border-t border-violet-100 bg-gradient-to-r from-violet-50 via-white to-amber-50 p-3">
+          <button
+            type="button"
+            onClick={() => navigate(`/quotation/${order.id}`)}
+            className="flex w-full items-center justify-between rounded-2xl bg-white px-3 py-3 text-left shadow-sm ring-1 ring-violet-100 transition-colors hover:bg-violet-50"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-md shadow-violet-200">
+                <FileText size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-black text-violet-950">Quotation ready</p>
+                <p className="text-xs text-violet-700">Review and accept to upload payment.</p>
+              </div>
+            </div>
+            <div className="flex flex-shrink-0 items-center gap-2 text-sm font-black text-violet-700">
+              <PackageCheck size={16} />
+              Review
+            </div>
+          </button>
+        </div>
+      )}
+    </article>
   );
 }

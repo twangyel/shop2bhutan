@@ -1,58 +1,89 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, Check, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  Check,
+  Clock,
+  ExternalLink,
+  FileText,
+  Info,
+  PackageCheck,
+  ShieldCheck,
+  Truck,
+  X,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   fetchCustomerOrderById,
   updateCustomerOrderStatus,
   updateQuotationStatus,
 } from '@/lib/customerOrders';
-import type { Order, Quotation } from '@/types';
+import type { Order, Quotation, QuotationItem } from '@/types';
+
+function money(value?: number) {
+  return `Nu. ${Number(value ?? 0).toLocaleString()}`;
+}
+
+function readableDate(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 function quotationDisplay(quotation: Quotation) {
   if (quotation.status === 'approved') {
     return {
-      card: 'bg-emerald-50',
-      iconBg: 'bg-emerald-500',
+      accent: 'emerald',
+      card: 'from-emerald-500 to-teal-500',
       icon: <Check size={20} className="text-white" />,
-      title: 'Quotation Approved',
-      titleColor: 'text-emerald-700',
-      subtitle: 'Proceed with payment upload.',
+      title: 'Quotation approved',
+      subtitle: 'Upload your payment screenshot to continue.',
     };
   }
 
   if (quotation.status === 'rejected') {
     return {
-      card: 'bg-red-50',
-      iconBg: 'bg-red-500',
+      accent: 'red',
+      card: 'from-red-500 to-rose-500',
       icon: <X size={20} className="text-white" />,
-      title: 'Quotation Rejected',
-      titleColor: 'text-red-700',
-      subtitle: 'Processed',
+      title: 'Quotation rejected',
+      subtitle: 'This quotation has been rejected.',
     };
   }
 
   if (quotation.status === 'expired') {
     return {
-      card: 'bg-red-50',
-      iconBg: 'bg-red-500',
+      accent: 'red',
+      card: 'from-red-500 to-rose-500',
       icon: <X size={20} className="text-white" />,
-      title: 'Quotation Expired',
-      titleColor: 'text-red-700',
+      title: 'Quotation expired',
       subtitle: 'Please contact support for a fresh quotation.',
     };
   }
 
   return {
-    card: 'bg-violet-50',
-    iconBg: 'bg-violet-500',
+    accent: 'violet',
+    card: 'from-violet-600 to-indigo-600',
     icon: <Clock size={20} className="text-white" />,
-    title: quotation.status === 'pending' ? 'Quotation Pending' : 'Quotation Received',
-    titleColor: 'text-violet-700',
+    title: quotation.status === 'pending' ? 'Quotation pending' : 'Quotation ready',
     subtitle: quotation.validUntil
-      ? `Valid until ${new Date(quotation.validUntil).toLocaleDateString()}`
-      : 'Please review the quotation details below.',
+      ? `Valid until ${readableDate(quotation.validUntil)}`
+      : 'Please review the quotation before accepting.',
   };
+}
+
+function sourceForItem(order: Order, item: QuotationItem) {
+  const fromOrder = order.items.find((orderItem) => orderItem.id === item.orderItemId);
+  return {
+    sourceUrl: item.sourceUrl || fromOrder?.sourceUrl || '',
+    sourcePlatform: item.sourcePlatform || fromOrder?.sourcePlatform || '',
+    screenshotUrl: item.screenshotUrl || fromOrder?.screenshotUrl || '',
+  };
+}
+
+function canShowSourceLink(url?: string) {
+  return Boolean(url && /^https?:\/\//i.test(url));
 }
 
 export default function QuotationReview() {
@@ -87,21 +118,24 @@ export default function QuotationReview() {
 
   useEffect(() => {
     if (!authLoading) {
-      loadOrder();
+      void loadOrder();
     }
   }, [authLoading, loadOrder]);
 
-  const q = order?.quotation;
-  const display = useMemo(() => (q ? quotationDisplay(q) : null), [q]);
+  const quotation = order?.quotation;
+  const display = useMemo(() => (quotation ? quotationDisplay(quotation) : null), [quotation]);
 
   const handleReject = async () => {
-    if (!q) return;
+    if (!quotation) return;
+
+    const confirmed = window.confirm('Reject this quotation? You can request support if you need changes.');
+    if (!confirmed) return;
 
     setSubmitting(true);
     setError('');
 
     try {
-      await updateQuotationStatus(q.id, 'rejected');
+      await updateQuotationStatus(quotation.id, 'rejected');
       await loadOrder();
     } catch (err) {
       console.error('Failed to reject quotation:', err);
@@ -112,13 +146,13 @@ export default function QuotationReview() {
   };
 
   const handleAccept = async () => {
-    if (!q || !order) return;
+    if (!quotation || !order) return;
 
     setSubmitting(true);
     setError('');
 
     try {
-      await updateQuotationStatus(q.id, 'approved');
+      await updateQuotationStatus(quotation.id, 'approved');
       await updateCustomerOrderStatus(order.id, 'payment_pending');
       navigate(`/payment/${order.id}`);
     } catch (err) {
@@ -131,12 +165,12 @@ export default function QuotationReview() {
 
   if (!authLoading && !user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
-        <p className="text-neutral-500 mb-4">Please sign in to view your quotation.</p>
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+        <p className="mb-4 text-neutral-500">Please sign in to view your quotation.</p>
         <button
           type="button"
           onClick={() => navigate('/login')}
-          className="h-11 px-5 rounded-xl bg-amber-500 text-white text-sm font-semibold"
+          className="h-11 rounded-xl bg-amber-500 px-5 text-sm font-semibold text-white"
         >
           Sign In
         </button>
@@ -147,31 +181,31 @@ export default function QuotationReview() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-50 pb-24">
-        <div className="bg-white border-b border-neutral-200 px-4 py-3">
-          <div className="flex items-center gap-3">
+        <div className="border-b border-neutral-200 bg-white px-4 py-3">
+          <div className="mx-auto flex max-w-2xl items-center gap-3">
             <button type="button" onClick={() => navigate(-1)} className="p-1">
               <ArrowLeft size={22} className="text-neutral-700" />
             </button>
             <h1 className="text-lg font-semibold text-gray-900">Quotation</h1>
           </div>
         </div>
-        <div className="px-4 py-4 space-y-4">
+        <div className="mx-auto max-w-2xl space-y-4 px-4 py-4">
           {[1, 2, 3].map((item) => (
-            <div key={item} className="h-32 rounded-xl bg-white animate-pulse" />
+            <div key={item} className="h-32 rounded-3xl bg-white shadow-sm animate-pulse" />
           ))}
         </div>
       </div>
     );
   }
 
-  if (!order || !q || !display) {
+  if (!order || !quotation || !display) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
-        <p className="text-neutral-500 mb-4">{error || 'Quotation not found'}</p>
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+        <p className="mb-4 text-neutral-500">{error || 'Quotation not found'}</p>
         <button
           type="button"
           onClick={() => navigate('/orders')}
-          className="h-11 px-5 rounded-xl bg-amber-500 text-white text-sm font-semibold"
+          className="h-11 rounded-xl bg-amber-500 px-5 text-sm font-semibold text-white"
         >
           Back to Orders
         </button>
@@ -179,117 +213,208 @@ export default function QuotationReview() {
     );
   }
 
-  const canRespond = ['pending', 'sent'].includes(q.status);
+  const canRespond = ['pending', 'sent'].includes(quotation.status);
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-24">
-      <div className="bg-white border-b border-neutral-200 px-4 py-3">
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={() => navigate(-1)} className="p-1">
+    <div className="min-h-screen bg-[#f8fafc] pb-28">
+      <div className="sticky top-0 z-30 border-b border-white/70 bg-white/90 px-4 py-3 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-2xl items-center gap-3">
+          <button type="button" onClick={() => navigate(-1)} className="rounded-full p-1.5 hover:bg-neutral-100">
             <ArrowLeft size={22} className="text-neutral-700" />
           </button>
-          <div>
-            <h1 className="text-lg font-semibold text-gray-900">Quotation</h1>
-            <p className="text-xs text-neutral-500">#{order.orderNumber}</p>
+          <div className="min-w-0">
+            <h1 className="text-lg font-black text-gray-950">Quotation</h1>
+            <p className="truncate text-xs text-neutral-500">#{order.orderNumber}</p>
           </div>
         </div>
       </div>
 
-      <div className="px-4 py-4 space-y-4">
+      <main className="mx-auto max-w-2xl px-4 py-4">
         {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
             {error}
           </div>
         )}
 
-        <div className={`rounded-xl p-4 ${display.card}`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${display.iconBg}`}>
-              {display.icon}
+        <section className={`relative overflow-hidden rounded-[2rem] bg-gradient-to-br ${display.card} p-5 text-white shadow-xl shadow-violet-100`}>
+          <div className="absolute -right-12 -top-12 h-36 w-36 rounded-full bg-white/10" />
+          <div className="relative z-10 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
+                {display.icon}
+              </div>
+              <p className="text-sm font-bold text-white/80">Shop2Bhutan verified quote</p>
+              <h2 className="mt-1 text-2xl font-black tracking-tight">{display.title}</h2>
+              <p className="mt-2 text-sm text-white/85">{display.subtitle}</p>
             </div>
-            <div>
-              <p className={`text-sm font-semibold ${display.titleColor}`}>{display.title}</p>
-              <p className="text-xs text-neutral-500">{display.subtitle}</p>
+            <div className="flex-shrink-0 rounded-2xl bg-white px-3 py-2 text-right text-violet-700 shadow-lg">
+              <p className="text-[10px] font-black uppercase tracking-wide text-violet-400">Total</p>
+              <p className="text-lg font-black">{money(quotation.totalAmount)}</p>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="bg-white rounded-xl p-4">
-          <h3 className="text-base font-semibold text-gray-900 mb-3">Quoted Items</h3>
+        <section className="mt-4 rounded-[1.75rem] bg-white p-4 shadow-sm ring-1 ring-neutral-100">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-base font-black text-gray-950">Quoted items</h3>
+            <span className="rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-bold text-neutral-600">
+              {quotation.items.length} {quotation.items.length === 1 ? 'item' : 'items'}
+            </span>
+          </div>
+
           <div className="space-y-3">
-            {q.items.map((item) => (
-              <div key={item.id} className="flex gap-3">
-                <img
-                  src={item.productImage}
-                  alt=""
-                  className="w-16 h-16 rounded-lg object-cover bg-neutral-100"
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-900">{item.productName}</p>
-                  <p className="text-xs text-neutral-500">Qty: {item.quantity}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-sm font-bold text-amber-600">
-                      Nu. {item.unitPrice.toLocaleString()}
-                    </span>
-                    <span className="text-xs text-neutral-400">x{item.quantity}</span>
-                    <span className="text-sm font-semibold ml-auto">
-                      Nu. {item.totalPrice.toLocaleString()}
-                    </span>
+            {quotation.items.map((item) => {
+              const source = sourceForItem(order, item);
+              const hasSourceLink = canShowSourceLink(source.sourceUrl);
+
+              return (
+                <div key={item.id} className="rounded-3xl border border-neutral-100 bg-neutral-50/80 p-3">
+                  <div className="flex gap-3">
+                    <img
+                      src={item.productImage}
+                      alt=""
+                      className="h-20 w-20 flex-shrink-0 rounded-2xl bg-white object-cover ring-1 ring-neutral-200"
+                      loading="lazy"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {source.sourcePlatform && (
+                          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-neutral-600 ring-1 ring-neutral-200">
+                            {source.sourcePlatform}
+                          </span>
+                        )}
+                        <span className="text-xs font-medium text-neutral-500">Qty: {item.quantity}</span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-sm font-black leading-snug text-gray-950">{item.productName}</p>
+                      <div className="mt-2 flex items-end justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] text-neutral-500">Unit price</p>
+                          <p className="text-sm font-black text-amber-600">{money(item.unitPrice)}</p>
+                        </div>
+                        <p className="text-sm font-black text-gray-950">{money(item.totalPrice)}</p>
+                      </div>
+                    </div>
                   </div>
-                  {item.notes && <p className="text-xs text-neutral-500 mt-1">{item.notes}</p>}
+
+                  {(hasSourceLink || item.notes) && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-neutral-200 pt-3">
+                      {hasSourceLink && (
+                        <a
+                          href={source.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600 transition-colors hover:bg-blue-100"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <ExternalLink size={13} /> View product source
+                        </a>
+                      )}
+                      {item.notes && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 ring-1 ring-neutral-200">
+                          <Info size={13} /> {item.notes}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="mt-4 rounded-[1.75rem] bg-white p-4 shadow-sm ring-1 ring-neutral-100">
+          <div className="mb-4 flex items-center gap-2">
+            <FileText size={18} className="text-amber-500" />
+            <h3 className="text-base font-black text-gray-950">Price breakdown</h3>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex justify-between gap-4 text-sm">
+              <span className="text-neutral-600">Product total</span>
+              <span className="font-bold text-gray-950">{money(quotation.productTotal)}</span>
+            </div>
+            <div className="flex justify-between gap-4 text-sm">
+              <span className="text-neutral-600">Service charge</span>
+              <span className="font-bold text-gray-950">{money(quotation.serviceCharge)}</span>
+            </div>
+            <div className="flex justify-between gap-4 text-sm">
+              <span className="text-neutral-600">Delivery fee</span>
+              <span className="font-bold text-gray-950">{money(quotation.deliveryFee)}</span>
+            </div>
+            {quotation.taxAmount > 0 && (
+              <div className="flex justify-between gap-4 text-sm">
+                <span className="text-neutral-600">Tax</span>
+                <span className="font-bold text-gray-950">{money(quotation.taxAmount)}</span>
+              </div>
+            )}
+            {(quotation.additionalChargeAmount ?? 0) > 0 && (
+              <div className="flex justify-between gap-4 text-sm">
+                <span className="text-neutral-600">{quotation.additionalChargeLabel || 'Additional charge'}</span>
+                <span className="font-bold text-gray-950">{money(quotation.additionalChargeAmount)}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="my-4 border-t border-dashed border-neutral-200" />
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-sm font-black text-gray-950">Total payable</p>
+              <p className="mt-1 text-xs text-neutral-500">Final payable amount. No hidden charges.</p>
+            </div>
+            <p className="text-2xl font-black tracking-tight text-amber-600">{money(quotation.totalAmount)}</p>
+          </div>
+        </section>
+
+        <section className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-3xl bg-amber-50 p-4 ring-1 ring-amber-100">
+            <div className="mb-2 flex items-center gap-2 text-amber-700">
+              <ShieldCheck size={18} />
+              <p className="text-sm font-black">Service charge</p>
+            </div>
+            <p className="text-xs leading-relaxed text-amber-800">
+              Covers product verification, sourcing, coordination, order support, and customer updates.
+            </p>
+          </div>
+          <div className="rounded-3xl bg-emerald-50 p-4 ring-1 ring-emerald-100">
+            <div className="mb-2 flex items-center gap-2 text-emerald-700">
+              <Truck size={18} />
+              <p className="text-sm font-black">Delivery fee</p>
+            </div>
+            <p className="text-xs leading-relaxed text-emerald-800">
+              Charged once per quotation/request bag, not once per item.
+            </p>
+          </div>
+        </section>
+
+        <section className="mt-4 rounded-[1.75rem] bg-gray-950 p-4 text-white shadow-lg">
+          <div className="mb-3 flex items-center gap-2">
+            <PackageCheck size={18} className="text-emerald-300" />
+            <h3 className="text-base font-black">What happens next?</h3>
+          </div>
+          <div className="grid gap-2 text-sm text-white/80">
+            {[
+              'Accept this quotation',
+              'Upload payment screenshot',
+              'We place your order with the seller',
+              'Track your order from your account',
+            ].map((step, index) => (
+              <div key={step} className="flex items-center gap-3">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-xs font-black text-white">{index + 1}</span>
+                <span className="text-xs font-medium">{step}</span>
               </div>
             ))}
           </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-4">
-          <h3 className="text-base font-semibold text-gray-900 mb-3">Price Details</h3>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-neutral-600">Product Total</span>
-              <span className="font-medium">Nu. {q.productTotal.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-neutral-600">Service Charge</span>
-              <span className="font-medium">Nu. {q.serviceCharge.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-neutral-600">Delivery Fee</span>
-              <span className="font-medium">Nu. {q.deliveryFee.toLocaleString()}</span>
-            </div>
-            {q.taxAmount > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-neutral-600">Tax</span>
-                <span className="font-medium">Nu. {q.taxAmount.toLocaleString()}</span>
-              </div>
-            )}
-            {(q.additionalChargeAmount ?? 0) > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-neutral-600">{q.additionalChargeLabel || 'Additional Charge'}</span>
-                <span className="font-medium">Nu. {(q.additionalChargeAmount ?? 0).toLocaleString()}</span>
-              </div>
-            )}
-          </div>
-          <hr className="my-3 border-neutral-200" />
-          <div className="flex justify-between">
-            <span className="text-base font-semibold text-gray-900">Total Amount</span>
-            <span className="text-xl font-bold text-amber-600">Nu. {q.totalAmount.toLocaleString()}</span>
-          </div>
-          <p className="text-xs text-orange-600 mt-2 bg-orange-50 px-2 py-1 rounded-lg">
-            Final price after quotation confirmation.
-          </p>
-        </div>
-      </div>
+        </section>
+      </main>
 
       {canRespond && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 p-4 z-40">
-          <div className="flex gap-3">
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-200 bg-white/95 p-4 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-2xl gap-3">
             <button
               type="button"
               onClick={handleReject}
               disabled={submitting}
-              className="flex-1 h-12 bg-neutral-200 text-neutral-700 font-semibold rounded-xl hover:bg-neutral-300 transition-colors disabled:opacity-50"
+              className="h-12 flex-1 rounded-2xl border border-neutral-200 bg-white text-sm font-black text-neutral-700 transition-colors hover:bg-neutral-50 disabled:opacity-50"
             >
               Reject
             </button>
@@ -297,9 +422,9 @@ export default function QuotationReview() {
               type="button"
               onClick={handleAccept}
               disabled={submitting}
-              className="flex-1 h-12 bg-emerald-500 text-white font-semibold rounded-xl hover:bg-emerald-600 transition-colors disabled:opacity-50"
+              className="h-12 flex-[1.4] rounded-2xl bg-emerald-500 text-sm font-black text-white shadow-lg shadow-emerald-100 transition-colors hover:bg-emerald-600 disabled:opacity-50"
             >
-              {submitting ? 'Processing...' : 'Accept & Pay'}
+              {submitting ? 'Processing...' : 'Accept & Upload Payment'}
             </button>
           </div>
         </div>
