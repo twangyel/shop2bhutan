@@ -37,8 +37,6 @@ export type PaymentProofInput = {
 }
 
 const ORDER_OWNER_COLUMNS = ['user_id', 'customer_id', 'profile_id']
-const ORDER_LOOKUP_COLUMNS = ['id', 'order_no']
-
 const PLACEHOLDER_PRODUCT_IMAGE =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
@@ -224,21 +222,15 @@ function makeShippingAddress(row: AnyRow, userId: string): Address {
 }
 
 function itemBelongsToOrder(item: AnyRow, row: AnyRow) {
-  const itemOrderId = String(item.order_id ?? '')
-  const possibleIds = [row.id, row.order_no, row.order_id, row.order_number].filter(Boolean).map(String)
-  return possibleIds.includes(itemOrderId)
+  return String(item.order_id ?? '') === String(row.id ?? '')
 }
 
 function quotationBelongsToOrder(quotation: AnyRow, row: AnyRow) {
-  const quotationOrderId = String(quotation.order_id ?? '')
-  const possibleIds = [row.id, row.order_no, row.order_id, row.order_number].filter(Boolean).map(String)
-  return possibleIds.includes(quotationOrderId)
+  return String(quotation.order_id ?? '') === String(row.id ?? '')
 }
 
 function paymentBelongsToOrder(payment: AnyRow, row: AnyRow) {
-  const paymentOrderId = String(payment.order_id ?? '')
-  const possibleIds = [row.id, row.order_no, row.order_id, row.order_number].filter(Boolean).map(String)
-  return possibleIds.includes(paymentOrderId)
+  return String(payment.order_id ?? '') === String(row.id ?? '')
 }
 
 function makeOrderItems(row: AnyRow, relatedItems: AnyRow[]): OrderItem[] {
