@@ -68,9 +68,7 @@ export default function Orders() {
     );
   }, [orders]);
 
-  const filteredOrders = useMemo(() => {
-    return orders.filter((order) => tabMatches(order, activeTab));
-  }, [activeTab, orders]);
+  const filteredOrders = useMemo(() => orders.filter((order) => tabMatches(order, activeTab)), [activeTab, orders]);
 
   if (!authLoading && !user) {
     return (
@@ -86,26 +84,26 @@ export default function Orders() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
-      <div className="sticky top-0 z-30 border-b border-white/70 bg-white/90 px-4 py-4 backdrop-blur-xl">
+    <div className="min-h-screen bg-neutral-50">
+      <header className="sticky top-0 z-30 border-b border-neutral-100 bg-white/95 px-4 py-4 backdrop-blur">
         <div className="mx-auto max-w-3xl">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-black tracking-tight text-gray-950">My Orders</h1>
+              <h1 className="text-xl font-bold text-gray-900">My Orders</h1>
               <p className="mt-1 text-xs text-neutral-500">Review quotations, payment status, and delivery tracking.</p>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={loadOrders}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 transition-colors hover:bg-neutral-200"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-50 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-100"
                 aria-label="Refresh orders"
               >
                 <RefreshCw size={18} className={`text-neutral-700 ${loading ? 'animate-spin' : ''}`} />
               </button>
               <button
                 type="button"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 transition-colors hover:bg-neutral-200"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-50 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-100"
                 aria-label="Filter orders"
               >
                 <SlidersHorizontal size={18} className="text-neutral-700" />
@@ -121,8 +119,8 @@ export default function Orders() {
                   key={tab.key}
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
-                  className={`flex flex-shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-black transition-colors ${
-                    isActive ? 'bg-gray-950 text-white shadow-sm' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  className={`flex flex-shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                    isActive ? 'bg-amber-500 text-white shadow-sm' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                   }`}
                 >
                   {tab.label}
@@ -134,11 +132,11 @@ export default function Orders() {
             })}
           </div>
         </div>
-      </div>
+      </header>
 
       <main className="mx-auto max-w-3xl px-4 py-4">
         {error && (
-          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
             {error}
           </div>
         )}
@@ -146,7 +144,7 @@ export default function Orders() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((item) => (
-              <div key={item} className="h-40 rounded-3xl bg-white shadow-sm animate-pulse" />
+              <div key={item} className="h-40 rounded-2xl bg-white shadow-sm animate-pulse" />
             ))}
           </div>
         ) : filteredOrders.length > 0 ? (

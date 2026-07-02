@@ -34,39 +34,43 @@ function readableDate(value?: string) {
 function quotationDisplay(quotation: Quotation) {
   if (quotation.status === 'approved') {
     return {
-      accent: 'emerald',
-      card: 'from-emerald-500 to-teal-500',
-      icon: <Check size={20} className="text-white" />,
+      card: 'border-emerald-200 bg-emerald-50',
+      iconBg: 'bg-emerald-500',
+      icon: <Check size={19} className="text-white" />,
       title: 'Quotation approved',
+      titleColor: 'text-emerald-800',
       subtitle: 'Upload your payment screenshot to continue.',
     };
   }
 
   if (quotation.status === 'rejected') {
     return {
-      accent: 'red',
-      card: 'from-red-500 to-rose-500',
-      icon: <X size={20} className="text-white" />,
+      card: 'border-red-200 bg-red-50',
+      iconBg: 'bg-red-500',
+      icon: <X size={19} className="text-white" />,
       title: 'Quotation rejected',
+      titleColor: 'text-red-800',
       subtitle: 'This quotation has been rejected.',
     };
   }
 
   if (quotation.status === 'expired') {
     return {
-      accent: 'red',
-      card: 'from-red-500 to-rose-500',
-      icon: <X size={20} className="text-white" />,
+      card: 'border-red-200 bg-red-50',
+      iconBg: 'bg-red-500',
+      icon: <X size={19} className="text-white" />,
       title: 'Quotation expired',
+      titleColor: 'text-red-800',
       subtitle: 'Please contact support for a fresh quotation.',
     };
   }
 
   return {
-    accent: 'violet',
-    card: 'from-violet-600 to-indigo-600',
-    icon: <Clock size={20} className="text-white" />,
+    card: 'border-violet-200 bg-violet-50',
+    iconBg: 'bg-violet-500',
+    icon: <Clock size={19} className="text-white" />,
     title: quotation.status === 'pending' ? 'Quotation pending' : 'Quotation ready',
+    titleColor: 'text-violet-800',
     subtitle: quotation.validUntil
       ? `Valid until ${readableDate(quotation.validUntil)}`
       : 'Please review the quotation before accepting.',
@@ -191,7 +195,7 @@ export default function QuotationReview() {
         </div>
         <div className="mx-auto max-w-2xl space-y-4 px-4 py-4">
           {[1, 2, 3].map((item) => (
-            <div key={item} className="h-32 rounded-3xl bg-white shadow-sm animate-pulse" />
+            <div key={item} className="h-32 rounded-2xl bg-white shadow-sm animate-pulse" />
           ))}
         </div>
       </div>
@@ -216,48 +220,49 @@ export default function QuotationReview() {
   const canRespond = ['pending', 'sent'].includes(quotation.status);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] pb-28">
-      <div className="sticky top-0 z-30 border-b border-white/70 bg-white/90 px-4 py-3 backdrop-blur-xl">
+    <div className="min-h-screen bg-neutral-50 pb-28">
+      <header className="sticky top-0 z-30 border-b border-neutral-100 bg-white/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
           <button type="button" onClick={() => navigate(-1)} className="rounded-full p-1.5 hover:bg-neutral-100">
             <ArrowLeft size={22} className="text-neutral-700" />
           </button>
           <div className="min-w-0">
-            <h1 className="text-lg font-black text-gray-950">Quotation</h1>
+            <h1 className="text-lg font-semibold text-gray-900">Quotation</h1>
             <p className="truncate text-xs text-neutral-500">#{order.orderNumber}</p>
           </div>
         </div>
-      </div>
+      </header>
 
       <main className="mx-auto max-w-2xl px-4 py-4">
         {error && (
-          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
             {error}
           </div>
         )}
 
-        <section className={`relative overflow-hidden rounded-[2rem] bg-gradient-to-br ${display.card} p-5 text-white shadow-xl shadow-violet-100`}>
-          <div className="absolute -right-12 -top-12 h-36 w-36 rounded-full bg-white/10" />
-          <div className="relative z-10 flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
+        <section className={`rounded-2xl border p-4 shadow-sm ${display.card}`}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ${display.iconBg}`}>
                 {display.icon}
               </div>
-              <p className="text-sm font-bold text-white/80">Shop2Bhutan verified quote</p>
-              <h2 className="mt-1 text-2xl font-black tracking-tight">{display.title}</h2>
-              <p className="mt-2 text-sm text-white/85">{display.subtitle}</p>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Shop2Bhutan verified quote</p>
+                <h2 className={`mt-1 text-xl font-bold ${display.titleColor}`}>{display.title}</h2>
+                <p className="mt-1 text-sm text-neutral-600">{display.subtitle}</p>
+              </div>
             </div>
-            <div className="flex-shrink-0 rounded-2xl bg-white px-3 py-2 text-right text-violet-700 shadow-lg">
-              <p className="text-[10px] font-black uppercase tracking-wide text-violet-400">Total</p>
-              <p className="text-lg font-black">{money(quotation.totalAmount)}</p>
+            <div className="flex-shrink-0 rounded-xl bg-white px-3 py-2 text-right shadow-sm ring-1 ring-neutral-100">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Total</p>
+              <p className="text-base font-bold text-gray-900">{money(quotation.totalAmount)}</p>
             </div>
           </div>
         </section>
 
-        <section className="mt-4 rounded-[1.75rem] bg-white p-4 shadow-sm ring-1 ring-neutral-100">
+        <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-neutral-100">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-base font-black text-gray-950">Quoted items</h3>
-            <span className="rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-bold text-neutral-600">
+            <h3 className="text-base font-semibold text-gray-900">Quoted items</h3>
+            <span className="rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-medium text-neutral-600">
               {quotation.items.length} {quotation.items.length === 1 ? 'item' : 'items'}
             </span>
           </div>
@@ -268,30 +273,30 @@ export default function QuotationReview() {
               const hasSourceLink = canShowSourceLink(source.sourceUrl);
 
               return (
-                <div key={item.id} className="rounded-3xl border border-neutral-100 bg-neutral-50/80 p-3">
+                <div key={item.id} className="rounded-xl border border-neutral-100 bg-neutral-50 p-3">
                   <div className="flex gap-3">
                     <img
                       src={item.productImage}
                       alt=""
-                      className="h-20 w-20 flex-shrink-0 rounded-2xl bg-white object-cover ring-1 ring-neutral-200"
+                      className="h-20 w-20 flex-shrink-0 rounded-xl bg-white object-cover ring-1 ring-neutral-200"
                       loading="lazy"
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         {source.sourcePlatform && (
-                          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-neutral-600 ring-1 ring-neutral-200">
+                          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-600 ring-1 ring-neutral-200">
                             {source.sourcePlatform}
                           </span>
                         )}
-                        <span className="text-xs font-medium text-neutral-500">Qty: {item.quantity}</span>
+                        <span className="text-xs text-neutral-500">Qty: {item.quantity}</span>
                       </div>
-                      <p className="mt-1 line-clamp-2 text-sm font-black leading-snug text-gray-950">{item.productName}</p>
+                      <p className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-gray-900">{item.productName}</p>
                       <div className="mt-2 flex items-end justify-between gap-3">
                         <div>
                           <p className="text-[11px] text-neutral-500">Unit price</p>
-                          <p className="text-sm font-black text-amber-600">{money(item.unitPrice)}</p>
+                          <p className="text-sm font-semibold text-amber-600">{money(item.unitPrice)}</p>
                         </div>
-                        <p className="text-sm font-black text-gray-950">{money(item.totalPrice)}</p>
+                        <p className="text-sm font-bold text-gray-900">{money(item.totalPrice)}</p>
                       </div>
                     </div>
                   </div>
@@ -303,14 +308,14 @@ export default function QuotationReview() {
                           href={source.sourceUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600 transition-colors hover:bg-blue-100"
+                          className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-100"
                           onClick={(event) => event.stopPropagation()}
                         >
                           <ExternalLink size={13} /> View product source
                         </a>
                       )}
                       {item.notes && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 ring-1 ring-neutral-200">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs text-neutral-600 ring-1 ring-neutral-200">
                           <Info size={13} /> {item.notes}
                         </span>
                       )}
@@ -322,35 +327,35 @@ export default function QuotationReview() {
           </div>
         </section>
 
-        <section className="mt-4 rounded-[1.75rem] bg-white p-4 shadow-sm ring-1 ring-neutral-100">
+        <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-neutral-100">
           <div className="mb-4 flex items-center gap-2">
             <FileText size={18} className="text-amber-500" />
-            <h3 className="text-base font-black text-gray-950">Price breakdown</h3>
+            <h3 className="text-base font-semibold text-gray-900">Price breakdown</h3>
           </div>
 
           <div className="space-y-3">
             <div className="flex justify-between gap-4 text-sm">
               <span className="text-neutral-600">Product total</span>
-              <span className="font-bold text-gray-950">{money(quotation.productTotal)}</span>
+              <span className="font-semibold text-gray-900">{money(quotation.productTotal)}</span>
             </div>
             <div className="flex justify-between gap-4 text-sm">
               <span className="text-neutral-600">Service charge</span>
-              <span className="font-bold text-gray-950">{money(quotation.serviceCharge)}</span>
+              <span className="font-semibold text-gray-900">{money(quotation.serviceCharge)}</span>
             </div>
             <div className="flex justify-between gap-4 text-sm">
               <span className="text-neutral-600">Delivery fee</span>
-              <span className="font-bold text-gray-950">{money(quotation.deliveryFee)}</span>
+              <span className="font-semibold text-gray-900">{money(quotation.deliveryFee)}</span>
             </div>
             {quotation.taxAmount > 0 && (
               <div className="flex justify-between gap-4 text-sm">
                 <span className="text-neutral-600">Tax</span>
-                <span className="font-bold text-gray-950">{money(quotation.taxAmount)}</span>
+                <span className="font-semibold text-gray-900">{money(quotation.taxAmount)}</span>
               </div>
             )}
             {(quotation.additionalChargeAmount ?? 0) > 0 && (
               <div className="flex justify-between gap-4 text-sm">
                 <span className="text-neutral-600">{quotation.additionalChargeLabel || 'Additional charge'}</span>
-                <span className="font-bold text-gray-950">{money(quotation.additionalChargeAmount)}</span>
+                <span className="font-semibold text-gray-900">{money(quotation.additionalChargeAmount)}</span>
               </div>
             )}
           </div>
@@ -358,27 +363,27 @@ export default function QuotationReview() {
           <div className="my-4 border-t border-dashed border-neutral-200" />
           <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="text-sm font-black text-gray-950">Total payable</p>
+              <p className="text-sm font-semibold text-gray-900">Total payable</p>
               <p className="mt-1 text-xs text-neutral-500">Final payable amount. No hidden charges.</p>
             </div>
-            <p className="text-2xl font-black tracking-tight text-amber-600">{money(quotation.totalAmount)}</p>
+            <p className="text-2xl font-bold tracking-tight text-amber-600">{money(quotation.totalAmount)}</p>
           </div>
         </section>
 
         <section className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-3xl bg-amber-50 p-4 ring-1 ring-amber-100">
+          <div className="rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-100">
             <div className="mb-2 flex items-center gap-2 text-amber-700">
               <ShieldCheck size={18} />
-              <p className="text-sm font-black">Service charge</p>
+              <p className="text-sm font-semibold">Service charge</p>
             </div>
             <p className="text-xs leading-relaxed text-amber-800">
               Covers product verification, sourcing, coordination, order support, and customer updates.
             </p>
           </div>
-          <div className="rounded-3xl bg-emerald-50 p-4 ring-1 ring-emerald-100">
+          <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-100">
             <div className="mb-2 flex items-center gap-2 text-emerald-700">
               <Truck size={18} />
-              <p className="text-sm font-black">Delivery fee</p>
+              <p className="text-sm font-semibold">Delivery fee</p>
             </div>
             <p className="text-xs leading-relaxed text-emerald-800">
               Charged once per quotation/request bag, not once per item.
@@ -386,12 +391,12 @@ export default function QuotationReview() {
           </div>
         </section>
 
-        <section className="mt-4 rounded-[1.75rem] bg-gray-950 p-4 text-white shadow-lg">
+        <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-neutral-100">
           <div className="mb-3 flex items-center gap-2">
-            <PackageCheck size={18} className="text-emerald-300" />
-            <h3 className="text-base font-black">What happens next?</h3>
+            <PackageCheck size={18} className="text-emerald-500" />
+            <h3 className="text-base font-semibold text-gray-900">What happens next?</h3>
           </div>
-          <div className="grid gap-2 text-sm text-white/80">
+          <div className="grid gap-2 text-sm text-neutral-600">
             {[
               'Accept this quotation',
               'Upload payment screenshot',
@@ -399,8 +404,10 @@ export default function QuotationReview() {
               'Track your order from your account',
             ].map((step, index) => (
               <div key={step} className="flex items-center gap-3">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-xs font-black text-white">{index + 1}</span>
-                <span className="text-xs font-medium">{step}</span>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-700">
+                  {index + 1}
+                </span>
+                <span className="text-xs">{step}</span>
               </div>
             ))}
           </div>
@@ -408,13 +415,13 @@ export default function QuotationReview() {
       </main>
 
       {canRespond && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-200 bg-white/95 p-4 backdrop-blur-xl">
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-200 bg-white/95 p-4 backdrop-blur">
           <div className="mx-auto flex max-w-2xl gap-3">
             <button
               type="button"
               onClick={handleReject}
               disabled={submitting}
-              className="h-12 flex-1 rounded-2xl border border-neutral-200 bg-white text-sm font-black text-neutral-700 transition-colors hover:bg-neutral-50 disabled:opacity-50"
+              className="h-12 flex-1 rounded-xl border border-neutral-200 bg-white text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50 disabled:opacity-50"
             >
               Reject
             </button>
@@ -422,7 +429,7 @@ export default function QuotationReview() {
               type="button"
               onClick={handleAccept}
               disabled={submitting}
-              className="h-12 flex-[1.4] rounded-2xl bg-emerald-500 text-sm font-black text-white shadow-lg shadow-emerald-100 transition-colors hover:bg-emerald-600 disabled:opacity-50"
+              className="h-12 flex-[1.5] rounded-xl bg-emerald-500 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-600 disabled:opacity-50"
             >
               {submitting ? 'Processing...' : 'Accept & Upload Payment'}
             </button>
