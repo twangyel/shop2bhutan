@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, User, Phone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,9 +25,24 @@ function isEmailIdentifier(value: string) {
   return value.includes('@');
 }
 
+type LoginRouteState = {
+  returnTo?: string;
+} | null;
+
+function getSafeReturnTo(value: unknown) {
+  if (typeof value !== 'string') return '/';
+  if (!value.startsWith('/') || value.startsWith('//')) return '/';
+  if (value.startsWith('/login') || value.startsWith('/register')) return '/';
+  return value;
+}
+
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { refreshContext } = useAuth();
+
+  const routeState = location.state as LoginRouteState;
+  const returnTo = getSafeReturnTo(routeState?.returnTo);
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -114,7 +129,7 @@ export default function Login() {
     }
 
     await refreshContext();
-    navigate('/');
+    navigate(returnTo, { replace: true });
   };
 
   return (
@@ -252,7 +267,7 @@ export default function Login() {
           Don&apos;t have an account?{' '}
           <button
             type="button"
-            onClick={() => navigate('/register')}
+            onClick={() => navigate('/register', { state: { returnTo } })}
             className="text-amber-600 font-semibold"
           >
             Register
