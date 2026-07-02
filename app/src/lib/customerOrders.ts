@@ -11,6 +11,8 @@ import type {
   Quotation,
   QuotationItem,
   QuotationStatus,
+  RequestBag,
+  RequestBagItem,
   User,
 } from '@/types'
 
@@ -867,7 +869,7 @@ function fallbackProductPreview(url: string, message?: string): ProductLinkPrevi
     platform,
     title: productNameFromPlatform(platform),
     fetched: false,
-    message: message || 'We could not auto-detect product details. You can still continue — Shop2Bhutan will verify the item before quotation.',
+    message: message || 'Shop2Bhutan will verify this product manually before quotation.',
   }
 }
 
@@ -963,7 +965,7 @@ export async function fetchProductLinkPreview(url: string): Promise<ProductLinkP
       window.setTimeout(() => {
         resolve({
           data: null,
-          error: new Error('Auto-fetch timed out. You can still continue — Shop2Bhutan will verify the item before quotation.'),
+          error: new Error('Product preview was not available in time.'),
         })
       }, 8000)
     })
@@ -972,10 +974,7 @@ export async function fetchProductLinkPreview(url: string): Promise<ProductLinkP
 
     if (error) {
       console.warn('[customerOrders] product preview fallback:', error)
-      return fallbackProductPreview(
-        normalizedUrl,
-        error.message || 'Auto-fetch is not available right now. You can still continue — Shop2Bhutan will verify the item before quotation.'
-      )
+      return fallbackProductPreview(normalizedUrl)
     }
 
     const preview = normalizePreviewPayload(data, normalizedUrl)
@@ -987,7 +986,7 @@ export async function fetchProductLinkPreview(url: string): Promise<ProductLinkP
         preview.message ||
         (preview.fetched
           ? ''
-          : 'Product details were not detected. Shop2Bhutan will verify the product manually before quotation.'),
+          : 'Shop2Bhutan will verify this product manually before quotation.'),
     }
   } catch (error) {
     console.warn('[customerOrders] product preview failed:', error)
@@ -1176,7 +1175,7 @@ export async function submitPasteLinkOrder(input: SubmitPasteLinkOrderInput): Pr
       quantity: Number(item.quantity ?? 1),
       price: Number(item.price ?? 0),
     }))
-    .filter((item) => item.sourceUrl || item.screenshotFile)
+    .filter((item) => item.sourceUrl || item.screenshotFile || item.attachmentPath)
 
   if (cleanItems.length === 0) throw new Error('Please add at least one product link or screenshot.')
 
@@ -1202,4 +1201,333 @@ export async function submitPasteLinkOrder(input: SubmitPasteLinkOrderInput): Pr
     orderId: orderRow.id,
     orderNo: orderRow.order_no || orderRow.id,
   }
+}
+
+
+// ============ Request Bag / Quote Cart ============
+
+export type AddRequestBagItemInput = {
+  userId: string
+  item: PasteLinkOrderItemInput
+}
+
+export type SubmitRequestBagInput = {
+  bagId: string
+  userId: string
+  email?: string | null
+  customerName: string
+  customerPhone: string
+  deliveryAddress: string
+  customerNotes?: string | null
+}
+
+function normalizeBagStatus(status: unknown): RequestBag['status'] {
+  const raw = cleanText(status).toLowerCase()
+  if (raw === 'submitted' || raw === 'abandoned') return raw
+  return 'active'
+}
+
+async function findActiveRequestBagRow(userId: string) {
+  const { data, error } = await supabase
+    .from('customer_request_bags')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  if (error) throw error
+  return (data ?? null) as AnyRow | null
+}
+
+async function ensureActiveRequestBagRow(userId: string) {
+  const existing = await findActiveRequestBagRow(userId)
+  if (existing) return existing
+
+  const { data, error } = await supabase
+    .from('customer_request_bags')
+    .insert({ user_id: userId, status: 'active' })
+    .select('*')
+    .single()
+
+  if (!error && data) return data as AnyRow
+
+  // If two tabs created a bag at the same time, the partial unique index may
+  // reject one insert. Re-read the active bag before surfacing the error.
+  const retry = await findActiveRequestBagRow(userId)
+  if (retry) return retry
+
+  throw error
+}
+
+async function makeRequestBagItemDisplay(row: AnyRow): Promise<RequestBagItem> {
+  const screenshotPath = firstString(row, ['screenshot_path', 'attachment_path'], '')
+  const productImage = await makeDisplayImage(
+    firstString(row, ['product_image', 'image_url', 'image'], ''),
+    screenshotPath
+  )
+
+  const quantity = firstNumber(row, ['quantity'], 1)
+  const priceShown = firstNumber(row, ['price_shown', 'estimated_price', 'price'], 0)
+
+  return {
+    id: firstString(row, ['id'], ''),
+    bagId: firstString(row, ['bag_id'], ''),
+    userId: firstString(row, ['user_id'], ''),
+    sourceUrl: firstString(row, ['source_url'], ''),
+    sourcePlatform: firstString(row, ['source_platform'], 'other'),
+    productName: firstString(row, ['product_name', 'title_snapshot', 'name'], 'Product request'),
+    productImage,
+    priceShown,
+    quantity: quantity > 0 ? quantity : 1,
+    notes: firstString(row, ['notes', 'customer_notes', 'variant_text'], ''),
+    screenshotPath,
+    screenshotUrl: screenshotPath ? await makeSignedScreenshotUrl(screenshotPath) : '',
+    createdAt: firstString(row, ['created_at'], ''),
+    updatedAt: firstString(row, ['updated_at'], firstString(row, ['created_at'], '')),
+  }
+}
+
+async function fetchRequestBagItems(bagId: string) {
+  const { data, error } = await supabase
+    .from('customer_request_bag_items')
+    .select('*')
+    .eq('bag_id', bagId)
+    .order('created_at', { ascending: true })
+
+  if (error) throw error
+
+  return Promise.all(((data ?? []) as AnyRow[]).map(makeRequestBagItemDisplay))
+}
+
+async function makeRequestBagDisplay(row: AnyRow): Promise<RequestBag> {
+  const items = await fetchRequestBagItems(firstString(row, ['id'], ''))
+
+  return {
+    id: firstString(row, ['id'], ''),
+    userId: firstString(row, ['user_id'], ''),
+    status: normalizeBagStatus(firstValue(row, ['status'])),
+    customerName: firstString(row, ['customer_name'], ''),
+    customerPhone: firstString(row, ['customer_phone'], ''),
+    deliveryAddress: firstString(row, ['delivery_address'], ''),
+    customerNotes: firstString(row, ['customer_notes'], ''),
+    submittedOrderId: firstString(row, ['submitted_order_id'], ''),
+    items,
+    createdAt: firstString(row, ['created_at'], ''),
+    updatedAt: firstString(row, ['updated_at'], firstString(row, ['created_at'], '')),
+  }
+}
+
+export async function fetchActiveRequestBag(userId: string) {
+  if (!userId) throw new Error('Please sign in to view your Request Bag.')
+  const row = await ensureActiveRequestBagRow(userId)
+  return makeRequestBagDisplay(row)
+}
+
+export async function getRequestBagItemCount(userId: string) {
+  if (!userId) return 0
+
+  const bag = await findActiveRequestBagRow(userId)
+  if (!bag?.id) return 0
+
+  const { count, error } = await supabase
+    .from('customer_request_bag_items')
+    .select('id', { count: 'exact', head: true })
+    .eq('bag_id', String(bag.id))
+
+  if (error) {
+    console.warn('[customerOrders] Request Bag count skipped:', error)
+    return 0
+  }
+
+  return count ?? 0
+}
+
+async function uploadRequestBagScreenshot(userId: string, bagId: string, file: File) {
+  const path = makeStoragePath(userId, `request-bag/${bagId}`, file, 'item')
+
+  const { error } = await supabase.storage.from('order-screenshots').upload(path, file, {
+    cacheControl: '3600',
+    contentType: file.type || 'image/jpeg',
+    upsert: false,
+  })
+
+  if (error) throw error
+  return path
+}
+
+export async function addItemToRequestBag(input: AddRequestBagItemInput) {
+  if (!input.userId) throw new Error('Please sign in before adding items to your Request Bag.')
+
+  const sourceUrl = input.item.sourceUrl ? normalizeProductUrl(input.item.sourceUrl) || cleanText(input.item.sourceUrl) : ''
+  const screenshotFile = input.item.screenshotFile
+  if (!sourceUrl && !screenshotFile) throw new Error('Please paste a product link or upload a screenshot.')
+
+  const bag = await ensureActiveRequestBagRow(input.userId)
+  let screenshotPath = cleanText(input.item.attachmentPath)
+
+  try {
+    if (screenshotFile) {
+      screenshotPath = await uploadRequestBagScreenshot(input.userId, firstString(bag, ['id'], ''), screenshotFile)
+    }
+
+    const platform = platformToDbValue(input.item.sourcePlatform || detectSourcePlatformFromUrl(sourceUrl))
+    const quantity = Number(input.item.quantity ?? 1)
+    const priceShown = Number(input.item.price ?? 0)
+
+    const { data, error } = await supabase
+      .from('customer_request_bag_items')
+      .insert({
+        bag_id: firstString(bag, ['id'], ''),
+        user_id: input.userId,
+        source_url: sourceUrl || null,
+        source_platform: platform,
+        product_name: cleanText(input.item.productName) || (sourceUrl ? productNameFromPlatform(platform) : 'Screenshot product request'),
+        product_image: cleanText(input.item.productImage) || null,
+        price_shown: Number.isFinite(priceShown) && priceShown > 0 ? priceShown : null,
+        quantity: Number.isFinite(quantity) && quantity > 0 ? Math.floor(quantity) : 1,
+        notes: cleanText(input.item.notes) || null,
+        screenshot_path: screenshotPath || null,
+      })
+      .select('*')
+      .single()
+
+    if (error) throw error
+
+    await supabase
+      .from('customer_request_bags')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', firstString(bag, ['id'], ''))
+
+    return makeRequestBagItemDisplay(data as AnyRow)
+  } catch (error) {
+    if (screenshotPath && screenshotFile) {
+      await supabase.storage.from('order-screenshots').remove([screenshotPath])
+    }
+    throw error
+  }
+}
+
+export async function updateRequestBagItem(
+  userId: string,
+  itemId: string,
+  patch: Partial<Pick<RequestBagItem, 'productName' | 'priceShown' | 'quantity' | 'notes'>>
+) {
+  if (!userId || !itemId) throw new Error('Missing Request Bag item.')
+
+  const payload: AnyRow = {
+    updated_at: new Date().toISOString(),
+  }
+
+  if (patch.productName !== undefined) payload.product_name = cleanText(patch.productName) || 'Product request'
+  if (patch.priceShown !== undefined) {
+    const price = Number(patch.priceShown)
+    payload.price_shown = Number.isFinite(price) && price > 0 ? price : null
+  }
+  if (patch.quantity !== undefined) {
+    const quantity = Number(patch.quantity)
+    payload.quantity = Number.isFinite(quantity) && quantity > 0 ? Math.floor(quantity) : 1
+  }
+  if (patch.notes !== undefined) payload.notes = cleanText(patch.notes) || null
+
+  const { error } = await supabase
+    .from('customer_request_bag_items')
+    .update(payload)
+    .eq('id', itemId)
+    .eq('user_id', userId)
+
+  if (error) throw error
+}
+
+export async function removeRequestBagItem(userId: string, itemId: string) {
+  if (!userId || !itemId) throw new Error('Missing Request Bag item.')
+
+  const { data: existing } = await supabase
+    .from('customer_request_bag_items')
+    .select('screenshot_path')
+    .eq('id', itemId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  const { error } = await supabase
+    .from('customer_request_bag_items')
+    .delete()
+    .eq('id', itemId)
+    .eq('user_id', userId)
+
+  if (error) throw error
+
+  const screenshotPath = firstString(existing as AnyRow | null, ['screenshot_path'], '')
+  if (screenshotPath) {
+    await supabase.storage.from('order-screenshots').remove([screenshotPath])
+  }
+}
+
+export async function submitRequestBagAsOrder(input: SubmitRequestBagInput): Promise<SubmitPasteLinkOrderResult> {
+  if (!input.userId) throw new Error('Please sign in before requesting a quotation.')
+  if (!input.bagId) throw new Error('Request Bag not found.')
+
+  const { data: bagRow, error: bagError } = await supabase
+    .from('customer_request_bags')
+    .select('*')
+    .eq('id', input.bagId)
+    .eq('user_id', input.userId)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  if (bagError) throw bagError
+  if (!bagRow) throw new Error('Request Bag not found or already submitted.')
+
+  const { data: itemRows, error: itemsError } = await supabase
+    .from('customer_request_bag_items')
+    .select('*')
+    .eq('bag_id', input.bagId)
+    .eq('user_id', input.userId)
+    .order('created_at', { ascending: true })
+
+  if (itemsError) throw itemsError
+
+  const items = ((itemRows ?? []) as AnyRow[]).map((item) => ({
+    sourceUrl: firstString(item, ['source_url'], ''),
+    sourcePlatform: firstString(item, ['source_platform'], 'other'),
+    productName: firstString(item, ['product_name'], 'Product request'),
+    productImage: firstString(item, ['product_image'], ''),
+    price: firstNumber(item, ['price_shown'], 0),
+    quantity: firstNumber(item, ['quantity'], 1),
+    notes: firstString(item, ['notes'], ''),
+    attachmentPath: firstString(item, ['screenshot_path'], ''),
+  }))
+
+  if (items.length === 0) throw new Error('Your Request Bag is empty.')
+
+  const result = await submitPasteLinkOrder({
+    userId: input.userId,
+    email: input.email,
+    customerName: input.customerName,
+    customerPhone: input.customerPhone,
+    deliveryAddress: input.deliveryAddress,
+    customerNotes:
+      cleanText(input.customerNotes) ||
+      `Request Bag submitted by customer. Name: ${cleanText(input.customerName)}. Phone: ${cleanText(input.customerPhone)}.`,
+    items,
+  })
+
+  const { error: updateError } = await supabase
+    .from('customer_request_bags')
+    .update({
+      status: 'submitted',
+      submitted_order_id: result.orderId,
+      customer_name: cleanText(input.customerName),
+      customer_phone: cleanText(input.customerPhone),
+      delivery_address: cleanText(input.deliveryAddress),
+      customer_notes: cleanText(input.customerNotes) || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', input.bagId)
+    .eq('user_id', input.userId)
+
+  if (updateError) {
+    console.warn('[customerOrders] Request Bag submitted but status update failed:', updateError)
+  }
+
+  return result
 }

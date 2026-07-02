@@ -17,7 +17,7 @@ import Home from '@/pages/customer/Home';
 import Catalog from '@/pages/customer/Catalog';
 import ProductDetail from '@/pages/customer/ProductDetail';
 import PasteLink from '@/pages/customer/PasteLink';
-import Cart from '@/pages/customer/Cart';
+import RequestBag from '@/pages/customer/RequestBag';
 import Checkout from '@/pages/customer/Checkout';
 import QuotationReview from '@/pages/customer/QuotationReview';
 import PaymentUpload from '@/pages/customer/PaymentUpload';
@@ -69,13 +69,28 @@ export default function App() {
           <Route path="/catalog" element={<Catalog />} />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/paste-link" element={<PasteLink />} />
-          <Route path="/cart" element={<Cart />} />
           <Route path="/account" element={<Account />} />
           <Route path="/support" element={<Support />} />
           <Route path="/parcel" element={<Parcel />} />
           <Route path="/shop" element={<Shop />} />
 
           {/* Customer-only routes/actions */}
+          <Route
+            path="/request-bag"
+            element={
+              <RequireAuth title="Sign in to view Request Bag" message="Save product links, screenshots, and quantities in your Request Bag before requesting a quotation.">
+                <RequestBag />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/cart"
+            element={
+              <RequireAuth title="Sign in to view Request Bag" message="Your old cart is now Request Bag for quotation requests.">
+                <RequestBag />
+              </RequireAuth>
+            }
+          />
           <Route
             path="/checkout"
             element={

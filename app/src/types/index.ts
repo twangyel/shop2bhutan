@@ -207,6 +207,41 @@ export interface Order {
   updatedAt: string;
 }
 
+// ============ Request Bag / Quote Cart ============
+
+export type RequestBagStatus = 'active' | 'submitted' | 'abandoned';
+
+export interface RequestBagItem {
+  id: string;
+  bagId: string;
+  userId: string;
+  sourceUrl?: string;
+  sourcePlatform?: string;
+  productName: string;
+  productImage: string;
+  priceShown: number;
+  quantity: number;
+  notes?: string;
+  screenshotPath?: string;
+  screenshotUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RequestBag {
+  id: string;
+  userId: string;
+  status: RequestBagStatus;
+  customerName?: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
+  customerNotes?: string;
+  submittedOrderId?: string;
+  items: RequestBagItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ============ Notification ============
 
 export interface Notification {

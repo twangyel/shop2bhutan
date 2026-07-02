@@ -5,7 +5,7 @@ const tabs = [
   { path: '/', label: 'Home', icon: Home },
   { path: '/shop', label: 'Shop', icon: ShoppingBag },
   { path: '/parcel', label: 'Parcel', icon: Package },
-  { path: '/orders', label: 'Orders', icon: ClipboardList },
+  { path: '/request-bag', label: 'Bag', icon: ClipboardList },
   { path: '/account', label: 'Account', icon: User },
 ]
 
