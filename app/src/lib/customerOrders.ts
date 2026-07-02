@@ -45,6 +45,25 @@ export type PaymentProofInput = {
   amount: number
 }
 
+export type AdminQuotationItemInput = {
+  orderItemId: string
+  productName: string
+  productImage?: string
+  quantity: number
+  unitPrice: number
+  notes?: string
+}
+
+export type CreateAdminQuotationInput = {
+  orderId: string
+  items: AdminQuotationItemInput[]
+  serviceCharge: number
+  deliveryFee: number
+  taxAmount: number
+  notes?: string
+  validUntil?: string
+}
+
 export type ProductLinkPreview = {
   url: string
   platform: string
@@ -396,6 +415,7 @@ async function makeOrderItems(row: AnyRow, relatedItems: AnyRow[]): Promise<Orde
   const mappedItems = await Promise.all(
     relatedItems.map(async (item, index) => {
       const attachmentPath = firstString(item, ['attachment_path', 'screenshot_path', 'proof_file_path'], '')
+      const screenshotUrl = attachmentPath ? await makeSignedScreenshotUrl(attachmentPath) : ''
       const productImage = await makeDisplayImage(
         firstString(item, ['product_image', 'image_url', 'image', 'thumbnail_url', 'image_path', 'screenshot_url'], ''),
         attachmentPath
@@ -409,8 +429,11 @@ async function makeOrderItems(row: AnyRow, relatedItems: AnyRow[]): Promise<Orde
         productName: firstString(item, ['title_snapshot', 'product_name', 'item_name', 'name', 'title'], 'Product item'),
         productImage,
         quantity: firstNumber(item, ['quantity', 'qty'], 1),
-        unitPrice: firstNumber(item, ['quoted_unit_price', 'estimated_price', 'unit_price', 'price', 'quoted_price', 'product_price'], 0),
+        unitPrice: firstNumber(item, ['quoted_unit_price', 'estimated_price', 'unit_price', 'price', 'quoted_price', 'product_price', 'price_shown'], 0),
         attributes: firstJsonObject(item, ['attributes', 'selected_attributes']) as Record<string, string>,
+        notes: firstString(item, ['notes', 'customer_notes', 'variant_text', 'item_notes'], ''),
+        screenshotUrl,
+        attachmentPath,
       }
     })
   )
@@ -430,6 +453,9 @@ async function makeOrderItems(row: AnyRow, relatedItems: AnyRow[]): Promise<Orde
       quantity: Number(quantities[index] ?? 1) || 1,
       unitPrice: 0,
       attributes: {},
+      notes: '',
+      screenshotUrl: '',
+      attachmentPath: '',
     }))
   }
 
@@ -445,6 +471,9 @@ async function makeOrderItems(row: AnyRow, relatedItems: AnyRow[]): Promise<Orde
       quantity: firstNumber(row, ['quantity', 'qty'], 1),
       unitPrice: firstNumber(row, ['unit_price', 'product_price', 'amount'], 0),
       attributes: {},
+      notes: firstString(row, ['notes', 'customer_notes'], ''),
+      screenshotUrl,
+      attachmentPath: '',
     },
   ]
 }
@@ -454,16 +483,21 @@ function makeQuotationItems(quotation: AnyRow, orderItems: OrderItem[], quotatio
   const directItems = quotationItems.filter((item) => String(item.quotation_id ?? item.quote_id ?? '') === quoteId)
 
   if (directItems.length > 0) {
-    return directItems.map((item, index) => ({
-      id: firstString(item, ['id'], `quote-item-${quoteId}-${index}`),
-      orderItemId: firstString(item, ['order_item_id'], orderItems[index]?.id ?? ''),
-      productName: firstString(item, ['item_name', 'product_name', 'name', 'title'], orderItems[index]?.productName ?? 'Quoted item'),
-      productImage: firstString(item, ['product_image', 'image_url', 'image'], orderItems[index]?.productImage ?? PLACEHOLDER_PRODUCT_IMAGE),
-      quantity: firstNumber(item, ['quantity', 'qty'], orderItems[index]?.quantity ?? 1),
-      unitPrice: firstNumber(item, ['unit_price', 'price', 'quoted_price'], orderItems[index]?.unitPrice ?? 0),
-      totalPrice: firstNumber(item, ['total_price', 'line_total'], 0),
-      notes: firstString(item, ['notes'], ''),
-    }))
+    return directItems.map((item, index) => {
+      const quantity = firstNumber(item, ['quantity', 'qty'], orderItems[index]?.quantity ?? 1)
+      const unitPrice = firstNumber(item, ['unit_price', 'price', 'quoted_price'], orderItems[index]?.unitPrice ?? 0)
+
+      return {
+        id: firstString(item, ['id'], `quote-item-${quoteId}-${index}`),
+        orderItemId: firstString(item, ['order_item_id'], orderItems[index]?.id ?? ''),
+        productName: firstString(item, ['item_name', 'product_name', 'name', 'title'], orderItems[index]?.productName ?? 'Quoted item'),
+        productImage: firstString(item, ['product_image', 'image_url', 'image'], orderItems[index]?.productImage ?? PLACEHOLDER_PRODUCT_IMAGE),
+        quantity,
+        unitPrice,
+        totalPrice: firstNumber(item, ['total_price', 'line_total'], unitPrice * quantity),
+        notes: firstString(item, ['notes', 'admin_notes'], ''),
+      }
+    })
   }
 
   return orderItems.map((item) => ({
@@ -743,12 +777,17 @@ export async function fetchAdminOrderById(orderIdOrNumber: string) {
 }
 
 export async function updateQuotationStatus(quotationId: string, status: QuotationStatus) {
-  const { error } = await supabase
+  const withTimestamp = await supabase
     .from('quotations')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', quotationId)
 
-  if (error) throw error
+  if (!withTimestamp.error) return
+
+  if (!isMissingColumnOrRelationError(withTimestamp.error)) throw withTimestamp.error
+
+  const withoutTimestamp = await supabase.from('quotations').update({ status }).eq('id', quotationId)
+  if (withoutTimestamp.error) throw withTimestamp.error
 }
 
 export async function updateCustomerOrderStatus(orderId: string, status: OrderStatus) {
@@ -759,12 +798,263 @@ export async function updateCustomerOrderStatus(orderId: string, status: OrderSt
 
   if (!standard.error) return
 
+  const standardNoTimestamp = await supabase.from('orders').update({ status }).eq('id', orderId)
+  if (!standardNoTimestamp.error) return
+
   const legacy = await supabase
     .from('orders')
     .update({ order_status: status, updated_at: new Date().toISOString() })
     .eq('id', orderId)
 
-  if (legacy.error) throw standard.error
+  if (!legacy.error) return
+
+  const legacyNoTimestamp = await supabase.from('orders').update({ order_status: status }).eq('id', orderId)
+  if (legacyNoTimestamp.error) throw standard.error
+}
+
+function numericAmount(value: unknown) {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : 0
+}
+
+function quotationSubtotal(items: AdminQuotationItemInput[]) {
+  return items.reduce((sum, item) => sum + numericAmount(item.unitPrice) * Math.max(1, Math.floor(Number(item.quantity) || 1)), 0)
+}
+
+function makeQuotationPayloadCandidates(input: CreateAdminQuotationInput, status: string): AnyRow[] {
+  const productTotal = quotationSubtotal(input.items)
+  const serviceCharge = numericAmount(input.serviceCharge)
+  const deliveryFee = numericAmount(input.deliveryFee)
+  const taxAmount = numericAmount(input.taxAmount)
+  const totalAmount = productTotal + serviceCharge + deliveryFee + taxAmount
+  const notes = cleanText(input.notes) || null
+  const validUntil = cleanText(input.validUntil) || null
+  const now = new Date().toISOString()
+
+  return [
+    {
+      order_id: input.orderId,
+      status,
+      product_subtotal: productTotal,
+      service_charge: serviceCharge,
+      delivery_fee: deliveryFee,
+      tax_amount: taxAmount,
+      total_amount: totalAmount,
+      currency: 'BTN',
+      valid_until: validUntil,
+      notes,
+      updated_at: now,
+    },
+    {
+      order_id: input.orderId,
+      status,
+      product_subtotal: productTotal,
+      service_charge: serviceCharge,
+      delivery_fee: deliveryFee,
+      tax_amount: taxAmount,
+      total_amount: totalAmount,
+      valid_until: validUntil,
+      notes,
+      updated_at: now,
+    },
+    {
+      order_id: input.orderId,
+      status,
+      product_total: productTotal,
+      service_charge: serviceCharge,
+      delivery_fee: deliveryFee,
+      tax_amount: taxAmount,
+      total_amount: totalAmount,
+      valid_until: validUntil,
+      notes,
+      updated_at: now,
+    },
+    {
+      order_id: input.orderId,
+      status,
+      subtotal: productTotal,
+      service_fee: serviceCharge,
+      shipping_fee: deliveryFee,
+      tax: taxAmount,
+      total: totalAmount,
+      expires_at: validUntil,
+      notes,
+      updated_at: now,
+    },
+    {
+      order_id: input.orderId,
+      status,
+      product_subtotal: productTotal,
+      service_charge: serviceCharge,
+      delivery_fee: deliveryFee,
+      tax_amount: taxAmount,
+      total_amount: totalAmount,
+      valid_until: validUntil,
+      notes,
+    },
+  ]
+}
+
+async function findQuotationRowForOrder(orderId: string) {
+  const ordered = await supabase
+    .from('quotations')
+    .select('*')
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!ordered.error) return (ordered.data ?? null) as AnyRow | null
+
+  if (!isMissingColumnOrRelationError(ordered.error)) throw ordered.error
+
+  const fallback = await supabase.from('quotations').select('*').eq('order_id', orderId).limit(1).maybeSingle()
+
+  if (fallback.error) {
+    if (isMissingColumnOrRelationError(fallback.error)) return null
+    throw fallback.error
+  }
+
+  return (fallback.data ?? null) as AnyRow | null
+}
+
+async function saveQuotationRow(input: CreateAdminQuotationInput, existingQuotationId?: string) {
+  const statusCandidates = ['sent', 'pending', 'quoted']
+  let lastError: unknown = null
+
+  for (const status of statusCandidates) {
+    for (const payload of makeQuotationPayloadCandidates(input, status)) {
+      if (existingQuotationId) {
+        const { data, error } = await supabase
+          .from('quotations')
+          .update(payload)
+          .eq('id', existingQuotationId)
+          .select('*')
+          .single()
+
+        if (!error && data) return data as AnyRow
+        lastError = error
+        if (error && !shouldTryFallbackPayload(error)) throw error
+      } else {
+        const { data, error } = await supabase.from('quotations').insert(payload).select('*').single()
+
+        if (!error && data) return data as AnyRow
+        lastError = error
+
+        const message = errorMessage(error, '').toLowerCase()
+        if (message.includes('duplicate') || message.includes('unique')) {
+          const existing = await findQuotationRowForOrder(input.orderId)
+          if (existing?.id) return saveQuotationRow(input, String(existing.id))
+        }
+
+        if (error && !shouldTryFallbackPayload(error)) throw error
+      }
+    }
+  }
+
+  throw new Error(errorMessage(lastError, 'Unable to save quotation row.'))
+}
+
+function makeQuotationItemPayloadCandidates(quotationId: string, item: AdminQuotationItemInput): AnyRow[] {
+  const quantity = Math.max(1, Math.floor(Number(item.quantity) || 1))
+  const unitPrice = numericAmount(item.unitPrice)
+  const totalPrice = quantity * unitPrice
+  const notes = cleanText(item.notes) || null
+  const image = cleanText(item.productImage) || null
+
+  return [
+    {
+      quotation_id: quotationId,
+      order_item_id: item.orderItemId,
+      item_name: cleanText(item.productName) || 'Quoted item',
+      product_image: image,
+      quantity,
+      unit_price: unitPrice,
+      total_price: totalPrice,
+      notes,
+    },
+    {
+      quotation_id: quotationId,
+      order_item_id: item.orderItemId,
+      product_name: cleanText(item.productName) || 'Quoted item',
+      product_image: image,
+      quantity,
+      unit_price: unitPrice,
+      total_price: totalPrice,
+      notes,
+    },
+    {
+      quotation_id: quotationId,
+      order_item_id: item.orderItemId,
+      item_name: cleanText(item.productName) || 'Quoted item',
+      product_image: image,
+      quantity,
+      price: unitPrice,
+      line_total: totalPrice,
+      notes,
+    },
+    {
+      quotation_id: quotationId,
+      order_item_id: item.orderItemId,
+      product_name: cleanText(item.productName) || 'Quoted item',
+      quantity,
+      unit_price: unitPrice,
+      total_price: totalPrice,
+      notes,
+    },
+  ]
+}
+
+async function replaceQuotationItems(quotationId: string, items: AdminQuotationItemInput[]) {
+  const deleteResult = await supabase.from('quotation_items').delete().eq('quotation_id', quotationId)
+  if (deleteResult.error && !isMissingColumnOrRelationError(deleteResult.error)) throw deleteResult.error
+
+  if (items.length === 0) return
+
+  const candidateGroups = makeQuotationItemPayloadCandidates(quotationId, items[0]).map((_, candidateIndex) =>
+    items.map((item) => makeQuotationItemPayloadCandidates(quotationId, item)[candidateIndex])
+  )
+
+  let lastError: unknown = null
+
+  for (const payloads of candidateGroups) {
+    const { error } = await supabase.from('quotation_items').insert(payloads)
+    if (!error) return
+
+    lastError = error
+    if (!shouldTryFallbackPayload(error)) throw error
+  }
+
+  throw new Error(errorMessage(lastError, 'Unable to save quotation items.'))
+}
+
+async function markOrderQuoted(orderId: string) {
+  try {
+    await updateCustomerOrderStatus(orderId, 'quoted')
+  } catch (error) {
+    if (!isEnumError(error)) throw error
+    await updateCustomerOrderStatus(orderId, 'quotation_pending')
+  }
+}
+
+export async function createOrUpdateAdminQuotation(input: CreateAdminQuotationInput): Promise<Quotation> {
+  if (!input.orderId) throw new Error('Order UUID is required.')
+  if (!isUuidLike(input.orderId)) throw new Error('Invalid order UUID. Use orders.id, not order number.')
+  if (!input.items.length) throw new Error('At least one quoted item is required.')
+
+  const existing = await findQuotationRowForOrder(input.orderId)
+  const quotationRow = await saveQuotationRow(input, existing?.id ? String(existing.id) : undefined)
+  const quotationId = firstString(quotationRow, ['id'], '')
+
+  if (!quotationId) throw new Error('Quotation was saved but no quotation UUID was returned.')
+
+  await replaceQuotationItems(quotationId, input.items)
+  await markOrderQuoted(input.orderId)
+
+  const refreshed = await fetchAdminOrderById(input.orderId)
+  if (refreshed?.quotation) return refreshed.quotation
+
+  return makeQuotation(quotationRow, [], []) as Quotation
 }
 
 function makeStoragePath(userId: string, orderId: string, file: File, prefix = 'payment') {

@@ -146,6 +146,9 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   attributes: Record<string, string>;
+  notes?: string;
+  screenshotUrl?: string;
+  attachmentPath?: string;
 }
 
 export interface QuotationItem {
