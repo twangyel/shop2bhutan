@@ -52,6 +52,8 @@ const anonContext: SessionContext = {
   profile: null,
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function cleanString(value: unknown) {
   if (typeof value !== 'string') return null;
 
@@ -78,7 +80,9 @@ function buildProfileInsert(user: User) {
   };
 
   if (phone) payload.phone = phone;
-  if (defaultDzongkhagId) payload.default_dzongkhag_id = defaultDzongkhagId;
+  if (defaultDzongkhagId && UUID_RE.test(defaultDzongkhagId)) {
+    payload.default_dzongkhag_id = defaultDzongkhagId;
+  }
   if (avatarUrl) payload.avatar_url = avatarUrl;
 
   return payload;

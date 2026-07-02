@@ -12,7 +12,6 @@ import {
   Save,
   User,
 } from 'lucide-react';
-import { DZONGKHAGS } from '@/data/mockData';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -26,7 +25,13 @@ type ProfileLike = {
   avatar_url?: string | null;
 };
 
+type DzongkhagOption = {
+  id: string;
+  name: string;
+};
+
 const PHONE_ONLY_EMAIL_SUFFIX = '@phone.shop2bhutan.com';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function isPhoneOnlyEmail(value?: string | null) {
   return Boolean(value?.trim().toLowerCase().endsWith(PHONE_ONLY_EMAIL_SUFFIX));
@@ -61,6 +66,38 @@ function getAvatarPath(userId: string, file: File) {
   return `${userId}/avatar-${Date.now()}.${extension}`;
 }
 
+function normalizeDzongkhagOptions(data: unknown): DzongkhagOption[] {
+  if (!Array.isArray(data)) return [];
+
+  return data
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const row = item as Record<string, unknown>;
+      const id = typeof row.id === 'string' ? row.id : '';
+      const name = typeof row.name === 'string' ? row.name : '';
+      return id && name ? { id, name } : null;
+    })
+    .filter((item): item is DzongkhagOption => Boolean(item));
+}
+
+function resolveDzongkhagId(rawValue: string | null | undefined, options: DzongkhagOption[]) {
+  const value = rawValue?.trim() || '';
+  if (!value) return '';
+  if (UUID_RE.test(value)) return value;
+
+  const match = options.find((item) => item.name.toLowerCase() === value.toLowerCase());
+  return match?.id || '';
+}
+
+function getDzongkhagName(idOrName: string | null | undefined, options: DzongkhagOption[]) {
+  const value = idOrName?.trim() || '';
+  if (!value) return '';
+
+  if (!UUID_RE.test(value)) return value;
+
+  return options.find((item) => item.id === value)?.name || '';
+}
+
 export default function Profile() {
   const navigate = useNavigate();
   const { user, context, refreshContext, signOut } = useAuth();
@@ -71,7 +108,9 @@ export default function Profile() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [dzongkhag, setDzongkhag] = useState('');
+  const [dzongkhagId, setDzongkhagId] = useState('');
+  const [dzongkhagOptions, setDzongkhagOptions] = useState<DzongkhagOption[]>([]);
+  const [loadingDzongkhags, setLoadingDzongkhags] = useState(true);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   const [saving, setSaving] = useState(false);
@@ -80,6 +119,7 @@ export default function Profile() {
   const [success, setSuccess] = useState('');
 
   const displayEmail = getDisplayEmail(context?.email || user?.email);
+  const registeredDzongkhagName = getDzongkhagName(dzongkhagId, dzongkhagOptions);
 
   const initials = useMemo(() => {
     const source = fullName || displayEmail || 'Customer';
@@ -87,12 +127,48 @@ export default function Profile() {
   }, [fullName, displayEmail]);
 
   useEffect(() => {
+    let active = true;
+
+    async function loadDzongkhags() {
+      setLoadingDzongkhags(true);
+
+      const { data, error: rpcError } = await supabase.rpc('get_dzongkhag_options');
+
+      if (!active) return;
+
+      if (rpcError) {
+        console.warn('Failed to load dzongkhags:', rpcError.message);
+        setDzongkhagOptions([]);
+      } else {
+        setDzongkhagOptions(normalizeDzongkhagOptions(data));
+      }
+
+      setLoadingDzongkhags(false);
+    }
+
+    void loadDzongkhags();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const metadata = user?.user_metadata as Record<string, unknown> | undefined;
+    const metadataDzongkhag =
+      (typeof metadata?.default_dzongkhag_id === 'string' && metadata.default_dzongkhag_id) ||
+      (typeof metadata?.default_dzongkhag_name === 'string' && metadata.default_dzongkhag_name) ||
+      (typeof metadata?.dzongkhag === 'string' && metadata.dzongkhag) ||
+      '';
+
+    const rawDzongkhag = profile?.default_dzongkhag_id || profile?.dzongkhag || metadataDzongkhag;
+
     setFullName(profile?.full_name || profile?.name || '');
     setEmail(currentRealEmail);
     setPhone(profile?.phone || '');
-    setDzongkhag(profile?.default_dzongkhag_id || profile?.dzongkhag || '');
+    setDzongkhagId(resolveDzongkhagId(rawDzongkhag, dzongkhagOptions));
     setAvatarUrl(profile?.avatar_url || null);
-  }, [profile, currentRealEmail]);
+  }, [profile, currentRealEmail, dzongkhagOptions, user?.user_metadata]);
 
   const handleLogout = async () => {
     await signOut();
@@ -227,7 +303,7 @@ export default function Profile() {
       return;
     }
 
-    if (!dzongkhag) {
+    if (!dzongkhagId) {
       showError('Please select your dzongkhag.');
       return;
     }
@@ -265,7 +341,7 @@ export default function Profile() {
       .update({
         full_name: cleanName,
         phone: normalizedPhone,
-        default_dzongkhag_id: dzongkhag,
+        default_dzongkhag_id: dzongkhagId,
         updated_at: new Date().toISOString(),
       })
       .eq('id', user.id);
@@ -431,22 +507,30 @@ export default function Profile() {
             <div className="relative">
               <MapPin size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
               <select
-                value={dzongkhag}
+                value={dzongkhagId}
+                disabled={loadingDzongkhags}
                 onChange={(event) => {
-                  setDzongkhag(event.target.value);
+                  setDzongkhagId(event.target.value);
                   setError('');
                   setSuccess('');
                 }}
-                className="h-12 w-full appearance-none rounded-2xl border border-neutral-200 bg-white pl-10 pr-4 text-sm outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-500/10"
+                className="h-12 w-full appearance-none rounded-2xl border border-neutral-200 bg-white pl-10 pr-4 text-sm outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-500/10 disabled:bg-neutral-50"
               >
-                <option value="">Select dzongkhag</option>
-                {DZONGKHAGS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
+                <option value="">
+                  {loadingDzongkhags ? 'Loading dzongkhags...' : 'Select dzongkhag'}
+                </option>
+                {dzongkhagOptions.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
                   </option>
                 ))}
               </select>
             </div>
+            {registeredDzongkhagName && (
+              <p className="mt-1 text-[11px] text-emerald-600">
+                Registered as {registeredDzongkhagName}
+              </p>
+            )}
           </div>
 
           <div className="rounded-2xl bg-neutral-50 p-3">
@@ -458,7 +542,7 @@ export default function Profile() {
 
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || loadingDzongkhags}
             className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 font-bold text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving ? (

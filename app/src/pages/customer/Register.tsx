@@ -12,7 +12,6 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { DZONGKHAGS } from '@/data/mockData';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import Logo from '@/components/shared/Logo';
@@ -21,6 +20,11 @@ type ToastState = {
   type: 'error' | 'success' | 'info';
   title: string;
   message: string;
+};
+
+type DzongkhagOption = {
+  id: string;
+  name: string;
 };
 
 const PHONE_ONLY_EMAIL_DOMAIN = 'phone.shop2bhutan.com';
@@ -71,6 +75,20 @@ function getFriendlySignupError(message: string, hasRealEmail: boolean) {
   }
 
   return message;
+}
+
+function normalizeDzongkhagOptions(data: unknown): DzongkhagOption[] {
+  if (!Array.isArray(data)) return [];
+
+  return data
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const row = item as Record<string, unknown>;
+      const id = typeof row.id === 'string' ? row.id : '';
+      const name = typeof row.name === 'string' ? row.name : '';
+      return id && name ? { id, name } : null;
+    })
+    .filter((item): item is DzongkhagOption => Boolean(item));
 }
 
 function RegistrationToast({ toast, onClose }: { toast: ToastState; onClose: () => void }) {
@@ -133,6 +151,8 @@ export default function Register() {
     confirmPassword: '',
   });
 
+  const [dzongkhagOptions, setDzongkhagOptions] = useState<DzongkhagOption[]>([]);
+  const [loadingDzongkhags, setLoadingDzongkhags] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -145,6 +165,35 @@ export default function Register() {
     () => normalizeBhutanPhone(form.phone),
     [form.phone]
   );
+
+  const selectedDzongkhag = dzongkhagOptions.find((item) => item.id === form.dzongkhag) || null;
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadDzongkhags() {
+      setLoadingDzongkhags(true);
+
+      const { data, error } = await supabase.rpc('get_dzongkhag_options');
+
+      if (!active) return;
+
+      if (error) {
+        console.warn('Failed to load dzongkhags:', error.message);
+        setDzongkhagOptions([]);
+      } else {
+        setDzongkhagOptions(normalizeDzongkhagOptions(data));
+      }
+
+      setLoadingDzongkhags(false);
+    }
+
+    void loadDzongkhags();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -285,6 +334,7 @@ export default function Register() {
           name: cleanName,
           phone: normalizedPhone,
           default_dzongkhag_id: form.dzongkhag,
+          default_dzongkhag_name: selectedDzongkhag?.name ?? null,
           has_real_email: hasRealEmail,
         },
       },
@@ -504,21 +554,28 @@ export default function Register() {
               />
               <select
                 value={form.dzongkhag}
+                disabled={loadingDzongkhags}
                 onChange={(e) => update('dzongkhag', e.target.value)}
-                className={`w-full h-12 pl-10 pr-4 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 appearance-none bg-white ${
+                className={`w-full h-12 pl-10 pr-4 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 appearance-none bg-white disabled:bg-neutral-50 ${
                   errors.dzongkhag ? 'border-red-400' : 'border-neutral-300'
                 }`}
               >
-                <option value="">Select dzongkhag</option>
-                {DZONGKHAGS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
+                <option value="">
+                  {loadingDzongkhags ? 'Loading dzongkhags...' : 'Select dzongkhag'}
+                </option>
+                {dzongkhagOptions.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
                   </option>
                 ))}
               </select>
             </div>
-            {errors.dzongkhag && (
+            {errors.dzongkhag ? (
               <p className="text-xs text-red-500 mt-1">{errors.dzongkhag}</p>
+            ) : (
+              <p className="text-[11px] text-neutral-400 mt-1">
+                This records where your order request is from. Delivery is currently available in Thimphu, Paro, and Chhukha.
+              </p>
             )}
           </div>
 
@@ -602,7 +659,7 @@ export default function Register() {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || loadingDzongkhags}
             className="w-full h-12 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {submitting ? 'Creating account...' : 'Create Account'}

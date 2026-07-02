@@ -6,6 +6,7 @@ import {
   ClipboardList,
   HeadphonesIcon,
   Home,
+  LayoutDashboard,
   KeyRound,
   LogOut,
   MapPin,
@@ -34,6 +35,11 @@ type ProfileLike = {
   avatar_url?: string | null;
 };
 
+type DzongkhagOption = {
+  id: string;
+  name: string;
+};
+
 type MenuItem = {
   icon: React.ElementType;
   label: string;
@@ -59,6 +65,30 @@ function getDisplayName(profile: ProfileLike | null, email?: string | null) {
   if (profile?.name?.trim()) return profile.name.trim();
   if (email && !isPhoneOnlyEmail(email)) return email.split('@')[0];
   return 'Guest';
+}
+
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function normalizeDzongkhagOptions(data: unknown): DzongkhagOption[] {
+  if (!Array.isArray(data)) return [];
+
+  return data
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const row = item as Record<string, unknown>;
+      const id = typeof row.id === 'string' ? row.id : '';
+      const name = typeof row.name === 'string' ? row.name : '';
+      return id && name ? { id, name } : null;
+    })
+    .filter((item): item is DzongkhagOption => Boolean(item));
+}
+
+function getDzongkhagDisplayName(value: string | null | undefined, options: DzongkhagOption[]) {
+  const cleanValue = value?.trim() || '';
+  if (!cleanValue) return null;
+  if (!UUID_RE.test(cleanValue)) return cleanValue;
+  return options.find((item) => item.id === cleanValue)?.name || null;
 }
 
 const primaryActions = [
@@ -99,6 +129,7 @@ export default function Account() {
   const { user, context, signOut } = useAuth();
 
   const [addressCount, setAddressCount] = useState(0);
+  const [dzongkhagOptions, setDzongkhagOptions] = useState<DzongkhagOption[]>([]);
 
   const profile = (context?.profile ?? null) as ProfileLike | null;
   const isLoggedIn = Boolean(user);
@@ -107,9 +138,13 @@ export default function Account() {
   const displayName = getDisplayName(profile, rawEmail);
   const displayEmail = isLoggedIn ? getDisplayEmail(rawEmail) : 'Sign in to manage your orders';
   const displayPhone = profile?.phone?.trim() || null;
-  const displayDzongkhag = profile?.default_dzongkhag_id?.trim() || profile?.dzongkhag?.trim() || null;
+  const displayDzongkhag = getDzongkhagDisplayName(
+    profile?.default_dzongkhag_id || profile?.dzongkhag,
+    dzongkhagOptions
+  );
   const avatarUrl = profile?.avatar_url?.trim() || null;
   const emailAdded = displayEmail !== 'No email added' && isLoggedIn;
+  const canAccessAdmin = Boolean(context?.is_admin || context?.is_super_admin);
 
   const pendingOrders = useMemo(
     () =>
@@ -118,6 +153,26 @@ export default function Account() {
       ).length,
     [orders]
   );
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadDzongkhags() {
+      const { data, error } = await supabase.rpc('get_dzongkhag_options');
+
+      if (!active) return;
+
+      if (!error) {
+        setDzongkhagOptions(normalizeDzongkhagOptions(data));
+      }
+    }
+
+    void loadDzongkhags();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -273,6 +328,27 @@ export default function Account() {
             <p className="mt-0.5 text-xs leading-5 text-amber-700">
               Email is optional, but adding one helps with password recovery and order updates.
             </p>
+          </button>
+        )}
+
+        {canAccessAdmin && (
+          <button
+            type="button"
+            onClick={() => navigate('/admin')}
+            className="mt-4 w-full overflow-hidden rounded-3xl bg-neutral-900 p-4 text-left text-white shadow-lg shadow-neutral-900/15 transition hover:-translate-y-0.5 hover:shadow-xl"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-amber-300">
+                <LayoutDashboard size={22} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-extrabold">Admin Panel</span>
+                <span className="mt-0.5 block text-xs leading-5 text-white/70">
+                  Manage orders, quotations, payments, products, parcels, and settings.
+                </span>
+              </span>
+              <ChevronRight size={18} className="text-white/45" />
+            </div>
           </button>
         )}
 
