@@ -43,7 +43,7 @@ type ProfileLike = {
   avatar_url?: string | null;
 };
 
-const PHONE_ONLY_EMAIL_SUFFIX = '@phone.shop2bhutan.local';
+const PHONE_ONLY_EMAIL_SUFFIX = '@phone.shop2bhutan.com';
 
 function getDisplayEmail(value?: string | null) {
   const email = value?.trim() || '';

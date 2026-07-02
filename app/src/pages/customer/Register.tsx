@@ -23,7 +23,7 @@ type ToastState = {
   message: string;
 };
 
-const PHONE_ONLY_EMAIL_DOMAIN = 'phone.shop2bhutan.local';
+const PHONE_ONLY_EMAIL_DOMAIN = 'phone.shop2bhutan.com';
 
 function makePhoneOnlyAuthEmail(phone8: string) {
   return `${phone8}@${PHONE_ONLY_EMAIL_DOMAIN}`;
@@ -52,6 +52,25 @@ function isDuplicateError(message: string) {
     lower.includes('duplicate key') ||
     lower.includes('unique constraint')
   );
+}
+
+function isEmailRateLimitError(message: string) {
+  const lower = message.toLowerCase();
+  return lower.includes('email rate limit') || lower.includes('rate limit exceeded');
+}
+
+function getFriendlySignupError(message: string, hasRealEmail: boolean) {
+  if (isEmailRateLimitError(message)) {
+    return hasRealEmail
+      ? 'Supabase email limit is temporarily reached. Please wait a few minutes and try again.'
+      : 'Phone-only registration is being blocked by Supabase email confirmation/rate limit. Turn off email confirmation for this MVP flow, then try again.';
+  }
+
+  if (!hasRealEmail && message.toLowerCase().includes('email')) {
+    return 'Phone-only registration needs the internal auth-email fix. Please use the latest patch and make sure email confirmation is disabled in Supabase.';
+  }
+
+  return message;
 }
 
 function RegistrationToast({ toast, onClose }: { toast: ToastState; onClose: () => void }) {
@@ -273,17 +292,18 @@ export default function Register() {
 
     if (error) {
       setSubmitting(false);
-      const message = error.message || 'Unable to create account. Please try again.';
-      setSubmitError(message);
+      const rawMessage = error.message || 'Unable to create account. Please try again.';
+      const friendlyMessage = getFriendlySignupError(rawMessage, hasRealEmail);
+      setSubmitError(friendlyMessage);
 
       showToast({
         type: 'error',
-        title: isDuplicateError(message) ? 'Account already exists' : 'Registration failed',
-        message: isDuplicateError(message)
+        title: isDuplicateError(rawMessage) ? 'Account already exists' : 'Registration failed',
+        message: isDuplicateError(rawMessage)
           ? hasRealEmail
             ? 'This email or phone number is already registered. Please sign in instead.'
             : 'This phone number is already registered. Please sign in with phone number instead.'
-          : message,
+          : friendlyMessage,
       });
 
       return;
