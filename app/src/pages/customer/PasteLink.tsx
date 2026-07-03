@@ -24,10 +24,10 @@ import {
 } from '@/lib/customerOrders';
 
 const platforms = [
-  { name: 'Amazon', key: 'amazon', color: 'bg-orange-100 text-orange-700 border-orange-300', initial: 'A' },
-  { name: 'Flipkart', key: 'flipkart', color: 'bg-blue-100 text-blue-700 border-blue-300', initial: 'F' },
-  { name: 'Myntra', key: 'myntra', color: 'bg-pink-100 text-pink-700 border-pink-300', initial: 'M' },
-  { name: 'Meesho', key: 'meesho', color: 'bg-violet-100 text-violet-700 border-violet-300', initial: 'M' },
+  { name: 'Amazon', key: 'amazon', color: 'bg-orange-50 text-orange-600 ring-orange-200', initial: 'A' },
+  { name: 'Flipkart', key: 'flipkart', color: 'bg-blue-50 text-blue-600 ring-blue-200', initial: 'F' },
+  { name: 'Myntra', key: 'myntra', color: 'bg-pink-50 text-pink-600 ring-pink-200', initial: 'M' },
+  { name: 'Meesho', key: 'meesho', color: 'bg-violet-50 text-violet-600 ring-violet-200', initial: 'M' },
 ];
 
 type PreviewState = {
@@ -65,7 +65,7 @@ function manualPreviewTitle(previewData: ProductLinkPreview) {
 
 function formatPrice(value?: number, currency = 'INR') {
   if (!value || value <= 0) return '';
-  const label = currency === 'BTN' ? 'Nu.' : currency === 'INR' ? '₹' : currency;
+  const label = currency === 'BTN' ? 'Nu.' : currency === 'INR' ? '\u20B9' : currency;
   return `${label} ${Math.round(value).toLocaleString()}`;
 }
 
@@ -88,6 +88,10 @@ function isPreviewForUrl(preview: PreviewState, cleanUrl: string) {
   return Boolean(preview.data && preview.url === cleanUrl);
 }
 
+/* ------------------------------------------------------------------ */
+/*  Main page                                                          */
+/* ------------------------------------------------------------------ */
+
 export default function PasteLink() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -106,6 +110,7 @@ export default function PasteLink() {
   const cleanUrl = useMemo(() => normalizeProductUrl(url), [url]);
   const canTryPreview = cleanUrl && cleanUrl.length > 14 && cleanUrl.includes('.');
 
+  /* ---- Auto-fetch preview when URL looks valid ---- */
   useEffect(() => {
     if (!canTryPreview) {
       setPreview(emptyPreview);
@@ -148,6 +153,7 @@ export default function PasteLink() {
     };
   }, [canTryPreview, cleanUrl]);
 
+  /* ---- Screenshot upload ---- */
   const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -180,6 +186,7 @@ export default function PasteLink() {
     clearScreenshot();
   };
 
+  /* ---- Add to Request Bag ---- */
   const addToRequestBag = async () => {
     setError('');
     setSuccessMessage('');
@@ -255,252 +262,303 @@ export default function PasteLink() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-32">
-      <div className="bg-white px-5 pt-6 pb-5 border-b border-neutral-100">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Request Product</h1>
-            <p className="text-sm text-neutral-500 mt-1">
-              Paste a shopping link or upload a screenshot. Add items to your Request Bag and request quotation later.
-            </p>
-          </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
-            <ShieldCheck size={20} />
-          </div>
-        </div>
+    <div className="min-h-screen bg-[#FAF8F5] pb-32">
+      <div className="mx-auto max-w-3xl px-4 pb-8 pt-4">
 
-        <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
-          <p className="text-sm font-bold text-amber-900">No payment required now</p>
-          <p className="mt-0.5 text-xs leading-5 text-amber-700">
-            Build your Request Bag first. Shop2Bhutan will verify availability, price, service fee, and delivery fee after you request quotation.
-          </p>
-        </div>
+        {/* ====== MAIN CARD ====== */}
+        <section className="relative overflow-hidden rounded-[1.5rem] bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] ring-1 ring-orange-100/60 sm:p-6">
+          {/* Soft gradient orb */}
+          <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-orange-100/25 blur-3xl" />
 
-        <div className="flex gap-3 mt-5 justify-center">
-          {platforms.map((p) => (
-            <div key={p.name} className="flex flex-col items-center gap-1">
-              <div
-                className={`w-11 h-11 rounded-full border-2 flex items-center justify-center font-bold ${p.color}`}
-              >
-                {p.initial}
-              </div>
-              <span className="text-[10px] text-neutral-600">{p.name}</span>
+          {/* Header */}
+          <div className="relative flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-[1.15rem] font-bold leading-snug text-gray-950 sm:text-xl">
+                Request Product
+              </h1>
+              <p className="mt-1 text-[0.78rem] leading-relaxed text-neutral-500">
+                Paste a shopping link or upload a screenshot. Add items to your Request Bag and request quotation later.
+              </p>
             </div>
-          ))}
-        </div>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500 shadow-sm ring-1 ring-orange-100/40">
+              <ShieldCheck size={21} />
+            </span>
+          </div>
 
-        <div className="mt-5 bg-neutral-50 rounded-2xl p-4">
-          <div className="relative">
-            <Link2
-              size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
-            />
-            <input
-              type="url"
-              value={url}
-              onChange={(e) => {
-                setUrl(e.target.value);
-                setError('');
-                setSuccessMessage('');
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') void addToRequestBag();
-              }}
-              placeholder="Paste product URL from Amazon, Flipkart, Myntra, Meesho..."
-              className="w-full h-12 pl-10 pr-10 bg-white border border-neutral-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-            />
-            {url && (
+          {/* No payment info card */}
+          <div className="relative mt-4 rounded-2xl border border-orange-100/80 bg-orange-50/60 px-4 py-3.5">
+            <div className="flex items-start gap-2.5">
+              <Info size={16} className="mt-0.5 shrink-0 text-orange-500" />
+              <div>
+                <p className="text-[0.8rem] font-bold text-orange-800">No payment required now</p>
+                <p className="mt-0.5 text-[0.72rem] leading-relaxed text-orange-700/80">
+                  Build your Request Bag first. Shop2Bhutan will verify availability, price, service fee, and delivery fee after you request quotation.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Platform selector */}
+          <div className="mt-5 flex justify-center gap-3">
+            {platforms.map((p) => (
               <button
+                key={p.name}
                 type="button"
                 onClick={() => {
                   setUrl('');
                   setPreview(emptyPreview);
                 }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                className="group flex flex-col items-center gap-1.5 transition-transform active:scale-95"
               >
-                <X size={18} />
+                <span
+                  className={`flex h-12 w-12 items-center justify-center rounded-2xl text-sm font-bold shadow-sm ring-1 transition-shadow group-hover:shadow-md ${p.color}`}
+                >
+                  {p.initial}
+                </span>
+                <span className="text-[0.6rem] font-semibold tracking-wide text-neutral-500">
+                  {p.name}
+                </span>
               </button>
-            )}
+            ))}
           </div>
 
-          <div className="mt-3">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleScreenshotChange}
-              className="hidden"
-            />
-
-            {!screenshotFile ? (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full min-h-12 border-2 border-dashed border-neutral-300 rounded-xl px-3 py-3 flex items-center justify-center gap-2 text-sm text-neutral-500 hover:border-amber-400 hover:text-amber-600 transition-colors"
-              >
-                <Camera size={18} />
-                <span>Screenshot recommended for size, color, price, or unavailable links</span>
-              </button>
-            ) : (
-              <div className="relative rounded-xl border border-neutral-200 bg-white overflow-hidden">
-                <img
-                  src={screenshotPreview}
-                  alt="Screenshot preview"
-                  className="w-full h-32 object-cover"
-                />
+          {/* ====== URL INPUT SECTION ====== */}
+          <div className="relative mt-5">
+            <div className="relative">
+              <Link2
+                size={17}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400"
+              />
+              <input
+                type="url"
+                value={url}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  setError('');
+                  setSuccessMessage('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void addToRequestBag();
+                }}
+                placeholder="Paste product URL from Amazon, Flipkart, Myntra, Meesho..."
+                className="h-[3rem] w-full rounded-2xl border border-neutral-200/80 bg-neutral-50/60 pl-10 pr-10 text-[0.8rem] text-neutral-800 placeholder:text-neutral-400 focus:border-orange-300 focus:bg-orange-50/30 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+              />
+              {url && (
                 <button
                   type="button"
-                  onClick={clearScreenshot}
-                  className="absolute top-2 right-2 w-7 h-7 bg-white/90 rounded-full flex items-center justify-center shadow-sm"
+                  onClick={() => {
+                    setUrl('');
+                    setPreview(emptyPreview);
+                  }}
+                  className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600 active:bg-neutral-200"
                 >
-                  <X size={14} className="text-neutral-600" />
+                  <X size={16} />
                 </button>
-                <div className="px-3 py-2 bg-white">
-                  <p className="text-xs text-neutral-500 truncate">{screenshotFile.name}</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {preview.loading && (
-            <div className="mt-3 rounded-xl border border-amber-100 bg-white p-3 flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-amber-50 flex items-center justify-center">
-                <Loader2 size={20} className="text-amber-500 animate-spin" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Checking product preview...</p>
-                <p className="text-xs text-neutral-500">Auto-preview is optional. You can still add the item.</p>
-              </div>
+              )}
             </div>
-          )}
 
-          {!preview.loading && preview.data && cleanUrl && (
-            <div className="mt-3 rounded-xl border border-neutral-200 bg-white p-3">
-              <div className="flex gap-3">
-                {preview.data.image ? (
-                  <img
-                    src={preview.data.image}
-                    alt=""
-                    className="w-16 h-16 rounded-lg object-cover bg-neutral-100 flex-shrink-0"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-lg bg-neutral-100 flex items-center justify-center flex-shrink-0">
-                    <ImageIcon size={22} className="text-neutral-400" />
-                  </div>
-                )}
+            {/* ====== SCREENSHOT UPLOAD ====== */}
+            <div className="mt-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleScreenshotChange}
+                className="hidden"
+              />
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Sparkles size={13} className="text-amber-500" />
-                    <span className="text-[11px] font-semibold text-amber-600">
-                      {preview.data.fetched ? 'Product preview found' : 'Link detected'}
-                    </span>
-                  </div>
-                  <p className="text-sm font-semibold text-gray-900 line-clamp-2">
-                    {preview.data.fetched ? preview.data.title : manualPreviewTitle(preview.data)}
-                  </p>
-                  {!preview.data.fetched && (
-                    <p className="text-[11px] text-neutral-500 mt-0.5">
-                      Shop2Bhutan will verify this manually. Add screenshot or price if available.
+              {!screenshotFile ? (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex min-h-[3.5rem] w-full items-center gap-3 rounded-2xl border-2 border-dashed border-neutral-200/80 bg-neutral-50/40 px-4 text-left transition-colors hover:border-orange-300 hover:bg-orange-50/30 active:border-orange-400"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500 ring-1 ring-orange-100/40">
+                    <Camera size={17} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[0.75rem] font-semibold text-neutral-700">Upload screenshot</p>
+                    <p className="text-[0.65rem] leading-relaxed text-neutral-400">
+                      Recommended for size, color, price, or unavailable links
                     </p>
-                  )}
-                  <a
-                    href={preview.data.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block text-[11px] text-neutral-400 truncate mt-0.5"
-                  >
-                    {preview.data.url}
-                  </a>
-                  <div className="flex flex-wrap items-center gap-2 mt-1">
-                    <span className="px-2 py-0.5 bg-neutral-100 text-neutral-600 text-[10px] font-medium rounded-full uppercase">
-                      {preview.data.platform}
-                    </span>
-                    {preview.data.price ? (
-                      <span className="text-xs font-bold text-amber-600">
-                        Price shown on site: {formatPrice(preview.data.price, preview.data.currency)}
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-medium text-neutral-500">
-                        Price will be verified
-                      </span>
-                    )}
                   </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {successMessage && (
-            <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 p-3">
-              <div className="flex gap-2">
-                <CheckCircle size={18} className="text-emerald-600 mt-0.5 flex-shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-emerald-800">Item saved</p>
-                  <p className="text-xs leading-5 text-emerald-700">{successMessage}</p>
+                </button>
+              ) : (
+                <div className="relative overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-sm">
+                  <img
+                    src={screenshotPreview}
+                    alt="Screenshot preview"
+                    className="h-36 w-full object-cover"
+                  />
                   <button
                     type="button"
-                    onClick={() => navigate('/request-bag')}
-                    className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-emerald-700 underline"
+                    onClick={clearScreenshot}
+                    className="absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-neutral-600 shadow-sm ring-1 ring-neutral-200/60 backdrop-blur-sm transition-colors hover:bg-white active:bg-neutral-50"
                   >
-                    View Request Bag
-                    <ShoppingBag size={13} />
+                    <X size={14} />
                   </button>
+                  <div className="px-3.5 py-2.5">
+                    <p className="truncate text-[0.7rem] text-neutral-500">{screenshotFile.name}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ====== PREVIEW LOADING ====== */}
+            {preview.loading && (
+              <div className="mt-3 flex items-center gap-3 rounded-2xl border border-orange-100/60 bg-orange-50/40 p-3.5">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-100/50 text-orange-500">
+                  <Loader2 size={20} className="animate-spin" />
+                </span>
+                <div>
+                  <p className="text-[0.8rem] font-semibold text-gray-900">Checking product preview...</p>
+                  <p className="text-[0.7rem] leading-relaxed text-neutral-500">
+                    Auto-preview is optional. You can still add the item.
+                  </p>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {error && (
-            <div className="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-600">
-              {error}
-            </div>
-          )}
+            {/* ====== PREVIEW RESULT ====== */}
+            {!preview.loading && preview.data && cleanUrl && (
+              <div className="mt-3 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white p-3.5 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
+                <div className="flex gap-3">
+                  {preview.data.image ? (
+                    <img
+                      src={preview.data.image}
+                      alt=""
+                      className="h-18 w-18 flex-shrink-0 rounded-xl bg-neutral-100 object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-orange-50 ring-1 ring-orange-100/40">
+                      <ImageIcon size={22} className="text-orange-400" />
+                    </span>
+                  )}
 
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center gap-1.5">
+                      <Sparkles size={12} className="shrink-0 text-orange-500" />
+                      <span className="text-[0.65rem] font-bold uppercase tracking-wide text-orange-600">
+                        {preview.data.fetched ? 'Preview found' : 'Link detected'}
+                      </span>
+                    </div>
+                    <p className="text-[0.82rem] font-semibold leading-snug text-gray-900 line-clamp-2">
+                      {preview.data.fetched ? preview.data.title : manualPreviewTitle(preview.data)}
+                    </p>
+                    {!preview.data.fetched && (
+                      <p className="mt-1 text-[0.65rem] leading-relaxed text-neutral-500">
+                        Shop2Bhutan will verify this manually. Add screenshot or price if available.
+                      </p>
+                    )}
+                    <a
+                      href={preview.data.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1 block truncate text-[0.65rem] text-neutral-400 transition-colors hover:text-orange-500"
+                    >
+                      {preview.data.url}
+                    </a>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-orange-600 ring-1 ring-orange-100/40">
+                        {preview.data.platform}
+                      </span>
+                      {preview.data.price ? (
+                        <span className="text-[0.72rem] font-bold text-orange-600">
+                          Price: {formatPrice(preview.data.price, preview.data.currency)}
+                        </span>
+                      ) : (
+                        <span className="text-[0.65rem] font-medium text-neutral-400">
+                          Price will be verified
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ====== SUCCESS MESSAGE ====== */}
+            {successMessage && (
+              <div className="mt-3 overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3.5">
+                <div className="flex gap-2.5">
+                  <CheckCircle size={18} className="mt-0.5 shrink-0 text-emerald-600" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[0.82rem] font-bold text-emerald-900">Item saved</p>
+                    <p className="mt-0.5 text-[0.72rem] leading-relaxed text-emerald-700">
+                      {successMessage}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/request-bag')}
+                      className="mt-2 inline-flex items-center gap-1 text-[0.72rem] font-bold text-emerald-700 transition-colors hover:text-emerald-800"
+                    >
+                      View Request Bag
+                      <ShoppingBag size={13} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ====== ERROR MESSAGE ====== */}
+            {error && (
+              <div className="mt-3 rounded-2xl border border-red-100 bg-red-50/70 px-3.5 py-3">
+                <p className="flex items-start gap-2 text-[0.78rem] text-red-600">
+                  <X size={15} className="mt-0.5 shrink-0" />
+                  <span>{error}</span>
+                </p>
+              </div>
+            )}
+
+            {/* ====== ADD TO REQUEST BAG CTA ====== */}
+            <button
+              type="button"
+              onClick={addToRequestBag}
+              disabled={(!cleanUrl && !screenshotFile) || preview.loading || adding}
+              className="mt-4 flex h-[3rem] w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 text-sm font-bold text-white shadow-lg shadow-orange-200/50 transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+            >
+              {adding ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  Add to Request Bag
+                  <Plus size={18} />
+                </>
+              )}
+            </button>
+          </div>
+        </section>
+
+        {/* ====== BOTTOM SECTION ====== */}
+        <div className="mt-4 space-y-3">
+          {/* How Request Bag works */}
+          <section className="rounded-[1.35rem] bg-white p-4 shadow-[0_2px_12px_rgba(0,0,0,0.03)] ring-1 ring-neutral-100/80 sm:p-5">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500 shadow-sm ring-1 ring-orange-100/40">
+                <Info size={18} />
+              </span>
+              <div>
+                <p className="text-[0.85rem] font-bold text-gray-900">How Request Bag works</p>
+                <p className="mt-1 text-[0.75rem] leading-relaxed text-neutral-500">
+                  Add one or many product links first. Later, open Request Bag, review quantities and delivery details, then request one quotation for all items together.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Open Request Bag button */}
           <button
             type="button"
-            onClick={addToRequestBag}
-            disabled={(!cleanUrl && !screenshotFile) || preview.loading || adding}
-            className="w-full h-12 bg-amber-500 text-white font-semibold rounded-xl mt-3 hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            onClick={() => navigate('/request-bag')}
+            className="flex h-[3rem] w-full items-center justify-center gap-2 rounded-2xl border border-neutral-200/80 bg-white text-sm font-bold text-neutral-700 shadow-[0_2px_8px_rgba(0,0,0,0.03)] transition-all hover:bg-neutral-50 active:scale-[0.98] active:bg-neutral-100"
           >
-            {adding ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                Adding...
-              </>
-            ) : (
-              <>
-                Add to Request Bag
-                <Plus size={18} />
-              </>
-            )}
+            Open Request Bag
+            <ExternalLink size={16} />
           </button>
         </div>
-      </div>
-
-      <div className="px-4 mt-4 space-y-3">
-        <div className="rounded-2xl bg-white p-4 shadow-sm border border-neutral-100">
-          <div className="flex items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-              <Info size={18} />
-            </span>
-            <div>
-              <p className="text-sm font-bold text-gray-900">How Request Bag works</p>
-              <p className="mt-1 text-xs leading-5 text-neutral-500">
-                Add one or many product links first. Later, open Request Bag, review quantities and delivery details, then request one quotation for all items together.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => navigate('/request-bag')}
-          className="w-full h-12 rounded-xl bg-white border border-neutral-200 text-sm font-bold text-neutral-700 flex items-center justify-center gap-2"
-        >
-          Open Request Bag
-          <ExternalLink size={16} />
-        </button>
       </div>
     </div>
   );
