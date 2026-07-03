@@ -15,8 +15,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
+  acceptCustomerQuotation,
   fetchCustomerOrderById,
-  updateCustomerOrderStatus,
   updateQuotationStatus,
 } from '@/lib/customerOrders';
 import type { Order, Quotation, QuotationItem } from '@/types';
@@ -165,8 +165,11 @@ export default function QuotationReview() {
     setError('');
 
     try {
-      await updateQuotationStatus(quotation.id, 'approved');
-      await updateCustomerOrderStatus(order.id, 'payment_pending');
+      await acceptCustomerQuotation({
+        orderId: order.id,
+        quotationId: quotation.id,
+      });
+
       navigate(`/payment/${order.id}`);
     } catch (err) {
       console.error('Failed to accept quotation:', err);

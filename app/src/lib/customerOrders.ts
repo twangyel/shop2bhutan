@@ -1518,6 +1518,37 @@ export async function updateCustomerOrderStatus(orderId: string, status: OrderSt
 }
 
 
+export async function acceptCustomerQuotation(input: { orderId: string; quotationId?: string }) {
+  const orderId = cleanText(input.orderId)
+  const quotationId = cleanText(input.quotationId)
+
+  if (!orderId) throw new Error('Order UUID is required.')
+
+  const { data, error } = await supabase.rpc('accept_customer_quotation', {
+    p_order_id: orderId,
+    p_quotation_id: quotationId || null,
+  })
+
+  if (error) {
+    const message = errorMessage(error, '').toLowerCase()
+
+    if (message.includes('function') && message.includes('accept_customer_quotation')) {
+      throw new Error('Quotation accept RPC is not installed. Please run the Step 04D.1C SQL patch in Supabase first.')
+    }
+
+    throw error
+  }
+
+  const ok = typeof data === 'object' && data !== null ? Boolean((data as AnyRow).ok) : true
+  if (!ok) {
+    const message = typeof data === 'object' && data !== null ? cleanText((data as AnyRow).message) : ''
+    throw new Error(message || 'Unable to accept quotation.')
+  }
+
+  return data
+}
+
+
 function numericAmount(value: unknown) {
   const numeric = Number(value)
   return Number.isFinite(numeric) && numeric > 0 ? numeric : 0
