@@ -1982,26 +1982,59 @@ export async function updateQuotationStatus(quotationId: string, status: Quotati
   throw new Error(errorMessage(lastError, 'Unable to update quotation status.'))
 }
 
+function orderStatusWriteCandidates(status: OrderStatus) {
+  const legacyMap: Partial<Record<OrderStatus, string[]>> = {
+    pending_confirmation: ['pending_confirmation', 'pending'],
+    quotation_pending: ['quotation_pending', 'pending'],
+    quoted: ['quoted'],
+    payment_pending: ['payment_pending'],
+    payment_verified: ['payment_verified'],
+    order_placed: ['order_placed', 'ordered', 'confirmed'],
+    in_transit: ['in_transit', 'reached_jaigaon'],
+    arrived_at_hub: ['arrived_at_hub', 'reached_phuntsholing'],
+    out_for_delivery: ['out_for_delivery', 'shipped'],
+    delivered: ['delivered'],
+    cancelled: ['cancelled', 'canceled'],
+  }
+
+  return Array.from(new Set([status, ...(legacyMap[status] ?? [])].filter(Boolean)))
+}
+
 export async function updateCustomerOrderStatus(orderId: string, status: OrderStatus) {
-  const standard = await supabase
-    .from('orders')
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq('id', orderId)
+  const now = new Date().toISOString()
+  let lastError: unknown = null
 
-  if (!standard.error) return
+  for (const dbStatus of orderStatusWriteCandidates(status)) {
+    const standard = await supabase
+      .from('orders')
+      .update({ status: dbStatus, updated_at: now })
+      .eq('id', orderId)
 
-  const standardNoTimestamp = await supabase.from('orders').update({ status }).eq('id', orderId)
-  if (!standardNoTimestamp.error) return
+    if (!standard.error) return
+    lastError = standard.error
+    if (!shouldTryFallbackPayload(standard.error)) throw standard.error
 
-  const legacy = await supabase
-    .from('orders')
-    .update({ order_status: status, updated_at: new Date().toISOString() })
-    .eq('id', orderId)
+    const standardNoTimestamp = await supabase.from('orders').update({ status: dbStatus }).eq('id', orderId)
+    if (!standardNoTimestamp.error) return
+    lastError = standardNoTimestamp.error
+    if (!shouldTryFallbackPayload(standardNoTimestamp.error)) throw standardNoTimestamp.error
 
-  if (!legacy.error) return
+    const legacy = await supabase
+      .from('orders')
+      .update({ order_status: dbStatus, updated_at: now })
+      .eq('id', orderId)
 
-  const legacyNoTimestamp = await supabase.from('orders').update({ order_status: status }).eq('id', orderId)
-  if (legacyNoTimestamp.error) throw standard.error
+    if (!legacy.error) return
+    lastError = legacy.error
+    if (!shouldTryFallbackPayload(legacy.error)) throw legacy.error
+
+    const legacyNoTimestamp = await supabase.from('orders').update({ order_status: dbStatus }).eq('id', orderId)
+    if (!legacyNoTimestamp.error) return
+    lastError = legacyNoTimestamp.error
+    if (!shouldTryFallbackPayload(legacyNoTimestamp.error)) throw legacyNoTimestamp.error
+  }
+
+  throw new Error(errorMessage(lastError, 'Unable to update order status.'))
 }
 
 const FULFILLMENT_STATUS_LABELS: Record<OrderStatus, string> = {

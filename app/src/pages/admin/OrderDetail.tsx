@@ -208,6 +208,7 @@ export default function OrderDetail() {
   const [fulfillmentError, setFulfillmentError] = useState('');
   const [sellerReference, setSellerReference] = useState('');
   const [fulfillmentNote, setFulfillmentNote] = useState('');
+  const [pendingFulfillmentAction, setPendingFulfillmentAction] = useState<FulfillmentAction | null>(null);
 
   const loadOrder = useCallback(async () => {
     if (!id) {
@@ -281,13 +282,18 @@ export default function OrderDetail() {
     }
   };
 
-  const handleFulfillmentUpdate = async (status: OrderStatus) => {
-    if (!order) return;
-
+  const handleFulfillmentUpdate = (status: OrderStatus) => {
     const action = fulfillmentActions.find((item) => item.status === status);
-    const confirmed = window.confirm(`${action?.label ?? 'Update status'} for order #${order.orderNumber}?`);
-    if (!confirmed) return;
+    if (!order || !action) return;
 
+    setFulfillmentError('');
+    setPendingFulfillmentAction(action);
+  };
+
+  const confirmFulfillmentUpdate = async () => {
+    if (!order || !pendingFulfillmentAction) return;
+
+    const status = pendingFulfillmentAction.status;
     setFulfillmentBusyStatus(status);
     setFulfillmentError('');
 
@@ -300,10 +306,12 @@ export default function OrderDetail() {
         adminNote: fulfillmentNote.trim(),
       });
       setFulfillmentNote('');
+      setPendingFulfillmentAction(null);
       await loadOrder();
     } catch (err) {
       console.error('Failed to update fulfillment status:', err);
       setFulfillmentError(err instanceof Error ? err.message : 'Unable to update fulfillment status.');
+      setPendingFulfillmentAction(null);
     } finally {
       setFulfillmentBusyStatus('');
     }
@@ -758,6 +766,62 @@ export default function OrderDetail() {
           </div>
         </div>
       </div>
+
+      {pendingFulfillmentAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+            <div className="mb-4 flex items-start gap-3">
+              <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${
+                pendingFulfillmentAction.status === 'cancelled' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'
+              }`}>
+                {pendingFulfillmentAction.status === 'cancelled' ? <XCircle size={20} /> : <Truck size={20} />}
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-950">Confirm status update</h3>
+                <p className="mt-1 text-sm text-neutral-500">
+                  {pendingFulfillmentAction.label} for order #{order.orderNumber}?
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+              <p className="text-sm font-semibold text-gray-900">{pendingFulfillmentAction.label}</p>
+              <p className="mt-1 text-xs leading-relaxed text-neutral-500">{pendingFulfillmentAction.description}</p>
+              {pendingFulfillmentAction.status === 'order_placed' && sellerReference.trim() && (
+                <p className="mt-2 text-xs text-neutral-600">
+                  <span className="font-semibold">Seller reference:</span> {sellerReference.trim()}
+                </p>
+              )}
+              {fulfillmentNote.trim() && (
+                <p className="mt-1 text-xs text-neutral-600">
+                  <span className="font-semibold">Timeline note:</span> {fulfillmentNote.trim()}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setPendingFulfillmentAction(null)}
+                disabled={fulfillmentBusyStatus !== ''}
+                className="rounded-xl border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Keep Current Status
+              </button>
+              <button
+                type="button"
+                onClick={confirmFulfillmentUpdate}
+                disabled={fulfillmentBusyStatus !== ''}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 ${
+                  pendingFulfillmentAction.status === 'cancelled' ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'
+                }`}
+              >
+                {fulfillmentBusyStatus ? 'Updating...' : 'Confirm Update'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
