@@ -9,6 +9,7 @@ import type {
   OrderStatus,
   OrderType,
   Payment,
+  PaymentMethod,
   PaymentCoverage,
   PaymentStatus,
   PaymentSummary,
@@ -46,6 +47,8 @@ export type PaymentProofInput = {
   userId: string
   file: File
   paymentMethodName: string
+  paymentMethodId?: string
+  paymentMethodType?: PaymentMethod['type'] | string
   transactionId: string
   amount: number
   note?: string
@@ -183,6 +186,36 @@ const DEFAULT_SERVICE_CHARGE_RULES: ServiceChargeRule[] = [
   { id: 'service-5000-9999', name: 'Medium Orders', minAmount: 5000, maxAmount: 9999, percentage: 10, flatFee: 500, minimumCharge: 500, isActive: true, requiresManualReview: false, sortOrder: 4 },
   { id: 'service-10000-19999', name: 'Large Orders', minAmount: 10000, maxAmount: 19999, percentage: 8, flatFee: 800, minimumCharge: 800, isActive: true, requiresManualReview: false, sortOrder: 5 },
   { id: 'service-20000-plus', name: 'High Value Orders', minAmount: 20000, maxAmount: null, percentage: 6, flatFee: 0, minimumCharge: 0, isActive: true, requiresManualReview: true, sortOrder: 6 },
+]
+
+
+const DEFAULT_PAYMENT_METHODS: PaymentMethod[] = [
+  {
+    id: 'default-bank-bob',
+    name: 'Bank Transfer',
+    type: 'bank_transfer',
+    accountNumber: '',
+    accountName: 'Shop2Bhutan',
+    bankName: '',
+    branch: '',
+    qrImage: '',
+    instructions: 'Transfer to the listed bank account and upload the payment screenshot with visible transaction/reference number.',
+    isActive: true,
+    sortOrder: 1,
+  },
+  {
+    id: 'default-mobile-banking',
+    name: 'Mobile Banking',
+    type: 'mobile_banking',
+    accountNumber: '',
+    accountName: 'Shop2Bhutan',
+    bankName: '',
+    branch: '',
+    qrImage: '',
+    instructions: 'Transfer using mobile banking and upload the payment screenshot with visible transaction/reference number.',
+    isActive: true,
+    sortOrder: 2,
+  },
 ]
 
 export type CalculatedChargeSettings = {
@@ -1235,6 +1268,183 @@ export function calculatePaymentSummary(params: {
 }
 
 
+function normalizePaymentMethodType(value: unknown): PaymentMethod['type'] {
+  const raw = cleanText(value).toLowerCase()
+
+  if (raw === 'bank_transfer' || raw.includes('bank') || raw.includes('transfer')) return 'bank_transfer'
+  if (
+    raw === 'mobile_banking' ||
+    raw === 'mobile_wallet' ||
+    raw === 'wallet' ||
+    raw.includes('mobile') ||
+    raw.includes('wallet') ||
+    raw.includes('mbob') ||
+    raw.includes('mbo') ||
+    raw.includes('bpay') ||
+    raw.includes('mpay')
+  ) {
+    return 'mobile_banking'
+  }
+
+  return 'other'
+}
+
+function paymentMethodDbCandidates(typeOrName?: unknown, fallbackName?: unknown) {
+  const raw = [typeOrName, fallbackName].map((item) => cleanText(item).toLowerCase()).join(' ')
+  const values: string[] = []
+
+  if (raw.includes('bank') || raw.includes('transfer') || raw.includes('bob') || raw.includes('bnb') || raw.includes('tbank')) {
+    values.push('bank_transfer', 'bank', 'other')
+  } else if (
+    raw.includes('mobile') ||
+    raw.includes('wallet') ||
+    raw.includes('mbob') ||
+    raw.includes('mbo') ||
+    raw.includes('bpay') ||
+    raw.includes('mpay')
+  ) {
+    values.push('mobile_banking', 'mobile_wallet', 'wallet', 'mbob', 'bpay', 'other')
+  } else {
+    values.push('other', 'mobile_banking', 'bank_transfer')
+  }
+
+  return Array.from(new Set(values.filter(Boolean)))
+}
+
+function makePaymentMethod(row: AnyRow): PaymentMethod {
+  const name = firstString(row, ['name', 'method_name', 'label'], 'Payment Method')
+  const type = normalizePaymentMethodType(firstValue(row, ['method_type', 'type', 'payment_method_type', 'payment_method', 'kind']) ?? name)
+
+  return {
+    id: firstString(row, ['id'], normalizeKey(name)),
+    name,
+    type,
+    accountNumber: firstString(row, ['account_number', 'accountNumber', 'account_no', 'account_code', 'code', 'merchant_code'], ''),
+    accountName: firstString(row, ['account_name', 'accountName', 'holder_name'], 'Shop2Bhutan'),
+    bankName: firstString(row, ['bank_name', 'bankName', 'bank'], ''),
+    branch: firstString(row, ['branch'], ''),
+    qrImage: firstString(row, ['qr_image', 'qrImage', 'qr_url', 'qr_code_url'], ''),
+    instructions: firstString(row, ['instructions', 'note', 'notes'], ''),
+    isActive: Boolean(firstValue(row, ['is_active', 'isActive', 'active']) ?? true),
+    sortOrder: firstNumber(row, ['sort_order', 'sortOrder'], 0),
+  }
+}
+
+function sortPaymentMethods(methods: PaymentMethod[]) {
+  return [...methods].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
+}
+
+export async function fetchPaymentMethods(options: { includeInactive?: boolean } = {}): Promise<PaymentMethod[]> {
+  const { data, error } = await supabase
+    .from('payment_methods')
+    .select('*')
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true })
+
+  if (error) {
+    if (isMissingColumnOrRelationError(error)) {
+      const fallback = sortPaymentMethods(DEFAULT_PAYMENT_METHODS)
+      return options.includeInactive ? fallback : fallback.filter((method) => method.isActive)
+    }
+    throw error
+  }
+
+  const methods = sortPaymentMethods(((data ?? []) as AnyRow[]).map((row: AnyRow) => makePaymentMethod(row)))
+  const filtered = options.includeInactive ? methods : methods.filter((method) => method.isActive)
+
+  return filtered.length ? filtered : []
+}
+
+function paymentMethodPayloadCandidates(method: PaymentMethod, methodType: string, sortOrder: number, now: string): AnyRow[] {
+  const base = {
+    name: cleanText(method.name) || 'Payment Method',
+    method_type: methodType,
+    account_number: cleanText(method.accountNumber) || null,
+    account_name: cleanText(method.accountName) || 'Shop2Bhutan',
+    bank_name: cleanText(method.bankName) || null,
+    branch: cleanText(method.branch) || null,
+    qr_image: cleanText(method.qrImage) || null,
+    instructions: cleanText(method.instructions) || null,
+    is_active: Boolean(method.isActive),
+    sort_order: sortOrder,
+    updated_at: now,
+  }
+
+  const withoutUpdated = { ...base }
+  delete (withoutUpdated as AnyRow).updated_at
+
+  const typePayload = { ...base, type: methodType }
+  delete (typePayload as AnyRow).method_type
+
+  const typeWithoutUpdated = { ...typePayload }
+  delete (typeWithoutUpdated as AnyRow).updated_at
+
+  return [base, withoutUpdated, typePayload, typeWithoutUpdated]
+}
+
+async function saveSinglePaymentMethod(method: PaymentMethod, index: number) {
+  const now = new Date().toISOString()
+  const sortOrder = Math.max(1, Math.floor(Number(method.sortOrder) || index + 1))
+  const methodTypeCandidates = paymentMethodDbCandidates(method.type, method.name)
+  const isExistingUuid = isUuidLike(cleanText(method.id))
+  let lastError: unknown = null
+
+  for (const methodType of methodTypeCandidates) {
+    for (const payload of paymentMethodPayloadCandidates(method, methodType, sortOrder, now)) {
+      const result = isExistingUuid
+        ? await supabase.from('payment_methods').update(payload).eq('id', method.id)
+        : await supabase.from('payment_methods').insert(payload)
+
+      if (!result.error) return
+
+      lastError = result.error
+      if (isMissingColumnOrRelationError(result.error)) {
+        const message = errorMessage(result.error, '').toLowerCase()
+        if (message.includes('relation') || message.includes('payment_methods')) {
+          throw new Error('Payment methods table is missing. Please run the Step 04D.1D SQL patch first.')
+        }
+      }
+
+      if (!shouldTryFallbackPayload(result.error)) throw result.error
+    }
+  }
+
+  throw new Error(errorMessage(lastError, 'Unable to save payment method. Check payment_method_type enum values.'))
+}
+
+export async function savePaymentMethods(methods: PaymentMethod[]): Promise<PaymentMethod[]> {
+  for (let index = 0; index < methods.length; index += 1) {
+    const method = methods[index]
+
+    if (!cleanText(method.name)) throw new Error('Payment method name is required.')
+    if (!cleanText(method.accountName)) throw new Error(`Account name is required for ${method.name}.`)
+    if (!cleanText(method.accountNumber)) throw new Error(`Account number/code is required for ${method.name}.`)
+    if (!cleanText(method.instructions)) throw new Error(`Instructions are required for ${method.name}.`)
+
+    await saveSinglePaymentMethod(method, index)
+  }
+
+  return fetchPaymentMethods({ includeInactive: true })
+}
+
+export async function deletePaymentMethod(method: PaymentMethod): Promise<PaymentMethod[]> {
+  const id = cleanText(method.id)
+
+  if (!isUuidLike(id)) return fetchPaymentMethods({ includeInactive: true })
+
+  const result = await supabase.from('payment_methods').delete().eq('id', id)
+
+  if (result.error) {
+    if (isMissingColumnOrRelationError(result.error)) {
+      throw new Error('Payment methods table is missing. Please run the Step 04D.1D SQL patch first.')
+    }
+    throw result.error
+  }
+
+  return fetchPaymentMethods({ includeInactive: true })
+}
+
+
 function findRequestBagForOrder(row: AnyRow, requestBags: AnyRow[]) {
   const orderId = firstString(row, ['id'], '')
   if (!orderId) return undefined
@@ -1806,22 +2016,20 @@ function makeStoragePath(userId: string, orderId: string, file: File, prefix = '
   return `${userId}/${orderId}/${prefix}-${Date.now()}.${ext}`
 }
 
-function paymentMethodToDbValue(paymentMethodName: string) {
-  const raw = paymentMethodName.toLowerCase()
-  if (raw.includes('wallet') || raw.includes('mbo') || raw.includes('mpay') || raw.includes('mobile')) return 'mobile_wallet'
-  if (raw.includes('bank') || raw.includes('transfer') || raw.includes('bob') || raw.includes('bnb') || raw.includes('tbank')) return 'bank_transfer'
-  return 'other'
-}
 
 function paymentAdminNotes(payload: {
   transactionId: string
   paymentMethodName: string
+  paymentMethodId?: string
+  paymentMethodType?: PaymentMethod['type'] | string
   path: string
   note?: string
 }) {
   return [
     `Customer reference: ${payload.transactionId || 'Not provided'}`,
     `Customer selected method: ${payload.paymentMethodName}`,
+    payload.paymentMethodId ? `Customer selected method ID: ${payload.paymentMethodId}` : '',
+    payload.paymentMethodType ? `Customer selected method type: ${payload.paymentMethodType}` : '',
     `Storage path: ${payload.path}`,
     payload.note ? `Customer note: ${payload.note}` : '',
   ].filter(Boolean).join('\n')
@@ -1833,51 +2041,70 @@ async function insertPaymentWithKnownSchema(payload: {
   userId: string
   amount: number
   paymentMethodName: string
+  paymentMethodId?: string
+  paymentMethodType?: PaymentMethod['type'] | string
   transactionId: string
   path: string
   note?: string
 }) {
   const paymentTypeCandidates = ['full', 'advance', 'partial', 'balance', 'deposit', 'confirm_later']
+  const paymentMethodCandidates = paymentMethodDbCandidates(payload.paymentMethodType, payload.paymentMethodName)
   let lastError: unknown = null
   const adminNotes = paymentAdminNotes(payload)
 
   for (const paymentType of paymentTypeCandidates) {
-    const basePayload = {
-      order_id: payload.orderId,
-      quotation_id: payload.quotationId || null,
-      user_id: payload.userId,
-      payment_type: paymentType,
-      payment_method: paymentMethodToDbValue(payload.paymentMethodName),
-      amount: payload.amount,
-      currency: 'BTN',
-      proof_file_path: payload.path,
-      transaction_id: payload.transactionId || null,
-      admin_notes: adminNotes,
-    }
-    const legacyPayload = { ...basePayload }
-    delete (legacyPayload as Partial<typeof basePayload>).transaction_id
+    for (const paymentMethod of paymentMethodCandidates) {
+      const basePayload: AnyRow = {
+        order_id: payload.orderId,
+        quotation_id: payload.quotationId || null,
+        user_id: payload.userId,
+        payment_type: paymentType,
+        payment_method: paymentMethod,
+        payment_method_id: cleanText(payload.paymentMethodId) || null,
+        payment_method_name: cleanText(payload.paymentMethodName) || null,
+        amount: payload.amount,
+        currency: 'BTN',
+        proof_file_path: payload.path,
+        transaction_id: payload.transactionId || null,
+        admin_notes: adminNotes,
+      }
 
-    const candidates = [
-      { ...basePayload, status: 'pending' },
-      basePayload,
-      { ...legacyPayload, status: 'pending' },
-      legacyPayload,
-    ]
+      const withoutMethodSnapshot = { ...basePayload }
+      delete withoutMethodSnapshot.payment_method_id
+      delete withoutMethodSnapshot.payment_method_name
 
-    for (const candidate of candidates) {
-      const result = await supabase.from('payments').insert(candidate)
-      if (!result.error) return
+      const withoutTransaction = { ...basePayload }
+      delete withoutTransaction.transaction_id
 
-      lastError = result.error
-      if (!shouldTryFallbackPayload(result.error)) throw result.error
+      const minimalPayload = { ...withoutMethodSnapshot }
+      delete minimalPayload.transaction_id
+
+      const candidates = [
+        { ...basePayload, status: 'pending' },
+        basePayload,
+        { ...withoutMethodSnapshot, status: 'pending' },
+        withoutMethodSnapshot,
+        { ...withoutTransaction, status: 'pending' },
+        withoutTransaction,
+        { ...minimalPayload, status: 'pending' },
+        minimalPayload,
+      ]
+
+      for (const candidate of candidates) {
+        const result = await supabase.from('payments').insert(candidate)
+        if (!result.error) return
+
+        lastError = result.error
+        if (!shouldTryFallbackPayload(result.error)) throw result.error
+      }
     }
   }
 
-  throw new Error(errorMessage(lastError, 'Unable to create payment row. Check public.payment_type enum values.'))
+  throw new Error(errorMessage(lastError, 'Unable to create payment row. Check payment method/payment type enum values.'))
 }
 
 export async function submitCustomerPaymentProof(input: PaymentProofInput) {
-  const { order, userId, file, paymentMethodName, transactionId, amount, note } = input
+  const { order, userId, file, paymentMethodName, paymentMethodId, paymentMethodType, transactionId, amount, note } = input
   const path = makeStoragePath(userId, order.id, file, 'payment')
 
   const { error: uploadError } = await supabase.storage.from('order-screenshots').upload(path, file, {
@@ -1895,6 +2122,8 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
       userId,
       amount,
       paymentMethodName,
+      paymentMethodId,
+      paymentMethodType,
       transactionId,
       path,
       note,

@@ -19,7 +19,7 @@ export type UserRole = 'customer' | 'admin';
 
 export type NotificationType = 'order_update' | 'quotation' | 'payment' | 'promotion' | 'system';
 
-export type PaymentMethodType = 'bank_transfer' | 'mobile_wallet';
+export type PaymentMethodType = 'bank_transfer' | 'mobile_banking' | 'mobile_wallet' | 'other';
 
 export type QuotationStatus = 'pending' | 'sent' | 'approved' | 'rejected' | 'expired';
 
@@ -321,6 +321,8 @@ export interface PaymentMethod {
   instructions: string;
   isActive: boolean;
   sortOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ============ Paste Link Order ============

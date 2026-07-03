@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Copy, Upload, CheckCircle, Wallet, Building2 } from 'lucide-react';
-import { paymentMethods } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchCustomerOrderById, submitCustomerPaymentProof } from '@/lib/customerOrders';
-import type { Order } from '@/types';
+import { fetchCustomerOrderById, fetchPaymentMethods, submitCustomerPaymentProof } from '@/lib/customerOrders';
+import type { Order, PaymentMethod } from '@/types';
 
 const ALLOWED_SCREENSHOT_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024;
@@ -28,7 +27,8 @@ function getDeliverySummary(order: Order) {
     order.shippingAddress?.dzongkhag,
   ].filter(Boolean);
 
-  const hubLabel = order.deliveryHub?.name ? `${order.deliveryHub.name}` : '';
+  const hubName = String(order.deliveryHub?.name ?? '').trim();
+  const hubLabel = hubName && !/^selected hub$/i.test(hubName) ? hubName : '';
   const addressLabel = addressParts.join(', ');
 
   return [hubLabel, addressLabel].filter(Boolean).join(' • ') || 'Delivery address will be confirmed.';
@@ -67,7 +67,9 @@ export default function PaymentUpload() {
   const { user, loading: authLoading } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedMethod, setSelectedMethod] = useState(paymentMethods[0]?.id ?? '');
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
+  const [selectedMethod, setSelectedMethod] = useState('');
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [amountPaid, setAmountPaid] = useState('');
@@ -103,11 +105,34 @@ export default function PaymentUpload() {
     }
   }, [orderId, user]);
 
+  const loadPaymentMethods = useCallback(async () => {
+    setPaymentMethodsLoading(true);
+
+    try {
+      const methods = await fetchPaymentMethods({ includeInactive: false });
+      setPaymentMethods(methods);
+      setSelectedMethod((current) => {
+        if (current && methods.some((method) => method.id === current)) return current;
+        return methods[0]?.id ?? '';
+      });
+    } catch (err) {
+      console.error('Failed to load payment methods:', err);
+      setPaymentMethods([]);
+      setError(err instanceof Error ? err.message : 'Unable to load payment methods.');
+    } finally {
+      setPaymentMethodsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!authLoading) {
       loadOrder();
     }
   }, [authLoading, loadOrder]);
+
+  useEffect(() => {
+    loadPaymentMethods();
+  }, [loadPaymentMethods]);
 
   useEffect(() => {
     return () => {
@@ -118,8 +143,8 @@ export default function PaymentUpload() {
   }, [screenshotPreview]);
 
   const selectedPaymentMethod = useMemo(
-    () => paymentMethods.find((method) => method.id === selectedMethod) ?? paymentMethods[0],
-    [selectedMethod]
+    () => paymentMethods.find((method) => method.id === selectedMethod) ?? paymentMethods[0] ?? null,
+    [paymentMethods, selectedMethod]
   );
 
   const paymentSummary = getPaymentSummary(order);
@@ -210,6 +235,8 @@ export default function PaymentUpload() {
         userId: user.id,
         file: screenshotFile,
         paymentMethodName: selectedPaymentMethod.name,
+        paymentMethodId: selectedPaymentMethod.id,
+        paymentMethodType: selectedPaymentMethod.type,
         transactionId: transactionId.trim(),
         amount: Number(amountPaid),
         note: note.trim(),
@@ -416,94 +443,114 @@ export default function PaymentUpload() {
         <div>
           <h3 className="text-base font-semibold text-gray-900 mb-3">Select Payment Method</h3>
           <div className="space-y-2">
-            {paymentMethods.map((paymentMethod) => (
-              <button
-                key={paymentMethod.id}
-                type="button"
-                onClick={() => setSelectedMethod(paymentMethod.id)}
-                className={`w-full text-left p-4 rounded-xl border-2 transition-colors ${
-                  selectedMethod === paymentMethod.id
-                    ? 'border-amber-500 bg-amber-50/50'
-                    : 'border-neutral-200 bg-white'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      selectedMethod === paymentMethod.id ? 'bg-amber-500' : 'bg-neutral-100'
-                    }`}
-                  >
-                    {paymentMethod.type === 'bank_transfer' ? (
-                      <Building2
-                        size={18}
-                        className={selectedMethod === paymentMethod.id ? 'text-white' : 'text-neutral-500'}
-                      />
-                    ) : (
-                      <Wallet
-                        size={18}
-                        className={selectedMethod === paymentMethod.id ? 'text-white' : 'text-neutral-500'}
-                      />
-                    )}
+            {paymentMethodsLoading ? (
+              [1, 2].map((item) => (
+                <div key={item} className="h-24 rounded-xl bg-white border border-neutral-200 animate-pulse" />
+              ))
+            ) : paymentMethods.length === 0 ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                No active payment methods are available. Please contact Shop2Bhutan support.
+              </div>
+            ) : (
+              paymentMethods.map((paymentMethod) => (
+                <button
+                  key={paymentMethod.id}
+                  type="button"
+                  onClick={() => setSelectedMethod(paymentMethod.id)}
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-colors ${
+                    selectedMethod === paymentMethod.id
+                      ? 'border-amber-500 bg-amber-50/50'
+                      : 'border-neutral-200 bg-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        selectedMethod === paymentMethod.id ? 'bg-amber-500' : 'bg-neutral-100'
+                      }`}
+                    >
+                      {paymentMethod.type === 'bank_transfer' ? (
+                        <Building2
+                          size={18}
+                          className={selectedMethod === paymentMethod.id ? 'text-white' : 'text-neutral-500'}
+                        />
+                      ) : (
+                        <Wallet
+                          size={18}
+                          className={selectedMethod === paymentMethod.id ? 'text-white' : 'text-neutral-500'}
+                        />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">{paymentMethod.name}</p>
+                      <p className="text-xs text-neutral-500">{paymentMethodTypeLabel(paymentMethod.type)}</p>
+                    </div>
+                    <div
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        selectedMethod === paymentMethod.id ? 'border-amber-500' : 'border-neutral-300'
+                      }`}
+                    >
+                      {selectedMethod === paymentMethod.id && <div className="w-2.5 h-2.5 bg-amber-500 rounded-full" />}
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">{paymentMethod.name}</p>
-                    <p className="text-xs text-neutral-500">{paymentMethodTypeLabel(paymentMethod.type)}</p>
-                  </div>
-                  <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      selectedMethod === paymentMethod.id ? 'border-amber-500' : 'border-neutral-300'
-                    }`}
-                  >
-                    {selectedMethod === paymentMethod.id && <div className="w-2.5 h-2.5 bg-amber-500 rounded-full" />}
-                  </div>
-                </div>
 
-                {selectedMethod === paymentMethod.id && (
-                  <div className="mt-3 pt-3 border-t border-neutral-200 space-y-2">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-xs text-neutral-500">Type</span>
-                      <span className="text-sm font-medium text-right">{paymentMethodTypeLabel(paymentMethod.type)}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-xs text-neutral-500">Account Name</span>
-                      <span className="text-sm font-medium text-right">{paymentMethod.accountName}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-xs text-neutral-500">Account Number / Code</span>
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-sm font-mono font-medium text-right truncate">
-                          {paymentMethod.accountNumber}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            copyToClipboard(paymentMethod.accountNumber, `acc-${paymentMethod.id}`);
-                          }}
-                          className="p-1 text-neutral-400 hover:text-amber-600"
-                          aria-label="Copy account number or code"
-                        >
-                          {copiedField === `acc-${paymentMethod.id}` ? (
-                            <CheckCircle size={14} className="text-emerald-500" />
-                          ) : (
-                            <Copy size={14} />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                    {paymentMethod.bankName && (
+                  {selectedMethod === paymentMethod.id && (
+                    <div className="mt-3 pt-3 border-t border-neutral-200 space-y-2">
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-xs text-neutral-500">Bank</span>
-                        <span className="text-sm text-right">{paymentMethod.bankName}</span>
+                        <span className="text-xs text-neutral-500">Type</span>
+                        <span className="text-sm font-medium text-right">{paymentMethodTypeLabel(paymentMethod.type)}</span>
                       </div>
-                    )}
-                    <p className="text-xs text-neutral-500 bg-neutral-50 p-2 rounded-lg mt-2">
-                      {paymentMethod.instructions}
-                    </p>
-                  </div>
-                )}
-              </button>
-            ))}
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-xs text-neutral-500">Account Name</span>
+                        <span className="text-sm font-medium text-right">{paymentMethod.accountName || '-'}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-xs text-neutral-500">Account Number / Code</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm font-mono font-medium text-right truncate">
+                            {paymentMethod.accountNumber || '-'}
+                          </span>
+                          {paymentMethod.accountNumber && (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                copyToClipboard(paymentMethod.accountNumber, `acc-${paymentMethod.id}`);
+                              }}
+                              className="p-1 text-neutral-400 hover:text-amber-600"
+                              aria-label="Copy account number or code"
+                            >
+                              {copiedField === `acc-${paymentMethod.id}` ? (
+                                <CheckCircle size={14} className="text-emerald-500" />
+                              ) : (
+                                <Copy size={14} />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {paymentMethod.bankName && (
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-xs text-neutral-500">Bank</span>
+                          <span className="text-sm text-right">{paymentMethod.bankName}</span>
+                        </div>
+                      )}
+                      {paymentMethod.branch && (
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-xs text-neutral-500">Branch</span>
+                          <span className="text-sm text-right">{paymentMethod.branch}</span>
+                        </div>
+                      )}
+                      {paymentMethod.instructions && (
+                        <p className="text-xs text-neutral-500 bg-neutral-50 p-2 rounded-lg mt-2">
+                          {paymentMethod.instructions}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </button>
+              ))
+            )}
           </div>
         </div>
 
@@ -579,7 +626,7 @@ export default function PaymentUpload() {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!canSubmit}
+            disabled={!canSubmit || paymentMethodsLoading}
             className="w-full h-12 bg-amber-500 text-white font-semibold rounded-xl hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? 'Uploading...' : 'Submit Payment Proof'}
