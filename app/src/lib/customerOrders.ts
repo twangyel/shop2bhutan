@@ -1404,7 +1404,41 @@ function paymentMethodPayloadCandidates(method: PaymentMethod, methodType: strin
   return [base, withoutUpdated, typePayload, typeWithoutUpdated]
 }
 
+function paymentMethodRpcType(method: PaymentMethod) {
+  return paymentMethodDbCandidates(method.type, method.name)[0] || 'other'
+}
+
+async function upsertPaymentMethodViaRpc(method: PaymentMethod, index: number) {
+  const id = cleanText(method.id)
+  const sortOrder = Math.max(1, Math.floor(Number(method.sortOrder) || index + 1))
+  const result = await supabase.rpc('upsert_payment_method_admin', {
+    p_method_id: isUuidLike(id) ? id : null,
+    p_name: cleanText(method.name) || 'Payment Method',
+    p_method_type: paymentMethodRpcType(method),
+    p_account_number: cleanText(method.accountNumber),
+    p_account_name: cleanText(method.accountName) || 'Shop2Bhutan',
+    p_bank_name: cleanText(method.bankName),
+    p_branch: cleanText(method.branch),
+    p_qr_image: cleanText(method.qrImage),
+    p_instructions: cleanText(method.instructions),
+    p_is_active: Boolean(method.isActive),
+    p_sort_order: sortOrder,
+  })
+
+  if (!result.error) return true
+
+  if (isMissingColumnOrRelationError(result.error)) {
+    const message = errorMessage(result.error, '').toLowerCase()
+    if (message.includes('upsert_payment_method_admin') || message.includes('function')) return false
+  }
+
+  throw result.error
+}
+
 async function saveSinglePaymentMethod(method: PaymentMethod, index: number) {
+  const savedViaRpc = await upsertPaymentMethodViaRpc(method, index)
+  if (savedViaRpc) return
+
   const now = new Date().toISOString()
   const sortOrder = Math.max(1, Math.floor(Number(method.sortOrder) || index + 1))
   const methodTypeCandidates = paymentMethodDbCandidates(method.type, method.name)
@@ -1414,12 +1448,12 @@ async function saveSinglePaymentMethod(method: PaymentMethod, index: number) {
   for (const methodType of methodTypeCandidates) {
     for (const payload of paymentMethodPayloadCandidates(method, methodType, sortOrder, now)) {
       const result = isExistingUuid
-        ? await supabase.from('payment_methods').update(payload).eq('id', method.id).select('id').maybeSingle()
-        : await supabase.from('payment_methods').insert(payload).select('id').maybeSingle()
+        ? await supabase.from('payment_methods').update(payload, { count: 'exact' }).eq('id', method.id)
+        : await supabase.from('payment_methods').insert(payload, { count: 'exact' })
 
-      if (!result.error && result.data) return
+      if (!result.error && (result.count === null || result.count > 0)) return
 
-      if (!result.error && !result.data) {
+      if (!result.error && result.count === 0) {
         lastError = new Error('No payment method row was saved. Please check admin RLS policies for payment_methods.')
         continue
       }
@@ -1453,23 +1487,44 @@ export async function savePaymentMethods(methods: PaymentMethod[]): Promise<Paym
   return fetchPaymentMethods({ includeInactive: true })
 }
 
+async function deletePaymentMethodViaRpc(id: string) {
+  const result = await supabase.rpc('delete_payment_method_admin', {
+    p_method_id: id,
+    p_hard_delete: true,
+  })
+
+  if (!result.error) return true
+
+  if (isMissingColumnOrRelationError(result.error)) {
+    const message = errorMessage(result.error, '').toLowerCase()
+    if (message.includes('delete_payment_method_admin') || message.includes('function')) return false
+  }
+
+  throw result.error
+}
+
 export async function deletePaymentMethod(method: PaymentMethod): Promise<PaymentMethod[]> {
   const id = cleanText(method.id)
 
   if (!isUuidLike(id)) return fetchPaymentMethods({ includeInactive: true })
 
-  const hardDelete = await supabase.from('payment_methods').delete().eq('id', id).select('id').maybeSingle()
+  const deletedViaRpc = await deletePaymentMethodViaRpc(id)
+  if (deletedViaRpc) return fetchPaymentMethods({ includeInactive: true })
 
-  if (!hardDelete.error && hardDelete.data) return fetchPaymentMethods({ includeInactive: true })
+  const hardDelete = await supabase.from('payment_methods').delete({ count: 'exact' }).eq('id', id)
+
+  if (!hardDelete.error && (hardDelete.count === null || hardDelete.count > 0)) {
+    return fetchPaymentMethods({ includeInactive: true })
+  }
 
   const softDelete = await supabase
     .from('payment_methods')
-    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .update({ is_active: false, updated_at: new Date().toISOString() }, { count: 'exact' })
     .eq('id', id)
-    .select('id')
-    .maybeSingle()
 
-  if (!softDelete.error && softDelete.data) return fetchPaymentMethods({ includeInactive: true })
+  if (!softDelete.error && (softDelete.count === null || softDelete.count > 0)) {
+    return fetchPaymentMethods({ includeInactive: true })
+  }
 
   const lastError = softDelete.error ?? hardDelete.error
   if (lastError) {
@@ -1479,7 +1534,7 @@ export async function deletePaymentMethod(method: PaymentMethod): Promise<Paymen
     throw lastError
   }
 
-  throw new Error('Payment method was not deleted. Please run the Step 04E admin RLS SQL patch and try again.')
+  throw new Error('Payment method was not changed. Please confirm your logged-in admin user exists in public.user_roles as admin or super_admin.')
 }
 
 export async function verifyAdminPaymentById(paymentId: string, adminId?: string) {
