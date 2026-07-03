@@ -33,24 +33,25 @@ const statCards = [
   },
 ];
 
+const PERIODS = ['7 Days', '30 Days', 'This Month'];
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const recentOrders = orders.slice(0, 8);
-
   const pieData = orderStatusCounts.filter(s => s.count > 0).slice(0, 6);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
         {statCards.map(card => {
           const Icon = card.icon;
           return (
-            <div key={card.title} className="bg-white rounded-xl p-5 shadow-card">
-              <div className="flex items-start justify-between">
-                <div>
+            <div key={card.title} className="bg-white rounded-xl p-4 md:p-5 shadow-card">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
                   <p className="text-sm text-neutral-500">{card.title}</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{card.value}</p>
+                  <p className="text-xl md:text-2xl font-bold text-gray-900 mt-1">{card.value}</p>
                   {card.positive !== null && (
                     <div className={`flex items-center gap-1 mt-1 text-xs font-medium ${
                       card.positive ? 'text-emerald-600' : 'text-red-600'
@@ -63,8 +64,8 @@ export default function Dashboard() {
                     <p className="text-xs text-orange-600 font-medium mt-1">{card.change}</p>
                   )}
                 </div>
-                <div className={`w-12 h-12 rounded-xl ${card.accent} flex items-center justify-center`}>
-                  <Icon size={22} />
+                <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl ${card.accent} flex items-center justify-center shrink-0`}>
+                  <Icon size={20} />
                 </div>
               </div>
             </div>
@@ -73,16 +74,16 @@ export default function Dashboard() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Revenue (Nu.) Chart */}
-        <div className="lg:col-span-2 bg-white rounded-xl p-5 shadow-card">
-          <div className="flex items-center justify-between mb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
+        {/* Revenue Chart */}
+        <div className="lg:col-span-2 bg-white rounded-xl p-4 md:p-5 shadow-card">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <h3 className="text-base font-semibold text-gray-900">Revenue (Nu.) Overview</h3>
-            <div className="flex gap-1">
-              {['7 Days', '30 Days', 'This Month'].map(period => (
+            <div className="flex gap-1 flex-wrap">
+              {PERIODS.map(period => (
                 <button
                   key={period}
-                  className={`px-3 py-1 text-xs font-medium rounded-full ${
+                  className={`px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
                     period === '7 Days' ? 'bg-amber-500 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                   }`}
                 >
@@ -91,11 +92,11 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-          <div className="h-64">
+          <div className="h-56 md:h-64">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={revenueData}>
                 <defs>
-                  <linearGradient id="colorRevenue (Nu.)" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.1}/>
                     <stop offset="95%" stopColor="#F59E0B" stopOpacity={0}/>
                   </linearGradient>
@@ -103,29 +104,29 @@ export default function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 12, fill: '#9CA3AF' }} axisLine={false} tickLine={false}
-                  tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                  tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
                 <Tooltip
                   formatter={(value: number) => [`Nu. ${value.toLocaleString()}`, 'Revenue (Nu.)']}
                   contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
                 />
-                <Area type="monotone" dataKey="amount" stroke="#F59E0B" strokeWidth={2} fill="url(#colorRevenue (Nu.))" />
+                <Area type="monotone" dataKey="amount" stroke="#F59E0B" strokeWidth={2} fill="url(#colorRevenue)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Order Status Distribution */}
-        <div className="bg-white rounded-xl p-5 shadow-card">
+        <div className="bg-white rounded-xl p-4 md:p-5 shadow-card">
           <h3 className="text-base font-semibold text-gray-900 mb-4">Orders by Status</h3>
-          <div className="h-48">
+          <div className="h-44 md:h-48">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={pieData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
+                  innerRadius={45}
+                  outerRadius={75}
                   paddingAngle={2}
                   dataKey="count"
                 >
@@ -137,10 +138,10 @@ export default function Dashboard() {
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-2 space-y-1">
+          <div className="mt-2 space-y-1.5">
             {pieData.slice(0, 4).map(item => (
               <div key={item.status} className="flex items-center gap-2 text-xs">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
                 <span className="text-neutral-600 flex-1 capitalize">{item.status.replace(/_/g, ' ')}</span>
                 <span className="font-medium">{item.count}</span>
               </div>
@@ -150,17 +151,17 @@ export default function Dashboard() {
       </div>
 
       {/* Recent Orders + Top Products */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
         {/* Recent Orders */}
-        <div className="bg-white rounded-xl p-5 shadow-card">
+        <div className="bg-white rounded-xl p-4 md:p-5 shadow-card">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-semibold text-gray-900">Recent Orders</h3>
-            <button onClick={() => navigate('/admin/orders')} className="text-xs text-amber-600 font-medium">
+            <button onClick={() => navigate('/admin/orders')} className="text-xs text-amber-600 font-medium whitespace-nowrap">
               View All →
             </button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="overflow-x-auto -mx-1 px-1">
+            <table className="w-full min-w-[480px]">
               <thead>
                 <tr className="text-left border-b border-neutral-100">
                   <th className="pb-2 text-xs font-medium text-neutral-500 uppercase tracking-wider">Order</th>
@@ -193,14 +194,14 @@ export default function Dashboard() {
         </div>
 
         {/* Top Products */}
-        <div className="bg-white rounded-xl p-5 shadow-card">
+        <div className="bg-white rounded-xl p-4 md:p-5 shadow-card">
           <h3 className="text-base font-semibold text-gray-900 mb-4">Top Selling Products</h3>
           <div className="space-y-3">
             {topProducts.map((product, i) => {
               const maxRevenue = topProducts[0].revenue;
               return (
                 <div key={product.id} className="flex items-center gap-3">
-                  <span className="w-5 text-xs font-bold text-neutral-400">{i + 1}</span>
+                  <span className="w-5 text-xs font-bold text-neutral-400 shrink-0">{i + 1}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
                     <div className="flex items-center gap-2 mt-0.5">
@@ -212,7 +213,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <p className="text-xs font-medium">{product.unitsSold} sold</p>
                     <p className="text-xs text-neutral-500">Nu. {(product.revenue / 1000).toFixed(1)}k</p>
                   </div>
