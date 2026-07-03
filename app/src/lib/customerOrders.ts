@@ -54,6 +54,28 @@ export type PaymentProofInput = {
   note?: string
 }
 
+export type AdminPaymentRecord = Payment & {
+  orderNumber: string
+  customerName: string
+  customerEmail: string
+  customerPhone: string
+  orderStatus: OrderStatus
+  proofPath?: string
+}
+
+export type AdminCustomerRecord = {
+  id: string
+  name: string
+  email: string
+  phone: string
+  dzongkhag: string
+  orders: number
+  totalSpent: number
+  joined: string
+  lastOrderAt?: string
+  isActive: boolean
+}
+
 export type AdminQuotationItemInput = {
   orderItemId: string
   productName: string
@@ -1198,7 +1220,7 @@ async function makePayment(payment: AnyRow | undefined): Promise<Payment | undef
     id: firstString(payment, ['id'], ''),
     orderId: firstString(payment, ['order_id'], ''),
     amount: firstNumber(payment, ['amount', 'total_amount', 'advance_paid'], 0),
-    method: firstString(payment, ['method', 'payment_method'], ''),
+    method: firstString(payment, ['payment_method_name', 'method_name', 'method', 'payment_method'], ''),
     transactionId: firstString(payment, ['transaction_id', 'reference_id', 'txn_id'], ''),
     screenshotUrl: screenshotUrl || proofPath,
     status: normalizePaymentStatus(firstValue(payment, ['status'])),
@@ -1392,10 +1414,15 @@ async function saveSinglePaymentMethod(method: PaymentMethod, index: number) {
   for (const methodType of methodTypeCandidates) {
     for (const payload of paymentMethodPayloadCandidates(method, methodType, sortOrder, now)) {
       const result = isExistingUuid
-        ? await supabase.from('payment_methods').update(payload).eq('id', method.id)
-        : await supabase.from('payment_methods').insert(payload)
+        ? await supabase.from('payment_methods').update(payload).eq('id', method.id).select('id').maybeSingle()
+        : await supabase.from('payment_methods').insert(payload).select('id').maybeSingle()
 
-      if (!result.error) return
+      if (!result.error && result.data) return
+
+      if (!result.error && !result.data) {
+        lastError = new Error('No payment method row was saved. Please check admin RLS policies for payment_methods.')
+        continue
+      }
 
       lastError = result.error
       if (isMissingColumnOrRelationError(result.error)) {
@@ -1409,7 +1436,7 @@ async function saveSinglePaymentMethod(method: PaymentMethod, index: number) {
     }
   }
 
-  throw new Error(errorMessage(lastError, 'Unable to save payment method. Check payment_method_type enum values.'))
+  throw new Error(errorMessage(lastError, 'Unable to save payment method.'))
 }
 
 export async function savePaymentMethods(methods: PaymentMethod[]): Promise<PaymentMethod[]> {
@@ -1418,7 +1445,6 @@ export async function savePaymentMethods(methods: PaymentMethod[]): Promise<Paym
 
     if (!cleanText(method.name)) throw new Error('Payment method name is required.')
     if (!cleanText(method.accountName)) throw new Error(`Account name is required for ${method.name}.`)
-    if (!cleanText(method.accountNumber)) throw new Error(`Account number/code is required for ${method.name}.`)
     if (!cleanText(method.instructions)) throw new Error(`Instructions are required for ${method.name}.`)
 
     await saveSinglePaymentMethod(method, index)
@@ -1432,18 +1458,170 @@ export async function deletePaymentMethod(method: PaymentMethod): Promise<Paymen
 
   if (!isUuidLike(id)) return fetchPaymentMethods({ includeInactive: true })
 
-  const result = await supabase.from('payment_methods').delete().eq('id', id)
+  const hardDelete = await supabase.from('payment_methods').delete().eq('id', id).select('id').maybeSingle()
 
-  if (result.error) {
-    if (isMissingColumnOrRelationError(result.error)) {
+  if (!hardDelete.error && hardDelete.data) return fetchPaymentMethods({ includeInactive: true })
+
+  const softDelete = await supabase
+    .from('payment_methods')
+    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('id')
+    .maybeSingle()
+
+  if (!softDelete.error && softDelete.data) return fetchPaymentMethods({ includeInactive: true })
+
+  const lastError = softDelete.error ?? hardDelete.error
+  if (lastError) {
+    if (isMissingColumnOrRelationError(lastError)) {
       throw new Error('Payment methods table is missing. Please run the Step 04D.1D SQL patch first.')
     }
-    throw result.error
+    throw lastError
   }
 
-  return fetchPaymentMethods({ includeInactive: true })
+  throw new Error('Payment method was not deleted. Please run the Step 04E admin RLS SQL patch and try again.')
 }
 
+export async function verifyAdminPaymentById(paymentId: string, adminId?: string) {
+  await updatePaymentReviewStatus({
+    paymentId,
+    status: 'verified',
+    adminId,
+    adminNote: 'Verified from admin payments panel.',
+  })
+}
+
+export async function rejectAdminPaymentById(paymentId: string, adminId?: string, adminNote?: string) {
+  await updatePaymentReviewStatus({
+    paymentId,
+    status: 'rejected',
+    adminId,
+    adminNote: adminNote || 'Rejected from admin payments panel.',
+  })
+}
+
+function paymentRowOrderId(row: AnyRow) {
+  return firstString(row, ['order_id'], '')
+}
+
+function paymentProofPath(row: AnyRow) {
+  return firstString(row, ['proof_file_path', 'screenshot_url', 'payment_proof_url', 'proof_url'], '')
+}
+
+async function makeAdminPaymentRecord(row: AnyRow, orders: AnyRow[], profiles: AnyRow[]): Promise<AdminPaymentRecord> {
+  const payment = await makePayment(row)
+  const orderRow = orders.find((order) => String(order.id ?? '') === paymentRowOrderId(row))
+  const profile = orderRow ? findProfileForOrder(orderRow, profiles) : profiles.find((item) => String(item.id ?? '') === firstString(row, ['user_id'], ''))
+  const fallbackUser = makeFallbackUser(orderRow ?? row, firstString(row, ['customer_email', 'email'], ''), profiles)
+
+  return {
+    id: payment?.id || firstString(row, ['id'], ''),
+    orderId: payment?.orderId || paymentRowOrderId(row),
+    orderNumber: firstString(orderRow, ['order_no', 'order_number', 'public_id'], paymentRowOrderId(row).slice(0, 8).toUpperCase()),
+    customerName:
+      firstString(orderRow, ['customer_name', 'recipient_name', 'delivery_name', 'full_name', 'name'], '') ||
+      firstString(profile, ['full_name', 'name'], '') ||
+      fallbackUser.name,
+    customerEmail: firstString(orderRow, ['customer_email', 'email'], firstString(profile, ['email'], fallbackUser.email)),
+    customerPhone:
+      firstString(orderRow, ['customer_phone', 'recipient_phone', 'delivery_phone', 'phone', 'whatsapp'], '') ||
+      firstString(profile, ['phone'], fallbackUser.phone),
+    amount: payment?.amount ?? firstNumber(row, ['amount', 'total_amount', 'advance_paid'], 0),
+    method: payment?.method || firstString(row, ['payment_method_name', 'method_name', 'payment_method', 'method'], ''),
+    transactionId: payment?.transactionId || firstString(row, ['transaction_id', 'reference_id', 'txn_id'], ''),
+    screenshotUrl: payment?.screenshotUrl,
+    status: payment?.status ?? normalizePaymentStatus(firstValue(row, ['status'])),
+    verifiedBy: payment?.verifiedBy,
+    verifiedAt: payment?.verifiedAt,
+    notes: payment?.notes ?? firstString(row, ['admin_notes', 'notes'], ''),
+    createdAt: payment?.createdAt || firstString(row, ['submitted_at', 'created_at'], ''),
+    orderStatus: normalizeOrderStatus(firstValue(orderRow, ['status', 'order_status'])),
+    proofPath: paymentProofPath(row),
+  }
+}
+
+export async function fetchAdminPayments(): Promise<AdminPaymentRecord[]> {
+  const { data, error } = await supabase
+    .from('payments')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    if (isMissingColumnOrRelationError(error)) return []
+    throw error
+  }
+
+  const paymentRows = (data ?? []) as AnyRow[]
+  const orderIds = Array.from(new Set(paymentRows.map((row) => paymentRowOrderId(row)).filter(Boolean)))
+  const userIds = Array.from(new Set(paymentRows.map((row) => firstString(row, ['user_id'], '')).filter(Boolean)))
+  const orderRows = await safeSelectIn('orders', 'id', orderIds)
+  const ownerIds = Array.from(
+    new Set([
+      ...userIds,
+      ...orderRows.flatMap((row) => ORDER_OWNER_COLUMNS.map((column) => firstString(row, [column], ''))),
+    ].filter(Boolean))
+  )
+  const profiles = await safeSelectIn('profiles', 'id', ownerIds)
+  const mapped = await Promise.all(paymentRows.map((row) => makeAdminPaymentRecord(row, orderRows, profiles)))
+
+  return mapped.sort((a, b) => {
+    const bTime = new Date(b.createdAt || 0).getTime() || 0
+    const aTime = new Date(a.createdAt || 0).getTime() || 0
+    return bTime - aTime
+  })
+}
+
+export async function fetchAdminCustomers(): Promise<AdminCustomerRecord[]> {
+  const { data: profileData, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    if (isMissingColumnOrRelationError(error)) return []
+    throw error
+  }
+
+  const profiles = (profileData ?? []) as AnyRow[]
+  const { data: orderData, error: orderError } = await supabase.from('orders').select('*')
+  if (orderError && !isMissingColumnOrRelationError(orderError)) throw orderError
+
+  const { data: paymentData, error: paymentError } = await supabase.from('payments').select('*')
+  if (paymentError && !isMissingColumnOrRelationError(paymentError)) throw paymentError
+
+  const orders = (orderData ?? []) as AnyRow[]
+  const payments = (paymentData ?? []) as AnyRow[]
+  const verifiedPayments = payments.filter((payment) => normalizePaymentStatus(firstValue(payment, ['status'])) === 'verified')
+
+  return profiles
+    .map((profile) => {
+      const id = firstString(profile, ['id'], '')
+      const customerOrders = orders.filter((order) => ORDER_OWNER_COLUMNS.some((column) => firstString(order, [column], '') === id))
+      const customerOrderIds = new Set(customerOrders.map((order) => firstString(order, ['id'], '')).filter(Boolean))
+      const totalSpent = verifiedPayments
+        .filter((payment) => customerOrderIds.has(firstString(payment, ['order_id'], '')) || firstString(payment, ['user_id'], '') === id)
+        .reduce((sum, payment) => sum + firstNumber(payment, ['amount', 'total_amount', 'advance_paid'], 0), 0)
+      const orderDates = customerOrders
+        .map((order) => firstString(order, ['created_at', 'updated_at'], ''))
+        .filter(Boolean)
+        .sort()
+      const lastOrderAt = orderDates.length ? orderDates[orderDates.length - 1] : ''
+
+      return {
+        id,
+        name: firstString(profile, ['full_name', 'name', 'display_name'], firstString(profile, ['email'], 'Customer')),
+        email: firstString(profile, ['email'], ''),
+        phone: firstString(profile, ['phone', 'mobile', 'whatsapp'], ''),
+        dzongkhag: firstString(profile, ['dzongkhag', 'district'], ''),
+        orders: customerOrders.length,
+        totalSpent,
+        joined: firstString(profile, ['created_at'], ''),
+        lastOrderAt,
+        isActive: Boolean(firstValue(profile, ['is_active', 'active']) ?? true),
+      }
+    })
+    .filter((customer) => customer.id)
+}
 
 function findRequestBagForOrder(row: AnyRow, requestBags: AnyRow[]) {
   const orderId = firstString(row, ['id'], '')
