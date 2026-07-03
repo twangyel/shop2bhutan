@@ -1,45 +1,89 @@
-import { useCallback, useEffect, useMemo, useState, type ElementType } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, CheckCheck, CreditCard, FileText, Info, RefreshCw, ShoppingBag, Tag } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import EmptyState from '@/components/shared/EmptyState';
+import {
+  AlertCircle,
+  ArrowLeft,
+  Bell,
+  CheckCheck,
+  ChevronRight,
+  CreditCard,
+  FileText,
+  Megaphone,
+  Package,
+  RefreshCw,
+  ShieldCheck,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   fetchCustomerNotifications,
   markAllCustomerNotificationsRead,
   markCustomerNotificationRead,
 } from '@/lib/customerOrders';
-import type { Notification } from '@/types';
+import type { Notification as AppNotification, NotificationType } from '@/types';
 
-const typeConfig: Record<string, { icon: ElementType; bg: string; iconColor: string; label: string }> = {
-  order_update: { icon: ShoppingBag, bg: 'bg-amber-50', iconColor: 'text-amber-600', label: 'Order' },
-  quotation: { icon: FileText, bg: 'bg-violet-50', iconColor: 'text-violet-600', label: 'Quotation' },
-  payment: { icon: CreditCard, bg: 'bg-emerald-50', iconColor: 'text-emerald-600', label: 'Payment' },
-  promotion: { icon: Tag, bg: 'bg-pink-50', iconColor: 'text-pink-600', label: 'Offer' },
-  system: { icon: Info, bg: 'bg-neutral-100', iconColor: 'text-neutral-500', label: 'System' },
-};
+const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
 
-function timeAgo(value: string) {
-  const createdAt = value ? new Date(value) : new Date();
-  if (Number.isNaN(createdAt.getTime())) return 'Recently';
-  return formatDistanceToNow(createdAt, { addSuffix: true });
+function formatBhutanDateTime(value?: string) {
+  if (!value) return '';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const dateText = new Intl.DateTimeFormat('en-US', {
+    timeZone: BHUTAN_TIME_ZONE,
+    month: 'short',
+    day: 'numeric',
+  }).format(date);
+
+  const timeText = new Intl.DateTimeFormat('en-US', {
+    timeZone: BHUTAN_TIME_ZONE,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date);
+
+  return `${dateText}, ${timeText} BTT`;
+}
+
+function notificationIcon(type: NotificationType) {
+  const className = 'h-5 w-5';
+
+  if (type === 'payment') return <CreditCard className={className} />;
+  if (type === 'quotation') return <FileText className={className} />;
+  if (type === 'order_update') return <Package className={className} />;
+  if (type === 'promotion') return <Megaphone className={className} />;
+
+  return <Bell className={className} />;
+}
+
+function notificationTone(type: NotificationType) {
+  if (type === 'payment') return 'bg-emerald-50 text-emerald-600';
+  if (type === 'quotation') return 'bg-amber-50 text-amber-600';
+  if (type === 'order_update') return 'bg-blue-50 text-blue-600';
+  if (type === 'promotion') return 'bg-purple-50 text-purple-600';
+  return 'bg-neutral-100 text-neutral-600';
+}
+
+function notificationTypeLabel(type: NotificationType) {
+  if (type === 'payment') return 'Payment';
+  if (type === 'quotation') return 'Quotation';
+  if (type === 'order_update') return 'Order Update';
+  if (type === 'promotion') return 'Promotion';
+  return 'System';
 }
 
 export default function Notifications() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [markingAll, setMarkingAll] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const unreadCount = useMemo(
-    () => notifications.filter((notification) => !notification.isRead).length,
-    [notifications]
-  );
+  const unreadCount = useMemo(() => notifications.filter((item) => !item.isRead).length, [notifications]);
 
   const loadNotifications = useCallback(async () => {
-    if (!user) {
+    if (!user || authLoading) {
       setNotifications([]);
       setLoading(false);
       return;
@@ -57,7 +101,7 @@ export default function Notifications() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [authLoading, user]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -65,157 +109,191 @@ export default function Notifications() {
     }
   }, [authLoading, loadNotifications]);
 
-  useEffect(() => {
-    const handleUpdated = () => {
-      void loadNotifications();
-    };
-
-    window.addEventListener('shop2bhutan:notifications-updated', handleUpdated);
-    window.addEventListener('focus', handleUpdated);
-
-    return () => {
-      window.removeEventListener('shop2bhutan:notifications-updated', handleUpdated);
-      window.removeEventListener('focus', handleUpdated);
-    };
-  }, [loadNotifications]);
-
-  const handleNotificationClick = async (notification: Notification) => {
+  const handleNotificationClick = async (notification: AppNotification) => {
     if (!user) return;
 
     if (!notification.isRead) {
-      setNotifications((prev) => prev.map((item) => (item.id === notification.id ? { ...item, isRead: true } : item)));
+      setNotifications((current) =>
+        current.map((item) => (item.id === notification.id ? { ...item, isRead: true } : item))
+      );
 
       try {
         await markCustomerNotificationRead(notification.id, user.id);
       } catch (err) {
-        console.warn('Failed to mark notification as read:', err);
+        console.warn('[Notifications] mark read skipped:', err);
       }
     }
 
-    if (notification.link) navigate(notification.link);
-  };
-
-  const handleMarkAllRead = async () => {
-    if (!user || unreadCount === 0) return;
-
-    setMarkingAll(true);
-    setNotifications((prev) => prev.map((notification) => ({ ...notification, isRead: true })));
-
-    try {
-      await markAllCustomerNotificationsRead(user.id);
-    } catch (err) {
-      console.error('Failed to mark all notifications read:', err);
-      setError(err instanceof Error ? err.message : 'Unable to mark notifications as read.');
-      void loadNotifications();
-    } finally {
-      setMarkingAll(false);
+    if (notification.link) {
+      navigate(notification.link);
     }
   };
 
-  if (!authLoading && !user) {
+  const handleMarkAllRead = async () => {
+    if (!user || unreadCount <= 0) return;
+
+    setBusy(true);
+    setError('');
+
+    try {
+      await markAllCustomerNotificationsRead(user.id);
+      setNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
+    } catch (err) {
+      console.error('Failed to mark all notifications read:', err);
+      setError(err instanceof Error ? err.message : 'Unable to mark notifications as read.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (loading || authLoading) {
     return (
-      <div className="min-h-screen bg-neutral-50 px-4 py-8">
-        <EmptyState
-          icon={<Bell size={40} className="text-neutral-300" />}
-          title="Sign in to view notifications"
-          description="Quotation updates and payment alerts will appear here after you sign in."
-          action={{ label: 'Sign In', onClick: () => navigate('/login') }}
-        />
+      <div className="min-h-screen bg-neutral-50">
+        <div className="sticky top-0 z-20 border-b border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur">
+          <div className="mx-auto flex max-w-lg items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 text-gray-900"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="text-base font-black text-gray-950">Notifications</h1>
+              <p className="text-xs text-neutral-500">Loading updates...</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mx-auto max-w-lg space-y-3 px-4 py-4">
+          {[1, 2, 3, 4].map((item) => (
+            <div key={item} className="h-24 animate-pulse rounded-3xl bg-white shadow-sm" />
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
-      <div className="sticky top-0 z-30 border-b border-white/70 bg-white/90 px-4 py-3 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <button type="button" onClick={() => navigate(-1)} className="rounded-full p-1.5 hover:bg-neutral-100">
-              <ArrowLeft size={22} className="text-neutral-700" />
+    <div className="min-h-screen bg-neutral-50 pb-24">
+      <div className="sticky top-0 z-20 border-b border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur">
+        <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-neutral-100 text-gray-900 active:scale-95"
+              aria-label="Go back"
+            >
+              <ArrowLeft size={20} />
             </button>
-            <div>
-              <h1 className="text-lg font-black text-gray-950">Notifications</h1>
-              <p className="text-xs text-neutral-500">{unreadCount > 0 ? `${unreadCount} unread update${unreadCount === 1 ? '' : 's'}` : 'You are all caught up'}</p>
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-black text-gray-950">Notifications</h1>
+              <p className="truncate text-xs text-neutral-500">
+                {unreadCount > 0 ? `${unreadCount} unread update${unreadCount === 1 ? '' : 's'}` : 'You are all caught up'}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="flex flex-shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={loadNotifications}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 transition-colors hover:bg-neutral-200"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 text-neutral-700 active:scale-95"
               aria-label="Refresh notifications"
             >
-              <RefreshCw size={18} className={`text-neutral-700 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw size={18} />
             </button>
-            {unreadCount > 0 && (
-              <button
-                type="button"
-                onClick={handleMarkAllRead}
-                disabled={markingAll}
-                className="flex h-10 items-center gap-1 rounded-full bg-gray-950 px-3 text-xs font-black text-white transition-colors hover:bg-gray-800 disabled:opacity-60"
-              >
-                <CheckCheck size={14} />
-                {markingAll ? 'Marking' : 'Read'}
-              </button>
-            )}
+            <button
+              type="button"
+              disabled={busy || unreadCount <= 0}
+              onClick={handleMarkAllRead}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500 text-white shadow-sm disabled:bg-neutral-200 disabled:text-neutral-400 active:scale-95"
+              aria-label="Mark all as read"
+            >
+              <CheckCheck size={18} />
+            </button>
           </div>
         </div>
       </div>
 
-      <main className="mx-auto max-w-2xl px-4 py-4">
+      <main className="mx-auto max-w-lg px-4 py-4">
         {error && (
-          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-            {error}
+          <div className="mb-4 flex gap-2 rounded-2xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+            <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />
+            <p>{error}</p>
           </div>
         )}
 
-        {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="h-24 rounded-3xl bg-white shadow-sm animate-pulse" />
-            ))}
+        {notifications.length === 0 ? (
+          <div className="rounded-[28px] bg-white px-6 py-10 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 text-amber-500">
+              <ShieldCheck size={28} />
+            </div>
+            <h2 className="text-lg font-black text-gray-950">No notifications yet</h2>
+            <p className="mt-2 text-sm leading-6 text-neutral-500">
+              Order, quotation, payment, and delivery updates will appear here.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/orders')}
+              className="mt-6 h-11 rounded-2xl bg-amber-500 px-5 text-sm font-bold text-white shadow-sm active:scale-95"
+            >
+              View My Orders
+            </button>
           </div>
-        ) : notifications.length > 0 ? (
+        ) : (
           <div className="space-y-3">
             {notifications.map((notification) => {
-              const config = typeConfig[notification.type] || typeConfig.system;
-              const Icon = config.icon;
+              const hasLink = Boolean(notification.link);
+              const formattedTime = formatBhutanDateTime(notification.createdAt);
 
               return (
                 <button
                   key={notification.id}
                   type="button"
                   onClick={() => handleNotificationClick(notification)}
-                  className={`w-full rounded-3xl border bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
-                    !notification.isRead ? 'border-amber-200 ring-1 ring-amber-100' : 'border-neutral-100'
+                  className={`w-full rounded-[24px] border bg-white p-4 text-left shadow-sm transition active:scale-[0.99] ${
+                    notification.isRead ? 'border-transparent opacity-80' : 'border-amber-100 ring-1 ring-amber-50'
                   }`}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl ${config.bg}`}>
-                      <Icon size={20} className={config.iconColor} />
+                  <div className="flex gap-3">
+                    <div
+                      className={`mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl ${notificationTone(notification.type)}`}
+                    >
+                      {notificationIcon(notification.type)}
                     </div>
+
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-neutral-500">
-                          {config.label}
-                        </span>
-                        {!notification.isRead && <span className="h-2 w-2 rounded-full bg-red-500" />}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-black text-gray-950">{notification.title}</p>
+                            {!notification.isRead && (
+                              <span className="h-2 w-2 rounded-full bg-amber-500" aria-label="Unread" />
+                            )}
+                          </div>
+                          <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-neutral-400">
+                            {notificationTypeLabel(notification.type)}
+                          </p>
+                        </div>
+
+                        {hasLink && <ChevronRight size={18} className="mt-1 flex-shrink-0 text-neutral-300" />}
                       </div>
-                      <p className="mt-1 text-sm font-black text-gray-950">{notification.title}</p>
-                      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-neutral-500">{notification.message}</p>
-                      <p className="mt-2 text-[11px] font-medium text-neutral-400">{timeAgo(notification.createdAt)}</p>
+
+                      {notification.message && (
+                        <p className="mt-2 text-sm leading-5 text-neutral-600">{notification.message}</p>
+                      )}
+
+                      <p className="mt-3 text-xs font-medium text-neutral-400">
+                        {formattedTime || 'Just now'}
+                      </p>
                     </div>
                   </div>
                 </button>
               );
             })}
           </div>
-        ) : (
-          <EmptyState
-            icon={<Bell size={40} className="text-neutral-300" />}
-            title="No notifications"
-            description="Quotation updates, payment alerts, and order updates will appear here."
-          />
         )}
       </main>
     </div>

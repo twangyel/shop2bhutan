@@ -805,6 +805,8 @@ function makeNotification(row: AnyRow): AppNotification {
     message: firstString(row, ['message', 'body', 'description'], ''),
     link: firstString(row, ['link', 'url', 'action_url'], ''),
     isRead: Boolean(firstValue(row, ['is_read', 'read', 'isRead']) ?? false),
+    readAt: firstString(row, ['read_at', 'readAt'], ''),
+    dedupeKey: firstString(row, ['dedupe_key', 'dedupeKey'], ''),
     createdAt: firstString(row, ['created_at'], new Date().toISOString()),
   }
 }
@@ -911,49 +913,123 @@ async function createCustomerNotification(input: {
   if (!userId) return
 
   const now = new Date().toISOString()
-  const basePayload = {
+  const title = cleanText(input.title) || 'Shop2Bhutan update'
+  const message = cleanText(input.message)
+  const link = cleanText(input.link)
+  const dedupeKey = cleanText(input.dedupeKey)
+
+  const richPayload: AnyRow = {
     user_id: userId,
     type: input.type,
-    title: cleanText(input.title),
-    message: cleanText(input.message),
-    link: cleanText(input.link) || null,
+    title,
+    message,
+    link: link || null,
     is_read: false,
     created_at: now,
     updated_at: now,
+    dedupe_key: dedupeKey || undefined,
   }
-  const dedupeKey = cleanText(input.dedupeKey)
 
-  if (dedupeKey) {
-    const upsert = await supabase
-      .from('notifications')
-      .upsert({ ...basePayload, dedupe_key: dedupeKey }, { onConflict: 'dedupe_key' })
+  const notificationTypePayload: AnyRow = {
+    user_id: userId,
+    notification_type: input.type,
+    title,
+    message,
+    action_url: link || null,
+    is_read: false,
+    created_at: now,
+    updated_at: now,
+    dedupe_key: dedupeKey || undefined,
+  }
 
-    if (!upsert.error) {
+  const candidates: AnyRow[] = [
+    richPayload,
+    {
+      ...richPayload,
+      action_url: link || null,
+    },
+    notificationTypePayload,
+    {
+      user_id: userId,
+      type: input.type,
+      title,
+      message,
+      link: link || null,
+      is_read: false,
+      created_at: now,
+      dedupe_key: dedupeKey || undefined,
+    },
+    {
+      user_id: userId,
+      type: input.type,
+      title,
+      message,
+      is_read: false,
+      created_at: now,
+      dedupe_key: dedupeKey || undefined,
+    },
+    {
+      user_id: userId,
+      notification_type: input.type,
+      title,
+      message,
+      is_read: false,
+      created_at: now,
+      dedupe_key: dedupeKey || undefined,
+    },
+    {
+      user_id: userId,
+      title,
+      message,
+      is_read: false,
+      created_at: now,
+    },
+  ]
+
+  let lastError: unknown = null
+
+  for (const candidate of candidates) {
+    Object.keys(candidate).forEach((key) => candidate[key] === undefined && delete candidate[key])
+
+    let result = dedupeKey && candidate.dedupe_key
+      ? await supabase.from('notifications').upsert(candidate, { onConflict: 'dedupe_key' })
+      : await supabase.from('notifications').insert(candidate)
+
+    let message = errorMessage(result.error, '').toLowerCase()
+    if (
+      result.error &&
+      dedupeKey &&
+      candidate.dedupe_key &&
+      (message.includes('unique') || message.includes('constraint') || message.includes('on conflict'))
+    ) {
+      result = await supabase.from('notifications').insert(candidate)
+      message = errorMessage(result.error, '').toLowerCase()
+    }
+
+    if (!result.error) {
       emitNotificationUpdated()
       return
     }
 
-    if (!isMissingColumnOrRelationError(upsert.error)) {
-      const duplicateMessage = errorMessage(upsert.error, '').toLowerCase()
-      if (duplicateMessage.includes('duplicate')) return
-      throw upsert.error
+    lastError = result.error
+    if (message.includes('duplicate')) return
+
+    if (message.includes('row-level security') || message.includes('permission denied')) {
+      throw result.error
+    }
+
+    if (!shouldTryFallbackPayload(result.error) && !message.includes('unique') && !message.includes('constraint')) {
+      break
     }
   }
 
-  const insert = await supabase.from('notifications').insert(basePayload)
-  if (insert.error) {
-    const duplicateMessage = errorMessage(insert.error, '').toLowerCase()
-    if (duplicateMessage.includes('duplicate')) return
-    if (isMissingColumnOrRelationError(insert.error)) {
-      console.warn('[customerOrders] notifications table missing or not upgraded:', insert.error.message)
-      return
-    }
-    throw insert.error
+  if (lastError && isMissingColumnOrRelationError(lastError)) {
+    console.warn('[customerOrders] notifications table missing or not upgraded:', errorMessage(lastError, 'notification insert skipped'))
+    return
   }
 
-  emitNotificationUpdated()
+  if (lastError) throw lastError
 }
-
 async function createQuotationReadyNotificationForOrder(orderId: string, quotationRow: AnyRow) {
   try {
     const orderRow = await querySingleAdminOrderRow(orderId)
@@ -977,6 +1053,145 @@ async function createQuotationReadyNotificationForOrder(orderId: string, quotati
     console.warn('[customerOrders] quotation notification skipped:', error)
   }
 }
+
+function orderStatusNotificationCopy(status: OrderStatus, orderNo: string, sellerReference?: string, adminNote?: string) {
+  const reference = cleanText(sellerReference)
+  const note = cleanText(adminNote)
+
+  const copy: Record<OrderStatus, { title: string; message: string; type: AppNotification['type'] }> = {
+    pending_confirmation: {
+      type: 'order_update',
+      title: 'Order Received',
+      message: `Your order #${orderNo} has been received.`,
+    },
+    quotation_pending: {
+      type: 'quotation',
+      title: 'Quotation Pending',
+      message: `We are preparing the quotation for order #${orderNo}.`,
+    },
+    quoted: {
+      type: 'quotation',
+      title: 'Quotation Ready',
+      message: `Your quotation for order #${orderNo} is ready for review.`,
+    },
+    payment_pending: {
+      type: 'payment',
+      title: 'Payment Under Review',
+      message: `Your payment proof for order #${orderNo} is under review.`,
+    },
+    payment_verified: {
+      type: 'payment',
+      title: 'Payment Verified',
+      message: `Your payment for order #${orderNo} has been verified. We will place the seller order next.`,
+    },
+    order_placed: {
+      type: 'order_update',
+      title: 'Order Placed',
+      message: reference
+        ? `Your order #${orderNo} has been placed with the seller. Seller reference: ${reference}.`
+        : `Your order #${orderNo} has been placed with the seller.`,
+    },
+    in_transit: {
+      type: 'order_update',
+      title: 'In Transit',
+      message: `Your order #${orderNo} is on the way to Bhutan.`,
+    },
+    arrived_at_hub: {
+      type: 'order_update',
+      title: 'Arrived at Hub',
+      message: `Your order #${orderNo} has arrived at the delivery hub.`,
+    },
+    out_for_delivery: {
+      type: 'order_update',
+      title: 'Out for Delivery',
+      message: `Your order #${orderNo} is out for delivery.`,
+    },
+    delivered: {
+      type: 'order_update',
+      title: 'Delivered',
+      message: `Your order #${orderNo} has been delivered successfully.`,
+    },
+    cancelled: {
+      type: 'order_update',
+      title: 'Order Cancelled',
+      message: `Your order #${orderNo} has been cancelled.`,
+    },
+  }
+
+  const selected = copy[status] ?? {
+    type: 'order_update' as AppNotification['type'],
+    title: 'Order Updated',
+    message: `Your order #${orderNo} has been updated.`,
+  }
+
+  return {
+    ...selected,
+    message: note ? `${selected.message} ${note}` : selected.message,
+  }
+}
+
+async function createOrderStatusNotificationForOrder(input: {
+  orderId: string
+  status: OrderStatus
+  sellerReference?: string
+  adminNote?: string
+  dedupeKey?: string
+}) {
+  try {
+    const orderId = cleanText(input.orderId)
+    if (!orderId) return
+
+    const orderRow = await querySingleAdminOrderRow(orderId)
+    if (!orderRow) return
+
+    const userId = firstString(orderRow, ORDER_OWNER_COLUMNS, '')
+    if (!userId) return
+
+    const orderNo = firstString(orderRow, ['order_no', 'order_number', 'public_id'], orderId.slice(0, 8).toUpperCase())
+    const copy = orderStatusNotificationCopy(input.status, orderNo, input.sellerReference, input.adminNote)
+
+    await createCustomerNotification({
+      userId,
+      type: copy.type,
+      title: copy.title,
+      message: copy.message,
+      link: `/order/${orderId}`,
+      dedupeKey: cleanText(input.dedupeKey) || `order-status:${orderId}:${input.status}`,
+    })
+  } catch (error) {
+    console.warn('[customerOrders] order status notification skipped:', error)
+  }
+}
+
+async function createPaymentReviewNotificationForOrder(input: {
+  order: Order
+  status: PaymentStatus
+  paymentId: string
+  adminNote?: string
+}) {
+  const order = input.order
+  const userId = cleanText(order.userId)
+  if (!userId) return
+
+  const orderNo = cleanText(order.orderNumber) || order.id.slice(0, 8).toUpperCase()
+  const adminNote = cleanText(input.adminNote)
+
+  const isVerified = input.status === 'verified'
+  const title = isVerified ? 'Payment Verified' : 'Payment Proof Rejected'
+  const baseMessage = isVerified
+    ? `Your payment for order #${orderNo} has been verified. We will place the seller order next.`
+    : `Your payment proof for order #${orderNo} was rejected. Please upload a corrected screenshot.`
+
+  await createCustomerNotification({
+    userId,
+    type: 'payment',
+    title,
+    message: adminNote ? `${baseMessage} ${adminNote}` : baseMessage,
+    link: isVerified ? `/order/${order.id}` : `/payment/${order.id}`,
+    dedupeKey: `payment-review:${input.paymentId}:${input.status}`,
+  })
+}
+
 
 function findProfileForOrder(row: AnyRow, profiles: AnyRow[]) {
   const ownerId = firstString(row, ORDER_OWNER_COLUMNS, '')
@@ -2203,6 +2418,13 @@ export async function updateAdminFulfillmentStatus(input: {
   } catch (error) {
     console.warn('[customerOrders] fulfillment tracking event skipped:', error)
   }
+
+  await createOrderStatusNotificationForOrder({
+    orderId,
+    status: input.status,
+    sellerReference: input.sellerReference,
+    adminNote: input.adminNote,
+  })
 }
 
 
@@ -2747,6 +2969,17 @@ export async function verifyCustomerPayment(input: {
       console.warn('[customerOrders] order status after payment verification skipped:', error)
     }
   }
+
+  try {
+    await createPaymentReviewNotificationForOrder({
+      order: input.order,
+      status: 'verified',
+      paymentId: input.paymentId,
+      adminNote: input.adminNote,
+    })
+  } catch (error) {
+    console.warn('[customerOrders] payment verified notification skipped:', error)
+  }
 }
 
 export async function rejectCustomerPayment(input: {
@@ -2755,11 +2988,13 @@ export async function rejectCustomerPayment(input: {
   adminId?: string
   adminNote?: string
 }) {
+  const adminNote = input.adminNote || 'Rejected by admin.'
+
   await updatePaymentReviewStatus({
     paymentId: input.paymentId,
     status: 'rejected',
     adminId: input.adminId,
-    adminNote: input.adminNote || 'Rejected by admin.',
+    adminNote,
   })
 
   if (input.order.status === 'quoted' || input.order.status === 'payment_pending') {
@@ -2768,6 +3003,17 @@ export async function rejectCustomerPayment(input: {
     } catch (error) {
       console.warn('[customerOrders] order status after payment rejection skipped:', error)
     }
+  }
+
+  try {
+    await createPaymentReviewNotificationForOrder({
+      order: input.order,
+      status: 'rejected',
+      paymentId: input.paymentId,
+      adminNote,
+    })
+  } catch (error) {
+    console.warn('[customerOrders] payment rejection notification skipped:', error)
   }
 }
 

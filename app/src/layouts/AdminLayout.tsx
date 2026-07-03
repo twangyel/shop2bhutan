@@ -87,7 +87,7 @@ export default function AdminLayout() {
       <aside
         className={`
           fixed top-0 left-0 z-40 h-full bg-white border-r border-neutral-200
-          flex flex-col transition-all duration-300 ease-in-out
+          flex flex-col overflow-hidden transition-all duration-300 ease-in-out
           w-[280px] -translate-x-full md:translate-x-0
           ${sidebarOpen ? 'translate-x-0' : ''}
           ${sidebarCollapsed ? 'md:w-[72px]' : 'md:w-[280px]'}
