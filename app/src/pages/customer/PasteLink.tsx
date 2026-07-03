@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+  ArrowRight,
   Camera,
   CheckCircle,
+  ClipboardList,
   ExternalLink,
-  ImageIcon,
-  Info,
   Link2,
   Loader2,
+  Package,
   Plus,
-  ShieldCheck,
+  ScanLine,
   ShoppingBag,
   Sparkles,
   X,
@@ -23,31 +24,36 @@ import {
   type ProductLinkPreview,
 } from '@/lib/customerOrders';
 
+/* ------------------------------------------------------------------ */
+/*  Constants                                                          */
+/* ------------------------------------------------------------------ */
+
 const platforms = [
-  { name: 'Amazon', key: 'amazon', color: 'bg-orange-50 text-orange-600 ring-orange-200', initial: 'A' },
-  { name: 'Flipkart', key: 'flipkart', color: 'bg-blue-50 text-blue-600 ring-blue-200', initial: 'F' },
-  { name: 'Myntra', key: 'myntra', color: 'bg-pink-50 text-pink-600 ring-pink-200', initial: 'M' },
-  { name: 'Meesho', key: 'meesho', color: 'bg-violet-50 text-violet-600 ring-violet-200', initial: 'M' },
+  { name: 'Amazon',   key: 'amazon',   bg: 'bg-orange-50',  text: 'text-orange-600',  ring: 'ring-orange-200',  grad: 'from-orange-400 to-amber-500' },
+  { name: 'Flipkart', key: 'flipkart', bg: 'bg-blue-50',    text: 'text-blue-600',    ring: 'ring-blue-200',    grad: 'from-blue-400 to-blue-600' },
+  { name: 'Myntra',   key: 'myntra',   bg: 'bg-pink-50',    text: 'text-pink-600',    ring: 'ring-pink-200',    grad: 'from-pink-400 to-rose-500' },
+  { name: 'Meesho',   key: 'meesho',   bg: 'bg-violet-50',  text: 'text-violet-600',  ring: 'ring-violet-200',  grad: 'from-violet-400 to-purple-500' },
 ];
 
-type PreviewState = {
-  url: string;
-  loading: boolean;
-  data: ProductLinkPreview | null;
-};
+type PreviewState = { url: string; loading: boolean; data: ProductLinkPreview | null };
+const emptyPreview: PreviewState = { url: '', loading: false, data: null };
 
-const emptyPreview: PreviewState = {
-  url: '',
-  loading: false,
-  data: null,
-};
+const stepsFlow = [
+  { label: 'Paste Link',   icon: Link2,          status: 'active' as const },
+  { label: 'Add to Bag',   icon: ShoppingBag,    status: 'pending' as const },
+  { label: 'Get Quotation',icon: ClipboardList,  status: 'pending' as const },
+];
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
 
 function platformLabel(platform?: string) {
-  const raw = String(platform ?? '').toLowerCase();
-  if (raw === 'amazon') return 'Amazon';
-  if (raw === 'flipkart') return 'Flipkart';
-  if (raw === 'myntra') return 'Myntra';
-  if (raw === 'meesho') return 'Meesho';
+  const r = String(platform ?? '').toLowerCase();
+  if (r === 'amazon') return 'Amazon';
+  if (r === 'flipkart') return 'Flipkart';
+  if (r === 'myntra') return 'Myntra';
+  if (r === 'meesho') return 'Meesho';
   return 'Product';
 }
 
@@ -89,7 +95,7 @@ export default function PasteLink() {
   const location = useLocation();
   const { user } = useAuth();
 
-  const locationState = location.state as { initialUrl?: string } | null;
+  const locationState = location.state as { initialUrl?: string; sourcePlatform?: string } | null;
   const [url, setUrl] = useState(locationState?.initialUrl ?? '');
   const [preview, setPreview] = useState<PreviewState>(emptyPreview);
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
@@ -178,248 +184,314 @@ export default function PasteLink() {
     } finally { setAdding(false); }
   };
 
+  /* ---- Select platform ---- */
+  const selectPlatform = (key: string) => {
+    setUrl('');
+    setPreview(emptyPreview);
+    // Could pre-fill placeholder text per platform in future
+    void key;
+  };
+
   return (
-    <div className="min-h-screen bg-[#FAF8F5] pb-32">
-      <div className="mx-auto max-w-3xl px-4 pb-8 pt-4">
+    <div className="min-h-screen bg-[#FAF8F5]">
+      <div className="mx-auto max-w-3xl">
 
-        {/* ====== MAIN CARD ====== */}
-        <section className="relative overflow-hidden rounded-[1.5rem] bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] ring-1 ring-orange-100/60 sm:p-6">
-          <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-orange-100/25 blur-3xl" />
+        {/* ═══════════════ HERO BANNER ═══════════════ */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-orange-500 via-orange-400 to-amber-400 px-5 pb-6 pt-7">
+          {/* Decorative circles */}
+          <div className="pointer-events-none absolute -right-6 -top-8 h-36 w-36 rounded-full bg-white/10" />
+          <div className="pointer-events-none absolute -left-4 bottom-0 h-20 w-20 rounded-full bg-white/10" />
+          <div className="pointer-events-none absolute right-20 top-2 h-3 w-3 rounded-full bg-white/30" />
+          <div className="pointer-events-none absolute right-8 bottom-4 h-2 w-2 rounded-full bg-white/25" />
 
-          {/* Header */}
-          <div className="relative flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <h1 className="text-[1.15rem] font-bold leading-snug text-gray-950 sm:text-xl">Request Product</h1>
-              <p className="mt-1 text-[0.78rem] leading-relaxed text-neutral-500">
-                Paste a shopping link or upload a screenshot. Add items to your Request Bag and request quotation later.
-              </p>
-            </div>
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500 shadow-sm ring-1 ring-orange-100/40">
-              <ShieldCheck size={21} />
-            </span>
-          </div>
-
-          {/* No payment info card — compact, less dominant */}
-          <div className="relative mt-4 rounded-2xl border border-amber-100/60 bg-amber-50/40 px-4 py-3">
-            <div className="flex items-center gap-2.5">
-              <Info size={15} className="shrink-0 text-amber-500" />
-              <p className="text-[0.75rem] leading-relaxed text-amber-800/80">
-                <span className="font-semibold text-amber-900">No payment required now.</span>{' '}
-                We verify availability, price, and fees after you request quotation.
-              </p>
-            </div>
-          </div>
-
-          {/* Platform selector — already multi-colored */}
-          <div className="mt-5 flex justify-center gap-3">
-            {platforms.map((p) => (
+          <div className="relative">
+            {/* Back + title row */}
+            <div className="flex items-center gap-3">
               <button
-                key={p.name}
                 type="button"
-                onClick={() => { setUrl(''); setPreview(emptyPreview); }}
-                className="group flex flex-col items-center gap-1.5 transition-transform active:scale-95"
+                onClick={() => navigate(-1)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm transition-colors active:bg-white/30"
               >
-                <span className={`flex h-12 w-12 items-center justify-center rounded-2xl text-sm font-bold shadow-sm ring-1 transition-shadow group-hover:shadow-md ${p.color}`}>
-                  {p.initial}
-                </span>
-                <span className="text-[0.6rem] font-semibold tracking-wide text-neutral-500">{p.name}</span>
+                <ArrowRight size={18} className="rotate-180" />
               </button>
-            ))}
+              <h1 className="text-xl font-bold text-white">Request Product</h1>
+            </div>
+
+            <p className="mt-2.5 max-w-[280px] text-[0.82rem] leading-relaxed text-white/85">
+              Paste a link or upload a screenshot. We will verify and quote.
+            </p>
+
+            {/* Inline trust row */}
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 backdrop-blur-sm">
+              <CheckCircle size={13} className="text-white" />
+              <span className="text-[0.72rem] font-medium text-white/90">No payment required now</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ═══════════════ STEP FLOW BAR ═══════════════ */}
+        <div className="mx-4 -mt-3 relative z-10">
+          <div className="rounded-2xl bg-white p-3.5 shadow-lg shadow-orange-100/30 ring-1 ring-orange-100/40">
+            <div className="flex items-center justify-between">
+              {stepsFlow.map((step, idx) => {
+                const Icon = step.icon;
+                const isActive = step.status === 'active';
+                const isLast = idx === stepsFlow.length - 1;
+                return (
+                  <div key={step.label} className="flex flex-1 items-center">
+                    <div className="flex flex-col items-center gap-1.5">
+                      <span className={`flex h-9 w-9 items-center justify-center rounded-full text-white shadow-sm ${isActive ? 'bg-orange-500' : 'bg-neutral-200'}`}>
+                        <Icon size={16} />
+                      </span>
+                      <span className={`text-[0.55rem] font-bold uppercase tracking-wider ${isActive ? 'text-orange-600' : 'text-neutral-400'}`}>
+                        {step.label}
+                      </span>
+                    </div>
+                    {!isLast && (
+                      <div className="mx-1 mb-4 h-px flex-1 bg-gradient-to-r from-orange-200 to-neutral-200" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* ═══════════════ MAIN CONTENT ═══════════════ */}
+        <div className="px-4 pb-10 pt-5">
+
+          {/* ----- Platform Selector ----- */}
+          <div>
+            <p className="mb-3 px-0.5 text-[0.75rem] font-bold uppercase tracking-wider text-neutral-400">
+              Select Store
+            </p>
+            <div className="grid grid-cols-4 gap-2.5">
+              {platforms.map((p) => (
+                <button
+                  key={p.name}
+                  type="button"
+                  onClick={() => selectPlatform(p.key)}
+                  className="group flex flex-col items-center gap-2 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-neutral-100/60 transition-all active:scale-95"
+                >
+                  <span className={`flex h-12 w-12 items-center justify-center rounded-2xl text-lg font-bold shadow-sm ring-1 ${p.bg} ${p.text} ${p.ring} transition-shadow group-hover:shadow-md`}>
+                    {p.name[0]}
+                  </span>
+                  <span className="text-[0.65rem] font-semibold text-neutral-600">{p.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* ====== URL INPUT SECTION ====== */}
-          <div className="relative mt-5">
+          {/* ----- URL Input ----- */}
+          <div className="mt-5">
+            <p className="mb-3 px-0.5 text-[0.75rem] font-bold uppercase tracking-wider text-neutral-400">
+              Product Link
+            </p>
             <div className="relative">
-              <Link2 size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-blue-400" />
+              <Link2 size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-400" />
               <input
                 type="url"
                 value={url}
                 onChange={(e) => { setUrl(e.target.value); setError(''); setSuccessMessage(''); }}
                 onKeyDown={(e) => { if (e.key === 'Enter') void addToRequestBag(); }}
-                placeholder="Paste product URL from Amazon, Flipkart, Myntra, Meesho..."
-                className="h-[3rem] w-full rounded-2xl border border-neutral-200/80 bg-blue-50/30 pl-10 pr-10 text-[0.8rem] text-neutral-800 placeholder:text-neutral-400 transition-colors focus:border-blue-300 focus:bg-blue-50/40 focus:outline-none focus:ring-2 focus:ring-blue-500/15"
+                placeholder="Paste product URL here..."
+                className="h-14 w-full rounded-2xl border-2 border-blue-100 bg-blue-50/30 pl-12 pr-11 text-[0.85rem] text-neutral-800 placeholder:text-neutral-400 transition-all focus:border-blue-300 focus:bg-blue-50/50 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
               />
-              {url && (
+              {url ? (
                 <button
                   type="button"
                   onClick={() => { setUrl(''); setPreview(emptyPreview); }}
-                  className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600 active:bg-neutral-200"
+                  className="absolute right-3.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-neutral-100 text-neutral-500 transition-colors hover:bg-neutral-200"
+                >
+                  <X size={15} />
+                </button>
+              ) : (
+                <ScanLine size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-300" />
+              )}
+            </div>
+          </div>
+
+          {/* ----- Screenshot Upload ----- */}
+          <div className="mt-3">
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleScreenshotChange} className="hidden" />
+
+            {!screenshotFile ? (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-20 w-full items-center gap-4 rounded-2xl border-2 border-dashed border-blue-150 bg-blue-50/20 px-5 transition-all hover:border-blue-300 hover:bg-blue-50/40 active:border-blue-400"
+              >
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500 shadow-sm ring-1 ring-blue-100/40">
+                  <Camera size={22} />
+                </span>
+                <div className="text-left">
+                  <p className="text-[0.82rem] font-bold text-neutral-700">Upload a screenshot</p>
+                  <p className="text-[0.7rem] leading-relaxed text-neutral-400">
+                    Tap to choose an image from your gallery
+                  </p>
+                </div>
+              </button>
+            ) : (
+              <div className="relative overflow-hidden rounded-2xl border-2 border-blue-200 bg-white shadow-md">
+                <img src={screenshotPreview} alt="Preview" className="h-44 w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={clearScreenshot}
+                  className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-neutral-600 shadow-lg ring-1 ring-neutral-200/60 backdrop-blur-sm transition-colors hover:bg-white"
                 >
                   <X size={16} />
                 </button>
-              )}
-            </div>
-
-            {/* ====== SCREENSHOT UPLOAD ====== */}
-            <div className="mt-3">
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleScreenshotChange} className="hidden" />
-
-              {!screenshotFile ? (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex min-h-[3.5rem] w-full items-center gap-3 rounded-2xl border-2 border-dashed border-blue-200/60 bg-blue-50/20 px-4 text-left transition-colors hover:border-blue-300 hover:bg-blue-50/40 active:border-blue-400"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500 ring-1 ring-blue-100/40">
-                    <Camera size={17} />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-[0.75rem] font-semibold text-neutral-700">Upload screenshot</p>
-                    <p className="text-[0.65rem] leading-relaxed text-neutral-400">
-                      Recommended for size, color, price, or unavailable links
-                    </p>
-                  </div>
-                </button>
-              ) : (
-                <div className="relative overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-sm">
-                  <img src={screenshotPreview} alt="Screenshot preview" className="h-36 w-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={clearScreenshot}
-                    className="absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-neutral-600 shadow-sm ring-1 ring-neutral-200/60 backdrop-blur-sm transition-colors hover:bg-white active:bg-neutral-50"
-                  >
-                    <X size={14} />
-                  </button>
-                  <div className="px-3.5 py-2.5">
-                    <p className="truncate text-[0.7rem] text-neutral-500">{screenshotFile.name}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* ====== PREVIEW LOADING ====== */}
-            {preview.loading && (
-              <div className="mt-3 flex items-center gap-3 rounded-2xl border border-blue-100/60 bg-blue-50/30 p-3.5">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100/40 text-blue-500">
-                  <Loader2 size={20} className="animate-spin" />
-                </span>
-                <div>
-                  <p className="text-[0.8rem] font-semibold text-gray-900">Checking product preview...</p>
-                  <p className="text-[0.7rem] leading-relaxed text-neutral-500">Auto-preview is optional. You can still add the item.</p>
+                <div className="flex items-center gap-2 px-4 py-3">
+                  <CheckCircle size={15} className="text-emerald-500" />
+                  <p className="truncate text-[0.75rem] font-medium text-neutral-600">{screenshotFile.name}</p>
                 </div>
               </div>
             )}
-
-            {/* ====== PREVIEW RESULT ====== */}
-            {!preview.loading && preview.data && cleanUrl && (
-              <div className="mt-3 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white p-3.5 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
-                <div className="flex gap-3">
-                  {preview.data.image ? (
-                    <img src={preview.data.image} alt="" className="h-18 w-18 flex-shrink-0 rounded-xl bg-neutral-100 object-cover" />
-                  ) : (
-                    <span className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 ring-1 ring-blue-100/40">
-                      <ImageIcon size={22} className="text-blue-400" />
-                    </span>
-                  )}
-
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex items-center gap-1.5">
-                      <Sparkles size={12} className="shrink-0 text-blue-500" />
-                      <span className="text-[0.65rem] font-bold uppercase tracking-wide text-blue-600">
-                        {preview.data.fetched ? 'Preview found' : 'Link detected'}
-                      </span>
-                    </div>
-                    <p className="text-[0.82rem] font-semibold leading-snug text-gray-900 line-clamp-2">
-                      {preview.data.fetched ? preview.data.title : manualPreviewTitle(preview.data)}
-                    </p>
-                    {!preview.data.fetched && (
-                      <p className="mt-1 text-[0.65rem] leading-relaxed text-neutral-500">
-                        Shop2Bhutan will verify this manually. Add screenshot or price if available.
-                      </p>
-                    )}
-                    <a
-                      href={preview.data.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-1 block truncate text-[0.65rem] text-neutral-400 transition-colors hover:text-blue-500"
-                    >
-                      {preview.data.url}
-                    </a>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-violet-600 ring-1 ring-violet-100/40">
-                        {preview.data.platform}
-                      </span>
-                      {preview.data.price ? (
-                        <span className="text-[0.72rem] font-bold text-orange-600">
-                          Price: {formatPrice(preview.data.price, preview.data.currency)}
-                        </span>
-                      ) : (
-                        <span className="text-[0.65rem] font-medium text-neutral-400">Price will be verified</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ====== SUCCESS ====== */}
-            {successMessage && (
-              <div className="mt-3 overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3.5">
-                <div className="flex gap-2.5">
-                  <CheckCircle size={18} className="mt-0.5 shrink-0 text-emerald-600" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[0.82rem] font-bold text-emerald-900">Item saved</p>
-                    <p className="mt-0.5 text-[0.72rem] leading-relaxed text-emerald-700">{successMessage}</p>
-                    <button
-                      type="button"
-                      onClick={() => navigate('/request-bag')}
-                      className="mt-2 inline-flex items-center gap-1 text-[0.72rem] font-bold text-emerald-700 transition-colors hover:text-emerald-800"
-                    >
-                      View Request Bag <ShoppingBag size={13} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ====== ERROR ====== */}
-            {error && (
-              <div className="mt-3 rounded-2xl border border-red-100 bg-red-50/70 px-3.5 py-3">
-                <p className="flex items-start gap-2 text-[0.78rem] text-red-600">
-                  <X size={15} className="mt-0.5 shrink-0" />
-                  <span>{error}</span>
-                </p>
-              </div>
-            )}
-
-            {/* ====== ADD TO REQUEST BAG CTA ====== */}
-            <button
-              type="button"
-              onClick={addToRequestBag}
-              disabled={(!cleanUrl && !screenshotFile) || preview.loading || adding}
-              className="mt-4 flex h-[3rem] w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 text-sm font-bold text-white shadow-lg shadow-orange-200/50 transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
-            >
-              {adding ? <><Loader2 size={18} className="animate-spin" /> Adding...</>
-                : <>Add to Request Bag <Plus size={18} /></>}
-            </button>
           </div>
-        </section>
 
-        {/* ====== BOTTOM SECTION ====== */}
-        <div className="mt-4 space-y-3">
-          {/* How Request Bag works — blue accent */}
-          <section className="rounded-[1.35rem] bg-white p-4 shadow-[0_2px_12px_rgba(0,0,0,0.03)] ring-1 ring-neutral-100/80 sm:p-5">
-            <div className="flex items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-500 shadow-sm ring-1 ring-blue-100/40">
-                <Info size={18} />
+          {/* ----- Preview Loading ----- */}
+          {preview.loading && (
+            <div className="mt-4 flex items-center gap-4 rounded-2xl border border-blue-100 bg-blue-50/30 p-4">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-100/40 text-blue-500">
+                <Loader2 size={22} className="animate-spin" />
               </span>
               <div>
-                <p className="text-[0.85rem] font-bold text-gray-900">How Request Bag works</p>
-                <p className="mt-1 text-[0.75rem] leading-relaxed text-neutral-500">
-                  Add one or many product links first. Later, open Request Bag, review quantities and delivery details, then request one quotation for all items together.
-                </p>
+                <p className="text-[0.85rem] font-bold text-gray-900">Fetching product info...</p>
+                <p className="text-[0.72rem] text-neutral-500">Hang tight while we check the link</p>
               </div>
             </div>
-          </section>
+          )}
 
-          {/* Open Request Bag button */}
+          {/* ----- Preview Result ----- */}
+          {!preview.loading && preview.data && cleanUrl && (
+            <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-md">
+              <div className="flex gap-4 p-4">
+                {preview.data.image ? (
+                  <img src={preview.data.image} alt="" className="h-20 w-20 flex-shrink-0 rounded-xl bg-neutral-100 object-cover" />
+                ) : (
+                  <span className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 ring-1 ring-blue-100/40">
+                    <Package size={26} className="text-blue-400" />
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <span className="rounded-full bg-violet-50 px-2.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-violet-600 ring-1 ring-violet-100/40">
+                      {preview.data.platform}
+                    </span>
+                    {preview.data.price ? (
+                      <span className="text-[0.78rem] font-bold text-orange-600">
+                        {formatPrice(preview.data.price, preview.data.currency)}
+                      </span>
+                    ) : (
+                      <span className="text-[0.65rem] font-medium text-neutral-400">Price TBD</span>
+                    )}
+                  </div>
+                  <p className="text-[0.85rem] font-semibold leading-snug text-gray-900 line-clamp-2">
+                    {preview.data.fetched ? preview.data.title : manualPreviewTitle(preview.data)}
+                  </p>
+                  {!preview.data.fetched && (
+                    <p className="mt-1 text-[0.7rem] leading-relaxed text-neutral-500">
+                      We will verify this product manually.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ----- Success ----- */}
+          {successMessage && (
+            <div className="mt-4 overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                  <CheckCircle size={20} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[0.9rem] font-bold text-emerald-900">Saved to Request Bag</p>
+                  <p className="mt-0.5 text-[0.78rem] leading-relaxed text-emerald-700">{successMessage}</p>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/request-bag')}
+                    className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-500 px-4 text-[0.8rem] font-bold text-white shadow-sm transition-colors hover:bg-emerald-600 active:bg-emerald-700"
+                  >
+                    Open Request Bag <ShoppingBag size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ----- Error ----- */}
+          {error && (
+            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3.5">
+              <p className="flex items-start gap-2.5 text-[0.82rem] font-medium text-red-700">
+                <X size={16} className="mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </p>
+            </div>
+          )}
+
+          {/* ----- ADD TO REQUEST BAG CTA ----- */}
           <button
             type="button"
-            onClick={() => navigate('/request-bag')}
-            className="flex h-[3rem] w-full items-center justify-center gap-2 rounded-2xl border border-neutral-200/80 bg-white text-sm font-bold text-neutral-700 shadow-[0_2px_8px_rgba(0,0,0,0.03)] transition-all hover:bg-neutral-50 active:scale-[0.98] active:bg-neutral-100"
+            onClick={addToRequestBag}
+            disabled={(!cleanUrl && !screenshotFile) || preview.loading || adding}
+            className="mt-5 flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 text-[0.95rem] font-bold text-white shadow-xl shadow-orange-200/60 transition-all active:scale-[0.97] active:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
           >
-            Open Request Bag <ExternalLink size={16} />
+            {adding ? (
+              <><Loader2 size={20} className="animate-spin" /> Adding...</>
+            ) : (
+              <><Plus size={20} strokeWidth={2.5} /> Add to Request Bag</>
+            )}
           </button>
+
+          {/* ═══════════════ BOTTOM SECTIONS ═══════════════ */}
+          <div className="mt-6 space-y-4">
+
+            {/* Tip card */}
+            <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-neutral-100/60">
+              <div className="flex items-start gap-3.5">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500 ring-1 ring-blue-100/40">
+                  <Sparkles size={18} />
+                </span>
+                <div>
+                  <p className="text-[0.82rem] font-bold text-gray-900">Pro tip</p>
+                  <p className="mt-1 text-[0.75rem] leading-relaxed text-neutral-500">
+                    Add multiple products to your bag first, then request one quotation for everything together. Saves time and delivery cost.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* How it works — numbered steps */}
+            <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-neutral-100/60">
+              <p className="mb-3.5 text-[0.8rem] font-bold text-gray-900">How it works</p>
+              <div className="space-y-3">
+                {[
+                  { num: '1', text: 'Paste product link or upload screenshot', accent: 'bg-orange-50 text-orange-600' },
+                  { num: '2', text: 'Add items to your Request Bag', accent: 'bg-violet-50 text-violet-600' },
+                  { num: '3', text: 'Review and request quotation', accent: 'bg-blue-50 text-blue-600' },
+                  { num: '4', text: 'Pay after you approve the quote', accent: 'bg-emerald-50 text-emerald-600' },
+                ].map((s) => (
+                  <div key={s.num} className="flex items-center gap-3">
+                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[0.7rem] font-bold ${s.accent}`}>
+                      {s.num}
+                    </span>
+                    <p className="text-[0.78rem] text-neutral-600">{s.text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Open Request Bag */}
+            <button
+              type="button"
+              onClick={() => navigate('/request-bag')}
+              className="flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl border-2 border-neutral-200 bg-white text-[0.9rem] font-bold text-neutral-700 shadow-sm transition-all hover:bg-neutral-50 active:scale-[0.98]"
+            >
+              Open Request Bag <ExternalLink size={17} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
