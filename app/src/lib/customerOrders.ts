@@ -14,6 +14,7 @@ import type {
   PaymentStatus,
   PaymentSummary,
   Quotation,
+  TrackingEvent,
   QuotationItem,
   QuotationStatus,
   RequestBag,
@@ -40,6 +41,7 @@ type RelatedRows = {
   payments: AnyRow[]
   profiles: AnyRow[]
   requestBags: AnyRow[]
+  trackingEvents: AnyRow[]
 }
 
 export type PaymentProofInput = {
@@ -749,6 +751,40 @@ export function normalizePaymentStatus(status: unknown): PaymentStatus {
   }
 
   return map[raw] ?? 'pending'
+}
+
+function normalizeTrackingEvent(row: AnyRow): TrackingEvent {
+  const createdAt = firstString(
+    row,
+    ['event_time', 'event_at', 'status_at', 'created_at', 'updated_at'],
+    new Date().toISOString()
+  )
+
+  return {
+    id: firstString(row, ['id'], `${firstString(row, ['order_id'], 'order')}-${createdAt}`),
+    orderId: firstString(row, ['order_id'], ''),
+    status: normalizeOrderStatus(firstValue(row, ['status', 'order_status'])),
+    title: firstString(row, ['title'], 'Order update'),
+    message: firstString(row, ['message', 'description', 'notes'], ''),
+    location: firstString(row, ['location'], ''),
+    visibleToCustomer: Boolean(firstValue(row, ['visible_to_customer', 'is_customer_visible', 'visibleToCustomer']) ?? true),
+    createdBy: firstString(row, ['created_by', 'admin_id', 'user_id'], ''),
+    sellerReference: firstString(row, ['seller_reference', 'seller_order_reference', 'seller_order_ref', 'external_reference'], ''),
+    adminNote: firstString(row, ['admin_note', 'admin_notes', 'notes'], ''),
+    createdAt,
+  }
+}
+
+function sortTrackingEvents(events: TrackingEvent[]) {
+  return [...events].sort((a, b) => {
+    const aTime = new Date(a.createdAt || 0).getTime() || 0
+    const bTime = new Date(b.createdAt || 0).getTime() || 0
+    return aTime - bTime
+  })
+}
+
+function trackingEventBelongsToOrder(event: AnyRow, row: AnyRow) {
+  return String(event.order_id ?? '') === String(row.id ?? '')
 }
 
 
@@ -1706,6 +1742,11 @@ async function mapOrderRow(row: AnyRow, related: RelatedRows, authUserId: string
   const relatedPaymentRows = related.payments.filter((payment) => paymentBelongsToOrder(payment, row))
   const payments = await makePayments(relatedPaymentRows)
   const payment = getPrimaryPayment(payments)
+  const trackingEvents = sortTrackingEvents(
+    related.trackingEvents
+      .filter((event) => trackingEventBelongsToOrder(event, row))
+      .map((event) => normalizeTrackingEvent(event))
+  )
   const customerId = firstString(displayRow, ORDER_OWNER_COLUMNS, authUserId)
 
   return {
@@ -1730,6 +1771,7 @@ async function mapOrderRow(row: AnyRow, related: RelatedRows, authUserId: string
       quotationTotal: quotation?.totalAmount ?? 0,
       payments,
     }),
+    trackingEvents,
     notes: firstString(displayRow, ['notes', 'customer_notes', 'admin_notes'], ''),
     createdAt: firstString(row, ['created_at'], ''),
     updatedAt: firstString(row, ['updated_at'], firstString(row, ['created_at'], '')),
@@ -1763,6 +1805,7 @@ async function fetchRelatedRows(orderRows: AnyRow[]): Promise<RelatedRows> {
   const payments = await safeSelectIn('payments', 'order_id', dbIds)
   const profiles = await safeSelectIn('profiles', 'id', Array.from(new Set(ownerIds)))
   const requestBags = await safeSelectIn('customer_request_bags', 'submitted_order_id', dbIds)
+  const trackingEvents = await safeSelectIn('tracking_events', 'order_id', dbIds)
 
   const quotationIds = quotations.map((quote) => String(quote.id ?? '')).filter(Boolean)
   const quotationItems = await safeSelectIn('quotation_items', 'quotation_id', quotationIds)
@@ -1774,6 +1817,7 @@ async function fetchRelatedRows(orderRows: AnyRow[]): Promise<RelatedRows> {
     payments,
     profiles,
     requestBags,
+    trackingEvents,
   }
 }
 
@@ -1958,6 +2002,174 @@ export async function updateCustomerOrderStatus(orderId: string, status: OrderSt
 
   const legacyNoTimestamp = await supabase.from('orders').update({ order_status: status }).eq('id', orderId)
   if (legacyNoTimestamp.error) throw standard.error
+}
+
+const FULFILLMENT_STATUS_LABELS: Record<OrderStatus, string> = {
+  pending_confirmation: 'Order Received',
+  quotation_pending: 'Quotation Pending',
+  quoted: 'Quotation Sent',
+  payment_pending: 'Payment Pending',
+  payment_verified: 'Payment Verified',
+  order_placed: 'Order Placed',
+  in_transit: 'In Transit',
+  arrived_at_hub: 'Arrived at Hub',
+  out_for_delivery: 'Out for Delivery',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+}
+
+const ADMIN_FULFILLMENT_STATUSES: OrderStatus[] = [
+  'order_placed',
+  'in_transit',
+  'arrived_at_hub',
+  'out_for_delivery',
+  'delivered',
+  'cancelled',
+]
+
+function fulfillmentMessage(status: OrderStatus, sellerReference?: string, adminNote?: string) {
+  const reference = cleanText(sellerReference)
+  const note = cleanText(adminNote)
+  const baseMessages: Record<OrderStatus, string> = {
+    pending_confirmation: 'Your order request has been received.',
+    quotation_pending: 'Your quotation is being prepared.',
+    quoted: 'Your quotation is ready for review.',
+    payment_pending: 'Your payment proof is under review.',
+    payment_verified: 'Your payment has been verified.',
+    order_placed: reference
+      ? `Your order has been placed with the seller. Seller reference: ${reference}.`
+      : 'Your order has been placed with the seller.',
+    in_transit: 'Your order is in transit to Bhutan.',
+    arrived_at_hub: 'Your order has arrived at the delivery hub.',
+    out_for_delivery: 'Your order is out for delivery.',
+    delivered: 'Your order has been delivered successfully.',
+    cancelled: 'This order has been cancelled.',
+  }
+
+  return note ? `${baseMessages[status]} ${note}` : baseMessages[status]
+}
+
+function trackingStatusCandidates(status: OrderStatus) {
+  const legacyMap: Partial<Record<OrderStatus, string[]>> = {
+    pending_confirmation: ['pending_confirmation', 'pending'],
+    order_placed: ['order_placed', 'ordered', 'confirmed'],
+    in_transit: ['in_transit', 'reached_jaigaon'],
+    arrived_at_hub: ['arrived_at_hub', 'reached_phuntsholing'],
+    out_for_delivery: ['out_for_delivery', 'shipped'],
+    cancelled: ['cancelled', 'canceled'],
+  }
+
+  return legacyMap[status] ?? [status]
+}
+
+async function insertOrderTrackingEvent(input: {
+  orderId: string
+  status: OrderStatus
+  title?: string
+  message?: string
+  location?: string
+  createdBy?: string
+  sellerReference?: string
+  adminNote?: string
+  visibleToCustomer?: boolean
+}) {
+  const orderId = cleanText(input.orderId)
+  if (!orderId) return
+
+  const now = new Date().toISOString()
+  const title = cleanText(input.title) || FULFILLMENT_STATUS_LABELS[input.status] || 'Order update'
+  const message = cleanText(input.message) || fulfillmentMessage(input.status, input.sellerReference, input.adminNote)
+  const createdBy = cleanText(input.createdBy)
+  const sellerReference = cleanText(input.sellerReference)
+  const adminNote = cleanText(input.adminNote)
+
+  for (const dbStatus of trackingStatusCandidates(input.status)) {
+    const richPayload: AnyRow = {
+      order_id: orderId,
+      status: dbStatus,
+      title,
+      message,
+      location: cleanText(input.location) || null,
+      visible_to_customer: input.visibleToCustomer ?? true,
+      created_by: createdBy || null,
+      seller_reference: sellerReference || null,
+      admin_note: adminNote || null,
+      event_time: now,
+      created_at: now,
+    }
+
+    const candidates: AnyRow[] = [
+      richPayload,
+      { ...richPayload, event_time: undefined },
+      {
+        order_id: orderId,
+        status: dbStatus,
+        title,
+        message,
+        location: cleanText(input.location) || null,
+        visible_to_customer: input.visibleToCustomer ?? true,
+        created_by: createdBy || null,
+        created_at: now,
+      },
+      {
+        order_id: orderId,
+        status: dbStatus,
+        title,
+        message,
+        location: cleanText(input.location) || null,
+        visible_to_customer: input.visibleToCustomer ?? true,
+      },
+      {
+        order_id: orderId,
+        status: dbStatus,
+        title,
+        message,
+      },
+    ]
+
+    for (const candidate of candidates) {
+      Object.keys(candidate).forEach((key) => candidate[key] === undefined && delete candidate[key])
+      const { error } = await supabase.from('tracking_events').insert(candidate)
+      if (!error) return
+
+      if (!shouldTryFallbackPayload(error)) {
+        console.warn('[customerOrders] tracking event insert skipped:', error)
+        return
+      }
+    }
+  }
+}
+
+export async function updateAdminFulfillmentStatus(input: {
+  orderId: string
+  status: OrderStatus
+  adminId?: string
+  sellerReference?: string
+  adminNote?: string
+}) {
+  const orderId = cleanText(input.orderId)
+  if (!orderId) throw new Error('Order UUID is required.')
+  if (!ADMIN_FULFILLMENT_STATUSES.includes(input.status)) {
+    throw new Error('Unsupported fulfillment status.')
+  }
+
+  await updateCustomerOrderStatus(orderId, input.status)
+
+  try {
+    await insertOrderTrackingEvent({
+      orderId,
+      status: input.status,
+      title: FULFILLMENT_STATUS_LABELS[input.status],
+      message: fulfillmentMessage(input.status, input.sellerReference, input.adminNote),
+      location: input.status === 'arrived_at_hub' || input.status === 'out_for_delivery' ? 'Bhutan Hub' : undefined,
+      createdBy: input.adminId,
+      sellerReference: input.sellerReference,
+      adminNote: input.adminNote,
+      visibleToCustomer: true,
+    })
+  } catch (error) {
+    console.warn('[customerOrders] fulfillment tracking event skipped:', error)
+  }
 }
 
 
@@ -2403,6 +2615,16 @@ async function updateOrderStatusAfterPaymentReview(paymentId: string, status: Pa
 
   try {
     await updateCustomerOrderStatus(orderId, nextOrderStatus)
+    await insertOrderTrackingEvent({
+      orderId,
+      status: nextOrderStatus,
+      title: nextOrderStatus === 'payment_verified' ? 'Payment Verified' : 'Payment Update',
+      message:
+        nextOrderStatus === 'payment_verified'
+          ? 'Your payment has been verified by Shop2Bhutan.'
+          : 'Your payment proof needs attention. Please check the payment section.',
+      visibleToCustomer: true,
+    })
   } catch (updateError) {
     console.warn('[customerOrders] order status after payment review skipped:', updateError)
   }

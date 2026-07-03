@@ -121,10 +121,18 @@ function money(value?: number) {
 
 function statusMessage(order: Order, status = getEffectiveOrderStatus(order)) {
   if (status === 'delivered') return 'Your order has been delivered successfully.';
+  if (status === 'out_for_delivery') return 'Your order is out for delivery.';
+  if (status === 'arrived_at_hub') return 'Your order has reached the delivery hub.';
   if (status === 'in_transit') return 'Your order is on its way to Bhutan.';
+  if (status === 'order_placed') return 'Your order has been placed with the seller.';
+  if (status === 'payment_verified') return 'Your payment has been verified. We will order the product from the seller.';
+  if (status === 'cancelled') return 'This order has been cancelled.';
   if (status === 'quoted') return 'Your quotation is ready. Review it before payment.';
   if (status === 'payment_pending' && order.payment?.status === 'pending') {
     return 'Your payment proof is under review.';
+  }
+  if (status === 'payment_pending' && order.payment?.status === 'rejected') {
+    return 'Your payment proof was rejected. Please upload a corrected screenshot.';
   }
   if (status === 'quotation_pending') return 'We are checking your product details and preparing your quotation.';
   return 'We are processing your order.';
@@ -139,6 +147,12 @@ function safeAddress(order: Order) {
 
 function getEffectiveOrderStatus(order: Order): OrderStatus {
   if (order.status === 'cancelled' || order.status === 'delivered') return order.status;
+
+  const actualIndex = getProgressIndex(order.status);
+  const paymentVerifiedIndex = getProgressIndex('payment_verified');
+
+  // Once admin starts fulfillment, the real order status must win over payment-derived state.
+  if (actualIndex > paymentVerifiedIndex) return order.status;
 
   const payments = order.payments ?? (order.payment ? [order.payment] : []);
   const hasVerifiedPayment = payments.some((payment) => payment.status === 'verified') || order.payment?.status === 'verified';
@@ -215,10 +229,18 @@ function firstValidDate(...values: Array<string | undefined>) {
   }) || '';
 }
 
+function latestTrackingEvent(order: Order, status: OrderStatus) {
+  return (order.trackingEvents ?? [])
+    .filter((event) => event.status === status && event.visibleToCustomer !== false)
+    .sort((a, b) => (new Date(b.createdAt).getTime() || 0) - (new Date(a.createdAt).getTime() || 0))[0];
+}
+
 function stepTimestamp(order: Order, status: OrderStatus) {
+  const trackingEvent = latestTrackingEvent(order, status);
   const payment = order.payment;
   const quotation = order.quotation;
 
+  if (trackingEvent?.createdAt) return trackingEvent.createdAt;
   if (status === 'pending_confirmation') return firstValidDate(order.createdAt);
   if (status === 'quotation_pending') return firstValidDate(order.createdAt);
   if (status === 'quoted') return firstValidDate(quotation?.respondedAt, quotation?.createdAt);
@@ -241,6 +263,7 @@ function OrderProgressTimeline({ order }: { order: Order }) {
         const isActive = isCompleted || isCurrent;
         const timestamp = stepTimestamp(order, step.status);
         const formattedTime = formatBhutanDateTime(timestamp);
+        const event = latestTrackingEvent(order, step.status);
 
         return (
           <div key={step.status} className="relative flex gap-3 pb-5 last:pb-0">
@@ -267,7 +290,7 @@ function OrderProgressTimeline({ order }: { order: Order }) {
 
             <div className="min-w-0 flex-1 pt-0.5">
               <p className={`text-sm font-black ${isActive ? 'text-gray-950' : 'text-neutral-400'}`}>{step.label}</p>
-              <p className={`mt-0.5 text-xs ${isActive ? 'text-neutral-600' : 'text-neutral-400'}`}>{step.description}</p>
+              <p className={`mt-0.5 text-xs ${isActive ? 'text-neutral-600' : 'text-neutral-400'}`}>{event?.message || step.description}</p>
               <p className={`mt-1 text-[11px] font-medium ${formattedTime ? 'text-neutral-500' : 'text-neutral-300'}`}>
                 {formattedTime || 'Pending'}
               </p>
@@ -368,8 +391,10 @@ export default function OrderDetail() {
     );
   }
 
-  const quotationReady = Boolean(order.quotation && order.status === 'quoted');
-  const showPaymentUpload = order.status === 'payment_pending' && !order.payment;
+  const payments = order.payments ?? (order.payment ? [order.payment] : []);
+  const hasOpenPayment = payments.some((payment) => payment.status === 'pending' || payment.status === 'verified');
+  const quotationReady = Boolean(order.quotation && effectiveStatus === 'quoted');
+  const showPaymentUpload = effectiveStatus === 'payment_pending' && !hasOpenPayment;
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-8">
@@ -598,7 +623,7 @@ export default function OrderDetail() {
           </section>
         )}
 
-        {order.status === 'delivered' && (
+        {effectiveStatus === 'delivered' && (
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
@@ -616,7 +641,7 @@ export default function OrderDetail() {
           </div>
         )}
 
-        {!quotationReady && order.quotation && order.status !== 'payment_pending' && (
+        {!quotationReady && order.quotation && effectiveStatus !== 'payment_pending' && (
           <button
             type="button"
             onClick={() => navigate(`/quotation/${order.id}`)}

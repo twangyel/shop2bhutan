@@ -209,6 +209,20 @@ export interface PaymentSummary {
   hasPendingPayment: boolean;
 }
 
+export interface TrackingEvent {
+  id: string;
+  orderId: string;
+  status: OrderStatus;
+  title: string;
+  message?: string;
+  location?: string;
+  visibleToCustomer: boolean;
+  createdBy?: string;
+  sellerReference?: string;
+  adminNote?: string;
+  createdAt: string;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -224,6 +238,7 @@ export interface Order {
   payment?: Payment;
   payments?: Payment[];
   paymentSummary?: PaymentSummary;
+  trackingEvents?: TrackingEvent[];
   notes?: string;
   createdAt: string;
   updatedAt: string;

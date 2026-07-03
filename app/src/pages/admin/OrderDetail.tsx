@@ -7,6 +7,7 @@ import {
   ExternalLink,
   FileText,
   MapPin,
+  Package,
   XCircle,
   Printer,
   RefreshCw,
@@ -14,9 +15,9 @@ import {
 } from 'lucide-react';
 import StatusBadge from '@/components/shared/StatusBadge';
 import TrackingTimeline from '@/components/shared/TrackingTimeline';
-import { fetchAdminOrderById, rejectCustomerPayment, verifyCustomerPayment } from '@/lib/customerOrders';
+import { fetchAdminOrderById, rejectCustomerPayment, updateAdminFulfillmentStatus, verifyCustomerPayment } from '@/lib/customerOrders';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Order, Payment, PaymentCoverage, PaymentStatus } from '@/types';
+import type { Order, OrderStatus, Payment, PaymentCoverage, PaymentStatus } from '@/types';
 
 function formatDate(value: string) {
   if (!value) return '-';
@@ -120,6 +121,80 @@ function getPaymentSummary(order: Order) {
   };
 }
 
+type FulfillmentAction = {
+  status: OrderStatus;
+  label: string;
+  description: string;
+};
+
+const fulfillmentActions: FulfillmentAction[] = [
+  {
+    status: 'order_placed',
+    label: 'Mark as Order Placed',
+    description: 'Product has been ordered from the Indian seller.',
+  },
+  {
+    status: 'in_transit',
+    label: 'Mark In Transit',
+    description: 'Package is moving from seller/India toward Bhutan.',
+  },
+  {
+    status: 'arrived_at_hub',
+    label: 'Mark Arrived at Hub',
+    description: 'Package has reached the selected Bhutan hub.',
+  },
+  {
+    status: 'out_for_delivery',
+    label: 'Mark Out for Delivery',
+    description: 'Package is assigned for final customer delivery.',
+  },
+  {
+    status: 'delivered',
+    label: 'Mark Delivered',
+    description: 'Customer has received the package.',
+  },
+  {
+    status: 'cancelled',
+    label: 'Cancel Order',
+    description: 'Stop fulfillment for this order.',
+  },
+];
+
+const statusOrder: OrderStatus[] = [
+  'pending_confirmation',
+  'quotation_pending',
+  'quoted',
+  'payment_pending',
+  'payment_verified',
+  'order_placed',
+  'in_transit',
+  'arrived_at_hub',
+  'out_for_delivery',
+  'delivered',
+];
+
+function statusIndex(status: OrderStatus) {
+  return statusOrder.indexOf(status);
+}
+
+function hasVerifiedPayment(order: Order) {
+  const payments = order.payments ?? (order.payment ? [order.payment] : []);
+  const summary = order.paymentSummary;
+  const fullyCovered = Boolean(
+    summary &&
+      summary.totalPayable > 0 &&
+      (summary.coverage === 'fully_paid' || summary.coverage === 'overpaid' || summary.verifiedPaid >= summary.totalPayable)
+  );
+
+  return fullyCovered || payments.some((payment) => payment.status === 'verified') || order.status === 'payment_verified' || statusIndex(order.status) > statusIndex('payment_verified');
+}
+
+function nextFulfillmentStatus(order: Order): OrderStatus {
+  if (order.status === 'cancelled' || order.status === 'delivered') return order.status;
+  const currentIndex = statusIndex(order.status);
+  return fulfillmentActions.find((action) => statusIndex(action.status) > currentIndex)?.status ?? 'order_placed';
+}
+
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -129,6 +204,10 @@ export default function OrderDetail() {
   const [error, setError] = useState('');
   const [reviewBusyId, setReviewBusyId] = useState('');
   const [reviewError, setReviewError] = useState('');
+  const [fulfillmentBusyStatus, setFulfillmentBusyStatus] = useState<OrderStatus | ''>('');
+  const [fulfillmentError, setFulfillmentError] = useState('');
+  const [sellerReference, setSellerReference] = useState('');
+  const [fulfillmentNote, setFulfillmentNote] = useState('');
 
   const loadOrder = useCallback(async () => {
     if (!id) {
@@ -202,6 +281,34 @@ export default function OrderDetail() {
     }
   };
 
+  const handleFulfillmentUpdate = async (status: OrderStatus) => {
+    if (!order) return;
+
+    const action = fulfillmentActions.find((item) => item.status === status);
+    const confirmed = window.confirm(`${action?.label ?? 'Update status'} for order #${order.orderNumber}?`);
+    if (!confirmed) return;
+
+    setFulfillmentBusyStatus(status);
+    setFulfillmentError('');
+
+    try {
+      await updateAdminFulfillmentStatus({
+        orderId: order.id,
+        status,
+        adminId: user?.id,
+        sellerReference: status === 'order_placed' ? sellerReference.trim() : undefined,
+        adminNote: fulfillmentNote.trim(),
+      });
+      setFulfillmentNote('');
+      await loadOrder();
+    } catch (err) {
+      console.error('Failed to update fulfillment status:', err);
+      setFulfillmentError(err instanceof Error ? err.message : 'Unable to update fulfillment status.');
+    } finally {
+      setFulfillmentBusyStatus('');
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -245,6 +352,10 @@ export default function OrderDetail() {
   const deliveryAddressText = fullDeliveryAddress(order);
   const payments = order.payments ?? (order.payment ? [order.payment] : []);
   const paymentSummary = getPaymentSummary(order);
+  const fulfillmentReady = hasVerifiedPayment(order);
+  const suggestedNextStatus = nextFulfillmentStatus(order);
+  const currentStatusIndex = statusIndex(order.status);
+  const isTerminalOrder = order.status === 'delivered' || order.status === 'cancelled';
 
   return (
     <div className="space-y-4">
@@ -340,7 +451,7 @@ export default function OrderDetail() {
 
           <div className="bg-white rounded-xl p-5 shadow-card">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Tracking</h3>
-            <TrackingTimeline currentStatus={order.status} />
+            <TrackingTimeline currentStatus={order.status} trackingEvents={order.trackingEvents} showDetails />
           </div>
         </div>
 
@@ -552,6 +663,88 @@ export default function OrderDetail() {
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="bg-white rounded-xl p-5 shadow-card">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Fulfillment & Tracking</h3>
+                <p className="mt-1 text-xs text-neutral-500">Update the post-payment journey after ordering from the Indian seller.</p>
+              </div>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${fulfillmentReady ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
+                {fulfillmentReady ? 'Ready after payment' : 'Waiting for verified payment'}
+              </span>
+            </div>
+
+            {fulfillmentError && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+                {fulfillmentError}
+              </div>
+            )}
+
+            {!fulfillmentReady && (
+              <div className="mb-4 rounded-xl border border-dashed border-orange-200 bg-orange-50 p-4">
+                <p className="text-sm font-semibold text-orange-700">Verify payment before fulfillment.</p>
+                <p className="mt-1 text-xs text-orange-600">This keeps payment review inside the payments ledger and order movement inside order status/tracking.</p>
+              </div>
+            )}
+
+            <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <label className="block">
+                <span className="text-xs font-semibold text-neutral-600">Seller / Indian order reference</span>
+                <input
+                  type="text"
+                  value={sellerReference}
+                  onChange={(event) => setSellerReference(event.target.value)}
+                  placeholder="Amazon / Flipkart order ID, invoice ref..."
+                  className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  disabled={!fulfillmentReady || isTerminalOrder}
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-neutral-600">Admin note for this update</span>
+                <input
+                  type="text"
+                  value={fulfillmentNote}
+                  onChange={(event) => setFulfillmentNote(event.target.value)}
+                  placeholder="Optional note visible on timeline"
+                  className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  disabled={!fulfillmentReady || isTerminalOrder}
+                />
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {fulfillmentActions.map((action) => {
+                const actionIndex = statusIndex(action.status);
+                const isCancelAction = action.status === 'cancelled';
+                const isSuggested = action.status === suggestedNextStatus && !isTerminalOrder;
+                const isAlreadyPassed = !isCancelAction && currentStatusIndex >= actionIndex;
+                const disabled = !fulfillmentReady || isTerminalOrder || isAlreadyPassed || fulfillmentBusyStatus !== '';
+
+                return (
+                  <button
+                    key={action.status}
+                    type="button"
+                    onClick={() => handleFulfillmentUpdate(action.status)}
+                    disabled={disabled}
+                    className={`rounded-xl border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                      isCancelAction
+                        ? 'border-red-100 bg-red-50 text-red-700 hover:bg-red-100'
+                        : isSuggested
+                          ? 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                          : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 text-xs font-bold">
+                      {action.status === 'order_placed' ? <Package size={14} /> : action.status === 'in_transit' ? <Truck size={14} /> : action.status === 'cancelled' ? <XCircle size={14} /> : <CheckCircle size={14} />}
+                      {fulfillmentBusyStatus === action.status ? 'Updating...' : action.label}
+                    </span>
+                    <span className="mt-1 block text-[11px] leading-relaxed opacity-75">{action.description}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="bg-white rounded-xl p-5 shadow-card">
