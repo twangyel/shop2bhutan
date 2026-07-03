@@ -2383,6 +2383,31 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
   return { path }
 }
 
+
+async function updateOrderStatusAfterPaymentReview(paymentId: string, status: PaymentStatus) {
+  const { data, error } = await supabase
+    .from('payments')
+    .select('order_id')
+    .eq('id', paymentId)
+    .maybeSingle()
+
+  if (error) {
+    console.warn('[customerOrders] payment order lookup skipped:', error)
+    return
+  }
+
+  const orderId = firstString(data as AnyRow | null, ['order_id'], '')
+  if (!orderId) return
+
+  const nextOrderStatus: OrderStatus = status === 'verified' ? 'payment_verified' : 'payment_pending'
+
+  try {
+    await updateCustomerOrderStatus(orderId, nextOrderStatus)
+  } catch (updateError) {
+    console.warn('[customerOrders] order status after payment review skipped:', updateError)
+  }
+}
+
 async function updatePaymentReviewStatus(params: {
   paymentId: string
   status: PaymentStatus
@@ -2435,7 +2460,10 @@ async function updatePaymentReviewStatus(params: {
 
   for (const candidate of candidates) {
     const result = await supabase.from('payments').update(candidate).eq('id', params.paymentId)
-    if (!result.error) return
+    if (!result.error) {
+      await updateOrderStatusAfterPaymentReview(params.paymentId, params.status)
+      return
+    }
 
     lastError = result.error
     if (!shouldTryFallbackPayload(result.error)) throw result.error
@@ -2459,7 +2487,7 @@ export async function verifyCustomerPayment(input: {
 
   if (input.order.status === 'quoted' || input.order.status === 'payment_pending') {
     try {
-      await updateCustomerOrderStatus(input.order.id, 'payment_pending')
+      await updateCustomerOrderStatus(input.order.id, 'payment_verified')
     } catch (error) {
       console.warn('[customerOrders] order status after payment verification skipped:', error)
     }

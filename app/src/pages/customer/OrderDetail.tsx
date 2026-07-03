@@ -119,14 +119,14 @@ function money(value?: number) {
   return `Nu. ${Number(value ?? 0).toLocaleString()}`;
 }
 
-function statusMessage(order: Order) {
-  if (order.status === 'delivered') return 'Your order has been delivered successfully.';
-  if (order.status === 'in_transit') return 'Your order is on its way to Bhutan.';
-  if (order.status === 'quoted') return 'Your quotation is ready. Review it before payment.';
-  if (order.status === 'payment_pending' && order.payment?.status === 'pending') {
+function statusMessage(order: Order, status = getEffectiveOrderStatus(order)) {
+  if (status === 'delivered') return 'Your order has been delivered successfully.';
+  if (status === 'in_transit') return 'Your order is on its way to Bhutan.';
+  if (status === 'quoted') return 'Your quotation is ready. Review it before payment.';
+  if (status === 'payment_pending' && order.payment?.status === 'pending') {
     return 'Your payment proof is under review.';
   }
-  if (order.status === 'quotation_pending') return 'We are checking your product details and preparing your quotation.';
+  if (status === 'quotation_pending') return 'We are checking your product details and preparing your quotation.';
   return 'We are processing your order.';
 }
 
@@ -136,13 +136,36 @@ function safeAddress(order: Order) {
     .join(', ') || 'Delivery address pending';
 }
 
+
+function getEffectiveOrderStatus(order: Order): OrderStatus {
+  if (order.status === 'cancelled' || order.status === 'delivered') return order.status;
+
+  const payments = order.payments ?? (order.payment ? [order.payment] : []);
+  const hasVerifiedPayment = payments.some((payment) => payment.status === 'verified') || order.payment?.status === 'verified';
+  const hasPendingPayment = payments.some((payment) => payment.status === 'pending') || order.payment?.status === 'pending';
+  const hasRejectedPayment = payments.some((payment) => payment.status === 'rejected') || order.payment?.status === 'rejected';
+  const summary = order.paymentSummary;
+  const fullyCovered = Boolean(
+    summary &&
+      summary.totalPayable > 0 &&
+      (summary.coverage === 'fully_paid' || summary.coverage === 'overpaid' || summary.verifiedPaid >= summary.totalPayable)
+  );
+
+  if (order.status === 'payment_verified' || fullyCovered || hasVerifiedPayment) return 'payment_verified';
+  if (order.status === 'payment_pending' || hasPendingPayment || hasRejectedPayment) return 'payment_pending';
+
+  return order.status;
+}
+
 function getProgressIndex(status: OrderStatus) {
   const index = progressSteps.findIndex((step) => step.status === status);
   return index >= 0 ? index : 0;
 }
 
 function getCompactProgress(order: Order) {
-  if (order.status === 'cancelled') {
+  const effectiveStatus = getEffectiveOrderStatus(order);
+
+  if (effectiveStatus === 'cancelled') {
     return {
       currentLabel: 'Order cancelled',
       nextText: 'This order is no longer active.',
@@ -150,7 +173,7 @@ function getCompactProgress(order: Order) {
     };
   }
 
-  const index = getProgressIndex(order.status);
+  const index = getProgressIndex(effectiveStatus);
   const current = progressSteps[index] ?? progressSteps[0];
   const progressPercent = Math.max(8, Math.round((index / Math.max(1, progressSteps.length - 1)) * 100));
 
@@ -201,13 +224,14 @@ function stepTimestamp(order: Order, status: OrderStatus) {
   if (status === 'quoted') return firstValidDate(quotation?.respondedAt, quotation?.createdAt);
   if (status === 'payment_pending') return firstValidDate(payment?.createdAt, quotation?.respondedAt, order.updatedAt);
   if (status === 'payment_verified') return firstValidDate(payment?.verifiedAt);
-  if (status === order.status) return firstValidDate(order.updatedAt, order.createdAt);
+  if (status === getEffectiveOrderStatus(order)) return firstValidDate(order.updatedAt, order.createdAt);
 
   return '';
 }
 
 function OrderProgressTimeline({ order }: { order: Order }) {
-  const currentIndex = order.status === 'cancelled' ? -1 : getProgressIndex(order.status);
+  const effectiveStatus = getEffectiveOrderStatus(order);
+  const currentIndex = effectiveStatus === 'cancelled' ? -1 : getProgressIndex(effectiveStatus);
 
   return (
     <div className="space-y-0">
@@ -292,6 +316,7 @@ export default function OrderDetail() {
   }, [authLoading, loadOrder]);
 
   const compactProgress = useMemo(() => (order ? getCompactProgress(order) : null), [order]);
+  const effectiveStatus = useMemo(() => (order ? getEffectiveOrderStatus(order) : undefined), [order]);
 
   if (!authLoading && !user) {
     return (
@@ -367,12 +392,12 @@ export default function OrderDetail() {
               <div className="min-w-0">
                 <p className="text-xs font-bold uppercase tracking-wide text-white/50">Current status</p>
                 <div className="mt-2 inline-flex">
-                  <StatusBadge status={order.status} />
+                  <StatusBadge status={effectiveStatus ?? order.status} />
                 </div>
-                <p className="mt-3 text-sm leading-relaxed text-white/80">{statusMessage(order)}</p>
+                <p className="mt-3 text-sm leading-relaxed text-white/80">{statusMessage(order, effectiveStatus ?? order.status)}</p>
               </div>
               <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm">
-                {statusIcons[order.status] ?? <Package size={30} className="text-white" />}
+                {statusIcons[effectiveStatus ?? order.status] ?? <Package size={30} className="text-white" />}
               </div>
             </div>
           </div>
