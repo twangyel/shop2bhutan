@@ -1476,81 +1476,45 @@ export async function updateQuotationStatus(quotationId: string, status: Quotati
 
     if (dbStatus === 'accepted') payload.accepted_at = now
 
-    const withTimestamp = await supabase
-      .from('quotations')
-      .update(payload)
-      .eq('id', quotationId)
-      .select('id,status')
-      .maybeSingle()
-
-    if (!withTimestamp.error && withTimestamp.data) return
+    const withTimestamp = await supabase.from('quotations').update(payload).eq('id', quotationId)
+    if (!withTimestamp.error) return
 
     lastError = withTimestamp.error
-    if (withTimestamp.error && !shouldTryFallbackPayload(withTimestamp.error)) throw withTimestamp.error
+    if (!shouldTryFallbackPayload(withTimestamp.error)) throw withTimestamp.error
 
     const fallbackPayload: AnyRow = { status: dbStatus }
     if (dbStatus === 'accepted') fallbackPayload.accepted_at = now
 
-    const withoutTimestamp = await supabase
-      .from('quotations')
-      .update(fallbackPayload)
-      .eq('id', quotationId)
-      .select('id,status')
-      .maybeSingle()
+    const withoutTimestamp = await supabase.from('quotations').update(fallbackPayload).eq('id', quotationId)
+    if (!withoutTimestamp.error) return
 
-    if (!withoutTimestamp.error && withoutTimestamp.data) return
-
-    lastError = withoutTimestamp.error ?? lastError
-    if (withoutTimestamp.error && !shouldTryFallbackPayload(withoutTimestamp.error)) throw withoutTimestamp.error
+    lastError = withoutTimestamp.error
+    if (!shouldTryFallbackPayload(withoutTimestamp.error)) throw withoutTimestamp.error
   }
 
   throw new Error(errorMessage(lastError, 'Unable to update quotation status.'))
 }
 
 export async function updateCustomerOrderStatus(orderId: string, status: OrderStatus) {
-  let lastError: unknown = null
-
   const standard = await supabase
     .from('orders')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', orderId)
-    .select('id')
-    .maybeSingle()
 
-  if (!standard.error && standard.data) return
-  lastError = standard.error
+  if (!standard.error) return
 
-  const standardNoTimestamp = await supabase
-    .from('orders')
-    .update({ status })
-    .eq('id', orderId)
-    .select('id')
-    .maybeSingle()
-
-  if (!standardNoTimestamp.error && standardNoTimestamp.data) return
-  lastError = standardNoTimestamp.error ?? lastError
+  const standardNoTimestamp = await supabase.from('orders').update({ status }).eq('id', orderId)
+  if (!standardNoTimestamp.error) return
 
   const legacy = await supabase
     .from('orders')
     .update({ order_status: status, updated_at: new Date().toISOString() })
     .eq('id', orderId)
-    .select('id')
-    .maybeSingle()
 
-  if (!legacy.error && legacy.data) return
-  lastError = legacy.error ?? lastError
+  if (!legacy.error) return
 
-  const legacyNoTimestamp = await supabase
-    .from('orders')
-    .update({ order_status: status })
-    .eq('id', orderId)
-    .select('id')
-    .maybeSingle()
-
-  if (!legacyNoTimestamp.error && legacyNoTimestamp.data) return
-  lastError = legacyNoTimestamp.error ?? lastError
-
-  throw new Error(errorMessage(lastError, 'Unable to update order status.'))
+  const legacyNoTimestamp = await supabase.from('orders').update({ order_status: status }).eq('id', orderId)
+  if (legacyNoTimestamp.error) throw standard.error
 }
 
 
