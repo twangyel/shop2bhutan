@@ -17,9 +17,10 @@ import {
 import { appSettings } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/shared/StatusBadge';
-import TrackingTimeline from '@/components/shared/TrackingTimeline';
 import { fetchCustomerOrderById } from '@/lib/customerOrders';
 import type { Order, OrderStatus } from '@/types';
+
+const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
 
 const statusIcons: Record<string, ReactNode> = {
   pending_confirmation: <Clock size={30} className="text-orange-500" />,
@@ -39,66 +40,77 @@ const progressSteps: Array<{
   status: OrderStatus;
   label: string;
   shortLabel: string;
+  description: string;
   next: string;
 }> = [
   {
     status: 'pending_confirmation',
-    label: 'Order received',
+    label: 'Order Received',
     shortLabel: 'Received',
+    description: 'Your order has been received',
     next: 'Admin will review your request and prepare quotation.',
   },
   {
     status: 'quotation_pending',
-    label: 'Quotation in progress',
+    label: 'Quotation Pending',
     shortLabel: 'Quotation',
+    description: 'We are preparing your quotation',
     next: 'You will be notified once quotation is ready.',
   },
   {
     status: 'quoted',
-    label: 'Quotation ready',
+    label: 'Quotation Sent',
     shortLabel: 'Quote',
+    description: 'Review and approve your quotation',
     next: 'Review and accept quotation to continue.',
   },
   {
     status: 'payment_pending',
-    label: 'Payment pending',
+    label: 'Payment Pending',
     shortLabel: 'Payment',
+    description: 'Upload your payment screenshot',
     next: 'Upload payment screenshot or wait for payment verification.',
   },
   {
     status: 'payment_verified',
-    label: 'Payment verified',
+    label: 'Payment Verified',
     shortLabel: 'Verified',
+    description: 'Your payment has been verified',
     next: 'We will place your order with the seller.',
   },
   {
     status: 'order_placed',
-    label: 'Order placed',
+    label: 'Order Placed',
     shortLabel: 'Placed',
+    description: 'Order placed with seller',
     next: 'Your order is being prepared for shipment.',
   },
   {
     status: 'in_transit',
-    label: 'In transit',
+    label: 'In Transit',
     shortLabel: 'Transit',
+    description: 'Your order is on the way to Bhutan',
     next: 'Your order is on the way to Bhutan.',
   },
   {
     status: 'arrived_at_hub',
-    label: 'Arrived at hub',
+    label: 'Arrived at Hub',
     shortLabel: 'Hub',
+    description: 'Package arrived at delivery hub',
     next: 'Delivery will be arranged from the hub.',
   },
   {
     status: 'out_for_delivery',
-    label: 'Out for delivery',
+    label: 'Out for Delivery',
     shortLabel: 'Delivery',
+    description: 'Package is out for delivery',
     next: 'Your package is out for delivery.',
   },
   {
     status: 'delivered',
     label: 'Delivered',
     shortLabel: 'Delivered',
+    description: 'Package delivered successfully',
     next: 'Package delivered successfully.',
   },
 ];
@@ -147,6 +159,100 @@ function getCompactProgress(order: Order) {
     nextText: current.next,
     progressPercent,
   };
+}
+
+function formatBhutanDateTime(value?: string) {
+  if (!value) return '';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const dateText = new Intl.DateTimeFormat('en-US', {
+    timeZone: BHUTAN_TIME_ZONE,
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date);
+
+  const timeText = new Intl.DateTimeFormat('en-US', {
+    timeZone: BHUTAN_TIME_ZONE,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date);
+
+  return `${dateText}, ${timeText} BTT`;
+}
+
+function firstValidDate(...values: Array<string | undefined>) {
+  return values.find((value) => {
+    if (!value) return false;
+    const date = new Date(value);
+    return !Number.isNaN(date.getTime());
+  }) || '';
+}
+
+function stepTimestamp(order: Order, status: OrderStatus) {
+  const payment = order.payment;
+  const quotation = order.quotation;
+
+  if (status === 'pending_confirmation') return firstValidDate(order.createdAt);
+  if (status === 'quotation_pending') return firstValidDate(order.createdAt);
+  if (status === 'quoted') return firstValidDate(quotation?.respondedAt, quotation?.createdAt);
+  if (status === 'payment_pending') return firstValidDate(payment?.createdAt, quotation?.respondedAt, order.updatedAt);
+  if (status === 'payment_verified') return firstValidDate(payment?.verifiedAt);
+  if (status === order.status) return firstValidDate(order.updatedAt, order.createdAt);
+
+  return '';
+}
+
+function OrderProgressTimeline({ order }: { order: Order }) {
+  const currentIndex = order.status === 'cancelled' ? -1 : getProgressIndex(order.status);
+
+  return (
+    <div className="space-y-0">
+      {progressSteps.map((step, index) => {
+        const isCompleted = currentIndex > index;
+        const isCurrent = currentIndex === index;
+        const isActive = isCompleted || isCurrent;
+        const timestamp = stepTimestamp(order, step.status);
+        const formattedTime = formatBhutanDateTime(timestamp);
+
+        return (
+          <div key={step.status} className="relative flex gap-3 pb-5 last:pb-0">
+            {index < progressSteps.length - 1 && (
+              <span
+                className={`absolute left-[15px] top-8 h-full w-px ${
+                  isCompleted ? 'bg-emerald-200' : 'bg-neutral-200'
+                }`}
+                aria-hidden="true"
+              />
+            )}
+
+            <div
+              className={`relative z-10 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
+                isCompleted
+                  ? 'bg-emerald-500 text-white'
+                  : isCurrent
+                    ? 'bg-amber-500 text-white ring-4 ring-amber-100'
+                    : 'bg-neutral-100 text-neutral-400'
+              }`}
+            >
+              {isCompleted ? <CheckCircle size={15} /> : <Clock size={14} />}
+            </div>
+
+            <div className="min-w-0 flex-1 pt-0.5">
+              <p className={`text-sm font-black ${isActive ? 'text-gray-950' : 'text-neutral-400'}`}>{step.label}</p>
+              <p className={`mt-0.5 text-xs ${isActive ? 'text-neutral-600' : 'text-neutral-400'}`}>{step.description}</p>
+              <p className={`mt-1 text-[11px] font-medium ${formattedTime ? 'text-neutral-500' : 'text-neutral-300'}`}>
+                {formattedTime || 'Pending'}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function OrderDetail() {
@@ -350,7 +456,7 @@ export default function OrderDetail() {
 
           {timelineOpen && (
             <div className="border-t border-neutral-100 p-4">
-              <TrackingTimeline currentStatus={order.status} />
+              <OrderProgressTimeline order={order} />
             </div>
           )}
         </section>
