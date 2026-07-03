@@ -14,6 +14,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import {
   fetchCustomerNotifications,
   markAllCustomerNotificationsRead,
@@ -82,14 +83,18 @@ export default function Notifications() {
 
   const unreadCount = useMemo(() => notifications.filter((item) => !item.isRead).length, [notifications]);
 
-  const loadNotifications = useCallback(async () => {
+  const loadNotifications = useCallback(async (options?: { silent?: boolean }) => {
     if (!user || authLoading) {
       setNotifications([]);
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    const silent = Boolean(options?.silent);
+
+    if (!silent) {
+      setLoading(true);
+    }
     setError('');
 
     try {
@@ -97,9 +102,13 @@ export default function Notifications() {
       setNotifications(rows);
     } catch (err) {
       console.error('Failed to load notifications:', err);
-      setError(err instanceof Error ? err.message : 'Unable to load notifications.');
+      if (!silent) {
+        setError(err instanceof Error ? err.message : 'Unable to load notifications.');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [authLoading, user]);
 
@@ -108,6 +117,37 @@ export default function Notifications() {
       void loadNotifications();
     }
   }, [authLoading, loadNotifications]);
+
+  useEffect(() => {
+    if (!user || authLoading) return undefined;
+
+    const refreshSilently = () => {
+      void loadNotifications({ silent: true });
+      window.dispatchEvent(new CustomEvent('shop2bhutan:notifications-updated'));
+    };
+
+    const channel = supabase
+      .channel(`customer-notifications-page:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        refreshSilently
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          void loadNotifications({ silent: true });
+        }
+      });
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [authLoading, loadNotifications, user]);
 
   const handleNotificationClick = async (notification: AppNotification) => {
     if (!user) return;
@@ -198,7 +238,7 @@ export default function Notifications() {
           <div className="flex flex-shrink-0 items-center gap-2">
             <button
               type="button"
-              onClick={loadNotifications}
+              onClick={() => loadNotifications()}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 text-neutral-700 active:scale-95"
               aria-label="Refresh notifications"
             >

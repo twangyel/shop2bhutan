@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Home, ShoppingBag, Package, ClipboardList, User } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
 import { getRequestBagItemCount, getUnreadNotificationCount } from '@/lib/customerOrders'
 
 const tabs = [
@@ -70,6 +71,34 @@ export default function CustomerLayout() {
       window.removeEventListener('focus', handleAppBadgesUpdated)
     }
   }, [refreshBagCount, refreshNotificationCount])
+
+  useEffect(() => {
+    if (!user || authLoading) return undefined
+
+    const channel = supabase
+      .channel(`customer-notifications-badge:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void refreshNotificationCount()
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          void refreshNotificationCount()
+        }
+      })
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [authLoading, refreshNotificationCount, user])
 
   const hideTabBarPaths = ['/login', '/register', '/forgot-password', '/checkout', '/change-password']
   const shouldHideTabBar =
