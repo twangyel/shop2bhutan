@@ -3,17 +3,20 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowLeft,
+  CheckCircle,
   ExternalLink,
   FileText,
   MapPin,
+  XCircle,
   Printer,
   RefreshCw,
   Truck,
 } from 'lucide-react';
 import StatusBadge from '@/components/shared/StatusBadge';
 import TrackingTimeline from '@/components/shared/TrackingTimeline';
-import { fetchAdminOrderById } from '@/lib/customerOrders';
-import type { Order } from '@/types';
+import { fetchAdminOrderById, rejectCustomerPayment, verifyCustomerPayment } from '@/lib/customerOrders';
+import { useAuth } from '@/contexts/AuthContext';
+import type { Order, Payment, PaymentCoverage, PaymentStatus } from '@/types';
 
 function formatDate(value: string) {
   if (!value) return '-';
@@ -51,12 +54,81 @@ function fullDeliveryAddress(order: Order) {
   ]).join(', ');
 }
 
+function paymentStatusChip(status: PaymentStatus) {
+  const styles: Record<PaymentStatus, string> = {
+    pending: 'bg-orange-50 text-orange-600',
+    verified: 'bg-emerald-50 text-emerald-600',
+    rejected: 'bg-red-50 text-red-600',
+  };
+
+  const labels: Record<PaymentStatus, string> = {
+    pending: 'Pending Review',
+    verified: 'Verified',
+    rejected: 'Rejected',
+  };
+
+  return <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${styles[status]}`}>{labels[status]}</span>;
+}
+
+function paymentCoverageLabel(coverage: PaymentCoverage) {
+  const labels: Record<PaymentCoverage, string> = {
+    unpaid: 'Unpaid',
+    partial_paid: 'Partial Paid',
+    fully_paid: 'Fully Paid',
+    overpaid: 'Overpaid',
+  };
+
+  return labels[coverage];
+}
+
+function paymentCoverageClass(coverage: PaymentCoverage) {
+  if (coverage === 'fully_paid') return 'bg-emerald-50 text-emerald-600';
+  if (coverage === 'partial_paid') return 'bg-blue-50 text-blue-600';
+  if (coverage === 'overpaid') return 'bg-purple-50 text-purple-600';
+  return 'bg-neutral-100 text-neutral-600';
+}
+
+function getPaymentSummary(order: Order) {
+  const payments = order.payments ?? (order.payment ? [order.payment] : []);
+  const totalPayable = order.paymentSummary?.totalPayable ?? order.quotation?.totalAmount ?? 0;
+  const verifiedPaid = order.paymentSummary?.verifiedPaid ?? payments
+    .filter((payment) => payment.status === 'verified')
+    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const pendingAmount = order.paymentSummary?.pendingAmount ?? payments
+    .filter((payment) => payment.status === 'pending')
+    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const rejectedAmount = order.paymentSummary?.rejectedAmount ?? payments
+    .filter((payment) => payment.status === 'rejected')
+    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const balanceDue = order.paymentSummary?.balanceDue ?? Math.max(totalPayable - verifiedPaid, 0);
+  const coverage = order.paymentSummary?.coverage ?? (verifiedPaid <= 0
+    ? 'unpaid'
+    : totalPayable > 0 && verifiedPaid > totalPayable
+      ? 'overpaid'
+      : totalPayable > 0 && verifiedPaid >= totalPayable
+        ? 'fully_paid'
+        : 'partial_paid');
+
+  return {
+    totalPayable,
+    verifiedPaid,
+    pendingAmount,
+    rejectedAmount,
+    balanceDue,
+    coverage,
+    hasPendingPayment: order.paymentSummary?.hasPendingPayment ?? payments.some((payment) => payment.status === 'pending'),
+  };
+}
+
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [reviewBusyId, setReviewBusyId] = useState('');
+  const [reviewError, setReviewError] = useState('');
 
   const loadOrder = useCallback(async () => {
     if (!id) {
@@ -82,6 +154,53 @@ export default function OrderDetail() {
   useEffect(() => {
     loadOrder();
   }, [loadOrder]);
+
+  const handleVerifyPayment = async (payment: Payment) => {
+    if (!order || !payment.id) return;
+    const confirmed = window.confirm(`Verify payment of ${formatAmount(payment.amount)}?`);
+    if (!confirmed) return;
+
+    setReviewBusyId(payment.id);
+    setReviewError('');
+
+    try {
+      await verifyCustomerPayment({
+        order,
+        paymentId: payment.id,
+        adminId: user?.id,
+      });
+      await loadOrder();
+    } catch (err) {
+      console.error('Failed to verify payment:', err);
+      setReviewError(err instanceof Error ? err.message : 'Unable to verify payment.');
+    } finally {
+      setReviewBusyId('');
+    }
+  };
+
+  const handleRejectPayment = async (payment: Payment) => {
+    if (!order || !payment.id) return;
+    const reason = window.prompt('Reason for rejecting this payment proof?');
+    if (reason === null) return;
+
+    setReviewBusyId(payment.id);
+    setReviewError('');
+
+    try {
+      await rejectCustomerPayment({
+        order,
+        paymentId: payment.id,
+        adminId: user?.id,
+        adminNote: reason.trim() || 'Rejected by admin.',
+      });
+      await loadOrder();
+    } catch (err) {
+      console.error('Failed to reject payment:', err);
+      setReviewError(err instanceof Error ? err.message : 'Unable to reject payment.');
+    } finally {
+      setReviewBusyId('');
+    }
+  };
 
   if (loading) {
     return (
@@ -124,6 +243,8 @@ export default function OrderDetail() {
   }
 
   const deliveryAddressText = fullDeliveryAddress(order);
+  const payments = order.payments ?? (order.payment ? [order.payment] : []);
+  const paymentSummary = getPaymentSummary(order);
 
   return (
     <div className="space-y-4">
@@ -312,49 +433,126 @@ export default function OrderDetail() {
             )}
           </div>
 
-          {order.payment && (
-            <div className="bg-white rounded-xl p-5 shadow-card">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-900">Payment</h3>
-                <span
-                  className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                    order.payment.status === 'verified' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'
-                  }`}
-                >
-                  {order.payment.status === 'verified' ? 'Verified' : 'Pending'}
-                </span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-neutral-500">Method</p>
-                  <p className="text-sm font-medium">{order.payment.method || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-neutral-500">Amount</p>
-                  <p className="text-sm font-medium">Nu. {order.payment.amount.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-neutral-500">Transaction ID</p>
-                  <p className="text-sm font-mono">{order.payment.transactionId || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-neutral-500">Date</p>
-                  <p className="text-sm">{formatDate(order.payment.createdAt)}</p>
-                </div>
-              </div>
-              {order.payment.screenshotUrl && (
-                <a
-                  href={order.payment.screenshotUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 mt-4 text-sm font-medium text-blue-600 hover:underline"
-                >
-                  View payment proof
-                  <ExternalLink size={14} />
-                </a>
-              )}
+          <div className="bg-white rounded-xl p-5 shadow-card">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <h3 className="text-sm font-semibold text-gray-900">Payments</h3>
+              <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${paymentCoverageClass(paymentSummary.coverage)}`}>
+                {paymentCoverageLabel(paymentSummary.coverage)}
+              </span>
             </div>
-          )}
+
+            {reviewError && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+                {reviewError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+              <div className="rounded-lg bg-neutral-50 p-3">
+                <p className="text-xs text-neutral-500">Quotation Total</p>
+                <p className="text-sm font-bold mt-1">{formatAmount(paymentSummary.totalPayable)}</p>
+              </div>
+              <div className="rounded-lg bg-emerald-50 p-3">
+                <p className="text-xs text-emerald-600">Verified Paid</p>
+                <p className="text-sm font-bold mt-1 text-emerald-700">{formatAmount(paymentSummary.verifiedPaid)}</p>
+              </div>
+              <div className="rounded-lg bg-orange-50 p-3">
+                <p className="text-xs text-orange-600">Pending Review</p>
+                <p className="text-sm font-bold mt-1 text-orange-700">{formatAmount(paymentSummary.pendingAmount)}</p>
+              </div>
+              <div className="rounded-lg bg-red-50 p-3">
+                <p className="text-xs text-red-600">Rejected</p>
+                <p className="text-sm font-bold mt-1 text-red-700">{formatAmount(paymentSummary.rejectedAmount)}</p>
+              </div>
+              <div className="rounded-lg bg-amber-50 p-3">
+                <p className="text-xs text-amber-600">Balance Due</p>
+                <p className="text-sm font-bold mt-1 text-amber-700">{formatAmount(paymentSummary.balanceDue)}</p>
+              </div>
+            </div>
+
+            {payments.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-neutral-200 p-4 text-center">
+                <p className="text-sm text-neutral-500">No payment proof uploaded yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {payments.map((payment, index) => (
+                  <div key={payment.id || `${payment.createdAt}-${index}`} className="rounded-xl border border-neutral-200 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">Payment #{payments.length - index}</p>
+                        <p className="text-xs text-neutral-500">Uploaded {formatDate(payment.createdAt)}</p>
+                      </div>
+                      {paymentStatusChip(payment.status)}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs text-neutral-500">Method</p>
+                        <p className="text-sm font-medium">{payment.method || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-neutral-500">Amount</p>
+                        <p className="text-sm font-medium">{formatAmount(payment.amount)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-neutral-500">Transaction / Reference</p>
+                        <p className="text-sm font-mono break-all">{payment.transactionId || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-neutral-500">Verified At</p>
+                        <p className="text-sm">{payment.verifiedAt ? formatDate(payment.verifiedAt) : '-'}</p>
+                      </div>
+                    </div>
+
+                    {payment.notes && (
+                      <div className="mt-3 rounded-lg bg-neutral-50 p-3">
+                        <p className="text-xs font-semibold text-neutral-500 mb-1">Payment Notes</p>
+                        <p className="text-xs text-neutral-600 whitespace-pre-wrap">{payment.notes}</p>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-2 mt-4">
+                      {payment.screenshotUrl && (
+                        <a
+                          href={payment.screenshotUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-3 py-2 bg-neutral-100 text-neutral-700 text-xs font-medium rounded-lg hover:bg-neutral-200 transition-colors"
+                        >
+                          View payment proof
+                          <ExternalLink size={13} />
+                        </a>
+                      )}
+
+                      {payment.status === 'pending' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleVerifyPayment(payment)}
+                            disabled={reviewBusyId === payment.id}
+                            className="inline-flex items-center gap-2 px-3 py-2 bg-emerald-500 text-white text-xs font-medium rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50"
+                          >
+                            <CheckCircle size={13} />
+                            {reviewBusyId === payment.id ? 'Verifying...' : 'Verify Payment'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRejectPayment(payment)}
+                            disabled={reviewBusyId === payment.id}
+                            className="inline-flex items-center gap-2 px-3 py-2 bg-red-500 text-white text-xs font-medium rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+                          >
+                            <XCircle size={13} />
+                            {reviewBusyId === payment.id ? 'Updating...' : 'Reject Payment'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="bg-white rounded-xl p-5 shadow-card">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Admin Notes</h3>

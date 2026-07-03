@@ -9,7 +9,9 @@ import type {
   OrderStatus,
   OrderType,
   Payment,
+  PaymentCoverage,
   PaymentStatus,
+  PaymentSummary,
   Quotation,
   QuotationItem,
   QuotationStatus,
@@ -46,6 +48,7 @@ export type PaymentProofInput = {
   paymentMethodName: string
   transactionId: string
   amount: number
+  note?: string
 }
 
 export type AdminQuotationItemInput = {
@@ -1143,6 +1146,64 @@ async function makePayment(payment: AnyRow | undefined): Promise<Payment | undef
   }
 }
 
+function sortPayments(payments: Payment[]) {
+  return [...payments].sort((a, b) => {
+    const bTime = new Date(b.createdAt || 0).getTime() || 0
+    const aTime = new Date(a.createdAt || 0).getTime() || 0
+    return bTime - aTime
+  })
+}
+
+async function makePayments(payments: AnyRow[]): Promise<Payment[]> {
+  const mapped = await Promise.all(payments.map((payment) => makePayment(payment)))
+  return sortPayments(mapped.filter(Boolean) as Payment[])
+}
+
+function getPrimaryPayment(payments: Payment[]) {
+  return (
+    payments.find((payment) => payment.status === 'pending') ??
+    payments.find((payment) => payment.status === 'rejected') ??
+    payments[0]
+  )
+}
+
+export function calculatePaymentSummary(params: {
+  quotationTotal?: number
+  payments?: Payment[]
+}): PaymentSummary {
+  const totalPayable = numericAmount(params.quotationTotal ?? 0)
+  const payments = params.payments ?? []
+  const verifiedPaid = payments
+    .filter((payment) => payment.status === 'verified')
+    .reduce((sum, payment) => sum + numericAmount(payment.amount), 0)
+  const pendingAmount = payments
+    .filter((payment) => payment.status === 'pending')
+    .reduce((sum, payment) => sum + numericAmount(payment.amount), 0)
+  const rejectedAmount = payments
+    .filter((payment) => payment.status === 'rejected')
+    .reduce((sum, payment) => sum + numericAmount(payment.amount), 0)
+  const balanceDue = Math.max(totalPayable - verifiedPaid, 0)
+  let coverage: PaymentCoverage = 'unpaid'
+
+  if (totalPayable > 0 && verifiedPaid > totalPayable) {
+    coverage = 'overpaid'
+  } else if (totalPayable > 0 && verifiedPaid >= totalPayable) {
+    coverage = 'fully_paid'
+  } else if (verifiedPaid > 0) {
+    coverage = 'partial_paid'
+  }
+
+  return {
+    totalPayable,
+    verifiedPaid,
+    pendingAmount,
+    rejectedAmount,
+    balanceDue,
+    coverage,
+    hasPendingPayment: pendingAmount > 0 || payments.some((payment) => payment.status === 'pending'),
+  }
+}
+
 
 function findRequestBagForOrder(row: AnyRow, requestBags: AnyRow[]) {
   const orderId = firstString(row, ['id'], '')
@@ -1168,7 +1229,10 @@ async function mapOrderRow(row: AnyRow, related: RelatedRows, authUserId: string
   const displayRow = mergeSubmittedRequestBagAddress(row, related)
   const items = await makeOrderItems(row, related.items.filter((item) => itemBelongsToOrder(item, row)))
   const quotationRow = related.quotations.find((quotation) => quotationBelongsToOrder(quotation, row))
-  const paymentRow = related.payments.find((payment) => paymentBelongsToOrder(payment, row))
+  const quotation = makeQuotation(quotationRow, items, related.quotationItems)
+  const relatedPaymentRows = related.payments.filter((payment) => paymentBelongsToOrder(payment, row))
+  const payments = await makePayments(relatedPaymentRows)
+  const payment = getPrimaryPayment(payments)
   const customerId = firstString(displayRow, ORDER_OWNER_COLUMNS, authUserId)
 
   return {
@@ -1186,8 +1250,13 @@ async function mapOrderRow(row: AnyRow, related: RelatedRows, authUserId: string
     deliveryHubId: firstString(row, ['delivery_hub_id', 'hub_id'], 'hub1'),
     deliveryHub: makeDeliveryHub(displayRow),
     shippingAddress: makeShippingAddress(displayRow, customerId, related.profiles),
-    quotation: makeQuotation(quotationRow, items, related.quotationItems),
-    payment: await makePayment(paymentRow),
+    quotation,
+    payment,
+    payments,
+    paymentSummary: calculatePaymentSummary({
+      quotationTotal: quotation?.totalAmount ?? 0,
+      payments,
+    }),
     notes: firstString(displayRow, ['notes', 'customer_notes', 'admin_notes'], ''),
     createdAt: firstString(row, ['created_at'], ''),
     updatedAt: firstString(row, ['updated_at'], firstString(row, ['created_at'], '')),
@@ -1675,20 +1744,25 @@ function makeStoragePath(userId: string, orderId: string, file: File, prefix = '
   return `${userId}/${orderId}/${prefix}-${Date.now()}.${ext}`
 }
 
-async function findExistingPayment(order: Order) {
-  if (order.payment?.id) return order.payment
-
-  const dbLookup = await supabase.from('payments').select('*').eq('order_id', order.id).maybeSingle()
-  if (!dbLookup.error && dbLookup.data) return makePayment(dbLookup.data as AnyRow)
-
-  return undefined
-}
-
 function paymentMethodToDbValue(paymentMethodName: string) {
   const raw = paymentMethodName.toLowerCase()
   if (raw.includes('wallet') || raw.includes('mbo') || raw.includes('mpay') || raw.includes('mobile')) return 'mobile_wallet'
   if (raw.includes('bank') || raw.includes('transfer') || raw.includes('bob') || raw.includes('bnb') || raw.includes('tbank')) return 'bank_transfer'
   return 'other'
+}
+
+function paymentAdminNotes(payload: {
+  transactionId: string
+  paymentMethodName: string
+  path: string
+  note?: string
+}) {
+  return [
+    `Customer reference: ${payload.transactionId || 'Not provided'}`,
+    `Customer selected method: ${payload.paymentMethodName}`,
+    `Storage path: ${payload.path}`,
+    payload.note ? `Customer note: ${payload.note}` : '',
+  ].filter(Boolean).join('\n')
 }
 
 async function insertPaymentWithKnownSchema(payload: {
@@ -1699,12 +1773,14 @@ async function insertPaymentWithKnownSchema(payload: {
   paymentMethodName: string
   transactionId: string
   path: string
+  note?: string
 }) {
   const paymentTypeCandidates = ['full', 'advance', 'partial', 'balance', 'deposit', 'confirm_later']
   let lastError: unknown = null
+  const adminNotes = paymentAdminNotes(payload)
 
   for (const paymentType of paymentTypeCandidates) {
-    const { error } = await supabase.from('payments').insert({
+    const basePayload = {
       order_id: payload.orderId,
       quotation_id: payload.quotationId || null,
       user_id: payload.userId,
@@ -1713,19 +1789,33 @@ async function insertPaymentWithKnownSchema(payload: {
       amount: payload.amount,
       currency: 'BTN',
       proof_file_path: payload.path,
-      admin_notes: `Customer reference: ${payload.transactionId}. Customer selected method: ${payload.paymentMethodName}`,
-    })
+      transaction_id: payload.transactionId || null,
+      admin_notes: adminNotes,
+    }
+    const legacyPayload = { ...basePayload }
+    delete (legacyPayload as Partial<typeof basePayload>).transaction_id
 
-    if (!error) return
-    lastError = error
-    if (!shouldTryFallbackPayload(error)) throw error
+    const candidates = [
+      { ...basePayload, status: 'pending' },
+      basePayload,
+      { ...legacyPayload, status: 'pending' },
+      legacyPayload,
+    ]
+
+    for (const candidate of candidates) {
+      const result = await supabase.from('payments').insert(candidate)
+      if (!result.error) return
+
+      lastError = result.error
+      if (!shouldTryFallbackPayload(result.error)) throw result.error
+    }
   }
 
   throw new Error(errorMessage(lastError, 'Unable to create payment row. Check public.payment_type enum values.'))
 }
 
 export async function submitCustomerPaymentProof(input: PaymentProofInput) {
-  const { order, userId, file, paymentMethodName, transactionId, amount } = input
+  const { order, userId, file, paymentMethodName, transactionId, amount, note } = input
   const path = makeStoragePath(userId, order.id, file, 'payment')
 
   const { error: uploadError } = await supabase.storage.from('order-screenshots').upload(path, file, {
@@ -1737,32 +1827,16 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
   if (uploadError) throw uploadError
 
   try {
-    const existingPayment = await findExistingPayment(order)
-
-    if (existingPayment?.id) {
-      const { error } = await supabase
-        .from('payments')
-        .update({
-          amount,
-          payment_method: paymentMethodToDbValue(paymentMethodName),
-          proof_file_path: path,
-          admin_notes: `Customer reference: ${transactionId}. Customer selected method: ${paymentMethodName}`,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existingPayment.id)
-
-      if (error) throw error
-    } else {
-      await insertPaymentWithKnownSchema({
-        orderId: order.id,
-        quotationId: order.quotation?.id,
-        userId,
-        amount,
-        paymentMethodName,
-        transactionId,
-        path,
-      })
-    }
+    await insertPaymentWithKnownSchema({
+      orderId: order.id,
+      quotationId: order.quotation?.id,
+      userId,
+      amount,
+      paymentMethodName,
+      transactionId,
+      path,
+      note,
+    })
   } catch (error) {
     await supabase.storage.from('order-screenshots').remove([path])
     throw error
@@ -1783,6 +1857,111 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
   }
 
   return { path }
+}
+
+async function updatePaymentReviewStatus(params: {
+  paymentId: string
+  status: PaymentStatus
+  adminId?: string
+  adminNote?: string
+}) {
+  const now = new Date().toISOString()
+  const adminNote = cleanText(params.adminNote)
+  const withFullPayload: AnyRow = {
+    status: params.status,
+    admin_notes: adminNote || null,
+    updated_at: now,
+  }
+
+  if (params.status === 'verified') {
+    withFullPayload.verified_by = cleanText(params.adminId) || null
+    withFullPayload.verified_at = now
+  } else {
+    withFullPayload.verified_by = null
+    withFullPayload.verified_at = null
+  }
+
+  const candidates: AnyRow[] = [
+    withFullPayload,
+    params.status === 'verified'
+      ? {
+          status: params.status,
+          verified_by: cleanText(params.adminId) || null,
+          verified_at: now,
+          updated_at: now,
+        }
+      : {
+          status: params.status,
+          updated_at: now,
+        },
+    adminNote
+      ? {
+          status: params.status,
+          admin_notes: adminNote,
+        }
+      : {
+          status: params.status,
+        },
+    {
+      status: params.status,
+    },
+  ]
+
+  let lastError: unknown = null
+
+  for (const candidate of candidates) {
+    const result = await supabase.from('payments').update(candidate).eq('id', params.paymentId)
+    if (!result.error) return
+
+    lastError = result.error
+    if (!shouldTryFallbackPayload(result.error)) throw result.error
+  }
+
+  throw new Error(errorMessage(lastError, 'Unable to update payment status.'))
+}
+
+export async function verifyCustomerPayment(input: {
+  order: Order
+  paymentId: string
+  adminId?: string
+  adminNote?: string
+}) {
+  await updatePaymentReviewStatus({
+    paymentId: input.paymentId,
+    status: 'verified',
+    adminId: input.adminId,
+    adminNote: input.adminNote,
+  })
+
+  if (input.order.status === 'quoted' || input.order.status === 'payment_pending') {
+    try {
+      await updateCustomerOrderStatus(input.order.id, 'payment_pending')
+    } catch (error) {
+      console.warn('[customerOrders] order status after payment verification skipped:', error)
+    }
+  }
+}
+
+export async function rejectCustomerPayment(input: {
+  order: Order
+  paymentId: string
+  adminId?: string
+  adminNote?: string
+}) {
+  await updatePaymentReviewStatus({
+    paymentId: input.paymentId,
+    status: 'rejected',
+    adminId: input.adminId,
+    adminNote: input.adminNote || 'Rejected by admin.',
+  })
+
+  if (input.order.status === 'quoted' || input.order.status === 'payment_pending') {
+    try {
+      await updateCustomerOrderStatus(input.order.id, 'payment_pending')
+    } catch (error) {
+      console.warn('[customerOrders] order status after payment rejection skipped:', error)
+    }
+  }
 }
 
 export function normalizeProductUrl(value: string) {

@@ -25,6 +25,8 @@ export type QuotationStatus = 'pending' | 'sent' | 'approved' | 'rejected' | 'ex
 
 export type PaymentStatus = 'pending' | 'verified' | 'rejected';
 
+export type PaymentCoverage = 'unpaid' | 'partial_paid' | 'fully_paid' | 'overpaid';
+
 export type OrderType = 'catalog' | 'paste_link';
 
 export type BannerPosition = 'home_top' | 'home_mid' | 'catalog_top';
@@ -197,6 +199,16 @@ export interface Payment {
   createdAt: string;
 }
 
+export interface PaymentSummary {
+  totalPayable: number;
+  verifiedPaid: number;
+  pendingAmount: number;
+  rejectedAmount: number;
+  balanceDue: number;
+  coverage: PaymentCoverage;
+  hasPendingPayment: boolean;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -210,6 +222,8 @@ export interface Order {
   shippingAddress: Address;
   quotation?: Quotation;
   payment?: Payment;
+  payments?: Payment[];
+  paymentSummary?: PaymentSummary;
   notes?: string;
   createdAt: string;
   updatedAt: string;

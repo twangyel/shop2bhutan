@@ -6,6 +6,61 @@ import { useAuth } from '@/contexts/AuthContext';
 import { fetchCustomerOrderById, submitCustomerPaymentProof } from '@/lib/customerOrders';
 import type { Order } from '@/types';
 
+const ALLOWED_SCREENSHOT_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024;
+
+function formatCurrency(amount: number) {
+  return `Nu. ${Number(amount || 0).toLocaleString()}`;
+}
+
+function paymentMethodTypeLabel(type: string) {
+  return type === 'bank_transfer' ? 'Bank Transfer' : 'Mobile Banking';
+}
+
+function getItemCount(order: Order) {
+  return order.items.reduce((total, item) => total + Math.max(1, Number(item.quantity) || 1), 0);
+}
+
+function getDeliverySummary(order: Order) {
+  const addressParts = [
+    order.shippingAddress?.village,
+    order.shippingAddress?.gewog,
+    order.shippingAddress?.dzongkhag,
+  ].filter(Boolean);
+
+  const hubLabel = order.deliveryHub?.name ? `${order.deliveryHub.name}` : '';
+  const addressLabel = addressParts.join(', ');
+
+  return [hubLabel, addressLabel].filter(Boolean).join(' • ') || 'Delivery address will be confirmed.';
+}
+
+function getPaymentSummary(order: Order | null) {
+  const payments = order?.payments ?? (order?.payment ? [order.payment] : []);
+  const totalPayable = order?.quotation?.totalAmount || 0;
+  const verifiedPaid = payments
+    .filter((payment) => payment.status === 'verified')
+    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const pendingAmount = payments
+    .filter((payment) => payment.status === 'pending')
+    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const rejectedAmount = payments
+    .filter((payment) => payment.status === 'rejected')
+    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const balanceDue = Math.max(totalPayable - verifiedPaid, 0);
+  const hasPendingPayment = payments.some((payment) => payment.status === 'pending');
+
+  return {
+    totalPayable,
+    verifiedPaid,
+    pendingAmount,
+    rejectedAmount,
+    balanceDue,
+    hasPendingPayment,
+    isFullyPaid: totalPayable > 0 && verifiedPaid >= totalPayable,
+    isPartiallyPaid: verifiedPaid > 0 && verifiedPaid < totalPayable,
+  };
+}
+
 export default function PaymentUpload() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
@@ -15,7 +70,9 @@ export default function PaymentUpload() {
   const [selectedMethod, setSelectedMethod] = useState(paymentMethods[0]?.id ?? '');
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+  const [amountPaid, setAmountPaid] = useState('');
   const [transactionId, setTransactionId] = useState('');
+  const [note, setNote] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [copiedField, setCopiedField] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -34,6 +91,10 @@ export default function PaymentUpload() {
     try {
       const realOrder = await fetchCustomerOrderById(orderId, user.id, user.email ?? '');
       setOrder(realOrder);
+
+      const summary = getPaymentSummary(realOrder);
+      const defaultAmount = summary.balanceDue || realOrder?.quotation?.totalAmount || realOrder?.payment?.amount || 0;
+      setAmountPaid(defaultAmount > 0 ? String(defaultAmount) : '');
     } catch (err) {
       console.error('Failed to load payment order:', err);
       setError(err instanceof Error ? err.message : 'Unable to load payment details.');
@@ -61,19 +122,36 @@ export default function PaymentUpload() {
     [selectedMethod]
   );
 
-  const amount = order?.quotation?.totalAmount || order?.payment?.amount || 0;
+  const paymentSummary = getPaymentSummary(order);
+  const quotationTotal = paymentSummary.totalPayable;
+  const amountPaidNumber = Number(amountPaid);
+  const canStartPayment = Boolean(
+    order &&
+      (order.status === 'payment_pending' ||
+        order.quotation?.status === 'approved' ||
+        order.payment?.status === 'rejected')
+  );
+  const canUpload = Boolean(
+    canStartPayment &&
+      !paymentSummary.hasPendingPayment &&
+      !paymentSummary.isFullyPaid &&
+      paymentSummary.balanceDue > 0
+  );
+  const canSubmit = Boolean(screenshotFile && selectedPaymentMethod && amountPaidNumber > 0 && canUpload && !submitting);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      setError('Please upload a JPG or PNG payment screenshot.');
+    if (!ALLOWED_SCREENSHOT_TYPES.includes(file.type)) {
+      setError('Please upload a JPG, PNG, or WEBP payment screenshot.');
+      event.target.value = '';
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > MAX_SCREENSHOT_SIZE) {
       setError('Screenshot must be less than 5MB.');
+      event.target.value = '';
       return;
     }
 
@@ -101,7 +179,27 @@ export default function PaymentUpload() {
   };
 
   const handleSubmit = async () => {
-    if (!order || !user || !selectedPaymentMethod || !screenshotFile) return;
+    if (!order || !user) return;
+
+    if (!canUpload) {
+      setError('Payment upload is not available for this order right now.');
+      return;
+    }
+
+    if (!selectedPaymentMethod) {
+      setError('Please select a payment method.');
+      return;
+    }
+
+    if (!screenshotFile) {
+      setError('Please upload your payment screenshot.');
+      return;
+    }
+
+    if (!Number.isFinite(amountPaidNumber) || amountPaidNumber <= 0) {
+      setError('Amount paid must be greater than 0.');
+      return;
+    }
 
     setSubmitting(true);
     setError('');
@@ -113,7 +211,8 @@ export default function PaymentUpload() {
         file: screenshotFile,
         paymentMethodName: selectedPaymentMethod.name,
         transactionId: transactionId.trim(),
-        amount,
+        amount: Number(amountPaid),
+        note: note.trim(),
       });
 
       setSubmitted(true);
@@ -124,6 +223,25 @@ export default function PaymentUpload() {
       setSubmitting(false);
     }
   };
+
+  const renderBlockedState = (title: string, description: string, buttonLabel: string, path: string) => (
+    <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center px-6 text-center">
+      <div className="w-full max-w-md rounded-2xl bg-white border border-neutral-200 p-6 shadow-sm">
+        <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <CheckCircle size={28} className="text-amber-600" />
+        </div>
+        <h1 className="text-xl font-bold text-gray-900 mb-2">{title}</h1>
+        <p className="text-sm text-neutral-500 mb-6">{description}</p>
+        <button
+          type="button"
+          onClick={() => navigate(path)}
+          className="w-full h-12 bg-amber-500 text-white font-semibold rounded-xl hover:bg-amber-600 transition-colors"
+        >
+          {buttonLabel}
+        </button>
+      </div>
+    </div>
+  );
 
   if (!authLoading && !user) {
     return (
@@ -144,14 +262,14 @@ export default function PaymentUpload() {
     return (
       <div className="min-h-screen bg-neutral-50 pb-32">
         <div className="bg-white border-b border-neutral-200 px-4 py-3">
-          <div className="flex items-center gap-3">
+          <div className="max-w-2xl mx-auto flex items-center gap-3">
             <button type="button" onClick={() => navigate(-1)} className="p-1">
               <ArrowLeft size={22} className="text-neutral-700" />
             </button>
             <h1 className="text-lg font-semibold text-gray-900">Upload Payment</h1>
           </div>
         </div>
-        <div className="px-4 py-4 space-y-4">
+        <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
           {[1, 2, 3].map((item) => (
             <div key={item} className="h-32 rounded-xl bg-white animate-pulse" />
           ))}
@@ -178,33 +296,59 @@ export default function PaymentUpload() {
   if (submitted) {
     return (
       <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center px-6">
-        <div className="text-center">
+        <div className="w-full max-w-md rounded-2xl bg-white border border-neutral-200 p-6 text-center shadow-sm">
           <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle size={32} className="text-emerald-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Payment Submitted</h1>
-          <p className="text-sm text-neutral-500 mb-2">
-            Your payment of Nu. {amount.toLocaleString()} is under review.
-          </p>
-          <p className="text-xs text-neutral-400 mb-6">
-            We will verify your payment and update your order status.
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Payment proof submitted</h1>
+          <p className="text-sm text-neutral-500 mb-6">We will verify your payment and update your order.</p>
           <button
             type="button"
-            onClick={() => navigate('/orders')}
-            className="w-full h-12 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600 transition-colors"
+            onClick={() => navigate(`/order/${order.id}`)}
+            className="w-full h-12 bg-amber-500 text-white font-semibold rounded-xl hover:bg-amber-600 transition-colors"
           >
-            View My Orders
+            View Order
           </button>
         </div>
       </div>
     );
   }
 
+  if (paymentSummary.hasPendingPayment) {
+    return renderBlockedState(
+      'Payment proof already submitted',
+      'We will verify your payment and update your order.',
+      'View Order',
+      `/order/${order.id}`
+    );
+  }
+
+  if (paymentSummary.isFullyPaid) {
+    return renderBlockedState('Payment verified', 'Your payment has already been verified.', 'View Order', `/order/${order.id}`);
+  }
+
+  if (order.status === 'quoted' && order.quotation?.status !== 'approved') {
+    return renderBlockedState(
+      'Please approve your quotation before uploading payment.',
+      'Review and approve your quotation to continue with payment upload.',
+      'Review Quotation',
+      `/quotation/${order.id}`
+    );
+  }
+
+  if (!canUpload) {
+    return renderBlockedState(
+      'Payment upload not available',
+      'This order is not ready for payment upload yet.',
+      'View Order',
+      `/order/${order.id}`
+    );
+  }
+
   return (
     <div className="min-h-screen bg-neutral-50 pb-32">
-      <div className="bg-white border-b border-neutral-200 px-4 py-3">
-        <div className="flex items-center gap-3">
+      <div className="bg-white border-b border-neutral-200 px-4 py-3 sticky top-0 z-30">
+        <div className="max-w-2xl mx-auto flex items-center gap-3">
           <button type="button" onClick={() => navigate(-1)} className="p-1">
             <ArrowLeft size={22} className="text-neutral-700" />
           </button>
@@ -212,17 +356,61 @@ export default function PaymentUpload() {
         </div>
       </div>
 
-      <div className="px-4 py-4 space-y-4">
+      <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
         {error && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
             {error}
           </div>
         )}
 
-        <div className="bg-violet-50 rounded-2xl p-5 text-center">
-          <p className="text-xs font-medium text-violet-600 uppercase tracking-wider">Amount Due</p>
-          <p className="text-3xl font-bold text-violet-700 mt-1">Nu. {amount.toLocaleString()}</p>
-          <p className="text-xs text-violet-500 mt-1">Order #{order.orderNumber}</p>
+        <div className="bg-white rounded-2xl p-5 border border-amber-100 shadow-sm">
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div>
+              <p className="text-xs font-medium text-amber-600 uppercase tracking-wider">Upload Payment Proof</p>
+              <h2 className="text-lg font-bold text-gray-900 mt-1">Order #{order.orderNumber}</h2>
+            </div>
+            <span className="shrink-0 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+              Payment Pending
+            </span>
+          </div>
+
+          <div className="rounded-2xl bg-amber-50 p-4 mb-4">
+            <p className="text-xs text-amber-700 font-medium">Total Payable</p>
+            <p className="text-3xl font-bold text-amber-700 mt-1">{formatCurrency(quotationTotal)}</p>
+            <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
+              <div className="rounded-xl bg-white/70 p-3">
+                <p className="text-xs text-amber-700">Verified Paid</p>
+                <p className="font-bold text-gray-900 mt-1">{formatCurrency(paymentSummary.verifiedPaid)}</p>
+              </div>
+              <div className="rounded-xl bg-white/70 p-3">
+                <p className="text-xs text-amber-700">Balance Due</p>
+                <p className="font-bold text-gray-900 mt-1">{formatCurrency(paymentSummary.balanceDue)}</p>
+              </div>
+            </div>
+            {paymentSummary.isPartiallyPaid && (
+              <p className="text-xs text-amber-700 mt-3">Partial payment verified. Please upload the remaining balance only.</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div className="rounded-xl bg-neutral-50 p-3">
+              <p className="text-xs text-neutral-500">Item Count</p>
+              <p className="font-semibold text-gray-900 mt-1">{getItemCount(order)} item(s)</p>
+            </div>
+            <div className="rounded-xl bg-neutral-50 p-3">
+              <p className="text-xs text-neutral-500">Delivery Hub / Address</p>
+              <p className="font-semibold text-gray-900 mt-1">{getDeliverySummary(order)}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 border border-neutral-200 shadow-sm">
+          <h3 className="text-base font-semibold text-gray-900 mb-3">Payment Instructions</h3>
+          <div className="space-y-2 text-sm text-neutral-600">
+            <p>Please pay the quoted amount using bank transfer or mobile banking.</p>
+            <p>Upload your payment screenshot after payment.</p>
+            <p>Your order will be processed after payment verification.</p>
+          </div>
         </div>
 
         <div>
@@ -257,11 +445,9 @@ export default function PaymentUpload() {
                       />
                     )}
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-900">{paymentMethod.name}</p>
-                    <p className="text-xs text-neutral-500">
-                      {paymentMethod.type === 'bank_transfer' ? 'Bank Transfer' : 'Mobile Wallet'}
-                    </p>
+                    <p className="text-xs text-neutral-500">{paymentMethodTypeLabel(paymentMethod.type)}</p>
                   </div>
                   <div
                     className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
@@ -275,28 +461,35 @@ export default function PaymentUpload() {
                 {selectedMethod === paymentMethod.id && (
                   <div className="mt-3 pt-3 border-t border-neutral-200 space-y-2">
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-xs text-neutral-500">Account Number</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-mono font-medium">{paymentMethod.accountNumber}</span>
+                      <span className="text-xs text-neutral-500">Type</span>
+                      <span className="text-sm font-medium text-right">{paymentMethodTypeLabel(paymentMethod.type)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-xs text-neutral-500">Account Name</span>
+                      <span className="text-sm font-medium text-right">{paymentMethod.accountName}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-xs text-neutral-500">Account Number / Code</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-mono font-medium text-right truncate">
+                          {paymentMethod.accountNumber}
+                        </span>
                         <button
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            copyToClipboard(paymentMethod.accountNumber, 'acc');
+                            copyToClipboard(paymentMethod.accountNumber, `acc-${paymentMethod.id}`);
                           }}
                           className="p-1 text-neutral-400 hover:text-amber-600"
+                          aria-label="Copy account number or code"
                         >
-                          {copiedField === 'acc' ? (
+                          {copiedField === `acc-${paymentMethod.id}` ? (
                             <CheckCircle size={14} className="text-emerald-500" />
                           ) : (
                             <Copy size={14} />
                           )}
                         </button>
                       </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-xs text-neutral-500">Account Name</span>
-                      <span className="text-sm font-medium text-right">{paymentMethod.accountName}</span>
                     </div>
                     {paymentMethod.bankName && (
                       <div className="flex items-center justify-between gap-4">
@@ -314,50 +507,84 @@ export default function PaymentUpload() {
           </div>
         </div>
 
-        <div>
-          <h3 className="text-base font-semibold text-gray-900 mb-3">Payment Screenshot</h3>
-          {!screenshotPreview ? (
-            <label className="w-full h-48 border-2 border-dashed border-neutral-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-amber-500 transition-colors">
-              <Upload size={40} className="text-neutral-400" />
-              <p className="text-sm text-neutral-500 mt-2">Tap to upload screenshot</p>
-              <p className="text-xs text-neutral-400 mt-1">JPG, PNG up to 5MB</p>
-              <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-            </label>
-          ) : (
-            <div className="relative rounded-xl overflow-hidden">
-              <img src={screenshotPreview} alt="Payment screenshot" className="w-full h-48 object-cover" />
-              <button
-                type="button"
-                onClick={clearScreenshot}
-                className="absolute top-2 right-2 px-3 py-1 bg-white/90 rounded-lg text-xs font-medium shadow-md"
-              >
-                Change
-              </button>
-            </div>
-          )}
-        </div>
+        <div className="bg-white rounded-2xl p-5 border border-neutral-200 shadow-sm space-y-4">
+          <div>
+            <label className="text-sm font-medium text-gray-900">Amount Paid</label>
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              value={amountPaid}
+              onChange={(event) => setAmountPaid(event.target.value)}
+              placeholder="Enter amount paid or balance amount"
+              className="w-full h-12 mt-1.5 px-4 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+            />
+            <p className="text-xs text-neutral-400 mt-1">Balance due: {formatCurrency(paymentSummary.balanceDue)}</p>
+          </div>
 
-        <div>
-          <label className="text-sm font-medium text-gray-900">Transaction / Reference ID</label>
-          <input
-            type="text"
-            value={transactionId}
-            onChange={(event) => setTransactionId(event.target.value)}
-            placeholder="Enter transaction ID"
-            className="w-full h-12 mt-1.5 px-4 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-          />
+          <div>
+            <label className="text-sm font-medium text-gray-900">Transaction / Reference Number</label>
+            <input
+              type="text"
+              value={transactionId}
+              onChange={(event) => setTransactionId(event.target.value)}
+              placeholder="Optional"
+              className="w-full h-12 mt-1.5 px-4 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-900">Note</label>
+            <textarea
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="Optional note for Shop2Bhutan"
+              rows={3}
+              className="w-full mt-1.5 px-4 py-3 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 resize-none"
+            />
+          </div>
+
+          <div>
+            <h3 className="text-base font-semibold text-gray-900 mb-3">Payment Screenshot</h3>
+            {!screenshotPreview ? (
+              <label className="w-full h-48 border-2 border-dashed border-neutral-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-amber-500 transition-colors bg-neutral-50">
+                <Upload size={40} className="text-neutral-400" />
+                <p className="text-sm text-neutral-500 mt-2">Tap to upload screenshot</p>
+                <p className="text-xs text-neutral-400 mt-1">JPG, PNG, WEBP up to 5MB</p>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </label>
+            ) : (
+              <div className="relative rounded-xl overflow-hidden">
+                <img src={screenshotPreview} alt="Payment screenshot" className="w-full h-48 object-cover" />
+                <button
+                  type="button"
+                  onClick={clearScreenshot}
+                  className="absolute top-2 right-2 px-3 py-1 bg-white/90 rounded-lg text-xs font-medium shadow-md"
+                >
+                  Change
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 p-4 z-40">
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={!screenshotFile || !transactionId.trim() || !selectedPaymentMethod || submitting}
-          className="w-full h-12 bg-emerald-500 text-white font-semibold rounded-xl hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {submitting ? 'Submitting...' : 'Confirm Payment'}
-        </button>
+        <div className="max-w-2xl mx-auto">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            className="w-full h-12 bg-amber-500 text-white font-semibold rounded-xl hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? 'Uploading...' : 'Submit Payment Proof'}
+          </button>
+        </div>
       </div>
     </div>
   );
