@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
+  AlertTriangle,
   ArrowLeft,
   Check,
   Clock,
@@ -34,43 +35,47 @@ function readableDate(value?: string) {
 function quotationDisplay(quotation: Quotation) {
   if (quotation.status === 'approved') {
     return {
-      card: 'border-emerald-200 bg-emerald-50',
+      card: 'border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-white',
+      accent: 'text-emerald-700',
       iconBg: 'bg-emerald-500',
       icon: <Check size={19} className="text-white" />,
+      eyebrow: 'Verified quotation accepted',
       title: 'Quotation approved',
-      titleColor: 'text-emerald-800',
       subtitle: 'Upload your payment screenshot to continue.',
     };
   }
 
   if (quotation.status === 'rejected') {
     return {
-      card: 'border-red-200 bg-red-50',
+      card: 'border-red-200 bg-gradient-to-br from-red-50 via-white to-white',
+      accent: 'text-red-700',
       iconBg: 'bg-red-500',
       icon: <X size={19} className="text-white" />,
+      eyebrow: 'Quotation response recorded',
       title: 'Quotation rejected',
-      titleColor: 'text-red-800',
       subtitle: 'This quotation has been rejected.',
     };
   }
 
   if (quotation.status === 'expired') {
     return {
-      card: 'border-red-200 bg-red-50',
+      card: 'border-red-200 bg-gradient-to-br from-red-50 via-white to-white',
+      accent: 'text-red-700',
       iconBg: 'bg-red-500',
       icon: <X size={19} className="text-white" />,
+      eyebrow: 'Quotation expired',
       title: 'Quotation expired',
-      titleColor: 'text-red-800',
       subtitle: 'Please contact support for a fresh quotation.',
     };
   }
 
   return {
-    card: 'border-violet-200 bg-violet-50',
-    iconBg: 'bg-violet-500',
+    card: 'border-amber-200 bg-gradient-to-br from-amber-50 via-white to-orange-50/60',
+    accent: 'text-amber-700',
+    iconBg: 'bg-amber-500',
     icon: <Clock size={19} className="text-white" />,
+    eyebrow: 'Reviewed by Shop2Bhutan',
     title: quotation.status === 'pending' ? 'Quotation pending' : 'Quotation ready',
-    titleColor: 'text-violet-800',
     subtitle: quotation.validUntil
       ? `Valid until ${readableDate(quotation.validUntil)}`
       : 'Please review the quotation before accepting.',
@@ -97,6 +102,7 @@ export default function QuotationReview() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [error, setError] = useState('');
 
   const loadOrder = useCallback(async () => {
@@ -129,17 +135,20 @@ export default function QuotationReview() {
   const quotation = order?.quotation;
   const display = useMemo(() => (quotation ? quotationDisplay(quotation) : null), [quotation]);
 
-  const handleReject = async () => {
-    if (!quotation) return;
+  const handleReject = () => {
+    if (!quotation || submitting) return;
+    setShowRejectDialog(true);
+  };
 
-    const confirmed = window.confirm('Reject this quotation? You can request support if you need changes.');
-    if (!confirmed) return;
+  const confirmReject = async () => {
+    if (!quotation) return;
 
     setSubmitting(true);
     setError('');
 
     try {
       await updateQuotationStatus(quotation.id, 'rejected');
+      setShowRejectDialog(false);
       await loadOrder();
     } catch (err) {
       console.error('Failed to reject quotation:', err);
@@ -240,22 +249,26 @@ export default function QuotationReview() {
           </div>
         )}
 
-        <section className={`rounded-2xl border p-4 shadow-sm ${display.card}`}>
-          <div className="flex items-start justify-between gap-4">
+        <section className={`overflow-hidden rounded-2xl border shadow-sm ${display.card}`}>
+          <div className="flex items-start justify-between gap-3 p-4">
             <div className="flex min-w-0 items-start gap-3">
-              <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ${display.iconBg}`}>
+              <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl shadow-sm ${display.iconBg}`}>
                 {display.icon}
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Shop2Bhutan verified quote</p>
-                <h2 className={`mt-1 text-xl font-bold ${display.titleColor}`}>{display.title}</h2>
+                <p className="text-[11px] font-semibold tracking-wide text-neutral-500">{display.eyebrow}</p>
+                <h2 className="mt-1 text-xl font-bold tracking-tight text-gray-950">{display.title}</h2>
                 <p className="mt-1 text-sm text-neutral-600">{display.subtitle}</p>
               </div>
             </div>
-            <div className="flex-shrink-0 rounded-xl bg-white px-3 py-2 text-right shadow-sm ring-1 ring-neutral-100">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Total</p>
-              <p className="text-base font-bold text-gray-900">{money(quotation.totalAmount)}</p>
+            <div className="flex-shrink-0 rounded-2xl bg-white/90 px-3 py-2 text-right shadow-sm ring-1 ring-black/5">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">Total payable</p>
+              <p className="whitespace-nowrap text-base font-black text-gray-950">{money(quotation.totalAmount)}</p>
             </div>
+          </div>
+          <div className="flex items-center justify-between border-t border-white/70 bg-white/55 px-4 py-2 text-[11px] text-neutral-500">
+            <span>Clear quotation before payment</span>
+            <span className={`font-semibold ${display.accent}`}>No hidden charges</span>
           </div>
         </section>
 
@@ -361,12 +374,16 @@ export default function QuotationReview() {
           </div>
 
           <div className="my-4 border-t border-dashed border-neutral-200" />
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold text-gray-900">Total payable</p>
-              <p className="mt-1 text-xs text-neutral-500">Final payable amount. No hidden charges.</p>
+          <div className="rounded-2xl bg-amber-50/70 p-3 ring-1 ring-amber-100">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-gray-950">Total payable</p>
+                <p className="mt-1 text-xs leading-relaxed text-neutral-500">Final payable amount. No hidden charges.</p>
+              </div>
+              <p className="shrink-0 whitespace-nowrap text-xl font-black tracking-tight text-amber-600 sm:text-2xl">
+                {money(quotation.totalAmount)}
+              </p>
             </div>
-            <p className="text-2xl font-bold tracking-tight text-amber-600">{money(quotation.totalAmount)}</p>
           </div>
         </section>
 
@@ -433,6 +450,47 @@ export default function QuotationReview() {
             >
               {submitting ? 'Processing...' : 'Accept & Upload Payment'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {showRejectDialog && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/45 px-4 pb-5 pt-10 backdrop-blur-sm sm:items-center sm:pb-10">
+          <div className="w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5">
+            <div className="p-5">
+              <div className="mb-4 flex items-start gap-3">
+                <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 ring-1 ring-amber-100">
+                  <AlertTriangle size={22} />
+                </span>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-950">Reject quotation?</h3>
+                  <p className="mt-1 text-sm leading-6 text-neutral-500">
+                    You can reject this quotation if the price or product details are not suitable. You may request support if you need changes.
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-2xl bg-neutral-50 px-3 py-2 text-xs leading-5 text-neutral-500 ring-1 ring-neutral-100">
+                This only rejects the quotation. Your order request will remain in your account for reference.
+              </div>
+            </div>
+            <div className="flex gap-3 border-t border-neutral-100 bg-neutral-50 p-4">
+              <button
+                type="button"
+                onClick={() => setShowRejectDialog(false)}
+                disabled={submitting}
+                className="h-11 flex-1 rounded-2xl bg-white text-sm font-semibold text-neutral-700 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-100 disabled:opacity-50"
+              >
+                Keep quotation
+              </button>
+              <button
+                type="button"
+                onClick={confirmReject}
+                disabled={submitting}
+                className="h-11 flex-1 rounded-2xl bg-red-500 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-600 disabled:opacity-50"
+              >
+                {submitting ? 'Rejecting...' : 'Reject'}
+              </button>
+            </div>
           </div>
         </div>
       )}

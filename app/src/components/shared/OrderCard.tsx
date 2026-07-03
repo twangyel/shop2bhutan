@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { ChevronRight, FileText, ShoppingBag } from 'lucide-react';
+import { ChevronRight, CreditCard, FileText, ShoppingBag } from 'lucide-react';
 import type { Order } from '@/types';
 import StatusBadge from './StatusBadge';
 
@@ -31,20 +31,52 @@ function orderTitle(order: Order) {
   return `${first} + ${order.items.length - 1} more`;
 }
 
+function actionForOrder(order: Order) {
+  if (order.status === 'quoted' && order.quotation) {
+    return {
+      label: 'Review Quotation',
+      helper: 'Quotation is ready. Review it before uploading payment.',
+      path: `/quotation/${order.id}`,
+      icon: FileText,
+      style: 'bg-amber-500 text-white shadow-sm shadow-amber-100 hover:bg-amber-600',
+    };
+  }
+
+  if (order.status === 'payment_pending') {
+    return {
+      label: 'Upload Payment',
+      helper: 'Complete payment upload to continue your order.',
+      path: `/payment/${order.id}`,
+      icon: CreditCard,
+      style: 'bg-emerald-500 text-white shadow-sm shadow-emerald-100 hover:bg-emerald-600',
+    };
+  }
+
+  return {
+    label: 'View Details',
+    helper: 'Track status and view order details.',
+    path: `/order/${order.id}`,
+    icon: ChevronRight,
+    style: 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200',
+  };
+}
+
 export default function OrderCard({ order }: OrderCardProps) {
   const navigate = useNavigate();
   const isQuotationReady = order.status === 'quoted' && Boolean(order.quotation);
   const totalAmount = order.quotation?.totalAmount || fallbackTotal(order);
   const firstItem = order.items[0];
   const title = useMemo(() => orderTitle(order), [order]);
+  const action = actionForOrder(order);
+  const ActionIcon = action.icon;
 
   return (
-    <article className={`rounded-2xl border bg-white shadow-sm transition-shadow hover:shadow-md ${isQuotationReady ? 'border-violet-200' : 'border-neutral-100'}`}>
+    <article className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-shadow hover:shadow-md ${isQuotationReady ? 'border-amber-200' : 'border-neutral-100'}`}>
       <button type="button" onClick={() => navigate(`/order/${order.id}`)} className="w-full p-4 text-left">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-400">#{order.orderNumber}</p>
-            <h3 className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-gray-900">{title}</h3>
+            <h3 className="mt-1 line-clamp-2 text-sm font-bold leading-snug text-gray-950">{title}</h3>
             <p className="mt-1 text-xs text-neutral-500">{safeDateDistance(order.createdAt)}</p>
           </div>
           <StatusBadge status={order.status} size="sm" />
@@ -80,36 +112,34 @@ export default function OrderCard({ order }: OrderCardProps) {
             <div className="mt-2 flex items-end justify-between gap-2">
               <div>
                 <p className="text-xs text-neutral-500">{order.quotation ? 'Quotation total' : 'Estimated total'}</p>
-                <p className="text-lg font-bold tracking-tight text-gray-900">{money(totalAmount)}</p>
+                <p className="text-lg font-black tracking-tight text-gray-950">{money(totalAmount)}</p>
               </div>
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600">
-                Details <ChevronRight size={14} />
-              </span>
+              {!isQuotationReady && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600">
+                  Details <ChevronRight size={14} />
+                </span>
+              )}
             </div>
           </div>
         </div>
       </button>
 
-      {isQuotationReady && order.quotation && (
-        <div className="border-t border-violet-100 bg-violet-50/70 px-4 py-3">
-          <button
-            type="button"
-            onClick={() => navigate(`/quotation/${order.id}`)}
-            className="flex w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left ring-1 ring-violet-100 transition-colors hover:bg-violet-50"
-          >
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
-                <FileText size={18} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-violet-900">Quotation ready</p>
-                <p className="text-xs text-violet-600">Review quote and upload payment after accepting.</p>
-              </div>
-            </div>
-            <span className="flex-shrink-0 text-xs font-semibold text-violet-700">Review</span>
-          </button>
-        </div>
-      )}
+      <div className={`${isQuotationReady ? 'border-t border-amber-100 bg-amber-50/70' : 'border-t border-neutral-100 bg-neutral-50/50'} px-4 py-3`}>
+        <button
+          type="button"
+          onClick={() => navigate(action.path)}
+          className="flex w-full items-center justify-between gap-3 rounded-2xl bg-white p-3 text-left ring-1 ring-black/5 transition-colors hover:bg-neutral-50"
+        >
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-gray-950">{isQuotationReady ? 'Quotation ready' : action.label}</p>
+            <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-neutral-500">{action.helper}</p>
+          </div>
+          <span className={`inline-flex h-10 flex-shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-colors ${action.style}`}>
+            <ActionIcon size={15} />
+            <span className="hidden min-[380px]:inline">{action.label}</span>
+          </span>
+        </button>
+      </div>
     </article>
   );
 }
