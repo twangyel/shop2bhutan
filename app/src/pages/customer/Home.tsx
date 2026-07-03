@@ -10,7 +10,6 @@ import {
   Headphones,
   Link2,
   MapPin,
-  Package,
   PackageCheck,
   ScanLine,
   ShieldCheck,
@@ -21,6 +20,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import Logo from '@/components/shared/Logo';
 import { getUnreadNotificationCount } from '@/lib/customerOrders';
+
+type StoreItem = {
+  name: string;
+  platform: string;
+  logo: string;
+};
 
 const quickActions = [
   { icon: Link2, label: 'Paste Link', path: '/paste-link' },
@@ -38,11 +43,34 @@ const steps = [
 
 const trustItems = [
   { icon: ShieldCheck, title: 'Secure & trusted', text: 'Your data is safe' },
-  { icon: Tag, title: 'Best price check', text: 'We verify for you' },
-  { icon: Headphones, title: 'Human support', text: 'We are here to help' },
+  { icon: Tag, title: 'Human verified', text: 'We check for you' },
+  { icon: Headphones, title: 'Real support', text: 'We are here to help' },
 ];
 
-const stores = ['Amazon.in', 'Flipkart', 'Myntra', 'Meesho'];
+const stores: StoreItem[] = [
+  { name: 'Amazon', platform: 'amazon', logo: '/store-logos/amazon.png' },
+  { name: 'Flipkart', platform: 'flipkart', logo: '/store-logos/flipkart.png' },
+  { name: 'Myntra', platform: 'myntra', logo: '/store-logos/myntra.png' },
+  { name: 'Meesho', platform: 'meesho', logo: '/store-logos/meesho.png' },
+];
+
+function StoreLogo({ store }: { store: StoreItem }) {
+  const [logoAvailable, setLogoAvailable] = useState(true);
+
+  if (!logoAvailable) {
+    return <span className="text-[10px] font-extrabold leading-none text-orange-600">{store.name}</span>;
+  }
+
+  return (
+    <img
+      src={store.logo}
+      alt={store.name}
+      className="max-h-4 max-w-[58px] object-contain"
+      loading="lazy"
+      onError={() => setLogoAvailable(false)}
+    />
+  );
+}
 
 export default function Home() {
   const navigate = useNavigate();
@@ -94,12 +122,12 @@ export default function Home() {
             <button
               type="button"
               onClick={() => navigate('/notifications')}
-              className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white text-neutral-700 shadow-sm ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50"
+              className="relative flex h-8 w-8 items-center justify-center rounded-full text-neutral-700 transition-colors hover:bg-neutral-100 active:bg-neutral-100"
               aria-label="Notifications"
             >
-              <Bell size={18} strokeWidth={1.9} />
+              <Bell size={17} strokeWidth={1.9} />
               {unreadCount > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white ring-2 ring-white">
+                <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-0.5 text-[8px] font-bold leading-none text-white ring-2 ring-white">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
@@ -154,11 +182,17 @@ export default function Home() {
           </button>
         </section>
 
-        <section className="relative mt-4 overflow-hidden rounded-[1.5rem] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-4 shadow-sm">
-          <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-orange-200/25" />
-          <div className="absolute -bottom-12 right-8 h-28 w-28 rounded-full bg-amber-200/25" />
+        <section
+          className="relative mt-4 overflow-hidden rounded-[1.5rem] border border-orange-100 bg-orange-50 p-4 shadow-sm"
+          style={{
+            backgroundImage:
+              "linear-gradient(90deg, rgba(255,247,237,0.98) 0%, rgba(255,247,237,0.92) 46%, rgba(255,247,237,0.58) 100%), url('/home-india-bg.jpg')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center right',
+          }}
+        >
           <div className="relative z-10 flex items-start gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm ring-1 ring-orange-100">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/90 text-orange-500 shadow-sm ring-1 ring-orange-100">
               <ShieldCheck size={22} />
             </span>
             <div className="min-w-0 flex-1">
@@ -166,15 +200,21 @@ export default function Home() {
               <p className="mt-1 text-sm leading-6 text-neutral-600">
                 Clear quotation, verified product details, and order tracking from your account.
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
+
+              <div className="mt-3 grid grid-cols-4 gap-1.5">
                 {stores.map((store) => (
-                  <span key={store} className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-orange-600 ring-1 ring-orange-100">
-                    {store}
-                  </span>
+                  <button
+                    key={store.name}
+                    type="button"
+                    onClick={() => navigate('/paste-link', { state: { sourcePlatform: store.platform } })}
+                    className="flex h-8 items-center justify-center rounded-full bg-white/90 px-2 shadow-sm ring-1 ring-orange-100 transition-colors hover:bg-white"
+                    aria-label={`Request quotation from ${store.name}`}
+                  >
+                    <StoreLogo store={store} />
+                  </button>
                 ))}
               </div>
             </div>
-            <Package className="hidden shrink-0 text-orange-300 sm:block" size={54} strokeWidth={1.35} />
           </div>
         </section>
 
@@ -187,12 +227,12 @@ export default function Home() {
                   key={action.label}
                   type="button"
                   onClick={() => navigate(action.path)}
-                  className="flex min-h-[82px] flex-col items-center justify-center gap-2 rounded-2xl px-1.5 py-2 text-center transition-colors hover:bg-orange-50/70"
+                  className="flex min-h-[78px] flex-col items-center justify-center gap-2 rounded-2xl px-1.5 py-2 text-center transition-colors hover:bg-orange-50/70"
                 >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
-                    <Icon size={19} />
+                  <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
+                    <Icon size={18} />
                   </span>
-                  <span className="text-[11px] font-semibold leading-tight text-neutral-700">{action.label}</span>
+                  <span className="text-[10px] font-semibold leading-tight text-neutral-700">{action.label}</span>
                 </button>
               );
             })}
@@ -208,14 +248,11 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-4 gap-2 rounded-[1.35rem] bg-white p-3 shadow-sm ring-1 ring-neutral-100">
-            {steps.map((step, index) => {
+            {steps.map((step) => {
               const Icon = step.icon;
               return (
                 <div key={step.title} className="text-center">
-                  <div className="mx-auto flex h-6 w-6 items-center justify-center rounded-full bg-orange-50 text-xs font-bold text-orange-700">
-                    {index + 1}
-                  </div>
-                  <span className="mx-auto mt-2 flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
+                  <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
                     <Icon size={18} />
                   </span>
                   <p className="mt-2 text-[11px] font-bold leading-tight text-gray-900">{step.title}</p>

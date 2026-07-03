@@ -34,7 +34,6 @@ export default function CustomerLayout() {
     }
   }, [authLoading, user])
 
-
   const refreshNotificationCount = useCallback(async () => {
     if (!user || authLoading) {
       setUnreadNotificationCount(0)
@@ -102,18 +101,19 @@ export default function CustomerLayout() {
               return (
                 <button
                   key={tab.path}
+                  type="button"
                   onClick={() => navigate(tab.path)}
                   className="flex flex-col items-center justify-center gap-0.5 w-14 h-full relative"
                 >
                   <span className="relative inline-flex">
                     <Icon
-                      size={22}
+                      size={21}
                       strokeWidth={isActive ? 2.5 : 1.5}
                       className={isActive ? 'text-amber-500' : 'text-neutral-400'}
                     />
                     {showBadge && (
-                      <span className="absolute -right-1.5 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-emerald-500 px-0.5 text-[8px] font-bold leading-none text-white shadow-sm ring-2 ring-white">
-                        {badgeValue > 99 ? '99+' : badgeValue}
+                      <span className="absolute -right-1 -top-1 flex h-3 min-w-3 items-center justify-center rounded-full bg-emerald-500 px-0.5 text-[7px] font-bold leading-none text-white shadow-sm ring-2 ring-white">
+                        {badgeValue > 9 ? '9+' : badgeValue}
                       </span>
                     )}
                   </span>
