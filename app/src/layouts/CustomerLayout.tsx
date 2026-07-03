@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { ClipboardList, Home, Package, ShoppingBag, User } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { getRequestBagItemCount, getUnreadNotificationCount } from '@/lib/customerOrders';
+import { useCallback, useEffect, useState } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Home, ShoppingBag, Package, ClipboardList, User } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
+import { getRequestBagItemCount, getUnreadNotificationCount } from '@/lib/customerOrders'
 
 const tabs = [
   { path: '/', label: 'Home', icon: Home },
@@ -10,68 +10,69 @@ const tabs = [
   { path: '/parcel', label: 'Parcel', icon: Package },
   { path: '/request-bag', label: 'Bag', icon: ClipboardList, showBadge: true },
   { path: '/account', label: 'Account', icon: User },
-];
+]
 
 export default function CustomerLayout() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
-  const [bagCount, setBagCount] = useState(0);
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { user, loading: authLoading } = useAuth()
+  const [bagCount, setBagCount] = useState(0)
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
 
   const refreshBagCount = useCallback(async () => {
     if (!user || authLoading) {
-      setBagCount(0);
-      return;
+      setBagCount(0)
+      return
     }
 
     try {
-      const count = await getRequestBagItemCount(user.id);
-      setBagCount(count);
+      const count = await getRequestBagItemCount(user.id)
+      setBagCount(count)
     } catch (error) {
-      console.warn('[CustomerLayout] Request Bag count skipped:', error);
-      setBagCount(0);
+      console.warn('[CustomerLayout] Request Bag count skipped:', error)
+      setBagCount(0)
     }
-  }, [authLoading, user]);
+  }, [authLoading, user])
+
 
   const refreshNotificationCount = useCallback(async () => {
     if (!user || authLoading) {
-      setUnreadNotificationCount(0);
-      return;
+      setUnreadNotificationCount(0)
+      return
     }
 
     try {
-      const count = await getUnreadNotificationCount(user.id);
-      setUnreadNotificationCount(count);
+      const count = await getUnreadNotificationCount(user.id)
+      setUnreadNotificationCount(count)
     } catch (error) {
-      console.warn('[CustomerLayout] Notification count skipped:', error);
-      setUnreadNotificationCount(0);
+      console.warn('[CustomerLayout] Notification count skipped:', error)
+      setUnreadNotificationCount(0)
     }
-  }, [authLoading, user]);
+  }, [authLoading, user])
 
   useEffect(() => {
-    void refreshBagCount();
-    void refreshNotificationCount();
-  }, [refreshBagCount, refreshNotificationCount, location.pathname]);
+    void refreshBagCount()
+    void refreshNotificationCount()
+  }, [refreshBagCount, refreshNotificationCount, location.pathname])
 
   useEffect(() => {
     const handleAppBadgesUpdated = () => {
-      void refreshBagCount();
-      void refreshNotificationCount();
-    };
+      void refreshBagCount()
+      void refreshNotificationCount()
+    }
 
-    window.addEventListener('shop2bhutan:request-bag-updated', handleAppBadgesUpdated);
-    window.addEventListener('shop2bhutan:notifications-updated', handleAppBadgesUpdated);
-    window.addEventListener('focus', handleAppBadgesUpdated);
+    window.addEventListener('shop2bhutan:request-bag-updated', handleAppBadgesUpdated)
+    window.addEventListener('shop2bhutan:notifications-updated', handleAppBadgesUpdated)
+    window.addEventListener('focus', handleAppBadgesUpdated)
 
     return () => {
-      window.removeEventListener('shop2bhutan:request-bag-updated', handleAppBadgesUpdated);
-      window.removeEventListener('shop2bhutan:notifications-updated', handleAppBadgesUpdated);
-      window.removeEventListener('focus', handleAppBadgesUpdated);
-    };
-  }, [refreshBagCount, refreshNotificationCount]);
+      window.removeEventListener('shop2bhutan:request-bag-updated', handleAppBadgesUpdated)
+      window.removeEventListener('shop2bhutan:notifications-updated', handleAppBadgesUpdated)
+      window.removeEventListener('focus', handleAppBadgesUpdated)
+    }
+  }, [refreshBagCount, refreshNotificationCount])
 
-  const hideTabBarPaths = ['/login', '/register', '/forgot-password', '/checkout', '/change-password'];
+  const hideTabBarPaths = ['/login', '/register', '/forgot-password', '/checkout', '/change-password']
   const shouldHideTabBar =
     hideTabBarPaths.some((p) => location.pathname === p) ||
     location.pathname.startsWith('/payment/') ||
@@ -79,49 +80,52 @@ export default function CustomerLayout() {
     location.pathname.startsWith('/parcel-booking/') ||
     location.pathname.startsWith('/product/') ||
     location.pathname.startsWith('/order/') ||
-    location.pathname === '/checkout';
+    location.pathname === '/checkout'
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      <main className="pb-24">
+      <main className="pb-20">
         <Outlet />
       </main>
 
       {!shouldHideTabBar && (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-neutral-200/70 bg-white/95 px-3 pb-2 pt-2 shadow-[0_-10px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl">
-          <div className="mx-auto grid h-16 max-w-lg grid-cols-5 gap-1">
+        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 z-50">
+          <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
             {tabs.map((tab) => {
-              const isActive = location.pathname === tab.path;
-              const Icon = tab.icon;
-              const showBagBadge = tab.showBadge && bagCount > 0;
-              const showNotificationBadge = tab.path === '/account' && unreadNotificationCount > 0;
-              const badgeValue = showBagBadge ? bagCount : unreadNotificationCount;
-              const showBadge = showBagBadge || showNotificationBadge;
+              const isActive = location.pathname === tab.path
+              const Icon = tab.icon
+              const showBagBadge = tab.showBadge && bagCount > 0
+              const showNotificationBadge = tab.path === '/account' && unreadNotificationCount > 0
+              const badgeValue = showBagBadge ? bagCount : unreadNotificationCount
+              const showBadge = showBagBadge || showNotificationBadge
 
               return (
                 <button
                   key={tab.path}
-                  type="button"
                   onClick={() => navigate(tab.path)}
-                  className={`relative flex flex-col items-center justify-center gap-1 rounded-2xl transition-all ${
-                    isActive ? 'bg-amber-50 text-amber-600' : 'text-neutral-400 hover:bg-neutral-50 hover:text-neutral-600'
-                  }`}
+                  className="flex flex-col items-center justify-center gap-0.5 w-14 h-full relative"
                 >
                   <span className="relative inline-flex">
-                    <Icon size={22} strokeWidth={isActive ? 2.6 : 1.7} />
+                    <Icon
+                      size={22}
+                      strokeWidth={isActive ? 2.5 : 1.5}
+                      className={isActive ? 'text-amber-500' : 'text-neutral-400'}
+                    />
                     {showBadge && (
-                      <span className="absolute -right-2.5 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] font-black leading-none text-white shadow-sm ring-2 ring-white">
+                      <span className="absolute -right-1.5 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-emerald-500 px-0.5 text-[8px] font-bold leading-none text-white shadow-sm ring-2 ring-white">
                         {badgeValue > 99 ? '99+' : badgeValue}
                       </span>
                     )}
                   </span>
-                  <span className={`text-[10px] ${isActive ? 'font-black' : 'font-semibold'}`}>{tab.label}</span>
+                  <span className={`text-[10px] ${isActive ? 'font-semibold text-amber-500' : 'text-neutral-400'}`}>
+                    {tab.label}
+                  </span>
                 </button>
-              );
+              )
             })}
           </div>
         </nav>
       )}
     </div>
-  );
+  )
 }
