@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useMemo, useState, type ElementType } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, Clock3, FileText, ListChecks, Package, RefreshCw, SlidersHorizontal, Truck } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  FileText,
+  ListChecks,
+  Package,
+  RefreshCw,
+  SlidersHorizontal,
+  Truck,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import OrderCard from '@/components/shared/OrderCard';
+import StatusBadge from '@/components/shared/StatusBadge';
 import EmptyState from '@/components/shared/EmptyState';
 import { fetchCustomerOrders } from '@/lib/customerOrders';
-import type { Order } from '@/types';
+import type { Order, OrderItem } from '@/types';
 
 type FilterTab = 'all' | 'pending' | 'quoted' | 'in_transit' | 'delivered';
 
@@ -24,6 +34,144 @@ function tabMatches(order: Order, tab: FilterTab) {
   if (tab === 'in_transit') return ['order_placed', 'in_transit', 'arrived_at_hub', 'out_for_delivery'].includes(order.status);
   if (tab === 'delivered') return order.status === 'delivered';
   return true;
+}
+
+function money(value?: number) {
+  return `Nu. ${Number(value ?? 0).toLocaleString()}`;
+}
+
+function itemCount(order: Order) {
+  return order.items.reduce((total, item) => total + Math.max(1, Number(item.quantity) || 1), 0);
+}
+
+function estimatedTotal(order: Order) {
+  if (order.quotation?.totalAmount) return order.quotation.totalAmount;
+
+  return order.items.reduce((total, item) => {
+    const quantity = Math.max(1, Number(item.quantity) || 1);
+    return total + Number(item.unitPrice || 0) * quantity;
+  }, 0);
+}
+
+function fallbackImage() {
+  return (
+    'data:image/svg+xml;utf8,' +
+    encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" rx="18" fill="#f5f5f5"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="15" fill="#a3a3a3">S2B</text></svg>`
+    )
+  );
+}
+
+function primaryItem(order: Order): OrderItem {
+  return (
+    order.items[0] ?? {
+      id: `fallback-${order.id}`,
+      productName: 'Shop2Bhutan order',
+      productImage: fallbackImage(),
+      quantity: 1,
+      unitPrice: 0,
+      attributes: {},
+    }
+  );
+}
+
+function timeAgo(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  const time = date.getTime();
+  if (Number.isNaN(time)) return '';
+
+  const diffMs = Date.now() - time;
+  const minutes = Math.max(1, Math.round(diffMs / 60000));
+
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+
+  const days = Math.round(hours / 24);
+  if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`;
+
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function actionHint(order: Order) {
+  if (order.status === 'quoted') return 'Quotation ready for review';
+  if (order.status === 'payment_pending') return order.payment?.status === 'pending' ? 'Payment proof under review' : 'Payment upload pending';
+  if (order.status === 'delivered') return 'Delivered successfully';
+  return 'Track status and order details';
+}
+
+function CustomerOrderCard({ order }: { order: Order }) {
+  const navigate = useNavigate();
+  const item = primaryItem(order);
+  const count = itemCount(order);
+  const total = estimatedTotal(order);
+  const hasTotal = total > 0;
+
+  return (
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={() => navigate(`/order/${order.id}`)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          navigate(`/order/${order.id}`);
+        }
+      }}
+      className="cursor-pointer rounded-[1.35rem] bg-white p-3 shadow-sm ring-1 ring-neutral-100 transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-[11px] font-semibold text-neutral-400">#{order.orderNumber}</p>
+          <h3 className="mt-1 line-clamp-1 text-sm font-black text-gray-950">{item.productName}</h3>
+          {timeAgo(order.createdAt) && <p className="mt-0.5 text-[11px] text-neutral-500">{timeAgo(order.createdAt)}</p>}
+        </div>
+        <div className="shrink-0">
+          <StatusBadge status={order.status} />
+        </div>
+      </div>
+
+      <div className="mt-3 flex gap-3">
+        <img
+          src={item.productImage || fallbackImage()}
+          alt=""
+          className="h-16 w-16 flex-shrink-0 rounded-2xl bg-neutral-50 object-cover ring-1 ring-neutral-200"
+          loading="lazy"
+        />
+
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            {item.sourcePlatform && (
+              <span className="rounded-full bg-neutral-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-neutral-600 ring-1 ring-neutral-200">
+                {item.sourcePlatform}
+              </span>
+            )}
+            <span className="text-[11px] font-medium text-neutral-500">
+              {count} {count === 1 ? 'item' : 'items'}
+            </span>
+          </div>
+
+          <p className="text-xs font-semibold text-neutral-500">Estimated total</p>
+          <p className="text-lg font-black leading-tight tracking-tight text-gray-950">
+            {hasTotal ? money(total) : 'To be quoted'}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between rounded-2xl bg-neutral-50 px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="text-xs font-black text-gray-950">{actionHint(order)}</p>
+          <p className="mt-0.5 text-[11px] text-neutral-500">Tap to open order details.</p>
+        </div>
+        <div className="ml-3 inline-flex h-9 shrink-0 items-center gap-1 rounded-full bg-white px-3 text-xs font-black text-gray-900 shadow-sm ring-1 ring-neutral-100">
+          View Details
+          <ChevronRight size={14} />
+        </div>
+      </div>
+    </article>
+  );
 }
 
 export default function Orders() {
@@ -161,7 +309,7 @@ export default function Orders() {
         ) : filteredOrders.length > 0 ? (
           <div className="space-y-3">
             {filteredOrders.map((order) => (
-              <OrderCard key={order.id} order={order} />
+              <CustomerOrderCard key={order.id} order={order} />
             ))}
           </div>
         ) : (

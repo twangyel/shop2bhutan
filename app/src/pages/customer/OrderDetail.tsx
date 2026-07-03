@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   CheckCircle,
+  ChevronDown,
   ChevronRight,
   Clock,
   CreditCard,
@@ -18,7 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/shared/StatusBadge';
 import TrackingTimeline from '@/components/shared/TrackingTimeline';
 import { fetchCustomerOrderById } from '@/lib/customerOrders';
-import type { Order } from '@/types';
+import type { Order, OrderStatus } from '@/types';
 
 const statusIcons: Record<string, ReactNode> = {
   pending_confirmation: <Clock size={30} className="text-orange-500" />,
@@ -33,6 +34,74 @@ const statusIcons: Record<string, ReactNode> = {
   delivered: <CheckCircle size={30} className="text-emerald-500" />,
   cancelled: <XCircle size={30} className="text-red-500" />,
 };
+
+const progressSteps: Array<{
+  status: OrderStatus;
+  label: string;
+  shortLabel: string;
+  next: string;
+}> = [
+  {
+    status: 'pending_confirmation',
+    label: 'Order received',
+    shortLabel: 'Received',
+    next: 'Admin will review your request and prepare quotation.',
+  },
+  {
+    status: 'quotation_pending',
+    label: 'Quotation in progress',
+    shortLabel: 'Quotation',
+    next: 'You will be notified once quotation is ready.',
+  },
+  {
+    status: 'quoted',
+    label: 'Quotation ready',
+    shortLabel: 'Quote',
+    next: 'Review and accept quotation to continue.',
+  },
+  {
+    status: 'payment_pending',
+    label: 'Payment pending',
+    shortLabel: 'Payment',
+    next: 'Upload payment screenshot or wait for payment verification.',
+  },
+  {
+    status: 'payment_verified',
+    label: 'Payment verified',
+    shortLabel: 'Verified',
+    next: 'We will place your order with the seller.',
+  },
+  {
+    status: 'order_placed',
+    label: 'Order placed',
+    shortLabel: 'Placed',
+    next: 'Your order is being prepared for shipment.',
+  },
+  {
+    status: 'in_transit',
+    label: 'In transit',
+    shortLabel: 'Transit',
+    next: 'Your order is on the way to Bhutan.',
+  },
+  {
+    status: 'arrived_at_hub',
+    label: 'Arrived at hub',
+    shortLabel: 'Hub',
+    next: 'Delivery will be arranged from the hub.',
+  },
+  {
+    status: 'out_for_delivery',
+    label: 'Out for delivery',
+    shortLabel: 'Delivery',
+    next: 'Your package is out for delivery.',
+  },
+  {
+    status: 'delivered',
+    label: 'Delivered',
+    shortLabel: 'Delivered',
+    next: 'Package delivered successfully.',
+  },
+];
 
 function money(value?: number) {
   return `Nu. ${Number(value ?? 0).toLocaleString()}`;
@@ -55,12 +124,38 @@ function safeAddress(order: Order) {
     .join(', ') || 'Delivery address pending';
 }
 
+function getProgressIndex(status: OrderStatus) {
+  const index = progressSteps.findIndex((step) => step.status === status);
+  return index >= 0 ? index : 0;
+}
+
+function getCompactProgress(order: Order) {
+  if (order.status === 'cancelled') {
+    return {
+      currentLabel: 'Order cancelled',
+      nextText: 'This order is no longer active.',
+      progressPercent: 100,
+    };
+  }
+
+  const index = getProgressIndex(order.status);
+  const current = progressSteps[index] ?? progressSteps[0];
+  const progressPercent = Math.max(8, Math.round((index / Math.max(1, progressSteps.length - 1)) * 100));
+
+  return {
+    currentLabel: current.label,
+    nextText: current.next,
+    progressPercent,
+  };
+}
+
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [timelineOpen, setTimelineOpen] = useState(false);
   const [error, setError] = useState('');
 
   const loadOrder = useCallback(async () => {
@@ -89,6 +184,8 @@ export default function OrderDetail() {
       void loadOrder();
     }
   }, [authLoading, loadOrder]);
+
+  const compactProgress = useMemo(() => (order ? getCompactProgress(order) : null), [order]);
 
   if (!authLoading && !user) {
     return (
@@ -125,7 +222,7 @@ export default function OrderDetail() {
     );
   }
 
-  if (error || !order) {
+  if (error || !order || !compactProgress) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
         <p className="mb-4 text-neutral-500">{error || 'Order not found'}</p>
@@ -218,9 +315,44 @@ export default function OrderDetail() {
           )}
         </section>
 
-        <section className="rounded-[1.75rem] bg-white p-4 shadow-sm ring-1 ring-neutral-100">
-          <h3 className="mb-4 text-base font-black text-gray-950">Order Timeline</h3>
-          <TrackingTimeline currentStatus={order.status} />
+        <section className="overflow-hidden rounded-[1.75rem] bg-white shadow-sm ring-1 ring-neutral-100">
+          <button
+            type="button"
+            onClick={() => setTimelineOpen((value) => !value)}
+            className="w-full p-4 text-left transition-colors hover:bg-neutral-50"
+            aria-expanded={timelineOpen}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h3 className="text-base font-black text-gray-950">Order progress</h3>
+                <p className="mt-1 text-sm font-semibold text-gray-800">{compactProgress.currentLabel}</p>
+                <p className="mt-1 text-xs leading-relaxed text-neutral-500">{compactProgress.nextText}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-black text-neutral-700">
+                {timelineOpen ? 'Hide timeline' : 'View timeline'}
+                <ChevronDown size={15} className={`transition-transform ${timelineOpen ? 'rotate-180' : ''}`} />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
+                <div
+                  className="h-full rounded-full bg-amber-500 transition-all"
+                  style={{ width: `${compactProgress.progressPercent}%` }}
+                />
+              </div>
+              <div className="mt-2 flex justify-between text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+                <span>Received</span>
+                <span>Delivered</span>
+              </div>
+            </div>
+          </button>
+
+          {timelineOpen && (
+            <div className="border-t border-neutral-100 p-4">
+              <TrackingTimeline currentStatus={order.status} />
+            </div>
+          )}
         </section>
 
         <section className="rounded-[1.75rem] bg-white p-4 shadow-sm ring-1 ring-neutral-100">
@@ -251,7 +383,7 @@ export default function OrderDetail() {
                     </div>
                     <p className="mt-1 line-clamp-2 text-sm font-black leading-snug text-gray-950">{item.productName}</p>
                     {item.unitPrice > 0 && (
-                      <p className="mt-2 text-sm font-black text-amber-600">
+                      <p className="mt-2 text-sm font-black text-gray-950">
                         {money(item.unitPrice * item.quantity)}
                       </p>
                     )}
