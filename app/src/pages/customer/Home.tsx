@@ -27,31 +27,45 @@ type StoreItem = {
   logo: string;
 };
 
-const quickActions = [
-  { icon: Link2, label: 'Paste Link', path: '/paste-link' },
-  { icon: ClipboardList, label: 'My Orders', path: '/orders' },
-  { icon: Truck, label: 'Track Order', path: '/orders' },
-  { icon: Headphones, label: 'Support', path: '/support' },
+/* ------------------------------------------------------------------ */
+/*  Accent color system                                                */
+/* ------------------------------------------------------------------ */
+
+const A = {
+  orange: { bg: 'bg-orange-50', text: 'text-orange-500', ring: 'ring-orange-100/40', hoverBg: 'hover:bg-orange-50/60' },
+  amber:  { bg: 'bg-amber-50', text: 'text-amber-600',  ring: 'ring-amber-100/40', hoverBg: 'hover:bg-amber-50/60' },
+  blue:   { bg: 'bg-blue-50',  text: 'text-blue-500',   ring: 'ring-blue-100/40',  hoverBg: 'hover:bg-blue-50/60' },
+  emerald:{ bg: 'bg-emerald-50',text: 'text-emerald-500',ring: 'ring-emerald-100/40',hoverBg: 'hover:bg-emerald-50/60' },
+  violet: { bg: 'bg-violet-50', text: 'text-violet-500', ring: 'ring-violet-100/40', hoverBg: 'hover:bg-violet-50/60' },
+} as const;
+
+type AccentKey = keyof typeof A;
+
+const quickActions: { icon: typeof Link2; label: string; path: string; accent: AccentKey }[] = [
+  { icon: Link2,         label: 'Paste Link', path: '/paste-link', accent: 'orange' },
+  { icon: ClipboardList, label: 'My Orders',  path: '/orders',     accent: 'violet' },
+  { icon: Truck,         label: 'Track Order',path: '/orders',     accent: 'blue' },
+  { icon: Headphones,    label: 'Support',    path: '/support',    accent: 'emerald' },
 ];
 
-const steps = [
-  { icon: Link2, title: 'Send link', text: 'Paste product link' },
-  { icon: FileText, title: 'Get quote', text: 'We verify details' },
-  { icon: CreditCard, title: 'Pay', text: 'Upload payment' },
-  { icon: PackageCheck, title: 'Receive', text: 'Track delivery' },
+const steps: { icon: typeof Link2; title: string; text: string; accent: AccentKey }[] = [
+  { icon: Link2,      title: 'Send link', text: 'Paste product link', accent: 'orange' },
+  { icon: FileText,   title: 'Get quote', text: 'We verify details',  accent: 'violet' },
+  { icon: CreditCard, title: 'Pay',       text: 'Upload payment',     accent: 'amber' },
+  { icon: PackageCheck,title:'Receive',   text: 'Track delivery',     accent: 'emerald' },
 ];
 
-const trustItems = [
-  { icon: ShieldCheck, title: 'Secure', text: 'Trusted service' },
-  { icon: Tag, title: 'Verified', text: 'Human checked' },
-  { icon: Headphones, title: 'Support', text: 'Real humans' },
+const trustItems: { icon: typeof ShieldCheck; title: string; text: string; accent: AccentKey }[] = [
+  { icon: ShieldCheck, title: 'Secure',  text: 'Trusted service', accent: 'emerald' },
+  { icon: Tag,         title: 'Verified',text: 'Human checked',   accent: 'violet' },
+  { icon: Headphones,  title: 'Support', text: 'Real humans',     accent: 'blue' },
 ];
 
 const stores: StoreItem[] = [
-  { name: 'Amazon', platform: 'amazon', logo: '/store-logos/amazon.png' },
+  { name: 'Amazon',   platform: 'amazon',   logo: '/store-logos/amazon.png' },
   { name: 'Flipkart', platform: 'flipkart', logo: '/store-logos/flipkart.png' },
-  { name: 'Myntra', platform: 'myntra', logo: '/store-logos/myntra.png' },
-  { name: 'Meesho', platform: 'meesho', logo: '/store-logos/meesho.png' },
+  { name: 'Myntra',   platform: 'myntra',   logo: '/store-logos/myntra.png' },
+  { name: 'Meesho',   platform: 'meesho',   logo: '/store-logos/meesho.png' },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -60,15 +74,11 @@ const stores: StoreItem[] = [
 
 function StoreLogo({ store }: { store: StoreItem }) {
   const [logoAvailable, setLogoAvailable] = useState(true);
-
   if (!logoAvailable) {
     return (
-      <span className="text-[10px] font-extrabold leading-none text-orange-600">
-        {store.name}
-      </span>
+      <span className="text-[10px] font-extrabold leading-none text-orange-600">{store.name}</span>
     );
   }
-
   return (
     <img
       src={store.logo}
@@ -79,8 +89,6 @@ function StoreLogo({ store }: { store: StoreItem }) {
     />
   );
 }
-
-
 
 /* ------------------------------------------------------------------ */
 /*  Main page                                                          */
@@ -93,10 +101,7 @@ export default function Home() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const refreshUnreadCount = useCallback(async () => {
-    if (!authUser || authLoading) {
-      setUnreadCount(0);
-      return;
-    }
+    if (!authUser || authLoading) { setUnreadCount(0); return; }
     try {
       const count = await getUnreadNotificationCount(authUser.id);
       setUnreadCount(count);
@@ -106,19 +111,15 @@ export default function Home() {
     }
   }, [authLoading, authUser]);
 
-  useEffect(() => {
-    void refreshUnreadCount();
-  }, [refreshUnreadCount]);
+  useEffect(() => { void refreshUnreadCount(); }, [refreshUnreadCount]);
 
   useEffect(() => {
-    const handleNotificationsUpdated = () => {
-      void refreshUnreadCount();
-    };
-    window.addEventListener('shop2bhutan:notifications-updated', handleNotificationsUpdated);
-    window.addEventListener('focus', handleNotificationsUpdated);
+    const handler = () => { void refreshUnreadCount(); };
+    window.addEventListener('shop2bhutan:notifications-updated', handler);
+    window.addEventListener('focus', handler);
     return () => {
-      window.removeEventListener('shop2bhutan:notifications-updated', handleNotificationsUpdated);
-      window.removeEventListener('focus', handleNotificationsUpdated);
+      window.removeEventListener('shop2bhutan:notifications-updated', handler);
+      window.removeEventListener('focus', handler);
     };
   }, [refreshUnreadCount]);
 
@@ -128,15 +129,13 @@ export default function Home() {
     <div className="min-h-screen bg-[#FAF8F5]">
       {/* ========== HEADER ========== */}
       <header className="sticky top-0 z-40 border-b border-orange-100/50 bg-white/85 backdrop-blur-xl">
-        <div className="mx-auto max-w-3xl px-4 pt-3 pb-3">
+        <div className="mx-auto max-w-3xl px-4 pb-3 pt-3">
           <div className="flex items-center justify-between">
             <Logo size="sm" />
-
-            {/* Notification bell */}
             <button
               type="button"
               onClick={() => navigate('/notifications')}
-              className="relative flex h-10 w-10 items-center justify-center rounded-full bg-orange-50 text-neutral-700 transition-all active:scale-95 active:bg-orange-100"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full text-neutral-700 transition-all hover:bg-neutral-100 active:scale-95 active:bg-neutral-200"
               aria-label="Notifications"
             >
               <Bell size={18} strokeWidth={1.8} />
@@ -148,7 +147,6 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Location pill */}
           <button
             type="button"
             onClick={() => navigate('/account')}
@@ -166,7 +164,6 @@ export default function Home() {
 
         {/* ----- Hero CTA Card ----- */}
         <section className="relative overflow-hidden rounded-[1.5rem] bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] ring-1 ring-orange-100/60 sm:p-6">
-          {/* Soft gradient orb in corner */}
           <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-orange-100/30 blur-3xl" />
 
           <div className="relative flex items-start gap-3.5">
@@ -183,27 +180,22 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Paste-link input bar */}
           <button
             type="button"
             onClick={() => navigate('/paste-link')}
-            className="relative mt-4 flex h-[3rem] w-full items-center gap-3 rounded-2xl border border-neutral-200/80 bg-neutral-50/80 px-4 text-left text-[0.8rem] text-neutral-400 transition-all hover:border-orange-200 hover:bg-orange-50/40 active:border-orange-300"
+            className="relative mt-4 flex h-[3rem] w-full items-center gap-3 rounded-2xl border border-neutral-200/80 bg-neutral-50/80 px-4 text-left text-[0.8rem] text-neutral-400 transition-all hover:border-blue-200 hover:bg-blue-50/30 active:border-blue-300"
           >
             <Link2 size={17} className="shrink-0 text-neutral-400" />
-            <span className="min-w-0 flex-1 truncate">
-              Paste Amazon, Flipkart, Myntra or Meesho link
-            </span>
+            <span className="min-w-0 flex-1 truncate">Paste Amazon, Flipkart, Myntra or Meesho link</span>
             <ScanLine size={17} className="shrink-0 text-neutral-400" />
           </button>
 
-          {/* Primary CTA */}
           <button
             type="button"
             onClick={() => navigate('/paste-link')}
             className="mt-3 flex h-[3rem] w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 text-sm font-bold text-white shadow-lg shadow-orange-200/50 transition-transform active:scale-[0.98]"
           >
-            Request Quotation
-            <ArrowRight size={17} />
+            Request Quotation <ArrowRight size={17} />
           </button>
         </section>
 
@@ -218,28 +210,20 @@ export default function Home() {
           }}
         >
           <div className="relative z-10 flex items-start gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/90 text-orange-500 shadow-sm ring-1 ring-orange-100">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/90 text-emerald-500 shadow-sm ring-1 ring-emerald-100">
               <ShieldCheck size={21} />
             </span>
             <div className="min-w-0 flex-1">
-              <h2 className="text-[0.92rem] font-bold text-gray-950 sm:text-base">
-                Shop from India, delivered to Bhutan
-              </h2>
+              <h2 className="text-[0.92rem] font-bold text-gray-950 sm:text-base">Shop from India, delivered to Bhutan</h2>
               <p className="mt-1 text-[0.78rem] leading-relaxed text-neutral-600">
                 Clear quotation, verified product details, and order tracking from your account.
               </p>
-
-              {/* Store pills */}
               <div className="mt-3.5 grid grid-cols-4 gap-2">
                 {stores.map((store) => (
                   <button
                     key={store.name}
                     type="button"
-                    onClick={() =>
-                      navigate('/paste-link', {
-                        state: { sourcePlatform: store.platform },
-                      })
-                    }
+                    onClick={() => navigate('/paste-link', { state: { sourcePlatform: store.platform } })}
                     className="flex h-9 items-center justify-center rounded-full bg-white/95 px-2 shadow-sm ring-1 ring-orange-100/70 transition-all hover:bg-white hover:shadow active:scale-95"
                     aria-label={`Request quotation from ${store.name}`}
                   >
@@ -256,14 +240,15 @@ export default function Home() {
           <div className="grid grid-cols-4 divide-x divide-neutral-100/70">
             {quickActions.map((action) => {
               const Icon = action.icon;
+              const c = A[action.accent];
               return (
                 <button
                   key={action.label}
                   type="button"
                   onClick={() => navigate(action.path)}
-                  className="group flex min-h-[5.5rem] flex-col items-center justify-center gap-2 rounded-2xl px-1.5 py-2.5 text-center transition-colors hover:bg-orange-50/60 active:bg-orange-100/40"
+                  className={`group flex min-h-[5.5rem] flex-col items-center justify-center gap-2 rounded-2xl px-1.5 py-2.5 text-center transition-colors ${c.hoverBg} active:bg-neutral-100/50`}
                 >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-[0.9rem] bg-orange-50 text-orange-500 shadow-sm ring-1 ring-orange-100/40 transition-transform group-active:scale-95">
+                  <span className={`flex h-10 w-10 items-center justify-center rounded-[0.9rem] ${c.bg} ${c.text} shadow-sm ring-1 ${c.ring} transition-transform group-active:scale-95`}>
                     <Icon size={19} />
                   </span>
                   <span className="text-[0.65rem] font-semibold leading-tight tracking-wide text-neutral-700 sm:text-[0.7rem]">
@@ -282,7 +267,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() => navigate('/support')}
-              className="text-xs font-semibold text-orange-600 transition-colors active:text-orange-700"
+              className="text-xs font-semibold text-blue-600 transition-colors active:text-blue-700"
             >
               Learn more
             </button>
@@ -291,23 +276,18 @@ export default function Home() {
           <div className="grid grid-cols-4 gap-2 rounded-[1.35rem] bg-white p-3.5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] ring-1 ring-neutral-100/80">
             {steps.map((step, idx) => {
               const Icon = step.icon;
+              const c = A[step.accent];
               const isLast = idx === steps.length - 1;
               return (
                 <div key={step.title} className="relative text-center">
-                  {/* Connector line */}
                   {!isLast && (
-                    <div className="pointer-events-none absolute left-[calc(50%+1.25rem)] top-5 hidden h-px w-[calc(100%-2.5rem)] bg-gradient-to-r from-orange-200 to-orange-100 min-[400px]:block" />
+                    <div className="pointer-events-none absolute left-[calc(50%+1.25rem)] top-5 hidden h-px w-[calc(100%-2.5rem)] bg-gradient-to-r from-neutral-200 to-neutral-100 min-[400px]:block" />
                   )}
-
-                  <span className="relative z-10 mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-50 text-orange-500 ring-1 ring-orange-100/40">
+                  <span className={`relative z-10 mx-auto flex h-10 w-10 items-center justify-center rounded-2xl ${c.bg} ${c.text} ring-1 ${c.ring}`}>
                     <Icon size={18} />
                   </span>
-                  <p className="mt-2.5 text-[0.7rem] font-bold leading-tight text-gray-900">
-                    {step.title}
-                  </p>
-                  <p className="mt-0.5 hidden text-[0.6rem] leading-4 text-neutral-500 min-[380px]:block">
-                    {step.text}
-                  </p>
+                  <p className="mt-2.5 text-[0.7rem] font-bold leading-tight text-gray-900">{step.title}</p>
+                  <p className="mt-0.5 hidden text-[0.6rem] leading-4 text-neutral-500 min-[380px]:block">{step.text}</p>
                 </div>
               );
             })}
@@ -318,17 +298,14 @@ export default function Home() {
         <section className="mt-4 grid grid-cols-3 divide-x divide-neutral-100/70 rounded-[1.35rem] bg-white p-4 shadow-[0_2px_12px_rgba(0,0,0,0.03)] ring-1 ring-neutral-100/80">
           {trustItems.map((item) => {
             const Icon = item.icon;
+            const c = A[item.accent];
             return (
               <div key={item.title} className="flex flex-col items-center px-1 text-center">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-orange-500 ring-1 ring-orange-100/40">
+                <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${c.bg} ${c.text} ring-1 ${c.ring}`}>
                   <Icon size={18} />
                 </span>
-                <p className="mt-2 text-[0.7rem] font-bold leading-tight text-neutral-700">
-                  {item.title}
-                </p>
-                <p className="mt-0.5 hidden text-[0.6rem] leading-4 text-neutral-400 min-[380px]:block">
-                  {item.text}
-                </p>
+                <p className="mt-2 text-[0.7rem] font-bold leading-tight text-neutral-700">{item.title}</p>
+                <p className="mt-0.5 hidden text-[0.6rem] leading-4 text-neutral-400 min-[380px]:block">{item.text}</p>
               </div>
             );
           })}
@@ -336,8 +313,7 @@ export default function Home() {
 
         {/* ----- Footer Note ----- */}
         <p className="mt-6 px-2 text-center text-[0.65rem] leading-relaxed text-neutral-400">
-          Orders accepted from all 20 dzongkhags. Delivery currently available in
-          Thimphu, Paro, and Phuntsholing/Chhukha.
+          Orders accepted from all 20 dzongkhags. Delivery currently available in Thimphu, Paro, and Phuntsholing/Chhukha.
         </p>
       </main>
     </div>
