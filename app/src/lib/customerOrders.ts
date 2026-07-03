@@ -965,6 +965,36 @@ function quotationBelongsToOrder(quotation: AnyRow, row: AnyRow) {
   return String(quotation.order_id ?? '') === String(row.id ?? '')
 }
 
+function quotationRowTime(row: AnyRow) {
+  const raw = firstString(row, ['responded_at', 'accepted_at', 'updated_at', 'created_at'], '')
+  const time = raw ? Date.parse(raw) : 0
+  return Number.isFinite(time) ? time : 0
+}
+
+function quotationRowRank(row: AnyRow) {
+  const status = firstString(row, ['status'], '').toLowerCase()
+
+  if (status === 'approved' || status === 'accepted') return 5
+  if (status === 'sent' || status === 'quoted') return 4
+  if (status === 'pending' || status === 'draft') return 3
+  if (status === 'rejected' || status === 'declined') return 2
+  if (status === 'expired') return 1
+
+  return 0
+}
+
+function findQuotationForOrder(row: AnyRow, quotations: AnyRow[]) {
+  const matches = quotations.filter((quotation) => quotationBelongsToOrder(quotation, row))
+  if (matches.length <= 1) return matches[0]
+
+  return [...matches].sort((a, b) => {
+    const timeDifference = quotationRowTime(b) - quotationRowTime(a)
+    if (timeDifference !== 0) return timeDifference
+
+    return quotationRowRank(b) - quotationRowRank(a)
+  })[0]
+}
+
 function paymentBelongsToOrder(payment: AnyRow, row: AnyRow) {
   return String(payment.order_id ?? '') === String(row.id ?? '')
 }
@@ -1228,7 +1258,7 @@ function mergeSubmittedRequestBagAddress(row: AnyRow, related: RelatedRows) {
 async function mapOrderRow(row: AnyRow, related: RelatedRows, authUserId: string, authEmail = ''): Promise<Order> {
   const displayRow = mergeSubmittedRequestBagAddress(row, related)
   const items = await makeOrderItems(row, related.items.filter((item) => itemBelongsToOrder(item, row)))
-  const quotationRow = related.quotations.find((quotation) => quotationBelongsToOrder(quotation, row))
+  const quotationRow = findQuotationForOrder(row, related.quotations)
   const quotation = makeQuotation(quotationRow, items, related.quotationItems)
   const relatedPaymentRows = related.payments.filter((payment) => paymentBelongsToOrder(payment, row))
   const payments = await makePayments(relatedPaymentRows)
@@ -1446,46 +1476,83 @@ export async function updateQuotationStatus(quotationId: string, status: Quotati
 
     if (dbStatus === 'accepted') payload.accepted_at = now
 
-    const withTimestamp = await supabase.from('quotations').update(payload).eq('id', quotationId)
-    if (!withTimestamp.error) return
+    const withTimestamp = await supabase
+      .from('quotations')
+      .update(payload)
+      .eq('id', quotationId)
+      .select('id,status')
+      .maybeSingle()
+
+    if (!withTimestamp.error && withTimestamp.data) return
 
     lastError = withTimestamp.error
-    if (!shouldTryFallbackPayload(withTimestamp.error)) throw withTimestamp.error
+    if (withTimestamp.error && !shouldTryFallbackPayload(withTimestamp.error)) throw withTimestamp.error
 
     const fallbackPayload: AnyRow = { status: dbStatus }
     if (dbStatus === 'accepted') fallbackPayload.accepted_at = now
 
-    const withoutTimestamp = await supabase.from('quotations').update(fallbackPayload).eq('id', quotationId)
-    if (!withoutTimestamp.error) return
+    const withoutTimestamp = await supabase
+      .from('quotations')
+      .update(fallbackPayload)
+      .eq('id', quotationId)
+      .select('id,status')
+      .maybeSingle()
 
-    lastError = withoutTimestamp.error
-    if (!shouldTryFallbackPayload(withoutTimestamp.error)) throw withoutTimestamp.error
+    if (!withoutTimestamp.error && withoutTimestamp.data) return
+
+    lastError = withoutTimestamp.error ?? lastError
+    if (withoutTimestamp.error && !shouldTryFallbackPayload(withoutTimestamp.error)) throw withoutTimestamp.error
   }
 
   throw new Error(errorMessage(lastError, 'Unable to update quotation status.'))
 }
 
 export async function updateCustomerOrderStatus(orderId: string, status: OrderStatus) {
+  let lastError: unknown = null
+
   const standard = await supabase
     .from('orders')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', orderId)
+    .select('id')
+    .maybeSingle()
 
-  if (!standard.error) return
+  if (!standard.error && standard.data) return
+  lastError = standard.error
 
-  const standardNoTimestamp = await supabase.from('orders').update({ status }).eq('id', orderId)
-  if (!standardNoTimestamp.error) return
+  const standardNoTimestamp = await supabase
+    .from('orders')
+    .update({ status })
+    .eq('id', orderId)
+    .select('id')
+    .maybeSingle()
+
+  if (!standardNoTimestamp.error && standardNoTimestamp.data) return
+  lastError = standardNoTimestamp.error ?? lastError
 
   const legacy = await supabase
     .from('orders')
     .update({ order_status: status, updated_at: new Date().toISOString() })
     .eq('id', orderId)
+    .select('id')
+    .maybeSingle()
 
-  if (!legacy.error) return
+  if (!legacy.error && legacy.data) return
+  lastError = legacy.error ?? lastError
 
-  const legacyNoTimestamp = await supabase.from('orders').update({ order_status: status }).eq('id', orderId)
-  if (legacyNoTimestamp.error) throw standard.error
+  const legacyNoTimestamp = await supabase
+    .from('orders')
+    .update({ order_status: status })
+    .eq('id', orderId)
+    .select('id')
+    .maybeSingle()
+
+  if (!legacyNoTimestamp.error && legacyNoTimestamp.data) return
+  lastError = legacyNoTimestamp.error ?? lastError
+
+  throw new Error(errorMessage(lastError, 'Unable to update order status.'))
 }
+
 
 function numericAmount(value: unknown) {
   const numeric = Number(value)
