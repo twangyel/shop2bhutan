@@ -7,17 +7,13 @@ import Logo from '@/components/shared/Logo';
 
 function normalizeBhutanPhone(input: string): string | null {
   const digits = input.replace(/\D/g, '');
-
   let phone8 = digits;
-
   if (digits.startsWith('975')) {
     phone8 = digits.slice(3);
   }
-
   if (!/^(17|77)\d{6}$/.test(phone8)) {
     return null;
   }
-
   return phone8;
 }
 
@@ -57,12 +53,10 @@ export default function Login() {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanIdentifier)) {
         throw new Error('Invalid email format');
       }
-
       return cleanIdentifier.toLowerCase();
     }
 
     const normalizedPhone = normalizeBhutanPhone(cleanIdentifier);
-
     if (!normalizedPhone) {
       throw new Error('Enter a valid email or Bhutan mobile number.');
     }
@@ -138,32 +132,32 @@ export default function Login() {
         <div className="flex flex-col items-center mb-8">
           <Logo size="xl" />
           <h1 className="text-2xl font-bold text-gray-900 mt-5">Welcome Back</h1>
-          <p className="text-sm text-neutral-500 mt-1">
+          <p className="text-sm text-gray-500 mt-1">
             Sign in with email or Bhutan mobile number
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {submitError && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
               {submitError}
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-medium text-neutral-700 uppercase tracking-wider mb-1.5">
-              Email or Phone Number
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Email or phone number
             </label>
             <div className="relative">
               {identifier.includes('@') ? (
                 <Mail
                   size={18}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                 />
               ) : (
                 <Phone
                   size={18}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                 />
               )}
               <input
@@ -175,8 +169,8 @@ export default function Login() {
                   setSubmitError('');
                 }}
                 placeholder="your@email.com or 17123456"
-                className={`w-full h-12 pl-10 pr-4 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 ${
-                  errors.identifier ? 'border-red-400' : 'border-neutral-300'
+                className={`w-full h-12 pl-10 pr-4 border rounded-2xl text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${
+                  errors.identifier ? 'border-red-400' : 'border-gray-300'
                 }`}
               />
             </div>
@@ -186,13 +180,13 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-neutral-700 uppercase tracking-wider mb-1.5">
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
               Password
             </label>
             <div className="relative">
               <Lock
                 size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
               />
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -203,14 +197,14 @@ export default function Login() {
                   setSubmitError('');
                 }}
                 placeholder="Enter your password"
-                className={`w-full h-12 pl-10 pr-10 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 ${
-                  errors.password ? 'border-red-400' : 'border-neutral-300'
+                className={`w-full h-12 pl-10 pr-10 border rounded-2xl text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${
+                  errors.password ? 'border-red-400' : 'border-gray-300'
                 }`}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -226,14 +220,14 @@ export default function Login() {
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 rounded border-neutral-300 text-amber-500 focus:ring-amber-500"
+                className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
               />
-              <span className="text-sm text-neutral-600">Remember me</span>
+              <span className="text-sm text-gray-600">Remember me</span>
             </label>
             <button
               type="button"
               onClick={() => navigate('/forgot-password')}
-              className="text-sm text-amber-600 font-medium"
+              className="text-sm text-orange-500 font-medium"
             >
               Forgot Password?
             </button>
@@ -242,33 +236,33 @@ export default function Login() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full h-12 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full h-12 bg-orange-500 text-white font-semibold rounded-2xl hover:bg-orange-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {submitting ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
         <div className="flex items-center gap-4 my-6">
-          <div className="flex-1 h-px bg-neutral-200" />
-          <span className="text-xs text-neutral-400">or</span>
-          <div className="flex-1 h-px bg-neutral-200" />
+          <div className="flex-1 h-px bg-gray-200" />
+          <span className="text-xs text-gray-400">or</span>
+          <div className="flex-1 h-px bg-gray-200" />
         </div>
 
         <button
           type="button"
           onClick={() => navigate('/')}
-          className="w-full h-11 flex items-center justify-center gap-2 bg-neutral-100 text-neutral-700 font-medium rounded-lg hover:bg-neutral-200 transition-colors"
+          className="w-full h-11 flex items-center justify-center gap-2 border border-gray-200 bg-white text-gray-700 font-medium rounded-2xl hover:bg-gray-50 transition-colors"
         >
           <User size={18} />
           <span className="text-sm">Continue as Guest</span>
         </button>
 
-        <p className="text-center text-sm text-neutral-500 mt-6">
+        <p className="text-center text-sm text-gray-500 mt-6">
           Don&apos;t have an account?{' '}
           <button
             type="button"
             onClick={() => navigate('/register', { state: { returnTo } })}
-            className="text-amber-600 font-semibold"
+            className="text-orange-500 font-semibold"
           >
             Register
           </button>
