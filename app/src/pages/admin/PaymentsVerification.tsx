@@ -315,13 +315,20 @@ export default function PaymentsVerification() {
                 </div>
               </div>
 
-              <div className="mt-4 flex gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/admin/orders/${payment.orderId}`)}
+                  className="h-9 flex-1 min-w-[120px] rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm font-semibold text-amber-700 hover:bg-amber-100"
+                >
+                  Open Order
+                </button>
                 {payment.screenshotUrl && (
                   <a
                     href={payment.screenshotUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-lg border border-neutral-200 text-neutral-700 text-sm font-medium hover:bg-neutral-50"
+                    className="h-9 flex-1 min-w-[120px] flex items-center justify-center gap-1.5 rounded-lg border border-neutral-200 text-neutral-700 text-sm font-medium hover:bg-neutral-50"
                   >
                     <Eye size={15} /> View Proof
                   </a>
@@ -332,7 +339,7 @@ export default function PaymentsVerification() {
                       type="button"
                       onClick={() => handleVerify(payment.id)}
                       disabled={updatingId === payment.id}
-                      className="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 disabled:opacity-60"
+                      className="h-9 flex-1 min-w-[120px] flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 disabled:opacity-60"
                     >
                       {updatingId === payment.id ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle size={15} />}
                       Verify

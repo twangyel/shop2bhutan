@@ -75,6 +75,101 @@ function fullDeliveryAddress(order: Order) {
   ]).join(', ');
 }
 
+function formatCurrency(value?: number) {
+  const amount = Number(value || 0);
+  if (!amount || amount <= 0) return 'Nu. 0';
+  return `Nu. ${amount.toLocaleString()}`;
+}
+
+function readablePaymentMethod(value?: string) {
+  const clean = String(value || '').trim();
+  if (!clean) return '';
+  return clean
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function paymentTypeLabel(paymentType?: string) {
+  if (paymentType === 'advance' || paymentType === 'partial' || paymentType === 'deposit') return 'Advance / Partial';
+  if (paymentType === 'balance') return 'Remaining Balance';
+  if (paymentType === 'full') return 'Full Payment';
+  return 'Payment';
+}
+
+function getOrderPaymentInfo(order: Order) {
+  const payments = order.payments ?? (order.payment ? [order.payment] : []);
+  const paymentSummary = order.paymentSummary;
+  const totalPayable = paymentSummary?.totalPayable ?? order.quotation?.totalAmount ?? 0;
+  const verifiedPaid = paymentSummary?.verifiedPaid ??
+    payments
+      .filter((payment) => payment.status === 'verified')
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const balanceDue = paymentSummary?.balanceDue ?? Math.max(totalPayable - verifiedPaid, 0);
+  const pendingPayment = payments.find((payment) => payment.status === 'pending');
+  const rejectedPayment = payments.find((payment) => payment.status === 'rejected');
+  const verifiedPayment = payments.find((payment) => payment.status === 'verified');
+  const displayPayment = pendingPayment ?? verifiedPayment ?? rejectedPayment ?? payments[0];
+
+  if (pendingPayment) {
+    return {
+      statusLabel: 'Pending Review',
+      statusClass: 'bg-orange-50 text-orange-700',
+      typeLabel: paymentTypeLabel(pendingPayment.paymentType),
+      method: readablePaymentMethod(pendingPayment.method),
+      amountLabel: `Proof: ${formatCurrency(pendingPayment.amount)}`,
+      balanceDue,
+      searchableText: `pending review ${paymentTypeLabel(pendingPayment.paymentType)} ${pendingPayment.method || ''}`,
+    };
+  }
+
+  if (paymentSummary?.coverage === 'fully_paid' || paymentSummary?.coverage === 'overpaid') {
+    return {
+      statusLabel: 'Fully Paid',
+      statusClass: 'bg-emerald-50 text-emerald-700',
+      typeLabel: paymentTypeLabel(displayPayment?.paymentType),
+      method: readablePaymentMethod(displayPayment?.method),
+      amountLabel: `Verified: ${formatCurrency(verifiedPaid)}`,
+      balanceDue,
+      searchableText: `fully paid verified ${paymentTypeLabel(displayPayment?.paymentType)} ${displayPayment?.method || ''}`,
+    };
+  }
+
+  if (paymentSummary?.coverage === 'partial_paid' || verifiedPaid > 0) {
+    return {
+      statusLabel: 'Partial Paid',
+      statusClass: 'bg-blue-50 text-blue-700',
+      typeLabel: paymentTypeLabel(displayPayment?.paymentType),
+      method: readablePaymentMethod(displayPayment?.method),
+      amountLabel: `Verified: ${formatCurrency(verifiedPaid)}`,
+      balanceDue,
+      searchableText: `partial paid verified ${paymentTypeLabel(displayPayment?.paymentType)} ${displayPayment?.method || ''}`,
+    };
+  }
+
+  if (rejectedPayment) {
+    return {
+      statusLabel: 'Payment Rejected',
+      statusClass: 'bg-red-50 text-red-700',
+      typeLabel: paymentTypeLabel(rejectedPayment.paymentType),
+      method: readablePaymentMethod(rejectedPayment.method),
+      amountLabel: `Rejected: ${formatCurrency(rejectedPayment.amount)}`,
+      balanceDue,
+      searchableText: `payment rejected ${paymentTypeLabel(rejectedPayment.paymentType)} ${rejectedPayment.method || ''}`,
+    };
+  }
+
+  return {
+    statusLabel: totalPayable > 0 ? 'Unpaid' : 'No Quote Yet',
+    statusClass: 'bg-neutral-100 text-neutral-600',
+    typeLabel: totalPayable > 0 ? 'Waiting for payment' : 'Quotation pending',
+    method: '',
+    amountLabel: totalPayable > 0 ? 'No proof uploaded' : 'No quotation total',
+    balanceDue,
+    searchableText: totalPayable > 0 ? 'unpaid waiting for payment' : 'no quote quotation pending',
+  };
+}
+
+
 export default function OrdersPanel() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -107,6 +202,7 @@ export default function OrdersPanel() {
     const query = searchQuery.trim().toLowerCase();
 
     return orders.filter((order) => {
+      const paymentInfo = getOrderPaymentInfo(order);
       const searchableText = [
         order.orderNumber,
         order.user.name,
@@ -118,6 +214,10 @@ export default function OrdersPanel() {
         order.shippingAddress.landmark,
         fullDeliveryAddress(order),
         order.notes,
+        paymentInfo.statusLabel,
+        paymentInfo.typeLabel,
+        paymentInfo.method,
+        paymentInfo.searchableText,
         ...order.items.map((item) => item.productName),
       ]
         .filter(Boolean)
@@ -202,6 +302,7 @@ export default function OrdersPanel() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Customer</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Phone</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Dzongkhag / Address</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Payment</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Items</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Total</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Status</th>
@@ -212,7 +313,7 @@ export default function OrdersPanel() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-10 text-center text-sm text-neutral-500">
+                  <td colSpan={10} className="px-4 py-10 text-center text-sm text-neutral-500">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 size={18} className="animate-spin text-amber-500" />
                       Loading orders...
@@ -223,7 +324,7 @@ export default function OrdersPanel() {
 
               {!loading && paginatedOrders.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center">
+                  <td colSpan={10} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-2 text-neutral-500">
                       <Package size={34} className="text-neutral-300" />
                       <p className="text-sm font-medium">No orders found</p>
@@ -236,6 +337,7 @@ export default function OrdersPanel() {
               {!loading &&
                 paginatedOrders.map((order) => {
                   const deliveryAddressText = fullDeliveryAddress(order);
+                  const paymentInfo = getOrderPaymentInfo(order);
 
                   return (
                   <tr
@@ -252,6 +354,20 @@ export default function OrdersPanel() {
                     <td className="px-4 py-3 text-sm text-neutral-600 max-w-[220px]">
                       <div>{order.shippingAddress.dzongkhag || '-'}</div>
                       <div className="text-xs text-neutral-400 truncate">{deliveryAddressText || '-'}</div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-neutral-600 min-w-[210px]">
+                      <div className="flex flex-col gap-1">
+                        <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-bold ${paymentInfo.statusClass}`}>
+                          {paymentInfo.statusLabel}
+                        </span>
+                        <div className="text-xs font-semibold text-neutral-700">
+                          {paymentInfo.method ? `${paymentInfo.typeLabel} · ${paymentInfo.method}` : paymentInfo.typeLabel}
+                        </div>
+                        <div className="text-xs text-neutral-500">{paymentInfo.amountLabel}</div>
+                        <div className={`text-xs font-medium ${paymentInfo.balanceDue > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                          Balance: {formatCurrency(paymentInfo.balanceDue)}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-neutral-600">{order.items.length}</td>
                     <td className="px-4 py-3 text-sm font-medium">Nu. {order.quotation?.totalAmount?.toLocaleString() || '-'}</td>
