@@ -755,7 +755,7 @@ export default function RequestBag() {
 
       {confirmOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-gray-900/35 px-4 pb-4 pt-16"
+          className="fixed inset-0 z-[90] flex items-end justify-center bg-gray-950/45 px-4 pt-16"
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-quotation-title"
@@ -767,91 +767,95 @@ export default function RequestBag() {
             aria-label="Close confirmation"
           />
 
-          <div className="relative w-full max-w-lg rounded-3xl border border-gray-100 bg-white p-4 shadow-2xl">
-            <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-gray-200" />
+          <div className="relative flex max-h-[82vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-gray-100 bg-white shadow-2xl">
+            <div className="flex-1 overflow-y-auto p-4 pb-3">
+              <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-gray-200" />
 
-            <div className="flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
-                <Package size={21} strokeWidth={2.4} />
-              </span>
-
-              <div className="min-w-0 flex-1">
-                <h2 id="confirm-quotation-title" className="text-base font-extrabold text-gray-900">
-                  Confirm quotation request?
-                </h2>
-                <p className="mt-1 text-sm leading-6 text-gray-500">
-                  You are sending {itemCount} item{itemCount === 1 ? '' : 's'} to Shop2Bhutan for admin review. We will check price, availability, service charge, and delivery fee before sending your quotation.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-gray-100 bg-white p-3">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Items</p>
-                <p className="mt-1 text-lg font-extrabold text-gray-900">
-                  {itemCount}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {totalQuantity} total qty
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-gray-100 bg-white p-3">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Site estimate</p>
-                <p className="mt-1 text-lg font-extrabold text-gray-900">
-                  {estimatedSiteTotal > 0 ? formatPrice(estimatedSiteTotal) : 'Optional'}
-                </p>
-                <p className="text-xs text-gray-500">Final quote may change</p>
-              </div>
-            </div>
-
-            <div className="mt-3 rounded-2xl border border-emerald-100 bg-white p-3">
               <div className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                  <CheckCircle size={18} strokeWidth={2.5} />
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
+                  <Package size={21} strokeWidth={2.4} />
                 </span>
 
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-extrabold text-gray-900">{customer.name || 'Customer'}</p>
-                  {customer.phone && <p className="mt-0.5 text-xs font-semibold text-emerald-700">{customer.phone}</p>}
-                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500">
-                    {customer.deliveryAddress}
+                  <h2 id="confirm-quotation-title" className="text-base font-extrabold text-gray-900">
+                    Confirm quotation request?
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-gray-500">
+                    You are sending {itemCount} item{itemCount === 1 ? '' : 's'} to Shop2Bhutan for admin review. We will check price, availability, service charge, and delivery fee before sending your quotation.
                   </p>
                 </div>
               </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-gray-100 bg-white p-3">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Items</p>
+                  <p className="mt-1 text-lg font-extrabold text-gray-900">
+                    {itemCount}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {totalQuantity} total qty
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-gray-100 bg-white p-3">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Site estimate</p>
+                  <p className="mt-1 text-lg font-extrabold text-gray-900">
+                    {estimatedSiteTotal > 0 ? formatPrice(estimatedSiteTotal) : 'Optional'}
+                  </p>
+                  <p className="text-xs text-gray-500">Final quote may change</p>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-2xl border border-emerald-100 bg-white p-3">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                    <CheckCircle size={18} strokeWidth={2.5} />
+                  </span>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-extrabold text-gray-900">{customer.name || 'Customer'}</p>
+                    {customer.phone && <p className="mt-0.5 text-xs font-semibold text-emerald-700">{customer.phone}</p>}
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500">
+                      {customer.deliveryAddress}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-orange-100 bg-orange-50 px-3 py-2">
+                <p className="text-xs leading-5 text-orange-800">
+                  This is not a payment or final order. Admin will send a quotation for your approval first.
+                </p>
+              </div>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-orange-100 bg-orange-50 px-3 py-2">
-              <p className="text-xs leading-5 text-orange-800">
-                This is not a payment or final order. Admin will send a quotation for your approval first.
-              </p>
-            </div>
+            <div className="border-t border-gray-100 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setConfirmOpen(false)}
+                  disabled={submitting}
+                  className="h-12 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 hover:bg-gray-50 active:scale-[0.98] disabled:opacity-60"
+                >
+                  Cancel
+                </button>
 
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setConfirmOpen(false)}
-                disabled={submitting}
-                className="h-12 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                onClick={submitBag}
-                disabled={submitting}
-                className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 size={17} className="animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  'Send Request'
-                )}
-              </button>
+                <button
+                  type="button"
+                  onClick={submitBag}
+                  disabled={submitting}
+                  className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white shadow-sm hover:bg-orange-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 size={17} className="animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    'Send Request'
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
