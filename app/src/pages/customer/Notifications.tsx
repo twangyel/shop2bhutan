@@ -104,7 +104,6 @@ function SwipeableNotification({
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isDragging.current) return;
     const delta = e.clientX - startX.current;
-    // Only left swipe (negative delta)
     if (delta > 10) return;
     const newOffset = Math.max(-SWIPE_THRESHOLD, Math.min(0, currentX.current + delta));
     setOffset(newOffset);
@@ -142,7 +141,7 @@ function SwipeableNotification({
 
   return (
     <div className="relative overflow-hidden rounded-2xl select-none">
-      {/* Red delete background - always behind */}
+      {/* Red delete background */}
       <div className="absolute inset-0 flex items-center justify-end rounded-2xl bg-red-500 px-5">
         <button
           type="button"
@@ -154,7 +153,7 @@ function SwipeableNotification({
         </button>
       </div>
 
-      {/* White card that slides */}
+      {/* White card */}
       <div
         ref={cardRef}
         onPointerDown={handlePointerDown}
@@ -170,9 +169,7 @@ function SwipeableNotification({
       >
         <div
           onClick={handleCardClick}
-          className={`w-full rounded-2xl border border-gray-100 p-4 shadow-sm ${
-            isRead ? 'bg-gray-50' : 'bg-white'
-          }`}
+          className="w-full rounded-2xl bg-white p-4"
         >
           <div className="flex gap-3">
             <div className={`mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl ${style.bg} ${style.text}`}>

@@ -6,6 +6,7 @@ import {
   ClipboardList,
   HeadphonesIcon,
   KeyRound,
+  LayoutDashboard,
   LogOut,
   MapPin,
   Pencil,
@@ -127,6 +128,7 @@ export default function Account() {
   );
   const avatarUrl = profile?.avatar_url?.trim() || null;
   const emailAdded = displayEmail !== 'No email added' && isLoggedIn;
+  const canAccessAdmin = Boolean(context?.is_admin || context?.is_super_admin);
 
   useEffect(() => {
     let active = true;
@@ -219,6 +221,28 @@ export default function Account() {
             <p className="mt-0.5 text-xs leading-5 text-gray-500">
               Email is optional, but adding one helps with password recovery and order updates.
             </p>
+          </button>
+        )}
+
+        {/* ===== Admin Panel ===== */}
+        {canAccessAdmin && (
+          <button
+            type="button"
+            onClick={() => navigate('/admin')}
+            className="mt-4 w-full overflow-hidden rounded-2xl bg-gray-900 p-4 text-left text-white transition-colors hover:bg-gray-800"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-orange-400">
+                <LayoutDashboard size={22} strokeWidth={2} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-extrabold">Admin Panel</span>
+                <span className="mt-0.5 block text-xs leading-5 text-gray-400">
+                  Manage orders, quotations, payments, products, parcels, and settings.
+                </span>
+              </span>
+              <ChevronRight size={18} className="text-gray-500" />
+            </div>
           </button>
         )}
 
