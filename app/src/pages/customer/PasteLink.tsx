@@ -261,7 +261,7 @@ export default function PasteLink() {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => selectPlatform(p.key)}
-                  className="group flex flex-col items-center gap-2 rounded-2xl bg-white border border-gray-100 p-3 transition-all hover:bg-gray-50 active:scale-95"
+                  className="group flex flex-col items-center gap-2 rounded-2xl p-3 transition-all hover:bg-gray-50 active:scale-95"
                 >
                   <div className="h-12 w-12 flex items-center justify-center">
                     <img 
