@@ -9,6 +9,7 @@ const statusFilters = ['All', 'Pending', 'Quoted', 'In Transit', 'Delivered', 'C
 type StatusFilter = (typeof statusFilters)[number];
 
 const pageSize = 10;
+const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
 
 function matchesStatus(order: Order, statusFilter: StatusFilter) {
   if (statusFilter === 'All') return true;
@@ -24,11 +25,30 @@ function matchesStatus(order: Order, statusFilter: StatusFilter) {
   return true;
 }
 
-function formatDate(value: string) {
+function formatBhutanDate(value?: string) {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString();
+
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: BHUTAN_TIME_ZONE,
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date);
+}
+
+function formatBhutanTime(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return `${new Intl.DateTimeFormat('en-US', {
+    timeZone: BHUTAN_TIME_ZONE,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date)} BTT`;
 }
 
 
@@ -238,7 +258,10 @@ export default function OrdersPanel() {
                     <td className="px-4 py-3">
                       <StatusBadge status={order.status} size="sm" />
                     </td>
-                    <td className="px-4 py-3 text-sm text-neutral-500">{formatDate(order.createdAt)}</td>
+                    <td className="px-4 py-3 text-sm text-neutral-500">
+                      <div className="font-medium text-neutral-700">{formatBhutanDate(order.createdAt)}</div>
+                      <div className="mt-0.5 text-xs text-neutral-400">{formatBhutanTime(order.createdAt)}</div>
+                    </td>
                     <td className="px-4 py-3">
                       <button
                         type="button"

@@ -19,11 +19,46 @@ import { fetchAdminOrderById, rejectCustomerPayment, updateAdminFulfillmentStatu
 import { useAuth } from '@/contexts/AuthContext';
 import type { Order, OrderStatus, Payment, PaymentCoverage, PaymentStatus } from '@/types';
 
-function formatDate(value: string) {
+const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
+
+function formatBhutanDate(value?: string) {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString();
+
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: BHUTAN_TIME_ZONE,
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date);
+}
+
+function formatBhutanTime(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return `${new Intl.DateTimeFormat('en-US', {
+    timeZone: BHUTAN_TIME_ZONE,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date)} BTT`;
+}
+
+function DateTimeStack({ value, prefix }: { value?: string; prefix?: string }) {
+  const dateText = formatBhutanDate(value);
+  const timeText = formatBhutanTime(value);
+
+  if (dateText === '-') return <span className="text-sm text-neutral-500">-</span>;
+
+  return (
+    <div>
+      <div className="text-sm text-neutral-600">{prefix ? `${prefix} ${dateText}` : dateText}</div>
+      {timeText && <div className="mt-0.5 text-xs text-neutral-400">{timeText}</div>}
+    </div>
+  );
 }
 
 function formatAmount(value?: number) {
@@ -609,7 +644,7 @@ export default function OrderDetail() {
                     <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                       <div>
                         <p className="text-sm font-semibold text-gray-900">Payment #{payments.length - index}</p>
-                        <p className="text-xs text-neutral-500">Uploaded {formatDate(payment.createdAt)}</p>
+                        <DateTimeStack value={payment.createdAt} prefix="Uploaded" />
                       </div>
                       {paymentStatusChip(payment.status)}
                     </div>
@@ -629,7 +664,7 @@ export default function OrderDetail() {
                       </div>
                       <div>
                         <p className="text-xs text-neutral-500">Verified At</p>
-                        <p className="text-sm">{payment.verifiedAt ? formatDate(payment.verifiedAt) : '-'}</p>
+                        <DateTimeStack value={payment.verifiedAt} />
                       </div>
                     </div>
 
