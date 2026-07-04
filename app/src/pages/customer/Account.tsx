@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -14,9 +14,9 @@ import {
   User,
   Wallet,
 } from 'lucide-react';
-import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { getUnreadNotificationCount } from '@/lib/customerOrders';
 
 const PHONE_ONLY_EMAIL_SUFFIX = '@phone.shop2bhutan.com';
 
@@ -110,8 +110,8 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
 
 export default function Account() {
   const navigate = useNavigate();
-  const { unreadCount } = useApp();
   const { user, context, signOut } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const [dzongkhagOptions, setDzongkhagOptions] = useState<DzongkhagOption[]>([]);
 
@@ -130,6 +130,67 @@ export default function Account() {
   const emailAdded = displayEmail !== 'No email added' && isLoggedIn;
   const canAccessAdmin = Boolean(context?.is_admin || context?.is_super_admin);
 
+  const refreshUnreadCount = useCallback(async () => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+
+    try {
+      const count = await getUnreadNotificationCount(user.id);
+      setUnreadCount(count);
+    } catch (error) {
+      console.warn('[Account] Notification count skipped:', error);
+      setUnreadCount(0);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    void refreshUnreadCount();
+  }, [refreshUnreadCount]);
+
+  useEffect(() => {
+    const handleNotificationsUpdated = () => {
+      void refreshUnreadCount();
+    };
+
+    window.addEventListener('shop2bhutan:notifications-updated', handleNotificationsUpdated);
+    window.addEventListener('focus', handleNotificationsUpdated);
+
+    return () => {
+      window.removeEventListener('shop2bhutan:notifications-updated', handleNotificationsUpdated);
+      window.removeEventListener('focus', handleNotificationsUpdated);
+    };
+  }, [refreshUnreadCount]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    const channel = supabase
+      .channel(`customer-notifications-account:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void refreshUnreadCount();
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          void refreshUnreadCount();
+        }
+      });
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [refreshUnreadCount, user]);
+
   useEffect(() => {
     let active = true;
 
@@ -147,6 +208,7 @@ export default function Account() {
   }, []);
 
   const handleLogout = async () => {
+    setUnreadCount(0);
     await signOut();
     navigate('/login');
   };

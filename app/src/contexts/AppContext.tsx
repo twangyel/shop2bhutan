@@ -1,9 +1,8 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import type { Cart, CartItem, User, Notification, Order } from '@/types';
-import { defaultCart, currentUser, notifications as mockNotifications, orders as mockOrders } from '@/data/mockData';
 
 interface AppContextType {
-  // Auth
+  // Legacy auth state. Real Supabase auth lives in AuthContext.
   user: User | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -31,49 +30,76 @@ interface AppContextType {
   updateOrderStatus: (orderId: string, status: string) => void;
 }
 
+const EMPTY_CART: Cart = { items: [], deliveryHubId: 'hub1' };
+
+function makeLegacyUser(email: string, isAdmin = false): User {
+  const cleanEmail = email.trim().toLowerCase();
+  const name = cleanEmail ? cleanEmail.split('@')[0] : isAdmin ? 'Admin' : 'Customer';
+
+  return {
+    id: isAdmin ? 'legacy-admin' : 'legacy-customer',
+    name,
+    email: cleanEmail,
+    phone: '',
+    role: isAdmin ? 'admin' : 'customer',
+    dzongkhag: '',
+    isActive: true,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(currentUser);
+  const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [cart, setCart] = useState<Cart>(defaultCart);
-  const [notificationList, setNotificationList] = useState<Notification[]>(mockNotifications);
-  const [orderList, setOrderList] = useState<Order[]>(mockOrders);
+  const [cart, setCart] = useState<Cart>(EMPTY_CART);
+  const [notificationList, setNotificationList] = useState<Notification[]>([]);
+  const [orderList, setOrderList] = useState<Order[]>([]);
 
   const isAuthenticated = !!user;
   const cartItemCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
-  const unreadCount = notificationList.filter(n => !n.isRead).length;
+  const unreadCount = notificationList.filter((notification) => !notification.isRead).length;
 
   const login = useCallback((email: string, password: string) => {
     if (email && password.length >= 6) {
-      setUser(currentUser);
+      setUser(makeLegacyUser(email));
       setIsAdmin(false);
+      setNotificationList([]);
+      setOrderList([]);
+      setCart(EMPTY_CART);
       return true;
     }
     return false;
   }, []);
 
   const loginAsAdmin = useCallback(() => {
-    setUser(currentUser);
+    setUser(makeLegacyUser('admin@shop2bhutan.com', true));
     setIsAdmin(true);
+    setNotificationList([]);
+    setOrderList([]);
+    setCart(EMPTY_CART);
   }, []);
 
   const logout = useCallback(() => {
     setUser(null);
     setIsAdmin(false);
+    setNotificationList([]);
+    setOrderList([]);
+    setCart(EMPTY_CART);
   }, []);
 
   const addToCart = useCallback((item: CartItem) => {
-    setCart(prev => {
-      const existing = prev.items.find(i => i.productId === item.productId);
+    setCart((prev) => {
+      const existing = prev.items.find((cartItem) => cartItem.productId === item.productId);
       if (existing) {
         return {
           ...prev,
-          items: prev.items.map(i =>
-            i.productId === item.productId
-              ? { ...i, quantity: i.quantity + item.quantity }
-              : i
-          )
+          items: prev.items.map((cartItem) =>
+            cartItem.productId === item.productId
+              ? { ...cartItem, quantity: cartItem.quantity + item.quantity }
+              : cartItem
+          ),
         };
       }
       return { ...prev, items: [...prev.items, item] };
@@ -81,68 +107,68 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const removeFromCart = useCallback((itemId: string) => {
-    setCart(prev => ({ ...prev, items: prev.items.filter(i => i.id !== itemId) }));
+    setCart((prev) => ({ ...prev, items: prev.items.filter((item) => item.id !== itemId) }));
   }, []);
 
   const updateQuantity = useCallback((itemId: string, quantity: number) => {
     if (quantity <= 0) {
-      removeFromCart(itemId);
+      setCart((prev) => ({ ...prev, items: prev.items.filter((item) => item.id !== itemId) }));
       return;
     }
-    setCart(prev => ({
+    setCart((prev) => ({
       ...prev,
-      items: prev.items.map(i => i.id === itemId ? { ...i, quantity } : i)
+      items: prev.items.map((item) => (item.id === itemId ? { ...item, quantity } : item)),
     }));
-  }, [removeFromCart]);
+  }, []);
 
   const clearCart = useCallback(() => {
-    setCart({ items: [], deliveryHubId: 'hub1' });
+    setCart(EMPTY_CART);
   }, []);
 
   const markNotificationRead = useCallback((id: string) => {
-    setNotificationList(prev =>
-      prev.map(n => n.id === id ? { ...n, isRead: true } : n)
+    setNotificationList((prev) =>
+      prev.map((notification) => (notification.id === id ? { ...notification, isRead: true } : notification))
     );
   }, []);
 
   const markAllRead = useCallback(() => {
-    setNotificationList(prev =>
-      prev.map(n => ({ ...n, isRead: true }))
-    );
+    setNotificationList((prev) => prev.map((notification) => ({ ...notification, isRead: true })));
   }, []);
 
   const addOrder = useCallback((order: Order) => {
-    setOrderList(prev => [order, ...prev]);
+    setOrderList((prev) => [order, ...prev]);
   }, []);
 
   const updateOrderStatus = useCallback((orderId: string, status: string) => {
-    setOrderList(prev =>
-      prev.map(o => o.id === orderId ? { ...o, status: status as Order['status'] } : o)
+    setOrderList((prev) =>
+      prev.map((order) => (order.id === orderId ? { ...order, status: status as Order['status'] } : order))
     );
   }, []);
 
   return (
-    <AppContext.Provider value={{
-      user,
-      isAuthenticated,
-      isAdmin,
-      login,
-      loginAsAdmin,
-      logout,
-      cart,
-      addToCart,
-      removeFromCart,
-      updateQuantity,
-      clearCart,
-      cartItemCount,
-      notifications: notificationList,
-      unreadCount,
-      markNotificationRead,
-      markAllRead,
-      orders: orderList,
-      addOrder,
-      updateOrderStatus,
-    }}>
+    <AppContext.Provider
+      value={{
+        user,
+        isAuthenticated,
+        isAdmin,
+        login,
+        loginAsAdmin,
+        logout,
+        cart,
+        addToCart,
+        removeFromCart,
+        updateQuantity,
+        clearCart,
+        cartItemCount,
+        notifications: notificationList,
+        unreadCount,
+        markNotificationRead,
+        markAllRead,
+        orders: orderList,
+        addOrder,
+        updateOrderStatus,
+      }}
+    >
       {children}
     </AppContext.Provider>
   );
