@@ -189,17 +189,17 @@ function BagItemCard({
   onRemove: (itemId: string) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-neutral-100 bg-white p-3 shadow-sm">
+    <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
       <div className="flex gap-3">
         {item.productImage ? (
           <img
             src={item.productImage}
             alt=""
-            className="h-20 w-20 flex-shrink-0 rounded-xl bg-neutral-100 object-cover"
+            className="h-20 w-20 flex-shrink-0 rounded-xl bg-gray-100 object-cover"
           />
         ) : (
-          <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl bg-neutral-100">
-            <ImageIcon size={22} className="text-neutral-400" />
+          <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl bg-gray-100">
+            <ImageIcon size={22} className="text-gray-400" />
           </div>
         )}
 
@@ -218,18 +218,18 @@ function BagItemCard({
               href={item.sourceUrl}
               target="_blank"
               rel="noreferrer"
-              className="mt-1 block truncate text-[11px] text-neutral-400"
+              className="mt-1 block truncate text-[11px] text-gray-400"
             >
               {item.sourceUrl}
             </a>
           ) : (
-            <span className="mt-1 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+            <span className="mt-1 inline-block rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-medium text-orange-600">
               Screenshot request
             </span>
           )}
 
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium uppercase text-neutral-600">
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium uppercase text-gray-600">
               {platformLabel(item.sourcePlatform)}
             </span>
             {item.screenshotUrl && (
@@ -238,7 +238,7 @@ function BagItemCard({
               </span>
             )}
             {saving && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-neutral-400">
+              <span className="inline-flex items-center gap-1 text-[10px] text-gray-400">
                 <Loader2 size={10} className="animate-spin" />
                 Saving
               </span>
@@ -258,7 +258,7 @@ function BagItemCard({
 
       <div className="mt-3 grid grid-cols-[1fr_auto] gap-3">
         <div>
-          <label className="text-[10px] font-medium uppercase tracking-wider text-neutral-400">
+          <label className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
             Price shown on site
           </label>
           <input
@@ -267,19 +267,19 @@ function BagItemCard({
             onChange={(e) => onPatch(item.id, { priceShown: Number(e.target.value) || 0 })}
             onBlur={() => onPatch(item.id, { priceShown: item.priceShown })}
             placeholder="Optional"
-            className="mt-1 h-10 w-full rounded-xl border border-neutral-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+            className="mt-1 h-10 w-full rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
           />
         </div>
 
         <div>
-          <label className="block text-center text-[10px] font-medium uppercase tracking-wider text-neutral-400">
+          <label className="block text-center text-[10px] font-medium uppercase tracking-wider text-gray-400">
             Qty
           </label>
           <div className="mt-1 flex items-center gap-1">
             <button
               type="button"
               onClick={() => onPatch(item.id, { quantity: Math.max(1, item.quantity - 1) })}
-              className="flex h-10 w-9 items-center justify-center rounded-xl bg-neutral-100"
+              className="flex h-10 w-9 items-center justify-center rounded-xl bg-gray-100"
             >
               <Minus size={14} />
             </button>
@@ -287,7 +287,7 @@ function BagItemCard({
             <button
               type="button"
               onClick={() => onPatch(item.id, { quantity: item.quantity + 1 })}
-              className="flex h-10 w-9 items-center justify-center rounded-xl bg-neutral-100"
+              className="flex h-10 w-9 items-center justify-center rounded-xl bg-gray-100"
             >
               <Plus size={14} />
             </button>
@@ -296,7 +296,7 @@ function BagItemCard({
       </div>
 
       {item.priceShown > 0 && (
-        <p className="mt-2 text-xs font-semibold text-amber-600">
+        <p className="mt-2 text-xs font-semibold text-orange-600">
           Site price estimate: {formatPrice(item.priceShown * item.quantity)}
         </p>
       )}
@@ -307,7 +307,7 @@ function BagItemCard({
         onBlur={() => onPatch(item.id, { notes: item.notes || '' })}
         placeholder="Size, color, variant, or instruction for this item..."
         rows={2}
-        className="mt-3 w-full resize-none rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+        className="mt-3 w-full resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
       />
     </div>
   );
@@ -393,9 +393,6 @@ export default function RequestBag() {
       user.email?.split('@')[0] ||
       '';
 
-    // Name/phone can safely come from profile or an already-saved bag.
-    // Delivery address is resolved in the saved-address effect below so the
-    // customer's default saved address always wins over profile dzongkhag.
     setCustomer((prev) => ({
       name: prev.name || bag?.customerName || profileName,
       phone: prev.phone || bag?.customerPhone || profile?.phone?.trim() || '',
@@ -423,9 +420,6 @@ export default function RequestBag() {
         setSavedAddress(address);
 
         if (address?.formattedAddress) {
-          // Saved/default address is the source of truth for Request Bag.
-          // This prevents random switching between profile dzongkhag and
-          // customer_addresses after refresh.
           setCustomer((prev) => ({
             name: address.recipientName || prev.name,
             phone: address.phone || prev.phone,
@@ -553,17 +547,17 @@ export default function RequestBag() {
 
   if (!authLoading && !user) {
     return (
-      <div className="min-h-screen bg-neutral-50 px-4 py-8">
-        <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
-          <ShoppingBag size={42} className="mx-auto text-neutral-300" />
+      <div className="min-h-screen bg-white px-4 py-8">
+        <div className="rounded-2xl bg-white border border-gray-100 p-6 text-center">
+          <ShoppingBag size={42} className="mx-auto text-gray-300" />
           <h1 className="mt-3 text-lg font-bold text-gray-900">Sign in to view Request Bag</h1>
-          <p className="mt-1 text-sm text-neutral-500">
+          <p className="mt-1 text-sm text-gray-500">
             Save product links and request quotation after signing in.
           </p>
           <button
             type="button"
             onClick={() => navigate('/login', { state: { from: '/request-bag' } })}
-            className="mt-4 h-11 rounded-xl bg-amber-500 px-5 text-sm font-semibold text-white"
+            className="mt-4 h-11 rounded-xl bg-orange-500 px-5 text-sm font-semibold text-white hover:bg-orange-600"
           >
             Sign In
           </button>
@@ -573,20 +567,20 @@ export default function RequestBag() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-36">
-      <div className="sticky top-0 z-30 border-b border-neutral-100 bg-white px-4 py-3">
+    <div className="min-h-screen bg-white pb-36">
+      <div className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-3">
         <div className="flex items-center gap-3">
           <button type="button" onClick={() => navigate(-1)} className="p-1">
-            <ArrowLeft size={22} className="text-neutral-700" />
+            <ArrowLeft size={22} className="text-gray-700" />
           </button>
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-bold text-gray-900">Request Bag</h1>
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs text-gray-500">
               Review items and request one quotation when ready.
             </p>
           </div>
           {hasItems && (
-            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">
+            <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-700">
               {bag?.items.length} item{bag?.items.length === 1 ? '' : 's'}
             </span>
           )}
@@ -603,20 +597,20 @@ export default function RequestBag() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((item) => (
-              <div key={item} className="h-32 rounded-2xl bg-white animate-pulse" />
+              <div key={item} className="h-32 rounded-2xl bg-gray-100 animate-pulse" />
             ))}
           </div>
         ) : !hasItems ? (
-          <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
-            <ShoppingBag size={44} className="mx-auto text-neutral-300" />
+          <div className="rounded-2xl bg-white border border-gray-100 p-6 text-center">
+            <ShoppingBag size={44} className="mx-auto text-gray-300" />
             <h2 className="mt-3 text-lg font-bold text-gray-900">Your Request Bag is empty</h2>
-            <p className="mt-1 text-sm leading-6 text-neutral-500">
+            <p className="mt-1 text-sm leading-6 text-gray-500">
               Add Amazon, Flipkart, Myntra, or Meesho links first. You can request quotation after adding items.
             </p>
             <button
               type="button"
               onClick={() => navigate('/paste-link')}
-              className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 text-sm font-semibold text-white"
+              className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 text-sm font-semibold text-white hover:bg-orange-600"
             >
               <Plus size={17} />
               Add Product Link
@@ -640,17 +634,17 @@ export default function RequestBag() {
             <button
               type="button"
               onClick={() => navigate('/paste-link')}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-amber-300 bg-amber-50 text-sm font-bold text-amber-700"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-white text-sm font-bold text-gray-700 hover:bg-gray-50"
             >
               <Plus size={17} />
               Add another product
             </button>
 
-            <div className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm">
+            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="text-base font-semibold text-gray-900">Contact & Delivery</h3>
-                  <p className="text-xs text-neutral-500">
+                  <p className="text-xs text-gray-500">
                     {addressLoading
                       ? 'Loading your saved delivery address...'
                       : 'Used by admin to prepare and confirm your quotation.'}
@@ -660,7 +654,7 @@ export default function RequestBag() {
                   <button
                     type="button"
                     onClick={() => setDeliveryExpanded(true)}
-                    className="flex items-center gap-1 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-600"
+                    className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-200"
                   >
                     <Edit3 size={13} />
                     Edit
@@ -669,8 +663,8 @@ export default function RequestBag() {
               </div>
 
               {addressLoading && (
-                <div className="mt-3 flex items-center gap-2 rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-3 text-xs text-neutral-500">
-                  <Loader2 size={15} className="animate-spin text-amber-500" />
+                <div className="mt-3 flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs text-gray-500">
+                  <Loader2 size={15} className="animate-spin text-orange-500" />
                   Loading saved delivery address...
                 </div>
               )}
@@ -679,7 +673,7 @@ export default function RequestBag() {
                 <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
                   <div className="flex items-start gap-3">
                     <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-600">
-                      <CheckCircle size={18} />
+                      <CheckCircle size={18} strokeWidth={2.5} />
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-emerald-900">{customer.name || 'Customer'}</p>
@@ -696,35 +690,35 @@ export default function RequestBag() {
               {showDeliveryFields && (
                 <div className="mt-3 space-y-3">
                   <div className="relative">
-                    <User size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                    <User size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                       type="text"
                       value={customer.name}
                       onChange={(e) => setCustomer((prev) => ({ ...prev, name: e.target.value }))}
                       placeholder="Full name"
-                      className="h-11 w-full rounded-xl border border-neutral-200 bg-white pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                      className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
                     />
                   </div>
 
                   <div className="relative">
-                    <Phone size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                    <Phone size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                       type="tel"
                       value={customer.phone}
                       onChange={(e) => setCustomer((prev) => ({ ...prev, phone: e.target.value }))}
                       placeholder="Phone number"
-                      className="h-11 w-full rounded-xl border border-neutral-200 bg-white pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                      className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
                     />
                   </div>
 
                   <div className="relative">
-                    <MapPin size={17} className="absolute left-3 top-3 text-neutral-400" />
+                    <MapPin size={17} className="absolute left-3 top-3 text-gray-400" />
                     <textarea
                       value={customer.deliveryAddress}
                       onChange={(e) => setCustomer((prev) => ({ ...prev, deliveryAddress: e.target.value }))}
                       placeholder="Delivery address"
                       rows={3}
-                      className="w-full resize-none rounded-xl border border-neutral-200 bg-white py-3 pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                      className="w-full resize-none rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
                     />
                   </div>
                 </div>
@@ -735,7 +729,7 @@ export default function RequestBag() {
                 onChange={(e) => setCustomer((prev) => ({ ...prev, notes: e.target.value }))}
                 placeholder="Optional note for all items..."
                 rows={2}
-                className="mt-3 w-full resize-none rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                className="mt-3 w-full resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
               />
             </div>
           </>
@@ -743,13 +737,13 @@ export default function RequestBag() {
       </div>
 
       {hasItems && (
-        <div className="fixed bottom-16 left-0 right-0 z-40 border-t border-neutral-200 bg-white px-4 py-3">
+        <div className="fixed bottom-16 left-0 right-0 z-40 border-t border-gray-200 bg-white px-4 py-3">
           <div className="mx-auto max-w-lg">
             <button
               type="button"
               onClick={submitBag}
               disabled={submitting}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-500 text-sm font-bold text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 text-sm font-bold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? (
                 <>
@@ -763,7 +757,7 @@ export default function RequestBag() {
                 </>
               )}
             </button>
-            <p className="mt-2 text-center text-[11px] text-neutral-500">
+            <p className="mt-2 text-center text-[11px] text-gray-500">
               Admin sees your request only after you tap Request Quotation.
             </p>
           </div>
