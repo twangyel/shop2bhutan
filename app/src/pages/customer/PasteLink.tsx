@@ -87,26 +87,6 @@ function isPreviewForUrl(preview: PreviewState, cleanUrl: string) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Sub-components                                                     */
-/* ------------------------------------------------------------------ */
-
-function StoreLogo({ src, alt }: { src: string; alt: string }) {
-  const [available, setAvailable] = useState(true);
-  if (!available) {
-    return <span className="text-xs font-bold text-gray-600">{alt[0]}</span>;
-  }
-  return (
-    <img
-      src={src}
-      alt={alt}
-      className="h-6 w-auto object-contain"
-      loading="lazy"
-      onError={() => setAvailable(false)}
-    />
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /*  Main page                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -243,24 +223,21 @@ export default function PasteLink() {
         {/* ═══════════════ STEP FLOW BAR ═══════════════ */}
         <div className="mx-4 mt-4">
           <div className="rounded-2xl bg-white border border-gray-100 p-3.5">
-            <div className="flex items-center justify-between">
-              {stepsFlow.map((step, idx) => {
+            <div className="relative flex justify-between items-start">
+              {/* Connector line */}
+              <div className="absolute top-[18px] left-[18px] right-[18px] h-px bg-gray-200" />
+
+              {stepsFlow.map((step) => {
                 const Icon = step.icon;
                 const isActive = step.status === 'active';
-                const isLast = idx === stepsFlow.length - 1;
                 return (
-                  <div key={step.label} className="flex flex-1 items-center">
-                    <div className="flex flex-col items-center gap-1.5">
-                      <span className={`flex h-9 w-9 items-center justify-center rounded-full text-white ${isActive ? 'bg-orange-500' : 'bg-gray-200'}`}>
-                        <Icon size={16} strokeWidth={2.5} />
-                      </span>
-                      <span className={`text-[0.55rem] font-bold uppercase tracking-wider ${isActive ? 'text-orange-600' : 'text-gray-400'}`}>
-                        {step.label}
-                      </span>
-                    </div>
-                    {!isLast && (
-                      <div className="mx-1 mb-4 h-px flex-1 bg-gray-200" />
-                    )}
+                  <div key={step.label} className="relative z-10 flex flex-col items-center gap-1.5">
+                    <span className={`flex h-9 w-9 items-center justify-center rounded-full text-white ${isActive ? 'bg-orange-500' : 'bg-gray-200'}`}>
+                      <Icon size={16} strokeWidth={2.5} />
+                    </span>
+                    <span className={`text-[0.55rem] font-bold uppercase tracking-wider ${isActive ? 'text-orange-600' : 'text-gray-400'}`}>
+                      {step.label}
+                    </span>
                   </div>
                 );
               })}
@@ -286,9 +263,14 @@ export default function PasteLink() {
                   onClick={() => selectPlatform(p.key)}
                   className="group flex flex-col items-center gap-2 rounded-2xl bg-white border border-gray-100 p-3 transition-all hover:bg-gray-50 active:scale-95"
                 >
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white border border-gray-100">
-                    <StoreLogo src={p.logo} alt={p.name} />
-                  </span>
+                  <div className="h-12 w-12 flex items-center justify-center">
+                    <img 
+                      src={p.logo} 
+                      alt={p.name} 
+                      className="h-full w-full object-contain" 
+                      loading="lazy"
+                    />
+                  </div>
                   <span className="text-xs font-semibold text-gray-600">{p.name}</span>
                 </a>
               ))}
