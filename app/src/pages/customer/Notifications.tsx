@@ -82,36 +82,43 @@ function SwipeableNotification({
 }) {
   const [offset, setOffset] = useState(0);
   const [deleting, setDeleting] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const startX = useRef(0);
+  const currentX = useRef(0);
   const isDragging = useRef(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const style = getNotificationStyle(notification.type, notification.title);
   const Icon = style.icon;
   const formattedTime = formatBhutanDateTime(notification.createdAt);
   const hasLink = Boolean(notification.link);
+  const isRead = notification.isRead;
 
-  const handleStart = (clientX: number) => {
+  const handlePointerDown = (e: React.PointerEvent) => {
     isDragging.current = true;
-    startX.current = clientX;
+    startX.current = e.clientX;
+    currentX.current = offset;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
-  const handleMove = (clientX: number) => {
+  const handlePointerMove = (e: React.PointerEvent) => {
     if (!isDragging.current) return;
-    const delta = clientX - startX.current;
-    // Only left swipe
-    if (delta > 0) return;
-    const newOffset = Math.max(-SWIPE_THRESHOLD, delta);
+    const delta = e.clientX - startX.current;
+    // Only left swipe (negative delta)
+    if (delta > 10) return;
+    const newOffset = Math.max(-SWIPE_THRESHOLD, Math.min(0, currentX.current + delta));
     setOffset(newOffset);
   };
 
-  const handleEnd = () => {
+  const handlePointerUp = () => {
     if (!isDragging.current) return;
     isDragging.current = false;
-    if (offset <= -SWIPE_THRESHOLD * 0.6) {
+    if (offset <= -SWIPE_THRESHOLD * 0.5) {
       setOffset(-SWIPE_THRESHOLD);
+      setIsOpen(true);
     } else {
       setOffset(0);
+      setIsOpen(false);
     }
   };
 
@@ -120,13 +127,22 @@ function SwipeableNotification({
     setTimeout(() => onDelete(), 200);
   };
 
+  const handleCardClick = () => {
+    if (isOpen) {
+      setOffset(0);
+      setIsOpen(false);
+    } else {
+      onClick();
+    }
+  };
+
   if (deleting) {
     return <div className="h-0 overflow-hidden transition-all duration-200" />;
   }
 
   return (
-    <div ref={containerRef} className="relative overflow-hidden rounded-2xl">
-      {/* Delete background layer */}
+    <div className="relative overflow-hidden rounded-2xl select-none">
+      {/* Red delete background - always behind */}
       <div className="absolute inset-0 flex items-center justify-end rounded-2xl bg-red-500 px-5">
         <button
           type="button"
@@ -138,26 +154,24 @@ function SwipeableNotification({
         </button>
       </div>
 
-      {/* Card layer */}
+      {/* White card that slides */}
       <div
-        onTouchStart={(e) => handleStart(e.touches[0].clientX)}
-        onTouchMove={(e) => handleMove(e.touches[0].clientX)}
-        onTouchEnd={handleEnd}
-        onMouseDown={(e) => handleStart(e.clientX)}
-        onMouseMove={(e) => { if (e.buttons === 1) handleMove(e.clientX); }}
-        onMouseUp={handleEnd}
-        onMouseLeave={handleEnd}
+        ref={cardRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
         style={{
           transform: `translateX(${offset}px)`,
           transition: isDragging.current ? 'none' : 'transform 0.2s ease-out',
+          touchAction: 'pan-y',
         }}
-        className="relative z-10 w-full"
+        className="relative z-10 cursor-pointer"
       >
-        <button
-          type="button"
-          onClick={() => { if (offset === 0) onClick(); }}
-          className={`w-full rounded-2xl border bg-white p-4 text-left shadow-sm ${
-            notification.isRead ? 'border-gray-100 opacity-75' : 'border-gray-100'
+        <div
+          onClick={handleCardClick}
+          className={`w-full rounded-2xl border border-gray-100 p-4 shadow-sm ${
+            isRead ? 'bg-gray-50' : 'bg-white'
           }`}
         >
           <div className="flex gap-3">
@@ -169,8 +183,10 @@ function SwipeableNotification({
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-bold text-gray-900">{notification.title}</p>
-                    {!notification.isRead && (
+                    <p className={`text-sm font-bold ${isRead ? 'text-gray-500' : 'text-gray-900'}`}>
+                      {notification.title}
+                    </p>
+                    {!isRead && (
                       <span className="h-2 w-2 rounded-full bg-orange-500" aria-label="Unread" />
                     )}
                   </div>
@@ -182,7 +198,9 @@ function SwipeableNotification({
               </div>
 
               {notification.message && (
-                <p className="mt-2 text-sm leading-5 text-gray-600">{notification.message}</p>
+                <p className={`mt-2 text-sm leading-5 ${isRead ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {notification.message}
+                </p>
               )}
 
               <p className="mt-3 text-xs font-medium text-gray-400">
@@ -190,7 +208,7 @@ function SwipeableNotification({
               </p>
             </div>
           </div>
-        </button>
+        </div>
       </div>
     </div>
   );
