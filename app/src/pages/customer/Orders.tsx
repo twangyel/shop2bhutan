@@ -120,13 +120,13 @@ function CustomerOrderCard({ order }: { order: Order }) {
           navigate(`/order/${order.id}`);
         }
       }}
-      className="cursor-pointer rounded-[1.35rem] bg-white p-3 shadow-sm ring-1 ring-neutral-100 transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+      className="cursor-pointer rounded-2xl bg-white p-3 border border-gray-100 transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-orange-500/30"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[11px] font-semibold text-neutral-400">#{order.orderNumber}</p>
-          <h3 className="mt-1 line-clamp-1 text-sm font-black text-gray-950">{item.productName}</h3>
-          {timeAgo(order.createdAt) && <p className="mt-0.5 text-[11px] text-neutral-500">{timeAgo(order.createdAt)}</p>}
+          <p className="truncate text-[11px] font-semibold text-gray-400">#{order.orderNumber}</p>
+          <h3 className="mt-1 line-clamp-1 text-sm font-bold text-gray-900">{item.productName}</h3>
+          {timeAgo(order.createdAt) && <p className="mt-0.5 text-[11px] text-gray-500">{timeAgo(order.createdAt)}</p>}
         </div>
         <div className="shrink-0">
           <StatusBadge status={order.status} />
@@ -137,37 +137,37 @@ function CustomerOrderCard({ order }: { order: Order }) {
         <img
           src={item.productImage || fallbackImage()}
           alt=""
-          className="h-16 w-16 flex-shrink-0 rounded-2xl bg-neutral-50 object-cover ring-1 ring-neutral-200"
+          className="h-16 w-16 flex-shrink-0 rounded-2xl bg-gray-50 object-cover border border-gray-100"
           loading="lazy"
         />
 
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-2">
             {item.sourcePlatform && (
-              <span className="rounded-full bg-neutral-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-neutral-600 ring-1 ring-neutral-200">
+              <span className="rounded-full bg-gray-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-gray-600 border border-gray-100">
                 {item.sourcePlatform}
               </span>
             )}
-            <span className="text-[11px] font-medium text-neutral-500">
+            <span className="text-[11px] font-medium text-gray-500">
               {count} {count === 1 ? 'item' : 'items'}
             </span>
           </div>
 
-          <p className="text-xs font-semibold text-neutral-500">Estimated total</p>
-          <p className="text-lg font-black leading-tight tracking-tight text-gray-950">
+          <p className="text-xs font-semibold text-gray-500">Estimated total</p>
+          <p className="text-lg font-bold leading-tight tracking-tight text-gray-900">
             {hasTotal ? money(total) : 'To be quoted'}
           </p>
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between rounded-2xl bg-neutral-50 px-3 py-2.5">
+      <div className="mt-3 flex items-center justify-between rounded-2xl bg-gray-50 px-3 py-2.5">
         <div className="min-w-0">
-          <p className="text-xs font-black text-gray-950">{actionHint(order)}</p>
-          <p className="mt-0.5 text-[11px] text-neutral-500">Tap to open order details.</p>
+          <p className="text-xs font-bold text-gray-900">{actionHint(order)}</p>
+          <p className="mt-0.5 text-[11px] text-gray-500">Tap to open order details.</p>
         </div>
-        <div className="ml-3 inline-flex h-9 shrink-0 items-center gap-1 rounded-full bg-white px-3 text-xs font-black text-gray-900 shadow-sm ring-1 ring-neutral-100">
+        <div className="ml-3 inline-flex h-9 shrink-0 items-center gap-1 rounded-full bg-white px-3 text-xs font-bold text-gray-900 border border-gray-100">
           View Details
-          <ChevronRight size={14} />
+          <ChevronRight size={14} strokeWidth={2.5} />
         </div>
       </div>
     </article>
@@ -220,9 +220,9 @@ export default function Orders() {
 
   if (!authLoading && !user) {
     return (
-      <div className="min-h-screen bg-neutral-50 px-4 py-8">
+      <div className="min-h-screen bg-white px-4 py-8">
         <EmptyState
-          icon={<Package size={40} className="text-neutral-300" />}
+          icon={<Package size={40} className="text-gray-300" />}
           title="Sign in to view orders"
           description="Your Shop2Bhutan orders, quotations, and tracking updates will appear here."
           action={{ label: 'Sign In', onClick: () => navigate('/login') }}
@@ -232,26 +232,26 @@ export default function Orders() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <header className="sticky top-0 z-30 border-b border-neutral-100 bg-white/95 px-4 py-4 backdrop-blur">
+    <div className="min-h-screen bg-white">
+      <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-4">
         <div className="mx-auto max-w-3xl">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h1 className="text-xl font-bold text-gray-950">My Orders</h1>
-              <p className="mt-1 text-xs leading-5 text-neutral-500">Review quotations, payments, and delivery tracking.</p>
+              <h1 className="text-xl font-bold text-gray-900">My Orders</h1>
+              <p className="mt-1 text-xs leading-5 text-gray-500">Review quotations, payments, and delivery tracking.</p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={loadOrders}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-50 text-neutral-700 transition-colors hover:bg-neutral-100"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-50 text-gray-700 transition-colors hover:bg-gray-100"
                 aria-label="Refresh orders"
               >
                 <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
               </button>
               <button
                 type="button"
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-50 text-neutral-700 transition-colors hover:bg-neutral-100"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-50 text-gray-700 transition-colors hover:bg-gray-100"
                 aria-label="Filter orders"
               >
                 <SlidersHorizontal size={17} />
@@ -271,17 +271,17 @@ export default function Orders() {
                   onClick={() => setActiveTab(tab.key)}
                   className={`flex flex-shrink-0 items-center gap-2 rounded-2xl px-3.5 py-2.5 text-xs font-bold transition-all ${
                     isActive
-                      ? 'bg-gray-950 text-white shadow-sm'
+                      ? 'bg-gray-900 text-white shadow-sm'
                       : tab.key === 'quoted' && count > 0
-                        ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-100 hover:bg-amber-100'
-                        : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                        ? 'bg-orange-50 text-orange-700 border border-orange-100 hover:bg-orange-100'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
                   <Icon size={15} strokeWidth={isActive ? 2.4 : 1.9} />
                   <span>{tab.shortLabel}</span>
                   <span
-                    className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-black ${
-                      isActive ? 'bg-white text-gray-950' : 'bg-white/90 text-neutral-500'
+                    className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold ${
+                      isActive ? 'bg-white text-gray-900' : 'bg-white/90 text-gray-500'
                     }`}
                   >
                     {count > 99 ? '99+' : count}
@@ -303,7 +303,7 @@ export default function Orders() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((item) => (
-              <div key={item} className="h-40 animate-pulse rounded-2xl bg-white shadow-sm" />
+              <div key={item} className="h-40 animate-pulse rounded-2xl bg-gray-100" />
             ))}
           </div>
         ) : filteredOrders.length > 0 ? (
@@ -314,7 +314,7 @@ export default function Orders() {
           </div>
         ) : (
           <EmptyState
-            icon={<Package size={40} className="text-neutral-300" />}
+            icon={<Package size={40} className="text-gray-300" />}
             title={`No ${activeTab === 'all' ? '' : activeTab.replace('_', ' ')} orders`}
             description="Orders will appear here once you request a quotation."
             action={{ label: 'Request Product', onClick: () => navigate('/paste-link') }}

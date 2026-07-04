@@ -23,17 +23,17 @@ import type { Order, OrderStatus } from '@/types';
 const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
 
 const statusIcons: Record<string, ReactNode> = {
-  pending_confirmation: <Clock size={30} className="text-orange-500" />,
-  quotation_pending: <FileText size={30} className="text-amber-500" />,
-  quoted: <FileText size={30} className="text-violet-500" />,
-  payment_pending: <CreditCard size={30} className="text-orange-500" />,
-  payment_verified: <CheckCircle size={30} className="text-blue-500" />,
-  order_placed: <Package size={30} className="text-blue-500" />,
-  in_transit: <Truck size={30} className="text-blue-500" />,
-  arrived_at_hub: <Package size={30} className="text-emerald-500" />,
-  out_for_delivery: <MapPin size={30} className="text-emerald-500" />,
-  delivered: <CheckCircle size={30} className="text-emerald-500" />,
-  cancelled: <XCircle size={30} className="text-red-500" />,
+  pending_confirmation: <Clock size={30} className="text-orange-500" strokeWidth={2} />,
+  quotation_pending: <FileText size={30} className="text-amber-500" strokeWidth={2} />,
+  quoted: <FileText size={30} className="text-violet-500" strokeWidth={2} />,
+  payment_pending: <CreditCard size={30} className="text-orange-500" strokeWidth={2} />,
+  payment_verified: <CheckCircle size={30} className="text-blue-500" strokeWidth={2} />,
+  order_placed: <Package size={30} className="text-blue-500" strokeWidth={2} />,
+  in_transit: <Truck size={30} className="text-blue-500" strokeWidth={2} />,
+  arrived_at_hub: <Package size={30} className="text-emerald-500" strokeWidth={2} />,
+  out_for_delivery: <MapPin size={30} className="text-emerald-500" strokeWidth={2} />,
+  delivered: <CheckCircle size={30} className="text-emerald-500" strokeWidth={2} />,
+  cancelled: <XCircle size={30} className="text-red-500" strokeWidth={2} />,
 };
 
 const progressSteps: Array<{
@@ -144,14 +144,12 @@ function safeAddress(order: Order) {
     .join(', ') || 'Delivery address pending';
 }
 
-
 function getEffectiveOrderStatus(order: Order): OrderStatus {
   if (order.status === 'cancelled' || order.status === 'delivered') return order.status;
 
   const actualIndex = getProgressIndex(order.status);
   const paymentVerifiedIndex = getProgressIndex('payment_verified');
 
-  // Once admin starts fulfillment, the real order status must win over payment-derived state.
   if (actualIndex > paymentVerifiedIndex) return order.status;
 
   const payments = order.payments ?? (order.payment ? [order.payment] : []);
@@ -270,7 +268,7 @@ function OrderProgressTimeline({ order }: { order: Order }) {
             {index < progressSteps.length - 1 && (
               <span
                 className={`absolute left-[15px] top-8 h-full w-px ${
-                  isCompleted ? 'bg-emerald-200' : 'bg-neutral-200'
+                  isCompleted ? 'bg-emerald-200' : 'bg-gray-200'
                 }`}
                 aria-hidden="true"
               />
@@ -281,17 +279,17 @@ function OrderProgressTimeline({ order }: { order: Order }) {
                 isCompleted
                   ? 'bg-emerald-500 text-white'
                   : isCurrent
-                    ? 'bg-amber-500 text-white ring-4 ring-amber-100'
-                    : 'bg-neutral-100 text-neutral-400'
+                    ? 'bg-orange-500 text-white ring-4 ring-orange-100'
+                    : 'bg-gray-100 text-gray-400'
               }`}
             >
-              {isCompleted ? <CheckCircle size={15} /> : <Clock size={14} />}
+              {isCompleted ? <CheckCircle size={15} strokeWidth={2.5} /> : <Clock size={14} strokeWidth={2.5} />}
             </div>
 
             <div className="min-w-0 flex-1 pt-0.5">
-              <p className={`text-sm font-black ${isActive ? 'text-gray-950' : 'text-neutral-400'}`}>{step.label}</p>
-              <p className={`mt-0.5 text-xs ${isActive ? 'text-neutral-600' : 'text-neutral-400'}`}>{event?.message || step.description}</p>
-              <p className={`mt-1 text-[11px] font-medium ${formattedTime ? 'text-neutral-500' : 'text-neutral-300'}`}>
+              <p className={`text-sm font-bold ${isActive ? 'text-gray-900' : 'text-gray-400'}`}>{step.label}</p>
+              <p className={`mt-0.5 text-xs ${isActive ? 'text-gray-600' : 'text-gray-400'}`}>{event?.message || step.description}</p>
+              <p className={`mt-1 text-[11px] font-medium ${formattedTime ? 'text-gray-500' : 'text-gray-300'}`}>
                 {formattedTime || 'Pending'}
               </p>
             </div>
@@ -343,12 +341,12 @@ export default function OrderDetail() {
 
   if (!authLoading && !user) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-        <p className="mb-4 text-neutral-500">Please sign in to view your order.</p>
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center bg-white">
+        <p className="mb-4 text-gray-500">Please sign in to view your order.</p>
         <button
           type="button"
           onClick={() => navigate('/login')}
-          className="h-11 rounded-xl bg-amber-500 px-5 text-sm font-semibold text-white"
+          className="h-11 rounded-xl bg-orange-500 px-5 text-sm font-semibold text-white hover:bg-orange-600"
         >
           Sign In
         </button>
@@ -358,18 +356,18 @@ export default function OrderDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-50">
-        <div className="border-b border-neutral-200 bg-white px-4 py-3">
+      <div className="min-h-screen bg-white">
+        <div className="border-b border-gray-100 bg-white px-4 py-3">
           <div className="mx-auto flex max-w-2xl items-center gap-3">
             <button type="button" onClick={() => navigate('/orders')} className="p-1">
-              <ArrowLeft size={22} className="text-neutral-700" />
+              <ArrowLeft size={22} className="text-gray-700" />
             </button>
             <h1 className="text-lg font-semibold text-gray-900">Order Details</h1>
           </div>
         </div>
         <div className="mx-auto max-w-2xl space-y-4 px-4 py-4">
           {[1, 2, 3, 4].map((item) => (
-            <div key={item} className="h-32 rounded-3xl bg-white shadow-sm animate-pulse" />
+            <div key={item} className="h-32 rounded-3xl bg-gray-100 animate-pulse" />
           ))}
         </div>
       </div>
@@ -378,12 +376,12 @@ export default function OrderDetail() {
 
   if (error || !order || !compactProgress) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-        <p className="mb-4 text-neutral-500">{error || 'Order not found'}</p>
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center bg-white">
+        <p className="mb-4 text-gray-500">{error || 'Order not found'}</p>
         <button
           type="button"
           onClick={() => navigate('/orders')}
-          className="h-11 rounded-xl bg-amber-500 px-5 text-sm font-semibold text-white"
+          className="h-11 rounded-xl bg-orange-500 px-5 text-sm font-semibold text-white hover:bg-orange-600"
         >
           Back to Orders
         </button>
@@ -397,32 +395,32 @@ export default function OrderDetail() {
   const showPaymentUpload = effectiveStatus === 'payment_pending' && !hasOpenPayment;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] pb-8">
-      <div className="sticky top-0 z-30 border-b border-white/70 bg-white/90 px-4 py-3 backdrop-blur-xl">
+    <div className="min-h-screen bg-white pb-8">
+      <div className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-3">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
-          <button type="button" onClick={() => navigate('/orders')} className="rounded-full p-1.5 hover:bg-neutral-100">
-            <ArrowLeft size={22} className="text-neutral-700" />
+          <button type="button" onClick={() => navigate('/orders')} className="rounded-full p-1.5 hover:bg-gray-100">
+            <ArrowLeft size={22} className="text-gray-700" />
           </button>
           <div className="min-w-0">
-            <h1 className="text-lg font-black text-gray-950">Order Details</h1>
-            <p className="truncate text-xs text-neutral-500">#{order.orderNumber}</p>
+            <h1 className="text-lg font-bold text-gray-900">Order Details</h1>
+            <p className="truncate text-xs text-gray-500">#{order.orderNumber}</p>
           </div>
         </div>
       </div>
 
       <main className="mx-auto max-w-2xl space-y-4 px-4 py-4">
-        <section className="overflow-hidden rounded-[2rem] bg-white shadow-sm ring-1 ring-neutral-100">
-          <div className="bg-gradient-to-br from-gray-950 to-gray-800 p-5 text-white">
+        <section className="overflow-hidden rounded-2xl bg-white border border-gray-100">
+          <div className="bg-white p-5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wide text-white/50">Current status</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Current status</p>
                 <div className="mt-2 inline-flex">
                   <StatusBadge status={effectiveStatus ?? order.status} />
                 </div>
-                <p className="mt-3 text-sm leading-relaxed text-white/80">{statusMessage(order, effectiveStatus ?? order.status)}</p>
+                <p className="mt-3 text-sm leading-relaxed text-gray-600">{statusMessage(order, effectiveStatus ?? order.status)}</p>
               </div>
-              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm">
-                {statusIcons[effectiveStatus ?? order.status] ?? <Package size={30} className="text-white" />}
+              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-orange-50">
+                {statusIcons[effectiveStatus ?? order.status] ?? <Package size={30} className="text-orange-500" strokeWidth={2} />}
               </div>
             </div>
           </div>
@@ -431,17 +429,17 @@ export default function OrderDetail() {
             <button
               type="button"
               onClick={() => navigate(`/quotation/${order.id}`)}
-              className="w-full bg-gradient-to-r from-violet-50 via-white to-amber-50 p-4 text-left transition-colors hover:from-violet-100 hover:to-amber-100"
+              className="w-full bg-violet-50 p-4 text-left transition-colors hover:bg-violet-100 border-t border-gray-100"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-100">
-                    <FileText size={22} />
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white">
+                    <FileText size={22} strokeWidth={2} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-black text-violet-950">Quotation ready</p>
+                    <p className="text-sm font-bold text-violet-950">Quotation ready</p>
                     <p className="mt-0.5 text-xs text-violet-700">Review your final payable amount before payment.</p>
-                    <p className="mt-1 text-base font-black text-violet-950">{money(order.quotation.totalAmount)}</p>
+                    <p className="mt-1 text-base font-bold text-violet-950">{money(order.quotation.totalAmount)}</p>
                   </div>
                 </div>
                 <ChevronRight size={21} className="flex-shrink-0 text-violet-500" />
@@ -453,15 +451,15 @@ export default function OrderDetail() {
             <button
               type="button"
               onClick={() => navigate(`/payment/${order.id}`)}
-              className="w-full bg-gradient-to-r from-emerald-50 to-white p-4 text-left transition-colors hover:from-emerald-100"
+              className="w-full bg-emerald-50 p-4 text-left transition-colors hover:bg-emerald-100 border-t border-gray-100"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-100">
-                    <CreditCard size={22} />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-white">
+                    <CreditCard size={22} strokeWidth={2} />
                   </div>
                   <div>
-                    <p className="text-sm font-black text-emerald-950">Payment pending</p>
+                    <p className="text-sm font-bold text-emerald-950">Payment pending</p>
                     <p className="text-xs text-emerald-700">Upload your payment screenshot to continue.</p>
                   </div>
                 </div>
@@ -471,33 +469,33 @@ export default function OrderDetail() {
           )}
         </section>
 
-        <section className="overflow-hidden rounded-[1.75rem] bg-white shadow-sm ring-1 ring-neutral-100">
+        <section className="overflow-hidden rounded-2xl bg-white border border-gray-100">
           <button
             type="button"
             onClick={() => setTimelineOpen((value) => !value)}
-            className="w-full p-4 text-left transition-colors hover:bg-neutral-50"
+            className="w-full p-4 text-left transition-colors hover:bg-gray-50"
             aria-expanded={timelineOpen}
           >
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <h3 className="text-base font-black text-gray-950">Order progress</h3>
+                <h3 className="text-base font-bold text-gray-900">Order progress</h3>
                 <p className="mt-1 text-sm font-semibold text-gray-800">{compactProgress.currentLabel}</p>
-                <p className="mt-1 text-xs leading-relaxed text-neutral-500">{compactProgress.nextText}</p>
+                <p className="mt-1 text-xs leading-relaxed text-gray-500">{compactProgress.nextText}</p>
               </div>
-              <div className="flex shrink-0 items-center gap-1 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-black text-neutral-700">
+              <div className="flex shrink-0 items-center gap-1 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-700">
                 {timelineOpen ? 'Hide timeline' : 'View timeline'}
                 <ChevronDown size={15} className={`transition-transform ${timelineOpen ? 'rotate-180' : ''}`} />
               </div>
             </div>
 
             <div className="mt-4">
-              <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
+              <div className="h-2 overflow-hidden rounded-full bg-gray-100">
                 <div
-                  className="h-full rounded-full bg-amber-500 transition-all"
+                  className="h-full rounded-full bg-orange-500 transition-all"
                   style={{ width: `${compactProgress.progressPercent}%` }}
                 />
               </div>
-              <div className="mt-2 flex justify-between text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+              <div className="mt-2 flex justify-between text-[10px] font-bold uppercase tracking-wide text-gray-400">
                 <span>Received</span>
                 <span>Delivered</span>
               </div>
@@ -505,41 +503,41 @@ export default function OrderDetail() {
           </button>
 
           {timelineOpen && (
-            <div className="border-t border-neutral-100 p-4">
+            <div className="border-t border-gray-100 p-4">
               <OrderProgressTimeline order={order} />
             </div>
           )}
         </section>
 
-        <section className="rounded-[1.75rem] bg-white p-4 shadow-sm ring-1 ring-neutral-100">
+        <section className="rounded-2xl bg-white p-4 border border-gray-100">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-base font-black text-gray-950">Items ordered</h3>
-            <span className="rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-bold text-neutral-600">
+            <h3 className="text-base font-bold text-gray-900">Items ordered</h3>
+            <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-bold text-gray-600">
               {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
             </span>
           </div>
           <div className="space-y-3">
             {order.items.map((item) => (
-              <div key={item.id} className="rounded-3xl border border-neutral-100 bg-neutral-50/80 p-3">
+              <div key={item.id} className="rounded-2xl border border-gray-100 bg-gray-50/80 p-3">
                 <div className="flex gap-3">
                   <img
                     src={item.productImage}
                     alt=""
-                    className="h-20 w-20 flex-shrink-0 rounded-2xl bg-white object-cover ring-1 ring-neutral-200"
+                    className="h-20 w-20 flex-shrink-0 rounded-2xl bg-white object-cover border border-gray-100"
                     loading="lazy"
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       {item.sourcePlatform && (
-                        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-neutral-600 ring-1 ring-neutral-200">
+                        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-600 border border-gray-100">
                           {item.sourcePlatform}
                         </span>
                       )}
-                      <span className="text-xs text-neutral-500">Qty: {item.quantity}</span>
+                      <span className="text-xs text-gray-500">Qty: {item.quantity}</span>
                     </div>
-                    <p className="mt-1 line-clamp-2 text-sm font-black leading-snug text-gray-950">{item.productName}</p>
+                    <p className="mt-1 line-clamp-2 text-sm font-bold leading-snug text-gray-900">{item.productName}</p>
                     {item.unitPrice > 0 && (
-                      <p className="mt-2 text-sm font-black text-gray-950">
+                      <p className="mt-2 text-sm font-bold text-gray-900">
                         {money(item.unitPrice * item.quantity)}
                       </p>
                     )}
@@ -552,7 +550,7 @@ export default function OrderDetail() {
                     rel="noopener noreferrer"
                     className="mt-3 inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600 transition-colors hover:bg-blue-100"
                   >
-                    <ExternalLink size={13} /> View product source
+                    <ExternalLink size={13} strokeWidth={2.5} /> View product source
                   </a>
                 )}
               </div>
@@ -560,26 +558,26 @@ export default function OrderDetail() {
           </div>
         </section>
 
-        <section className="rounded-[1.75rem] bg-white p-4 shadow-sm ring-1 ring-neutral-100">
-          <h3 className="mb-3 text-base font-black text-gray-950">Delivery details</h3>
+        <section className="rounded-2xl bg-white p-4 border border-gray-100">
+          <h3 className="mb-3 text-base font-bold text-gray-900">Delivery details</h3>
           <div className="space-y-4">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
-                <MapPin size={18} />
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
+                <MapPin size={18} strokeWidth={2.5} />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-black text-gray-950">{order.shippingAddress.recipientName}</p>
-                {order.shippingAddress.phone && <p className="text-xs text-neutral-500">{order.shippingAddress.phone}</p>}
-                <p className="mt-1 text-xs leading-relaxed text-neutral-600">{safeAddress(order)}</p>
+                <p className="text-sm font-bold text-gray-900">{order.shippingAddress.recipientName}</p>
+                {order.shippingAddress.phone && <p className="text-xs text-gray-500">{order.shippingAddress.phone}</p>}
+                <p className="mt-1 text-xs leading-relaxed text-gray-600">{safeAddress(order)}</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-                <Truck size={18} />
+                <Truck size={18} strokeWidth={2.5} />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-black text-gray-950">{order.deliveryHub.name}</p>
-                <p className="mt-1 text-xs leading-relaxed text-neutral-500">
+                <p className="text-sm font-bold text-gray-900">{order.deliveryHub.name}</p>
+                <p className="mt-1 text-xs leading-relaxed text-gray-500">
                   {appSettings.orderCoverage.label}. Delivery currently available in {appSettings.deliveryHubs.hubNamesJoined}.
                 </p>
               </div>
@@ -588,25 +586,25 @@ export default function OrderDetail() {
         </section>
 
         {order.payment && (
-          <section className="rounded-[1.75rem] bg-white p-4 shadow-sm ring-1 ring-neutral-100">
-            <h3 className="mb-3 text-base font-black text-gray-950">Payment details</h3>
+          <section className="rounded-2xl bg-white p-4 border border-gray-100">
+            <h3 className="mb-3 text-base font-bold text-gray-900">Payment details</h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between gap-4">
-                <span className="text-neutral-600">Method</span>
-                <span className="font-bold text-gray-950">{order.payment.method || 'Under review'}</span>
+                <span className="text-gray-600">Method</span>
+                <span className="font-bold text-gray-900">{order.payment.method || 'Under review'}</span>
               </div>
               <div className="flex justify-between gap-4">
-                <span className="text-neutral-600">Amount</span>
-                <span className="font-bold text-gray-950">{money(order.payment.amount)}</span>
+                <span className="text-gray-600">Amount</span>
+                <span className="font-bold text-gray-900">{money(order.payment.amount)}</span>
               </div>
               {order.payment.transactionId && (
                 <div className="flex justify-between gap-4">
-                  <span className="text-neutral-600">Transaction ID</span>
-                  <span className="break-all text-right font-mono text-xs text-gray-950">{order.payment.transactionId}</span>
+                  <span className="text-gray-600">Transaction ID</span>
+                  <span className="break-all text-right font-mono text-xs text-gray-900">{order.payment.transactionId}</span>
                 </div>
               )}
               <div className="flex justify-between gap-4">
-                <span className="text-neutral-600">Status</span>
+                <span className="text-gray-600">Status</span>
                 <span
                   className={`rounded-full px-2 py-0.5 text-xs font-bold ${
                     order.payment.status === 'verified'
@@ -628,13 +626,13 @@ export default function OrderDetail() {
             <button
               type="button"
               onClick={() => navigate('/shop')}
-              className="h-12 rounded-2xl bg-amber-500 text-sm font-black text-white transition-colors hover:bg-amber-600"
+              className="h-12 rounded-2xl bg-orange-500 text-sm font-bold text-white transition-colors hover:bg-orange-600"
             >
               Order Again
             </button>
             <button
               type="button"
-              className="h-12 rounded-2xl bg-white text-sm font-black text-neutral-700 shadow-sm ring-1 ring-neutral-100 transition-colors hover:bg-neutral-50"
+              className="h-12 rounded-2xl bg-white text-sm font-bold text-gray-700 border border-gray-200 transition-colors hover:bg-gray-50"
             >
               Write Review
             </button>
@@ -645,18 +643,18 @@ export default function OrderDetail() {
           <button
             type="button"
             onClick={() => navigate(`/quotation/${order.id}`)}
-            className="flex w-full items-center justify-between rounded-3xl bg-white p-4 text-left shadow-sm ring-1 ring-neutral-100 transition-all hover:shadow-md"
+            className="flex w-full items-center justify-between rounded-2xl bg-white p-4 text-left border border-gray-100 transition-all hover:bg-gray-50"
           >
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
-                <FileText size={20} />
+                <FileText size={20} strokeWidth={2.5} />
               </div>
               <div>
-                <p className="text-sm font-black text-gray-950">View quotation</p>
-                <p className="text-xs text-neutral-500">Total: {money(order.quotation.totalAmount)}</p>
+                <p className="text-sm font-bold text-gray-900">View quotation</p>
+                <p className="text-xs text-gray-500">Total: {money(order.quotation.totalAmount)}</p>
               </div>
             </div>
-            <ChevronRight size={18} className="text-neutral-400" />
+            <ChevronRight size={18} className="text-gray-400" />
           </button>
         )}
       </main>
