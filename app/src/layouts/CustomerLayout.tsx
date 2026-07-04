@@ -63,41 +63,98 @@ export default function CustomerLayout() {
       void refreshNotificationCount()
     }
 
+    const handleVisibilityChange = () => {
+      if (!document.hidden) handleAppBadgesUpdated()
+    }
+
     window.addEventListener('shop2bhutan:request-bag-updated', handleAppBadgesUpdated)
     window.addEventListener('shop2bhutan:notifications-updated', handleAppBadgesUpdated)
     window.addEventListener('focus', handleAppBadgesUpdated)
+    window.addEventListener('pageshow', handleAppBadgesUpdated)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       window.removeEventListener('shop2bhutan:request-bag-updated', handleAppBadgesUpdated)
       window.removeEventListener('shop2bhutan:notifications-updated', handleAppBadgesUpdated)
       window.removeEventListener('focus', handleAppBadgesUpdated)
+      window.removeEventListener('pageshow', handleAppBadgesUpdated)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [refreshBagCount, refreshNotificationCount])
 
   useEffect(() => {
-    if (!user || authLoading) return undefined
+    if (!user || authLoading) {
+      setUnreadNotificationCount(0)
+      return undefined
+    }
+
+    const userId = user.id
+    let active = true
+    const timers: number[] = []
+
+    const refreshSoon = (delay = 0) => {
+      const timer = window.setTimeout(() => {
+        if (active) void refreshNotificationCount()
+      }, delay)
+      timers.push(timer)
+    }
+
+    const handleNotificationChange = (payload: {
+      eventType?: string
+      new?: Record<string, unknown>
+      old?: Record<string, unknown>
+    }) => {
+      const eventType = payload.eventType
+      const nextRow = payload.new ?? {}
+      const oldRow = payload.old ?? {}
+      const rowUserId = String(nextRow.user_id ?? oldRow.user_id ?? '')
+
+      if (rowUserId && rowUserId !== userId) return
+
+      if (eventType === 'INSERT' && nextRow.is_read === false) {
+        setUnreadNotificationCount((current) => current + 1)
+      }
+
+      refreshSoon(250)
+      refreshSoon(1200)
+    }
+
+    void refreshNotificationCount()
 
     const channel = supabase
-      .channel(`customer-notifications-badge:${user.id}`)
+      .channel(`customer-notifications-badge:${userId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${userId}`,
         },
-        () => {
-          void refreshNotificationCount()
-        }
+        handleNotificationChange
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          void refreshNotificationCount()
+          refreshSoon(0)
+          return
+        }
+
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          console.warn('[CustomerLayout] Notification realtime channel status:', status)
+          refreshSoon(1000)
         }
       })
 
+    const interval = window.setInterval(() => {
+      if (!document.hidden) {
+        void refreshNotificationCount()
+      }
+    }, 15000)
+
     return () => {
+      active = false
+      timers.forEach((timer) => window.clearTimeout(timer))
+      window.clearInterval(interval)
       void supabase.removeChannel(channel)
     }
   }, [authLoading, refreshNotificationCount, user])
@@ -139,7 +196,7 @@ export default function CustomerLayout() {
     location.pathname === '/checkout'
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-white">
       <main className="pb-20">
         {appSettings.maintenanceEnabled && (
           <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
