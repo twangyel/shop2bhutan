@@ -83,12 +83,6 @@ function getDzongkhagDisplayName(value: string | null | undefined, options: Dzon
   return options.find((item) => item.id === cleanValue)?.name || null;
 }
 
-const primaryActions = [
-  { label: 'Edit Profile', path: '/profile', icon: Pencil },
-  { label: 'Addresses', path: '/addresses', icon: MapPin },
-  { label: 'Password', path: '/change-password', icon: KeyRound },
-];
-
 const menuGroups: { title: string; items: MenuItem[] }[] = [
   {
     title: 'Orders & Delivery',
@@ -113,6 +107,12 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
       { icon: HeadphonesIcon, label: 'Support', description: 'Contact Shop2Bhutan support', path: '/support' },
     ],
   },
+];
+
+const primaryActions: MenuItem[] = [
+  { icon: ClipboardList, label: 'My Orders', path: '/orders' },
+  { icon: Bell, label: 'Notifications', path: '/notifications', badge: true },
+  { icon: HeadphonesIcon, label: 'Support', path: '/support' },
 ];
 
 export default function Account() {
