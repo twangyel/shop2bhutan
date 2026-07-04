@@ -2548,37 +2548,44 @@ function orderStatusWriteCandidates(status: OrderStatus) {
 }
 
 export async function updateCustomerOrderStatus(orderId: string, status: OrderStatus) {
+  const cleanOrderId = cleanText(orderId)
+  if (!cleanOrderId) throw new Error('Order UUID is required.')
+
   const now = new Date().toISOString()
   let lastError: unknown = null
+  let zeroRowUpdateSeen = false
 
   for (const dbStatus of orderStatusWriteCandidates(status)) {
-    const standard = await supabase
-      .from('orders')
-      .update({ status: dbStatus, updated_at: now })
-      .eq('id', orderId)
+    const payloads: AnyRow[] = [
+      { status: dbStatus, updated_at: now },
+      { status: dbStatus },
+      { order_status: dbStatus, updated_at: now },
+      { order_status: dbStatus },
+    ]
 
-    if (!standard.error) return
-    lastError = standard.error
-    if (!shouldTryFallbackPayload(standard.error)) throw standard.error
+    for (const payload of payloads) {
+      const { data, error } = await supabase
+        .from('orders')
+        .update(payload, { count: 'exact' })
+        .eq('id', cleanOrderId)
+        .select('id')
+        .maybeSingle()
 
-    const standardNoTimestamp = await supabase.from('orders').update({ status: dbStatus }).eq('id', orderId)
-    if (!standardNoTimestamp.error) return
-    lastError = standardNoTimestamp.error
-    if (!shouldTryFallbackPayload(standardNoTimestamp.error)) throw standardNoTimestamp.error
+      if (!error && data?.id) return
 
-    const legacy = await supabase
-      .from('orders')
-      .update({ order_status: dbStatus, updated_at: now })
-      .eq('id', orderId)
+      if (!error && !data) {
+        zeroRowUpdateSeen = true
+        lastError = new Error('Order status update affected 0 rows. Check admin RLS update policy for public.orders.')
+        continue
+      }
 
-    if (!legacy.error) return
-    lastError = legacy.error
-    if (!shouldTryFallbackPayload(legacy.error)) throw legacy.error
+      lastError = error
+      if (!shouldTryFallbackPayload(error)) throw error
+    }
+  }
 
-    const legacyNoTimestamp = await supabase.from('orders').update({ order_status: dbStatus }).eq('id', orderId)
-    if (!legacyNoTimestamp.error) return
-    lastError = legacyNoTimestamp.error
-    if (!shouldTryFallbackPayload(legacyNoTimestamp.error)) throw legacyNoTimestamp.error
+  if (zeroRowUpdateSeen) {
+    throw new Error('Order status was not updated. The logged-in admin may not have permission to update public.orders, or the order UUID was not visible under RLS.')
   }
 
   throw new Error(errorMessage(lastError, 'Unable to update order status.'))
@@ -3292,8 +3299,9 @@ async function updateOrderStatusAfterPaymentReview(paymentId: string, status: Pa
 
   if (nextOrderStatus === context.orderStatus) return
 
+  await updateCustomerOrderStatus(orderId, nextOrderStatus)
+
   try {
-    await updateCustomerOrderStatus(orderId, nextOrderStatus)
     await insertOrderTrackingEvent({
       orderId,
       status: nextOrderStatus,
@@ -3304,8 +3312,8 @@ async function updateOrderStatusAfterPaymentReview(paymentId: string, status: Pa
           : 'Your payment proof needs attention. Please check the payment section.',
       visibleToCustomer: true,
     })
-  } catch (updateError) {
-    console.warn('[customerOrders] order status after payment review skipped:', updateError)
+  } catch (trackingError) {
+    console.warn('[customerOrders] payment review tracking event skipped:', trackingError)
   }
 }
 
