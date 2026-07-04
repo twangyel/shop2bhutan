@@ -55,9 +55,7 @@ function isValidEmail(value: string) {
 function normalizeBhutanPhone(input: string): string | null {
   const digits = input.replace(/\D/g, '');
   const phone8 = digits.startsWith('975') ? digits.slice(3) : digits;
-
   if (!/^(17|77)\d{6}$/.test(phone8)) return null;
-
   return phone8;
 }
 
@@ -68,7 +66,6 @@ function getAvatarPath(userId: string, file: File) {
 
 function normalizeDzongkhagOptions(data: unknown): DzongkhagOption[] {
   if (!Array.isArray(data)) return [];
-
   return data
     .map((item) => {
       if (!item || typeof item !== 'object') return null;
@@ -84,7 +81,6 @@ function resolveDzongkhagId(rawValue: string | null | undefined, options: Dzongk
   const value = rawValue?.trim() || '';
   if (!value) return '';
   if (UUID_RE.test(value)) return value;
-
   const match = options.find((item) => item.name.toLowerCase() === value.toLowerCase());
   return match?.id || '';
 }
@@ -92,9 +88,7 @@ function resolveDzongkhagId(rawValue: string | null | undefined, options: Dzongk
 function getDzongkhagName(idOrName: string | null | undefined, options: DzongkhagOption[]) {
   const value = idOrName?.trim() || '';
   if (!value) return '';
-
   if (!UUID_RE.test(value)) return value;
-
   return options.find((item) => item.id === value)?.name || '';
 }
 
@@ -128,29 +122,20 @@ export default function Profile() {
 
   useEffect(() => {
     let active = true;
-
     async function loadDzongkhags() {
       setLoadingDzongkhags(true);
-
       const { data, error: rpcError } = await supabase.rpc('get_dzongkhag_options');
-
       if (!active) return;
-
       if (rpcError) {
         console.warn('Failed to load dzongkhags:', rpcError.message);
         setDzongkhagOptions([]);
       } else {
         setDzongkhagOptions(normalizeDzongkhagOptions(data));
       }
-
       setLoadingDzongkhags(false);
     }
-
     void loadDzongkhags();
-
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -160,7 +145,6 @@ export default function Profile() {
       (typeof metadata?.default_dzongkhag_name === 'string' && metadata.default_dzongkhag_name) ||
       (typeof metadata?.dzongkhag === 'string' && metadata.dzongkhag) ||
       '';
-
     const rawDzongkhag = profile?.default_dzongkhag_id || profile?.dzongkhag || metadataDzongkhag;
 
     setFullName(profile?.full_name || profile?.name || '');
@@ -181,38 +165,20 @@ export default function Profile() {
   };
 
   const handleAvatarUpload = async (file: File | null) => {
-    if (!user) {
-      showError('Please sign in to upload a profile picture.');
-      return;
-    }
-
+    if (!user) { showError('Please sign in to upload a profile picture.'); return; }
     if (!file) return;
+    if (!file.type.startsWith('image/')) { showError('Please upload an image file only.'); return; }
+    const maxSize = 2 * 1024 * 1024;
+    if (file.size > maxSize) { showError('Profile picture must be 2MB or smaller.'); return; }
 
+    setUploadingAvatar(true);
     setError('');
     setSuccess('');
 
-    if (!file.type.startsWith('image/')) {
-      showError('Please upload an image file only.');
-      return;
-    }
-
-    const maxSize = 2 * 1024 * 1024;
-
-    if (file.size > maxSize) {
-      showError('Profile picture must be 2MB or smaller.');
-      return;
-    }
-
-    setUploadingAvatar(true);
-
     const path = getAvatarPath(user.id, file);
-
     const { error: uploadError } = await supabase.storage
       .from('profile-avatars')
-      .upload(path, file, {
-        cacheControl: '3600',
-        upsert: true,
-      });
+      .upload(path, file, { cacheControl: '3600', upsert: true });
 
     if (uploadError) {
       setUploadingAvatar(false);
@@ -220,24 +186,14 @@ export default function Profile() {
       return;
     }
 
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from('profile-avatars').getPublicUrl(path);
-
+    const { data: { publicUrl } } = supabase.storage.from('profile-avatars').getPublicUrl(path);
     const { error: updateError } = await supabase
       .from('profiles')
-      .update({
-        avatar_url: publicUrl,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
       .eq('id', user.id);
 
     setUploadingAvatar(false);
-
-    if (updateError) {
-      showError(updateError.message || 'Avatar uploaded, but profile update failed.');
-      return;
-    }
+    if (updateError) { showError(updateError.message || 'Avatar uploaded, but profile update failed.'); return; }
 
     setAvatarUrl(publicUrl);
     await refreshContext();
@@ -249,27 +205,17 @@ export default function Profile() {
       p_email: nextEmail,
       p_phone: nextPhone,
     });
-
     if (rpcError) {
       console.warn('Profile duplicate check skipped:', rpcError.message);
       return { emailExists: false, phoneExists: false };
     }
-
     const result = data as { email_exists?: boolean; phone_exists?: boolean } | null;
-
-    return {
-      emailExists: Boolean(result?.email_exists),
-      phoneExists: Boolean(result?.phone_exists),
-    };
+    return { emailExists: Boolean(result?.email_exists), phoneExists: Boolean(result?.phone_exists) };
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!user) {
-      showError('Please sign in to edit your profile.');
-      return;
-    }
+    if (!user) { showError('Please sign in to edit your profile.'); return; }
 
     const cleanName = fullName.trim();
     const cleanEmail = email.trim().toLowerCase();
@@ -278,38 +224,14 @@ export default function Profile() {
     setError('');
     setSuccess('');
 
-    if (!cleanName) {
-      showError('Full name is required.');
-      return;
-    }
-
-    if (cleanEmail && !isValidEmail(cleanEmail)) {
-      showError('Please enter a valid email address.');
-      return;
-    }
-
-    if (currentRealEmail && !cleanEmail) {
-      showError('Email cannot be removed after it has been added. You can update it to another valid email.');
-      return;
-    }
-
-    if (!phone.trim()) {
-      showError('Phone number is required.');
-      return;
-    }
-
-    if (!normalizedPhone) {
-      showError('Enter a valid Bhutan mobile number starting with 17 or 77.');
-      return;
-    }
-
-    if (!dzongkhagId) {
-      showError('Please select your dzongkhag.');
-      return;
-    }
+    if (!cleanName) { showError('Full name is required.'); return; }
+    if (cleanEmail && !isValidEmail(cleanEmail)) { showError('Please enter a valid email address.'); return; }
+    if (currentRealEmail && !cleanEmail) { showError('Email cannot be removed after it has been added.'); return; }
+    if (!phone.trim()) { showError('Phone number is required.'); return; }
+    if (!normalizedPhone) { showError('Enter a valid Bhutan mobile number starting with 17 or 77.'); return; }
+    if (!dzongkhagId) { showError('Please select your dzongkhag.'); return; }
 
     setSaving(true);
-
     const emailChanged = cleanEmail && cleanEmail !== currentRealEmail.toLowerCase();
     const { emailExists, phoneExists } = await checkProfileDuplicates(
       emailChanged ? cleanEmail : null,
@@ -318,22 +240,13 @@ export default function Profile() {
 
     if (emailExists || phoneExists) {
       setSaving(false);
-      showError(
-        emailExists
-          ? 'This email is already linked to another account.'
-          : 'This phone number is already linked to another account.'
-      );
+      showError(emailExists ? 'This email is already linked to another account.' : 'This phone number is already linked to another account.');
       return;
     }
 
     if (emailChanged) {
       const { error: emailUpdateError } = await supabase.auth.updateUser({ email: cleanEmail });
-
-      if (emailUpdateError) {
-        setSaving(false);
-        showError(emailUpdateError.message || 'Unable to update email address.');
-        return;
-      }
+      if (emailUpdateError) { setSaving(false); showError(emailUpdateError.message || 'Unable to update email.'); return; }
     }
 
     const { error: updateError } = await supabase
@@ -347,30 +260,26 @@ export default function Profile() {
       .eq('id', user.id);
 
     setSaving(false);
-
-    if (updateError) {
-      showError(updateError.message || 'Unable to update profile.');
-      return;
-    }
+    if (updateError) { showError(updateError.message || 'Unable to update profile.'); return; }
 
     setPhone(normalizedPhone);
     await refreshContext();
-    setSuccess(emailChanged ? 'Profile updated. Your email has been saved for recovery.' : 'Profile updated successfully.');
+    setSuccess(emailChanged ? 'Profile updated. Email saved for recovery.' : 'Profile updated successfully.');
   };
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-neutral-50 px-4 py-8">
-        <div className="mx-auto max-w-md rounded-3xl bg-white p-6 text-center shadow-sm">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100">
-            <User size={26} className="text-amber-600" />
+      <div className="min-h-screen bg-white px-4 py-8">
+        <div className="mx-auto max-w-md rounded-2xl border border-gray-100 bg-white p-6 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-50">
+            <User size={26} className="text-orange-500" />
           </div>
-          <h1 className="mb-2 text-xl font-extrabold text-gray-900">Sign in required</h1>
-          <p className="mb-5 text-sm text-neutral-500">Please sign in to manage your Shop2Bhutan profile.</p>
+          <h1 className="mb-2 text-xl font-bold text-gray-900">Sign in required</h1>
+          <p className="mb-5 text-sm text-gray-500">Please sign in to manage your Shop2Bhutan profile.</p>
           <button
             type="button"
             onClick={() => navigate('/login')}
-            className="h-12 w-full rounded-2xl bg-amber-500 font-bold text-white"
+            className="h-12 w-full rounded-2xl bg-orange-500 font-bold text-white hover:bg-orange-600"
           >
             Sign In
           </button>
@@ -380,181 +289,149 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-24">
-      <div className="rounded-b-[2rem] bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 px-4 pb-8 pt-6 text-white shadow-lg shadow-amber-500/20">
-        <div className="mx-auto max-w-md">
+    <div className="min-h-screen bg-white pb-24">
+      {/* Header */}
+      <div className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-3">
+        <div className="mx-auto max-w-md flex items-center gap-3">
           <button
             type="button"
             onClick={() => navigate('/account')}
-            className="mb-5 flex items-center gap-2 text-sm font-semibold text-white/85"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100"
           >
-            <ArrowLeft size={18} />
-            Back to Account
+            <ArrowLeft size={20} strokeWidth={2} />
           </button>
-
-          <div className="text-center">
-            <div className="relative mx-auto h-24 w-24">
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={fullName || 'Profile picture'}
-                  className="h-24 w-24 rounded-3xl border-4 border-white object-cover shadow-lg"
-                />
-              ) : (
-                <div className="flex h-24 w-24 items-center justify-center rounded-3xl border-4 border-white bg-white shadow-lg">
-                  <span className="text-3xl font-extrabold text-amber-600">{initials}</span>
-                </div>
-              )}
-
-              <label className="absolute -bottom-2 -right-2 flex h-10 w-10 cursor-pointer items-center justify-center rounded-2xl bg-white text-amber-600 shadow-md">
-                {uploadingAvatar ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  disabled={uploadingAvatar}
-                  onChange={(event) => {
-                    const file = event.target.files?.[0] || null;
-                    void handleAvatarUpload(file);
-                    event.target.value = '';
-                  }}
-                />
-              </label>
-            </div>
-
-            <h1 className="mt-5 text-2xl font-extrabold">{fullName || 'Your Profile'}</h1>
-            <p className="text-sm text-white/85">{displayEmail}</p>
-            <p className="mt-1 text-xs text-white/75">Tap the camera icon to update your profile picture.</p>
+          <div>
+            <h1 className="text-lg font-bold text-gray-900">Edit Profile</h1>
+            <p className="text-xs text-gray-500">Update your personal details</p>
           </div>
         </div>
       </div>
 
-      <div className="mx-auto -mt-4 max-w-md px-4">
-        <form onSubmit={handleSave} className="space-y-4 rounded-3xl bg-white p-4 shadow-sm">
+      <div className="mx-auto max-w-md px-4 py-6">
+        {/* Avatar */}
+        <div className="flex flex-col items-center">
+          <div className="relative">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={fullName || 'Profile picture'}
+                className="h-24 w-24 rounded-3xl object-cover border border-gray-100 shadow-sm"
+              />
+            ) : (
+              <div className="flex h-24 w-24 items-center justify-center rounded-3xl border border-gray-100 bg-gray-50 shadow-sm">
+                <span className="text-3xl font-extrabold text-gray-400">{initials}</span>
+              </div>
+            )}
+            <label className="absolute -bottom-2 -right-2 flex h-10 w-10 cursor-pointer items-center justify-center rounded-2xl bg-orange-500 text-white shadow-sm border-2 border-white">
+              {uploadingAvatar ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} strokeWidth={2} />}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={uploadingAvatar}
+                onChange={(event) => {
+                  const file = event.target.files?.[0] || null;
+                  void handleAvatarUpload(file);
+                  event.target.value = '';
+                }}
+              />
+            </label>
+          </div>
+          <p className="mt-3 text-sm font-bold text-gray-900">{fullName || 'Your Profile'}</p>
+          <p className="text-xs text-gray-500">{displayEmail}</p>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSave} className="mt-6 space-y-4">
           {error && (
-            <div className="rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-600">
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
               {error}
             </div>
           )}
 
           {success && (
-            <div className="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-              <CheckCircle size={16} />
+            <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              <CheckCircle size={16} strokeWidth={2.5} />
               {success}
             </div>
           )}
 
           <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-neutral-600">Full Name</label>
+            <label className="mb-1.5 block text-sm font-semibold text-gray-700">Full name</label>
             <div className="relative">
-              <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 value={fullName}
-                onChange={(event) => {
-                  setFullName(event.target.value);
-                  setError('');
-                  setSuccess('');
-                }}
-                className="h-12 w-full rounded-2xl border border-neutral-200 pl-10 pr-4 text-sm outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-500/10"
+                onChange={(event) => { setFullName(event.target.value); setError(''); setSuccess(''); }}
+                className="h-12 w-full rounded-2xl border border-gray-200 pl-10 pr-4 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
                 placeholder="Your full name"
               />
             </div>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-neutral-600">Email Address Optional</label>
+            <label className="mb-1.5 block text-sm font-semibold text-gray-700">Email address (optional)</label>
             <div className="relative">
-              <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="email"
                 value={email}
-                onChange={(event) => {
-                  setEmail(event.target.value);
-                  setError('');
-                  setSuccess('');
-                }}
-                className="h-12 w-full rounded-2xl border border-neutral-200 pl-10 pr-4 text-sm outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-500/10"
+                onChange={(event) => { setEmail(event.target.value); setError(''); setSuccess(''); }}
+                className="h-12 w-full rounded-2xl border border-gray-200 pl-10 pr-4 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
                 placeholder="Add email for recovery"
               />
             </div>
-            <p className="mt-1 text-[11px] leading-5 text-neutral-400">
-              Optional. Add an email for password recovery and order updates. Phone-only accounts can still sign in with phone.
+            <p className="mt-1 text-xs leading-5 text-gray-400">
+              Optional. Add an email for password recovery and order updates.
             </p>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-neutral-600">Bhutan Mobile Number</label>
+            <label className="mb-1.5 block text-sm font-semibold text-gray-700">Bhutan mobile number</label>
             <div className="relative">
-              <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="tel"
                 value={phone}
-                onChange={(event) => {
-                  setPhone(event.target.value);
-                  setError('');
-                  setSuccess('');
-                }}
-                className="h-12 w-full rounded-2xl border border-neutral-200 pl-10 pr-4 text-sm outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-500/10"
+                onChange={(event) => { setPhone(event.target.value); setError(''); setSuccess(''); }}
+                className="h-12 w-full rounded-2xl border border-gray-200 pl-10 pr-4 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
                 placeholder="17123456 or 77123456"
               />
             </div>
-            <p className="mt-1 text-[11px] text-neutral-400">Must be 8 digits and start with 17 or 77.</p>
+            <p className="mt-1 text-xs text-gray-400">Must be 8 digits and start with 17 or 77.</p>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-neutral-600">Registered Dzongkhag</label>
+            <label className="mb-1.5 block text-sm font-semibold text-gray-700">Registered dzongkhag</label>
             <div className="relative">
-              <MapPin size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <MapPin size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <select
                 value={dzongkhagId}
                 disabled={loadingDzongkhags}
-                onChange={(event) => {
-                  setDzongkhagId(event.target.value);
-                  setError('');
-                  setSuccess('');
-                }}
-                className="h-12 w-full appearance-none rounded-2xl border border-neutral-200 bg-white pl-10 pr-4 text-sm outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-500/10 disabled:bg-neutral-50"
+                onChange={(event) => { setDzongkhagId(event.target.value); setError(''); setSuccess(''); }}
+                className="h-12 w-full appearance-none rounded-2xl border border-gray-200 bg-white pl-10 pr-4 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 disabled:bg-gray-50"
               >
-                <option value="">
-                  {loadingDzongkhags ? 'Loading dzongkhags...' : 'Select dzongkhag'}
-                </option>
+                <option value="">{loadingDzongkhags ? 'Loading dzongkhags...' : 'Select dzongkhag'}</option>
                 {dzongkhagOptions.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
+                  <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </select>
             </div>
             {registeredDzongkhagName && (
-              <p className="mt-1 text-[11px] text-emerald-600">
-                Registered as {registeredDzongkhagName}
-              </p>
+              <p className="mt-1 text-xs text-emerald-600">Registered as {registeredDzongkhagName}</p>
             )}
-          </div>
-
-          <div className="rounded-2xl bg-neutral-50 p-3">
-            <p className="text-xs font-bold text-neutral-700">Service coverage</p>
-            <p className="mt-1 text-xs leading-5 text-neutral-500">
-              Orders accepted from all 20 dzongkhags. Delivery currently available in Thimphu, Paro, and Chhukha.
-            </p>
           </div>
 
           <button
             type="submit"
             disabled={saving || loadingDzongkhags}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 font-bold text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                Saving...
-              </>
+              <><Loader2 size={18} className="animate-spin" /> Saving...</>
             ) : (
-              <>
-                <Save size={18} />
-                Save Profile
-              </>
+              <><Save size={18} strokeWidth={2.5} /> Save Profile</>
             )}
           </button>
         </form>
@@ -562,9 +439,9 @@ export default function Profile() {
         <button
           type="button"
           onClick={handleLogout}
-          className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-red-50 font-bold text-red-600 transition hover:bg-red-100"
+          className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white font-bold text-gray-700 transition hover:bg-gray-50"
         >
-          <LogOut size={18} />
+          <LogOut size={18} strokeWidth={2} />
           Logout
         </button>
       </div>
