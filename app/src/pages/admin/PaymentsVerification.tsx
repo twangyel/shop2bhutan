@@ -38,6 +38,20 @@ function statusLabel(status: AdminPaymentRecord['status']) {
   return 'Pending';
 }
 
+function paymentTypeLabel(paymentType?: AdminPaymentRecord['paymentType']) {
+  if (paymentType === 'advance' || paymentType === 'partial' || paymentType === 'deposit') return 'Advance / Partial';
+  if (paymentType === 'balance') return 'Remaining Balance';
+  if (paymentType === 'full') return 'Full Payment';
+  return 'Payment';
+}
+
+function paymentTypeClass(paymentType?: AdminPaymentRecord['paymentType']) {
+  if (paymentType === 'advance' || paymentType === 'partial' || paymentType === 'deposit') return 'bg-blue-50 text-blue-700';
+  if (paymentType === 'balance') return 'bg-purple-50 text-purple-700';
+  if (paymentType === 'full') return 'bg-emerald-50 text-emerald-700';
+  return 'bg-neutral-100 text-neutral-600';
+}
+
 function matchesTab(payment: AdminPaymentRecord, tab: PaymentTab) {
   if (tab === 'All') return true;
   if (tab === 'Pending Review') return payment.status === 'pending';
@@ -85,6 +99,7 @@ export default function PaymentsVerification() {
         payment.customerEmail,
         payment.customerPhone,
         payment.method,
+        paymentTypeLabel(payment.paymentType),
         payment.transactionId,
         payment.notes,
       ]
@@ -252,7 +267,12 @@ export default function PaymentsVerification() {
                 </span>
               </div>
 
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(payment.amount)}</p>
+              <div className="flex items-end justify-between gap-3">
+                <p className="text-2xl font-bold text-gray-900">{formatCurrency(payment.amount)}</p>
+                <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${paymentTypeClass(payment.paymentType)}`}>
+                  {paymentTypeLabel(payment.paymentType)}
+                </span>
+              </div>
 
               <div className="mt-3 space-y-1.5">
                 <div className="flex items-center justify-between gap-3 text-sm">
@@ -266,6 +286,12 @@ export default function PaymentsVerification() {
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="text-neutral-500">Method</span>
                   <span className="font-medium text-right">{payment.method || '-'}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-neutral-500">Payment Type</span>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${paymentTypeClass(payment.paymentType)}`}>
+                    {paymentTypeLabel(payment.paymentType)}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="text-neutral-500">Transaction ID</span>

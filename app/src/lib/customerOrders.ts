@@ -9,6 +9,7 @@ import type {
   OrderStatus,
   OrderType,
   Payment,
+  PaymentType,
   PaymentMethod,
   PaymentCoverage,
   PaymentStatus,
@@ -53,6 +54,7 @@ export type PaymentProofInput = {
   paymentMethodType?: PaymentMethod['type'] | string
   transactionId: string
   amount: number
+  paymentType?: PaymentType | string
   note?: string
 }
 
@@ -63,6 +65,7 @@ export type AdminPaymentRecord = Payment & {
   customerPhone: string
   orderStatus: OrderStatus
   proofPath?: string
+  paymentType: PaymentType
 }
 
 export type AdminCustomerRecord = {
@@ -775,6 +778,38 @@ export function normalizePaymentStatus(status: unknown): PaymentStatus {
   return map[raw] ?? 'pending'
 }
 
+export function normalizePaymentType(value: unknown): PaymentType {
+  const raw = cleanText(value).toLowerCase().replace(/[^a-z0-9]+/g, '_')
+
+  if (['full', 'full_payment', 'full_balance', 'paid_full'].includes(raw)) return 'full'
+  if (['advance', 'advance_payment', 'partial', 'partial_payment', 'deposit'].includes(raw)) return 'advance'
+  if (['balance', 'remaining', 'remaining_balance', 'remaining_payment', 'final', 'final_payment'].includes(raw)) return 'balance'
+
+  return 'unknown'
+}
+
+function inferPaymentTypeFromAmounts(params: {
+  explicitType?: unknown
+  amount: number
+  totalPayable?: number
+  verifiedBefore?: number
+}) {
+  const explicit = normalizePaymentType(params.explicitType)
+  const amount = numericAmount(params.amount)
+  const totalPayable = numericAmount(params.totalPayable ?? 0)
+  const verifiedBefore = numericAmount(params.verifiedBefore ?? 0)
+  const remainingBefore = Math.max(totalPayable - verifiedBefore, 0)
+
+  if (totalPayable > 0) {
+    if (verifiedBefore > 0 && amount >= remainingBefore) return 'balance' as PaymentType
+    if (verifiedBefore <= 0 && amount >= totalPayable) return 'full' as PaymentType
+    if (amount > 0 && amount < totalPayable) return 'advance' as PaymentType
+  }
+
+  return explicit === 'unknown' ? 'full' : explicit
+}
+
+
 function normalizeTrackingEvent(row: AnyRow): TrackingEvent {
   const createdAt = firstString(
     row,
@@ -1021,6 +1056,7 @@ async function createAdminOrderSubmittedNotification(input: {
 async function createAdminPaymentUploadedNotification(input: {
   order: Order
   amount: number
+  paymentType?: PaymentType | string
   transactionId?: string
 }) {
   const order = input.order
@@ -1028,11 +1064,16 @@ async function createAdminPaymentUploadedNotification(input: {
   const customerName = cleanText(order.user?.name) || cleanText(order.shippingAddress?.recipientName) || 'Customer'
   const amount = numericAmount(input.amount)
   const transactionId = cleanText(input.transactionId)
+  const paymentType = normalizePaymentType(input.paymentType)
+  const paymentTypeText =
+    paymentType === 'advance' ? 'advance payment'
+    : paymentType === 'balance' ? 'remaining balance payment'
+    : 'full payment'
 
   await createAdminNotificationForAdmins({
     type: 'payment',
     title: 'Payment Proof Uploaded',
-    message: `${customerName} uploaded ${amount > 0 ? `Nu. ${amount.toLocaleString()}` : 'a payment proof'} for order #${orderNo}.`,
+    message: `${customerName} uploaded ${amount > 0 ? `Nu. ${amount.toLocaleString()}` : 'a payment proof'} as ${paymentTypeText} for order #${orderNo}.`,
     link: `/admin/orders/${order.id}`,
     dedupeKey: transactionId ? `admin:payment-uploaded:${order.id}:${transactionId}` : undefined,
   })
@@ -1667,6 +1708,7 @@ async function makePayment(payment: AnyRow | undefined): Promise<Payment | undef
     id: firstString(payment, ['id'], ''),
     orderId: firstString(payment, ['order_id'], ''),
     amount: firstNumber(payment, ['amount', 'total_amount', 'advance_paid'], 0),
+    paymentType: normalizePaymentType(firstValue(payment, ['payment_type', 'payment_kind', 'coverage_type'])),
     method: firstString(payment, ['payment_method_name', 'method_name', 'method', 'payment_method'], ''),
     transactionId: firstString(payment, ['transaction_id', 'reference_id', 'txn_id'], ''),
     screenshotUrl: screenshotUrl || proofPath,
@@ -2010,11 +2052,31 @@ function paymentProofPath(row: AnyRow) {
   return firstString(row, ['proof_file_path', 'screenshot_url', 'payment_proof_url', 'proof_url'], '')
 }
 
-async function makeAdminPaymentRecord(row: AnyRow, orders: AnyRow[], profiles: AnyRow[]): Promise<AdminPaymentRecord> {
+async function makeAdminPaymentRecord(row: AnyRow, orders: AnyRow[], profiles: AnyRow[], quotations: AnyRow[], allPaymentRows: AnyRow[]): Promise<AdminPaymentRecord> {
   const payment = await makePayment(row)
   const orderRow = orders.find((order) => String(order.id ?? '') === paymentRowOrderId(row))
   const profile = orderRow ? findProfileForOrder(orderRow, profiles) : profiles.find((item) => String(item.id ?? '') === firstString(row, ['user_id'], ''))
   const fallbackUser = makeFallbackUser(orderRow ?? row, firstString(row, ['customer_email', 'email'], ''), profiles)
+  const quotationRow = quotations.find((quotation) => String(quotation.order_id ?? '') === paymentRowOrderId(row))
+  const totalPayable = firstNumber(quotationRow, ['total_amount', 'total'], 0)
+  const createdAt = firstString(row, ['submitted_at', 'created_at'], '')
+  const createdTime = new Date(createdAt || 0).getTime() || 0
+  const verifiedBefore = allPaymentRows
+    .filter((paymentRow) => paymentRowOrderId(paymentRow) === paymentRowOrderId(row))
+    .filter((paymentRow) => String(paymentRow.id ?? '') !== String(row.id ?? ''))
+    .filter((paymentRow) => normalizePaymentStatus(firstValue(paymentRow, ['status'])) === 'verified')
+    .filter((paymentRow) => {
+      const time = new Date(firstString(paymentRow, ['submitted_at', 'created_at'], '') || 0).getTime() || 0
+      return !createdTime || !time || time < createdTime
+    })
+    .reduce((sum, paymentRow) => sum + firstNumber(paymentRow, ['amount', 'total_amount', 'advance_paid'], 0), 0)
+  const amountValue = payment?.amount ?? firstNumber(row, ['amount', 'total_amount', 'advance_paid'], 0)
+  const paymentType = inferPaymentTypeFromAmounts({
+    explicitType: firstValue(row, ['payment_type', 'payment_kind', 'coverage_type']),
+    amount: amountValue,
+    totalPayable,
+    verifiedBefore,
+  })
 
   return {
     id: payment?.id || firstString(row, ['id'], ''),
@@ -2028,7 +2090,8 @@ async function makeAdminPaymentRecord(row: AnyRow, orders: AnyRow[], profiles: A
     customerPhone:
       firstString(orderRow, ['customer_phone', 'recipient_phone', 'delivery_phone', 'phone', 'whatsapp'], '') ||
       firstString(profile, ['phone'], fallbackUser.phone),
-    amount: payment?.amount ?? firstNumber(row, ['amount', 'total_amount', 'advance_paid'], 0),
+    amount: amountValue,
+    paymentType,
     method: payment?.method || firstString(row, ['payment_method_name', 'method_name', 'payment_method', 'method'], ''),
     transactionId: payment?.transactionId || firstString(row, ['transaction_id', 'reference_id', 'txn_id'], ''),
     screenshotUrl: payment?.screenshotUrl,
@@ -2057,6 +2120,7 @@ export async function fetchAdminPayments(): Promise<AdminPaymentRecord[]> {
   const orderIds = Array.from(new Set(paymentRows.map((row) => paymentRowOrderId(row)).filter(Boolean)))
   const userIds = Array.from(new Set(paymentRows.map((row) => firstString(row, ['user_id'], '')).filter(Boolean)))
   const orderRows = await safeSelectIn('orders', 'id', orderIds)
+  const quotationRows = await safeSelectIn('quotations', 'order_id', orderIds)
   const ownerIds = Array.from(
     new Set([
       ...userIds,
@@ -2064,7 +2128,7 @@ export async function fetchAdminPayments(): Promise<AdminPaymentRecord[]> {
     ].filter(Boolean))
   )
   const profiles = await safeSelectIn('profiles', 'id', ownerIds)
-  const mapped = await Promise.all(paymentRows.map((row) => makeAdminPaymentRecord(row, orderRows, profiles)))
+  const mapped = await Promise.all(paymentRows.map((row) => makeAdminPaymentRecord(row, orderRows, profiles, quotationRows, paymentRows)))
 
   return mapped.sort((a, b) => {
     const bTime = new Date(b.createdAt || 0).getTime() || 0
@@ -2996,6 +3060,7 @@ function paymentAdminNotes(payload: {
   paymentMethodName: string
   paymentMethodId?: string
   paymentMethodType?: PaymentMethod['type'] | string
+  paymentType?: PaymentType | string
   path: string
   note?: string
 }) {
@@ -3004,6 +3069,7 @@ function paymentAdminNotes(payload: {
     `Customer selected method: ${payload.paymentMethodName}`,
     payload.paymentMethodId ? `Customer selected method ID: ${payload.paymentMethodId}` : '',
     payload.paymentMethodType ? `Customer selected method type: ${payload.paymentMethodType}` : '',
+    payload.paymentType ? `Customer selected payment type: ${normalizePaymentType(payload.paymentType)}` : '',
     `Storage path: ${payload.path}`,
     payload.note ? `Customer note: ${payload.note}` : '',
   ].filter(Boolean).join('\n')
@@ -3017,11 +3083,14 @@ async function insertPaymentWithKnownSchema(payload: {
   paymentMethodName: string
   paymentMethodId?: string
   paymentMethodType?: PaymentMethod['type'] | string
+  paymentType?: PaymentType | string
   transactionId: string
   path: string
   note?: string
 }) {
-  const paymentTypeCandidates = ['full', 'advance', 'partial', 'balance', 'deposit', 'confirm_later']
+  const requestedPaymentType = normalizePaymentType(payload.paymentType)
+  const preferredPaymentType = requestedPaymentType === 'unknown' ? 'full' : requestedPaymentType
+  const paymentTypeCandidates = Array.from(new Set([preferredPaymentType, 'full', 'advance', 'partial', 'balance', 'deposit', 'confirm_later']))
   const paymentMethodCandidates = paymentMethodDbCandidates(payload.paymentMethodType, payload.paymentMethodName)
   let lastError: unknown = null
   const adminNotes = paymentAdminNotes(payload)
@@ -3078,7 +3147,7 @@ async function insertPaymentWithKnownSchema(payload: {
 }
 
 export async function submitCustomerPaymentProof(input: PaymentProofInput) {
-  const { order, userId, file, paymentMethodName, paymentMethodId, paymentMethodType, transactionId, amount, note } = input
+  const { order, userId, file, paymentMethodName, paymentMethodId, paymentMethodType, transactionId, amount, paymentType, note } = input
   const paymentAmount = numericAmount(amount)
   const payments = order.payments ?? (order.payment ? [order.payment] : [])
   const paymentSummary = calculatePaymentSummary({
@@ -3119,6 +3188,7 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
       paymentMethodName,
       paymentMethodId,
       paymentMethodType,
+      paymentType,
       transactionId,
       path,
       note,
@@ -3148,6 +3218,7 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
   await createAdminPaymentUploadedNotification({
     order,
     amount: paymentAmount,
+    paymentType,
     transactionId,
   })
 

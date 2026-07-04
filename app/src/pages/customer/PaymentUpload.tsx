@@ -9,6 +9,10 @@ import type { Order, PaymentMethod } from '@/types';
 const ALLOWED_SCREENSHOT_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024;
 
+type PaymentSelection = 'full' | 'advance' | 'remaining';
+
+type PaymentTypeForLedger = 'full' | 'advance' | 'balance';
+
 function formatCurrency(amount: number) {
  return `Nu. ${Number(amount || 0).toLocaleString()}`;
 }
@@ -73,7 +77,7 @@ export default function PaymentUpload() {
  const [selectedMethod, setSelectedMethod] = useState('');
  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
- const [amountPaid, setAmountPaid] = useState('');
+ const [paymentSelection, setPaymentSelection] = useState<PaymentSelection>('full');
  const [transactionId, setTransactionId] = useState('');
  const [note, setNote] = useState('');
  const [submitted, setSubmitted] = useState(false);
@@ -97,8 +101,7 @@ export default function PaymentUpload() {
  setOrder(realOrder);
 
  const summary = getPaymentSummary(realOrder);
- const defaultAmount = summary.balanceDue || realOrder?.quotation?.totalAmount || realOrder?.payment?.amount || 0;
- setAmountPaid(defaultAmount> 0 ? String(defaultAmount) : '');
+ setPaymentSelection(summary.verifiedPaid > 0 ? 'remaining' : 'full');
  } catch (err) {
  console.error('Failed to load payment order:', err);
  setError(err instanceof Error ? err.message : 'Unable to load payment details.');
@@ -178,18 +181,32 @@ export default function PaymentUpload() {
 
  const paymentSummary = getPaymentSummary(order);
  const quotationTotal = paymentSummary.totalPayable;
- const amountPaidNumber = Number(amountPaid);
  const minimumAdvancePercent = appSettings.partialPaymentEnabled
  ? Math.min(100, Math.max(1, Math.round(Number(appSettings.minimumAdvancePaymentPercent) || 50)))
  : 100;
- const minimumInitialPayment = quotationTotal> 0 && paymentSummary.verifiedPaid <= 0
+ const minimumInitialPayment = quotationTotal > 0 && paymentSummary.verifiedPaid <= 0
  ? Math.ceil(quotationTotal * (minimumAdvancePercent / 100))
  : 0;
- const amountAboveBalance = paymentSummary.balanceDue> 0 && amountPaidNumber> paymentSummary.balanceDue;
- const firstPaymentBelowMinimum = minimumInitialPayment> 0 && amountPaidNumber> 0 && amountPaidNumber < minimumInitialPayment;
- const setSuggestedAmount = (value: number) => {
- const safeValue = Math.max(0, Math.min(Math.round(value), paymentSummary.balanceDue || value));
- setAmountPaid(safeValue> 0 ? String(safeValue) : '');
+ const fullPaymentAmount = Math.max(0, Math.round(paymentSummary.balanceDue));
+ const advancePaymentAmount = minimumInitialPayment > 0
+ ? Math.min(fullPaymentAmount, minimumInitialPayment)
+ : fullPaymentAmount;
+ const selectedPaymentAmount =
+ paymentSelection === 'advance'
+ ? advancePaymentAmount
+ : fullPaymentAmount;
+ const selectedLedgerPaymentType: PaymentTypeForLedger =
+ paymentSelection === 'advance'
+ ? 'advance'
+ : paymentSelection === 'remaining'
+ ? 'balance'
+ : 'full';
+ const amountPaidNumber = selectedPaymentAmount;
+ const amountAboveBalance = paymentSummary.balanceDue > 0 && amountPaidNumber > paymentSummary.balanceDue;
+ const firstPaymentBelowMinimum = minimumInitialPayment > 0 && amountPaidNumber > 0 && amountPaidNumber < minimumInitialPayment;
+ const selectPaymentAmount = (selection: PaymentSelection) => {
+ setPaymentSelection(selection);
+ setError('');
  };
  const canStartPayment = Boolean(
  order &&
@@ -206,12 +223,35 @@ export default function PaymentUpload() {
  const canSubmit = Boolean(
  screenshotFile &&
  selectedPaymentMethod &&
- amountPaidNumber> 0 &&
+ amountPaidNumber > 0 &&
  !amountAboveBalance &&
  !firstPaymentBelowMinimum &&
  canUpload &&
  !submitting
  );
+
+ useEffect(() => {
+ if (!order) return;
+ if (paymentSummary.isPartiallyPaid && paymentSelection !== 'remaining') {
+ setPaymentSelection('remaining');
+ return;
+ }
+ if (!paymentSummary.isPartiallyPaid && paymentSelection === 'remaining') {
+ setPaymentSelection('full');
+ return;
+ }
+ if ((!appSettings.partialPaymentEnabled || minimumAdvancePercent >= 100) && paymentSelection === 'advance') {
+ setPaymentSelection('full');
+ return;
+ }
+ }, [
+ order,
+ appSettings.partialPaymentEnabled,
+ minimumAdvancePercent,
+ paymentSelection,
+ paymentSummary.isPartiallyPaid,
+ selectedPaymentAmount,
+ ]);
 
  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
  const file = event.target.files?.[0];
@@ -297,7 +337,8 @@ export default function PaymentUpload() {
  paymentMethodId: selectedPaymentMethod.id,
  paymentMethodType: selectedPaymentMethod.type,
  transactionId: transactionId.trim(),
- amount: Number(amountPaid),
+ amount: amountPaidNumber,
+ paymentType: selectedLedgerPaymentType,
  note: note.trim(),
  });
 
@@ -479,29 +520,36 @@ export default function PaymentUpload() {
  <div className="mt-4 grid grid-cols-2 gap-2">
  <button
  type="button"
- onClick={() => setSuggestedAmount(paymentSummary.balanceDue)}
- className="rounded-2xl bg-white px-3 py-2 text-left text-xs font-semibold text-orange-700 ring-1 ring-orange-100 active:scale-[0.98]"
+ onClick={() => selectPaymentAmount(paymentSummary.isPartiallyPaid ? 'remaining' : 'full')}
+ aria-pressed={paymentSelection === 'full' || paymentSelection === 'remaining'}
+ className={`rounded-2xl bg-white px-3 py-2 text-left text-xs font-semibold ring-1 transition active:scale-[0.98] ${
+ (paymentSelection === 'full' || paymentSelection === 'remaining')
+ ? 'text-orange-700 ring-orange-400 bg-orange-50'
+ : 'text-orange-700 ring-orange-100'
+ }`}
 >
- Pay full balance
- <span className="mt-0.5 block text-[11px] font-bold text-gray-950">{formatCurrency(paymentSummary.balanceDue)}</span>
+ {paymentSummary.isPartiallyPaid ? 'Pay remaining balance' : 'Pay full balance'}
+ <span className="mt-0.5 block text-[11px] font-bold text-gray-950">{formatCurrency(fullPaymentAmount)}</span>
+ <span className="mt-0.5 block text-[10px] font-medium text-gray-500">
+ {paymentSelection === 'full' || paymentSelection === 'remaining' ? 'Selected' : 'Tap to select'}
+ </span>
  </button>
- {paymentSummary.isPartiallyPaid ? (
+ {!paymentSummary.isPartiallyPaid && appSettings.partialPaymentEnabled && minimumAdvancePercent < 100 && minimumInitialPayment > 0 ? (
  <button
  type="button"
- onClick={() => setSuggestedAmount(paymentSummary.balanceDue)}
- className="rounded-2xl bg-white px-3 py-2 text-left text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100 active:scale-[0.98]"
->
- Remaining payment
- <span className="mt-0.5 block text-[11px] font-bold text-gray-950">{formatCurrency(paymentSummary.balanceDue)}</span>
- </button>
- ) : appSettings.partialPaymentEnabled && minimumAdvancePercent < 100 && minimumInitialPayment> 0 ? (
- <button
- type="button"
- onClick={() => setSuggestedAmount(minimumInitialPayment)}
- className="rounded-2xl bg-white px-3 py-2 text-left text-xs font-semibold text-blue-700 ring-1 ring-blue-100 active:scale-[0.98]"
+ onClick={() => selectPaymentAmount('advance')}
+ aria-pressed={paymentSelection === 'advance'}
+ className={`rounded-2xl bg-white px-3 py-2 text-left text-xs font-semibold ring-1 transition active:scale-[0.98] ${
+ paymentSelection === 'advance'
+ ? 'text-blue-700 ring-blue-400 bg-blue-50'
+ : 'text-blue-700 ring-blue-100'
+ }`}
 >
  Pay {minimumAdvancePercent}% advance
- <span className="mt-0.5 block text-[11px] font-bold text-gray-950">{formatCurrency(minimumInitialPayment)}</span>
+ <span className="mt-0.5 block text-[11px] font-bold text-gray-950">{formatCurrency(advancePaymentAmount)}</span>
+ <span className="mt-0.5 block text-[10px] font-medium text-gray-500">
+ {paymentSelection === 'advance' ? 'Selected' : 'Tap to select'}
+ </span>
  </button>
  ) : null}
  </div>
@@ -522,7 +570,7 @@ export default function PaymentUpload() {
  <div className="bg-white rounded-2xl p-5 border border-gray-200 ">
  <h3 className="text-base font-semibold text-gray-900 mb-3">Payment Instructions</h3>
  <div className="space-y-2 text-sm text-gray-600">
- <p>You can pay the full balance or start with a 50% advance payment.</p>
+ <p>You can pay the full balance or start with the configured {minimumAdvancePercent}% advance payment.</p>
  <p>Upload your payment screenshot after payment. Each upload stays in the payment ledger.</p>
  <p>We can start fulfillment after a verified advance, but the remaining balance will stay visible until paid.</p>
  </div>
@@ -644,19 +692,24 @@ export default function PaymentUpload() {
 
  <div className="bg-white rounded-2xl p-5 border border-gray-200 space-y-4">
  <div>
- <label className="text-sm font-medium text-gray-900">Amount Paid</label>
- <input
- type="number"
- inputMode="decimal"
- min="0"
- max={paymentSummary.balanceDue || undefined}
- value={amountPaid}
- onChange={(event) => setAmountPaid(event.target.value)}
- placeholder="Enter amount paid or balance amount"
- className="w-full h-12 mt-1.5 px-4 border border-gray-300 rounded-2xl text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
- />
- <p className="text-xs text-gray-400 mt-1">Balance due: {formatCurrency(paymentSummary.balanceDue)}</p>
- {minimumInitialPayment> 0 && (
+ <label className="text-sm font-medium text-gray-900">Selected Payment Amount</label>
+ <div className="mt-1.5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+ <div className="flex items-center justify-between gap-3">
+ <div>
+ <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+ {paymentSelection === 'advance' ? 'Advance payment' : paymentSelection === 'remaining' ? 'Remaining balance' : 'Full payment'}
+ </p>
+ <p className="mt-1 text-xl font-extrabold text-gray-900">{formatCurrency(amountPaidNumber)}</p>
+ </div>
+ <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-gray-500 ring-1 ring-gray-200">
+ Locked
+ </span>
+ </div>
+ </div>
+ <p className="text-xs text-gray-400 mt-1">
+ Amount is locked based on the payment type selected above. Balance due: {formatCurrency(paymentSummary.balanceDue)}.
+ </p>
+ {minimumInitialPayment > 0 && (
  <p className="mt-1 text-xs text-blue-600">Minimum first payment: {formatCurrency(minimumInitialPayment)} ({minimumAdvancePercent}% advance).</p>
  )}
  {amountAboveBalance && (

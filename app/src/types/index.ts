@@ -25,6 +25,8 @@ export type QuotationStatus = 'pending' | 'sent' | 'approved' | 'rejected' | 'ex
 
 export type PaymentStatus = 'pending' | 'verified' | 'rejected';
 
+export type PaymentType = 'full' | 'advance' | 'balance' | 'partial' | 'deposit' | 'unknown';
+
 export type PaymentCoverage = 'unpaid' | 'partial_paid' | 'fully_paid' | 'overpaid';
 
 export type OrderType = 'catalog' | 'paste_link';
@@ -189,6 +191,7 @@ export interface Payment {
   id: string;
   orderId: string;
   amount: number;
+  paymentType?: PaymentType;
   method: string;
   transactionId: string;
   screenshotUrl?: string;
