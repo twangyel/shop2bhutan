@@ -49,6 +49,7 @@ export default function CustomersPanel() {
         customer.email,
         customer.phone,
         customer.dzongkhag,
+        customer.accountType === 'email' ? 'email account' : 'phone-only',
       ]
         .filter(Boolean)
         .join(' ')
@@ -106,6 +107,7 @@ export default function CustomersPanel() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Customer</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Contact</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Dzongkhag</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Account</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Orders</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Verified Spend</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Joined</th>
@@ -116,7 +118,7 @@ export default function CustomersPanel() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-neutral-500">
+                  <td colSpan={9} className="px-4 py-10 text-center text-sm text-neutral-500">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 size={18} className="animate-spin text-amber-500" />
                       Loading customers...
@@ -127,7 +129,7 @@ export default function CustomersPanel() {
 
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center">
+                  <td colSpan={9} className="px-4 py-12 text-center">
                     <p className="text-sm font-medium text-neutral-600">No customers found</p>
                     <p className="mt-1 text-xs text-neutral-400">Registered customer profiles will appear here.</p>
                   </td>
@@ -140,19 +142,30 @@ export default function CustomersPanel() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-semibold text-sm">
-                          {(customer.name || customer.email || 'C').charAt(0).toUpperCase()}
+                          {(customer.name || customer.phone || 'C').charAt(0).toUpperCase()}
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-gray-900">{customer.name || 'Customer'}</p>
-                          <p className="text-xs text-neutral-400 truncate max-w-[220px]">{customer.id}</p>
+                          <p className="text-xs text-neutral-400">Joined customer profile</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-neutral-600">
                       <div>{customer.phone || '-'}</div>
-                      <div className="text-xs text-neutral-400">{customer.email || '-'}</div>
+                      <div className="text-xs text-neutral-400">{customer.email || 'No email provided'}</div>
                     </td>
                     <td className="px-4 py-3 text-sm text-neutral-600">{customer.dzongkhag || '-'}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          customer.accountType === 'email'
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'bg-amber-50 text-amber-700'
+                        }`}
+                      >
+                        {customer.accountType === 'email' ? 'Email account' : 'Phone-only'}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-sm font-semibold text-gray-900">{customer.orders}</td>
                     <td className="px-4 py-3 text-sm font-semibold text-gray-900">{formatCurrency(customer.totalSpent)}</td>
                     <td className="px-4 py-3 text-sm text-neutral-500">{formatDate(customer.joined)}</td>

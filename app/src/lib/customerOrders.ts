@@ -76,6 +76,7 @@ export type AdminCustomerRecord = {
   joined: string
   lastOrderAt?: string
   isActive: boolean
+  accountType: 'phone_only' | 'email'
 }
 
 export type AdminQuotationItemInput = {
@@ -534,6 +535,27 @@ export function calculateQuotationSettingsAmounts(params: {
 
 function cleanText(value: unknown) {
   return String(value ?? '').trim()
+}
+
+const PHONE_ONLY_EMAIL_SUFFIX = '@phone.shop2bhutan.com'
+
+function isPhoneOnlyAuthEmail(value: unknown) {
+  return cleanText(value).toLowerCase().endsWith(PHONE_ONLY_EMAIL_SUFFIX)
+}
+
+function getPublicCustomerEmail(profile: AnyRow) {
+  const email = firstString(profile, ['email'], '')
+  return isPhoneOnlyAuthEmail(email) ? '' : email
+}
+
+function getCustomerAccountType(profile: AnyRow): AdminCustomerRecord['accountType'] {
+  const email = firstString(profile, ['email'], '')
+  const hasRealEmail = firstValue(profile, ['has_real_email', 'hasRealEmail'])
+
+  if (hasRealEmail === true) return 'email'
+  if (hasRealEmail === false) return 'phone_only'
+
+  return email && !isPhoneOnlyAuthEmail(email) ? 'email' : 'phone_only'
 }
 
 function errorMessage(error: unknown, fallback = 'Unexpected Supabase error.') {
@@ -1889,6 +1911,50 @@ export async function fetchAdminCustomers(): Promise<AdminCustomerRecord[]> {
   }
 
   const profiles = (profileData ?? []) as AnyRow[]
+
+  const dzongkhagIds = Array.from(
+    new Set(
+      profiles
+        .map((profile) => firstString(profile, ['default_dzongkhag_id', 'dzongkhag_id'], ''))
+        .filter(Boolean)
+    )
+  )
+
+  let dzongkhagNameById = new Map<string, string>()
+
+  if (dzongkhagIds.length > 0) {
+    const { data: dzongkhagData, error: dzongkhagError } = await supabase
+      .from('dzongkhags')
+      .select('id, name')
+      .in('id', dzongkhagIds)
+
+    if (dzongkhagError && !isMissingColumnOrRelationError(dzongkhagError)) {
+      throw dzongkhagError
+    }
+
+    dzongkhagNameById = new Map(
+      ((dzongkhagData ?? []) as AnyRow[])
+        .map((row) => [firstString(row, ['id'], ''), firstString(row, ['name'], '')] as const)
+        .filter(([id, name]) => Boolean(id && name))
+    )
+  }
+
+  let roleByUserId = new Map<string, string>()
+
+  const { data: roleData, error: roleError } = await supabase
+    .from('user_roles')
+    .select('*')
+
+  if (!roleError) {
+    roleByUserId = new Map(
+      ((roleData ?? []) as AnyRow[])
+        .map((row) => [firstString(row, ['user_id', 'profile_id', 'id'], ''), firstString(row, ['role'], '').toLowerCase()] as const)
+        .filter(([id, role]) => Boolean(id && role))
+    )
+  } else {
+    console.warn('[customerOrders] user role lookup skipped:', errorMessage(roleError, 'Unable to load user roles.'))
+  }
+
   const { data: orderData, error: orderError } = await supabase.from('orders').select('*')
   if (orderError && !isMissingColumnOrRelationError(orderError)) throw orderError
 
@@ -1898,35 +1964,57 @@ export async function fetchAdminCustomers(): Promise<AdminCustomerRecord[]> {
   const orders = (orderData ?? []) as AnyRow[]
   const payments = (paymentData ?? []) as AnyRow[]
   const verifiedPayments = payments.filter((payment) => normalizePaymentStatus(firstValue(payment, ['status'])) === 'verified')
+  const customers: AdminCustomerRecord[] = []
 
-  return profiles
-    .map((profile) => {
-      const id = firstString(profile, ['id'], '')
-      const customerOrders = orders.filter((order) => ORDER_OWNER_COLUMNS.some((column) => firstString(order, [column], '') === id))
-      const customerOrderIds = new Set(customerOrders.map((order) => firstString(order, ['id'], '')).filter(Boolean))
-      const totalSpent = verifiedPayments
-        .filter((payment) => customerOrderIds.has(firstString(payment, ['order_id'], '')) || firstString(payment, ['user_id'], '') === id)
-        .reduce((sum, payment) => sum + firstNumber(payment, ['amount', 'total_amount', 'advance_paid'], 0), 0)
-      const orderDates = customerOrders
-        .map((order) => firstString(order, ['created_at', 'updated_at'], ''))
-        .filter(Boolean)
-        .sort()
-      const lastOrderAt = orderDates.length ? orderDates[orderDates.length - 1] : ''
+  for (const profile of profiles) {
+    const id = firstString(profile, ['id'], '')
+    if (!id) continue
 
-      return {
-        id,
-        name: firstString(profile, ['full_name', 'name', 'display_name'], firstString(profile, ['email'], 'Customer')),
-        email: firstString(profile, ['email'], ''),
-        phone: firstString(profile, ['phone', 'mobile', 'whatsapp'], ''),
-        dzongkhag: firstString(profile, ['dzongkhag', 'district'], ''),
-        orders: customerOrders.length,
-        totalSpent,
-        joined: firstString(profile, ['created_at'], ''),
-        lastOrderAt,
-        isActive: Boolean(firstValue(profile, ['is_active', 'active']) ?? true),
-      }
+    const role = roleByUserId.get(id) || firstString(profile, ['role'], '').toLowerCase()
+    if (role === 'admin' || role === 'super_admin') continue
+
+    const customerOrders = orders.filter((order) => ORDER_OWNER_COLUMNS.some((column) => firstString(order, [column], '') === id))
+    const customerOrderIds = new Set(customerOrders.map((order) => firstString(order, ['id'], '')).filter(Boolean))
+
+    const totalSpent = verifiedPayments
+      .filter((payment) => customerOrderIds.has(firstString(payment, ['order_id'], '')) || firstString(payment, ['user_id'], '') === id)
+      .reduce((sum, payment) => sum + firstNumber(payment, ['amount', 'total_amount', 'advance_paid'], 0), 0)
+
+    const orderDates = customerOrders
+      .map((order) => firstString(order, ['created_at', 'updated_at'], ''))
+      .filter(Boolean)
+      .sort()
+
+    const lastOrderAt = orderDates.length ? orderDates[orderDates.length - 1] : undefined
+    const rawEmail = firstString(profile, ['email'], '')
+    const publicEmail = getPublicCustomerEmail(profile)
+    const dzongkhagId = firstString(profile, ['default_dzongkhag_id', 'dzongkhag_id'], '')
+    const dzongkhagFromLookup = dzongkhagId ? dzongkhagNameById.get(dzongkhagId) || '' : ''
+
+    customers.push({
+      id,
+      name:
+        firstString(profile, ['full_name', 'name', 'display_name'], '') ||
+        publicEmail ||
+        firstString(profile, ['phone', 'mobile', 'whatsapp'], '') ||
+        'Customer',
+      email: publicEmail,
+      phone: firstString(profile, ['phone', 'mobile', 'whatsapp'], ''),
+      dzongkhag: firstString(
+        profile,
+        ['default_dzongkhag_name', 'dzongkhag_name', 'dzongkhag', 'district'],
+        dzongkhagFromLookup
+      ),
+      orders: customerOrders.length,
+      totalSpent,
+      joined: firstString(profile, ['created_at'], ''),
+      lastOrderAt,
+      isActive: Boolean(firstValue(profile, ['is_active', 'active']) ?? true),
+      accountType: getCustomerAccountType({ ...profile, email: rawEmail }),
     })
-    .filter((customer) => customer.id)
+  }
+
+  return customers
 }
 
 function findRequestBagForOrder(row: AnyRow, requestBags: AnyRow[]) {
