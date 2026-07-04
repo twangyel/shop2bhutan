@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  ArrowRight,
+  ArrowLeft,
   Camera,
   CheckCircle,
   ClipboardList,
@@ -29,10 +29,10 @@ import {
 /* ------------------------------------------------------------------ */
 
 const platforms = [
-  { name: 'Amazon',   key: 'amazon',   bg: 'bg-orange-50',  text: 'text-orange-600',  ring: 'ring-orange-200',  grad: 'from-orange-400 to-amber-500' },
-  { name: 'Flipkart', key: 'flipkart', bg: 'bg-blue-50',    text: 'text-blue-600',    ring: 'ring-blue-200',    grad: 'from-blue-400 to-blue-600' },
-  { name: 'Myntra',   key: 'myntra',   bg: 'bg-pink-50',    text: 'text-pink-600',    ring: 'ring-pink-200',    grad: 'from-pink-400 to-rose-500' },
-  { name: 'Meesho',   key: 'meesho',   bg: 'bg-violet-50',  text: 'text-violet-600',  ring: 'ring-violet-200',  grad: 'from-violet-400 to-purple-500' },
+  { name: 'Amazon',   key: 'amazon',   url: 'https://www.amazon.in',   logo: '/store-logos/amazon.png' },
+  { name: 'Flipkart', key: 'flipkart', url: 'https://www.flipkart.com', logo: '/store-logos/flipkart.png' },
+  { name: 'Myntra',   key: 'myntra',   url: 'https://www.myntra.com',   logo: '/store-logos/myntra.png' },
+  { name: 'Meesho',   key: 'meesho',   url: 'https://www.meesho.com',   logo: '/store-logos/meesho.png' },
 ];
 
 type PreviewState = { url: string; loading: boolean; data: ProductLinkPreview | null };
@@ -84,6 +84,26 @@ function makeLocalFallbackPreview(cleanUrl: string): ProductLinkPreview {
 
 function isPreviewForUrl(preview: PreviewState, cleanUrl: string) {
   return Boolean(preview.data && preview.url === cleanUrl);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Sub-components                                                     */
+/* ------------------------------------------------------------------ */
+
+function StoreLogo({ src, alt }: { src: string; alt: string }) {
+  const [available, setAvailable] = useState(true);
+  if (!available) {
+    return <span className="text-xs font-bold text-gray-600">{alt[0]}</span>;
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="h-6 w-auto object-contain"
+      loading="lazy"
+      onError={() => setAvailable(false)}
+    />
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -193,45 +213,36 @@ export default function PasteLink() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5]">
+    <div className="min-h-screen bg-white">
       <div className="mx-auto max-w-3xl">
 
-        {/* ═══════════════ HERO BANNER ═══════════════ */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-orange-500 via-orange-400 to-amber-400 px-5 pb-6 pt-7">
-          {/* Decorative circles */}
-          <div className="pointer-events-none absolute -right-6 -top-8 h-36 w-36 rounded-full bg-white/10" />
-          <div className="pointer-events-none absolute -left-4 bottom-0 h-20 w-20 rounded-full bg-white/10" />
-          <div className="pointer-events-none absolute right-20 top-2 h-3 w-3 rounded-full bg-white/30" />
-          <div className="pointer-events-none absolute right-8 bottom-4 h-2 w-2 rounded-full bg-white/25" />
-
-          <div className="relative">
-            {/* Back + title row */}
+        {/* ═══════════════ HEADER ═══════════════ */}
+        <header className="sticky top-0 z-40 bg-white border-b border-gray-100">
+          <div className="px-4 pb-3 pt-3">
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => navigate(-1)}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm transition-colors active:bg-white/30"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
               >
-                <ArrowRight size={18} className="rotate-180" />
+                <ArrowLeft size={20} strokeWidth={2} />
               </button>
-              <h1 className="text-xl font-bold text-white">Request Product</h1>
+              <div>
+                <h1 className="text-lg font-bold text-black">Request Product</h1>
+                <p className="text-sm text-gray-500">Paste a link or upload a screenshot. We will verify and quote.</p>
+              </div>
             </div>
 
-            <p className="mt-2.5 max-w-[280px] text-[0.82rem] leading-relaxed text-white/85">
-              Paste a link or upload a screenshot. We will verify and quote.
-            </p>
-
-            {/* Inline trust row */}
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 backdrop-blur-sm">
-              <CheckCircle size={13} className="text-white" />
-              <span className="text-[0.72rem] font-medium text-white/90">No payment required now</span>
+            <div className="mt-2.5 inline-flex items-center gap-2 rounded-full bg-orange-50 border border-orange-100 px-3 py-1">
+              <CheckCircle size={13} className="text-orange-500" />
+              <span className="text-xs font-medium text-orange-700">No payment required now</span>
             </div>
           </div>
-        </div>
+        </header>
 
         {/* ═══════════════ STEP FLOW BAR ═══════════════ */}
-        <div className="mx-4 -mt-3 relative z-10">
-          <div className="rounded-2xl bg-white p-3.5 shadow-lg shadow-orange-100/30 ring-1 ring-orange-100/40">
+        <div className="mx-4 mt-4">
+          <div className="rounded-2xl bg-white border border-gray-100 p-3.5">
             <div className="flex items-center justify-between">
               {stepsFlow.map((step, idx) => {
                 const Icon = step.icon;
@@ -240,15 +251,15 @@ export default function PasteLink() {
                 return (
                   <div key={step.label} className="flex flex-1 items-center">
                     <div className="flex flex-col items-center gap-1.5">
-                      <span className={`flex h-9 w-9 items-center justify-center rounded-full text-white shadow-sm ${isActive ? 'bg-orange-500' : 'bg-neutral-200'}`}>
-                        <Icon size={16} />
+                      <span className={`flex h-9 w-9 items-center justify-center rounded-full text-white ${isActive ? 'bg-orange-500' : 'bg-gray-200'}`}>
+                        <Icon size={16} strokeWidth={2.5} />
                       </span>
-                      <span className={`text-[0.55rem] font-bold uppercase tracking-wider ${isActive ? 'text-orange-600' : 'text-neutral-400'}`}>
+                      <span className={`text-[0.55rem] font-bold uppercase tracking-wider ${isActive ? 'text-orange-600' : 'text-gray-400'}`}>
                         {step.label}
                       </span>
                     </div>
                     {!isLast && (
-                      <div className="mx-1 mb-4 h-px flex-1 bg-gradient-to-r from-orange-200 to-neutral-200" />
+                      <div className="mx-1 mb-4 h-px flex-1 bg-gray-200" />
                     )}
                   </div>
                 );
@@ -262,51 +273,53 @@ export default function PasteLink() {
 
           {/* ----- Platform Selector ----- */}
           <div>
-            <p className="mb-3 px-0.5 text-[0.75rem] font-bold uppercase tracking-wider text-neutral-400">
+            <p className="mb-3 px-0.5 text-xs font-bold uppercase tracking-wider text-gray-400">
               Select Store
             </p>
             <div className="grid grid-cols-4 gap-2.5">
               {platforms.map((p) => (
-                <button
+                <a
                   key={p.name}
-                  type="button"
+                  href={p.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   onClick={() => selectPlatform(p.key)}
-                  className="group flex flex-col items-center gap-2 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-neutral-100/60 transition-all active:scale-95"
+                  className="group flex flex-col items-center gap-2 rounded-2xl bg-white border border-gray-100 p-3 transition-all hover:bg-gray-50 active:scale-95"
                 >
-                  <span className={`flex h-12 w-12 items-center justify-center rounded-2xl text-lg font-bold shadow-sm ring-1 ${p.bg} ${p.text} ${p.ring} transition-shadow group-hover:shadow-md`}>
-                    {p.name[0]}
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white border border-gray-100">
+                    <StoreLogo src={p.logo} alt={p.name} />
                   </span>
-                  <span className="text-[0.65rem] font-semibold text-neutral-600">{p.name}</span>
-                </button>
+                  <span className="text-xs font-semibold text-gray-600">{p.name}</span>
+                </a>
               ))}
             </div>
           </div>
 
           {/* ----- URL Input ----- */}
           <div className="mt-5">
-            <p className="mb-3 px-0.5 text-[0.75rem] font-bold uppercase tracking-wider text-neutral-400">
+            <p className="mb-3 px-0.5 text-xs font-bold uppercase tracking-wider text-gray-400">
               Product Link
             </p>
             <div className="relative">
-              <Link2 size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-400" />
+              <Link2 size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" strokeWidth={2} />
               <input
                 type="url"
                 value={url}
                 onChange={(e) => { setUrl(e.target.value); setError(''); setSuccessMessage(''); }}
                 onKeyDown={(e) => { if (e.key === 'Enter') void addToRequestBag(); }}
                 placeholder="Paste product URL here..."
-                className="h-14 w-full rounded-2xl border-2 border-blue-100 bg-blue-50/30 pl-12 pr-11 text-[0.85rem] text-neutral-800 placeholder:text-neutral-400 transition-all focus:border-blue-300 focus:bg-blue-50/50 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                className="h-14 w-full rounded-2xl border-2 border-gray-200 bg-white pl-12 pr-11 text-sm text-gray-900 placeholder:text-gray-400 shadow-sm transition-all focus:border-orange-500 focus:outline-none focus:ring-4 focus:ring-orange-500/10"
               />
               {url ? (
                 <button
                   type="button"
                   onClick={() => { setUrl(''); setPreview(emptyPreview); }}
-                  className="absolute right-3.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-neutral-100 text-neutral-500 transition-colors hover:bg-neutral-200"
+                  className="absolute right-3.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-gray-200"
                 >
-                  <X size={15} />
+                  <X size={15} strokeWidth={2.5} />
                 </button>
               ) : (
-                <ScanLine size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-300" />
+                <ScanLine size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" strokeWidth={2} />
               )}
             </div>
           </div>
@@ -319,31 +332,31 @@ export default function PasteLink() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex h-20 w-full items-center gap-4 rounded-2xl border-2 border-dashed border-blue-150 bg-blue-50/20 px-5 transition-all hover:border-blue-300 hover:bg-blue-50/40 active:border-blue-400"
+                className="flex h-20 w-full items-center gap-4 rounded-2xl border-2 border-dashed border-gray-300 bg-white px-5 shadow-sm transition-all hover:border-orange-400 hover:bg-orange-50/30 active:border-orange-500"
               >
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500 shadow-sm ring-1 ring-blue-100/40">
-                  <Camera size={22} />
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
+                  <Camera size={22} strokeWidth={2} />
                 </span>
                 <div className="text-left">
-                  <p className="text-[0.82rem] font-bold text-neutral-700">Upload a screenshot</p>
-                  <p className="text-[0.7rem] leading-relaxed text-neutral-400">
+                  <p className="text-sm font-bold text-gray-900">Upload a screenshot</p>
+                  <p className="text-xs leading-relaxed text-gray-400">
                     Tap to choose an image from your gallery
                   </p>
                 </div>
               </button>
             ) : (
-              <div className="relative overflow-hidden rounded-2xl border-2 border-blue-200 bg-white shadow-md">
+              <div className="relative overflow-hidden rounded-2xl border-2 border-orange-200 bg-white shadow-sm">
                 <img src={screenshotPreview} alt="Preview" className="h-44 w-full object-cover" />
                 <button
                   type="button"
                   onClick={clearScreenshot}
-                  className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-neutral-600 shadow-lg ring-1 ring-neutral-200/60 backdrop-blur-sm transition-colors hover:bg-white"
+                  className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-600 shadow-lg ring-1 ring-gray-200 transition-colors hover:bg-gray-50"
                 >
-                  <X size={16} />
+                  <X size={16} strokeWidth={2.5} />
                 </button>
                 <div className="flex items-center gap-2 px-4 py-3">
-                  <CheckCircle size={15} className="text-emerald-500" />
-                  <p className="truncate text-[0.75rem] font-medium text-neutral-600">{screenshotFile.name}</p>
+                  <CheckCircle size={15} className="text-emerald-500" strokeWidth={2.5} />
+                  <p className="truncate text-xs font-medium text-gray-600">{screenshotFile.name}</p>
                 </div>
               </div>
             )}
@@ -351,46 +364,46 @@ export default function PasteLink() {
 
           {/* ----- Preview Loading ----- */}
           {preview.loading && (
-            <div className="mt-4 flex items-center gap-4 rounded-2xl border border-blue-100 bg-blue-50/30 p-4">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-100/40 text-blue-500">
-                <Loader2 size={22} className="animate-spin" />
+            <div className="mt-4 flex items-center gap-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
+                <Loader2 size={22} className="animate-spin" strokeWidth={2.5} />
               </span>
               <div>
-                <p className="text-[0.85rem] font-bold text-gray-900">Fetching product info...</p>
-                <p className="text-[0.72rem] text-neutral-500">Hang tight while we check the link</p>
+                <p className="text-sm font-bold text-gray-900">Fetching product info...</p>
+                <p className="text-xs text-gray-500">Hang tight while we check the link</p>
               </div>
             </div>
           )}
 
           {/* ----- Preview Result ----- */}
           {!preview.loading && preview.data && cleanUrl && (
-            <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-md">
+            <div className="mt-4 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
               <div className="flex gap-4 p-4">
                 {preview.data.image ? (
-                  <img src={preview.data.image} alt="" className="h-20 w-20 flex-shrink-0 rounded-xl bg-neutral-100 object-cover" />
+                  <img src={preview.data.image} alt="" className="h-20 w-20 flex-shrink-0 rounded-xl bg-gray-100 object-cover" />
                 ) : (
-                  <span className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 ring-1 ring-blue-100/40">
-                    <Package size={26} className="text-blue-400" />
+                  <span className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl bg-orange-50">
+                    <Package size={26} className="text-orange-400" strokeWidth={2} />
                   </span>
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="mb-1.5 flex items-center gap-2">
-                    <span className="rounded-full bg-violet-50 px-2.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-violet-600 ring-1 ring-violet-100/40">
+                    <span className="rounded-full bg-orange-50 px-2.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-orange-600">
                       {preview.data.platform}
                     </span>
                     {preview.data.price ? (
-                      <span className="text-[0.78rem] font-bold text-orange-600">
+                      <span className="text-sm font-bold text-orange-600">
                         {formatPrice(preview.data.price, preview.data.currency)}
                       </span>
                     ) : (
-                      <span className="text-[0.65rem] font-medium text-neutral-400">Price TBD</span>
+                      <span className="text-xs font-medium text-gray-400">Price TBD</span>
                     )}
                   </div>
-                  <p className="text-[0.85rem] font-semibold leading-snug text-gray-900 line-clamp-2">
+                  <p className="text-sm font-semibold leading-snug text-gray-900 line-clamp-2">
                     {preview.data.fetched ? preview.data.title : manualPreviewTitle(preview.data)}
                   </p>
                   {!preview.data.fetched && (
-                    <p className="mt-1 text-[0.7rem] leading-relaxed text-neutral-500">
+                    <p className="mt-1 text-xs leading-relaxed text-gray-500">
                       We will verify this product manually.
                     </p>
                   )}
@@ -404,17 +417,17 @@ export default function PasteLink() {
             <div className="mt-4 overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
               <div className="flex gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                  <CheckCircle size={20} />
+                  <CheckCircle size={20} strokeWidth={2.5} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[0.9rem] font-bold text-emerald-900">Saved to Request Bag</p>
-                  <p className="mt-0.5 text-[0.78rem] leading-relaxed text-emerald-700">{successMessage}</p>
+                  <p className="text-sm font-bold text-emerald-900">Saved to Request Bag</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-emerald-700">{successMessage}</p>
                   <button
                     type="button"
                     onClick={() => navigate('/request-bag')}
-                    className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-500 px-4 text-[0.8rem] font-bold text-white shadow-sm transition-colors hover:bg-emerald-600 active:bg-emerald-700"
+                    className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-bold text-white transition-colors hover:bg-emerald-600 active:bg-emerald-700"
                   >
-                    Open Request Bag <ShoppingBag size={16} />
+                    Open Request Bag <ShoppingBag size={16} strokeWidth={2.5} />
                   </button>
                 </div>
               </div>
@@ -424,8 +437,8 @@ export default function PasteLink() {
           {/* ----- Error ----- */}
           {error && (
             <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3.5">
-              <p className="flex items-start gap-2.5 text-[0.82rem] font-medium text-red-700">
-                <X size={16} className="mt-0.5 shrink-0" />
+              <p className="flex items-start gap-2.5 text-sm font-medium text-red-700">
+                <X size={16} className="mt-0.5 shrink-0" strokeWidth={2.5} />
                 <span>{error}</span>
               </p>
             </div>
@@ -436,10 +449,10 @@ export default function PasteLink() {
             type="button"
             onClick={addToRequestBag}
             disabled={(!cleanUrl && !screenshotFile) || preview.loading || adding}
-            className="mt-5 flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 text-[0.95rem] font-bold text-white shadow-xl shadow-orange-200/60 transition-all active:scale-[0.97] active:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+            className="mt-5 flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-orange-500 text-sm font-bold text-white transition-colors hover:bg-orange-600 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
           >
             {adding ? (
-              <><Loader2 size={20} className="animate-spin" /> Adding...</>
+              <><Loader2 size={20} className="animate-spin" strokeWidth={2.5} /> Adding...</>
             ) : (
               <><Plus size={20} strokeWidth={2.5} /> Add to Request Bag</>
             )}
@@ -449,14 +462,14 @@ export default function PasteLink() {
           <div className="mt-6 space-y-4">
 
             {/* Tip card */}
-            <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-neutral-100/60">
+            <div className="rounded-2xl bg-white border border-gray-100 p-4">
               <div className="flex items-start gap-3.5">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500 ring-1 ring-blue-100/40">
-                  <Sparkles size={18} />
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+                  <Sparkles size={18} strokeWidth={2.5} />
                 </span>
                 <div>
-                  <p className="text-[0.82rem] font-bold text-gray-900">Pro tip</p>
-                  <p className="mt-1 text-[0.75rem] leading-relaxed text-neutral-500">
+                  <p className="text-sm font-bold text-gray-900">Pro tip</p>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-500">
                     Add multiple products to your bag first, then request one quotation for everything together. Saves time and delivery cost.
                   </p>
                 </div>
@@ -464,8 +477,8 @@ export default function PasteLink() {
             </div>
 
             {/* How it works — numbered steps */}
-            <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-neutral-100/60">
-              <p className="mb-3.5 text-[0.8rem] font-bold text-gray-900">How it works</p>
+            <div className="rounded-2xl bg-white border border-gray-100 p-4">
+              <p className="mb-3.5 text-sm font-bold text-gray-900">How it works</p>
               <div className="space-y-3">
                 {[
                   { num: '1', text: 'Paste product link or upload screenshot', accent: 'bg-orange-50 text-orange-600' },
@@ -474,10 +487,10 @@ export default function PasteLink() {
                   { num: '4', text: 'Pay after you approve the quote', accent: 'bg-emerald-50 text-emerald-600' },
                 ].map((s) => (
                   <div key={s.num} className="flex items-center gap-3">
-                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[0.7rem] font-bold ${s.accent}`}>
+                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${s.accent}`}>
                       {s.num}
                     </span>
-                    <p className="text-[0.78rem] text-neutral-600">{s.text}</p>
+                    <p className="text-xs text-gray-600">{s.text}</p>
                   </div>
                 ))}
               </div>
@@ -487,9 +500,9 @@ export default function PasteLink() {
             <button
               type="button"
               onClick={() => navigate('/request-bag')}
-              className="flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl border-2 border-neutral-200 bg-white text-[0.9rem] font-bold text-neutral-700 shadow-sm transition-all hover:bg-neutral-50 active:scale-[0.98]"
+              className="flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl border-2 border-gray-200 bg-white text-sm font-bold text-gray-700 transition-all hover:bg-gray-50 active:scale-[0.98]"
             >
-              Open Request Bag <ExternalLink size={17} />
+              Open Request Bag <ExternalLink size={17} strokeWidth={2.5} />
             </button>
           </div>
         </div>
