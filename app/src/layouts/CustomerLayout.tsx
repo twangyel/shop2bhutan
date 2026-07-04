@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Home, ShoppingBag, Package, ClipboardList, User } from 'lucide-react'
+import { AlertTriangle, Home, ShoppingBag, Package, ClipboardList, User } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { getRequestBagItemCount, getUnreadNotificationCount } from '@/lib/customerOrders'
+import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings'
 
 const tabs = [
   { path: '/', label: 'Home', icon: Home },
@@ -19,6 +20,7 @@ export default function CustomerLayout() {
   const { user, loading: authLoading } = useAuth()
   const [bagCount, setBagCount] = useState(0)
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
+  const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS)
 
   const refreshBagCount = useCallback(async () => {
     if (!user || authLoading) {
@@ -100,6 +102,32 @@ export default function CustomerLayout() {
     }
   }, [authLoading, refreshNotificationCount, user])
 
+  useEffect(() => {
+    let active = true
+
+    async function loadSettings() {
+      try {
+        const loaded = await fetchPublicAppSettings()
+        if (active) setAppSettings(loaded)
+      } catch (error) {
+        console.warn('[CustomerLayout] App settings skipped:', error)
+      }
+    }
+
+    void loadSettings()
+
+    const handleSettingsUpdated = () => {
+      void loadSettings()
+    }
+
+    window.addEventListener('shop2bhutan:app-settings-updated', handleSettingsUpdated)
+
+    return () => {
+      active = false
+      window.removeEventListener('shop2bhutan:app-settings-updated', handleSettingsUpdated)
+    }
+  }, [])
+
   const hideTabBarPaths = ['/login', '/register', '/forgot-password', '/checkout', '/change-password']
   const shouldHideTabBar =
     hideTabBarPaths.some((p) => location.pathname === p) ||
@@ -113,6 +141,14 @@ export default function CustomerLayout() {
   return (
     <div className="min-h-screen bg-neutral-50">
       <main className="pb-20">
+        {appSettings.maintenanceEnabled && (
+          <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+            <div className="mx-auto flex max-w-3xl items-start gap-2 text-sm">
+              <AlertTriangle size={17} className="mt-0.5 shrink-0" />
+              <span>{appSettings.maintenanceMessage}</span>
+            </div>
+          </div>
+        )}
         <Outlet />
       </main>
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   Bell,
+  Megaphone,
   ChevronDown,
   Headphones,
   Link2,
@@ -14,6 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import Logo from '@/components/shared/Logo';
 import { getUnreadNotificationCount } from '@/lib/customerOrders';
+import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings';
 
 const stores = [
   { name: 'Amazon.in', platform: 'amazon' },
@@ -34,6 +36,7 @@ export default function Home() {
   const { user: authUser, loading: authLoading } = useAuth();
   const { user: appUser } = useApp();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
 
   const refreshUnreadCount = useCallback(async () => {
     if (!authUser || authLoading) { setUnreadCount(0); return; }
@@ -58,6 +61,30 @@ export default function Home() {
     };
   }, [refreshUnreadCount]);
 
+  useEffect(() => {
+    let active = true;
+
+    async function loadSettings() {
+      try {
+        const loaded = await fetchPublicAppSettings();
+        if (active) setAppSettings(loaded);
+      } catch (error) {
+        console.warn('[Home] App settings skipped:', error);
+      }
+    }
+
+    void loadSettings();
+
+    const handleSettingsUpdated = () => { void loadSettings(); };
+    window.addEventListener('shop2bhutan:app-settings-updated', handleSettingsUpdated);
+
+    return () => {
+      active = false;
+      window.removeEventListener('shop2bhutan:app-settings-updated', handleSettingsUpdated);
+    };
+  }, []);
+
+  const visibleStores = stores.filter((store) => appSettings.acceptedPlatforms[store.platform as keyof typeof appSettings.acceptedPlatforms]);
   const deliveryLabel = appUser?.dzongkhag || 'Thimphu';
 
   return (
@@ -97,6 +124,13 @@ export default function Home() {
       {/* ========== MAIN ========== */}
       <main className="mx-auto max-w-3xl px-4 pb-10 pt-4">
 
+        {appSettings.homeAnnouncementEnabled && appSettings.homeAnnouncementText && (
+          <section className="mb-4 flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-blue-800">
+            <Megaphone size={18} className="mt-0.5 shrink-0" />
+            <p className="text-sm font-medium leading-5">{appSettings.homeAnnouncementText}</p>
+          </section>
+        )}
+
         {/* ----- Visual Banner ----- */}
         <section
           className="relative overflow-hidden rounded-3xl"
@@ -115,7 +149,7 @@ export default function Home() {
           <div className="relative z-10 p-6">
             {/* Store pills */}
             <div className="flex flex-wrap gap-2">
-              {stores.map((store) => (
+              {visibleStores.map((store) => (
                 <button
                   key={store.name}
                   type="button"
@@ -129,7 +163,7 @@ export default function Home() {
 
             {/* Label */}
             <p className="mt-5 text-xs font-bold uppercase tracking-widest text-amber-400">
-              Shop2Bhutan
+              {appSettings.appName}
             </p>
 
             {/* Headline */}

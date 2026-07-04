@@ -1,7 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Truck, CreditCard, MapPin, RotateCcw, ChevronDown, Phone, MessageCircle, Clock } from 'lucide-react';
 import { faqs } from '@/data/mockData';
+import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings';
+
+
+function telHref(value: string) {
+  const clean = value.replace(/[^+\d]/g, '');
+  return clean ? `tel:${clean}` : undefined;
+}
+
+function whatsappHref(value: string) {
+  const digits = value.replace(/\D/g, '');
+  return digits ? `https://wa.me/${digits}` : undefined;
+}
 
 const quickActions = [
   { icon: Truck, label: 'Track Order', color: 'bg-blue-50 text-blue-600' },
@@ -14,6 +26,33 @@ export default function Support() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
+  const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadSettings() {
+      try {
+        const loaded = await fetchPublicAppSettings();
+        if (active) setAppSettings(loaded);
+      } catch (error) {
+        console.warn('[Support] App settings skipped:', error);
+      }
+    }
+
+    void loadSettings();
+
+    const handleSettingsUpdated = () => {
+      void loadSettings();
+    };
+
+    window.addEventListener('shop2bhutan:app-settings-updated', handleSettingsUpdated);
+
+    return () => {
+      active = false;
+      window.removeEventListener('shop2bhutan:app-settings-updated', handleSettingsUpdated);
+    };
+  }, []);
 
   const filteredFaqs = faqs.filter(f =>
     !searchQuery ||
@@ -96,18 +135,26 @@ export default function Support() {
           <h3 className="text-base font-semibold text-gray-900 mb-1">Still need help?</h3>
           <p className="text-sm text-neutral-500 mb-4">Our team is ready to assist you</p>
           <div className="flex gap-3">
-            <button className="flex-1 h-11 bg-amber-500 text-white font-medium rounded-xl flex items-center justify-center gap-2 hover:bg-amber-600 transition-colors">
+            <a
+              href={telHref(appSettings.supportPhone)}
+              className="flex-1 h-11 bg-amber-500 text-white font-medium rounded-xl flex items-center justify-center gap-2 hover:bg-amber-600 transition-colors"
+            >
               <Phone size={16} />
               Call Us
-            </button>
-            <button className="flex-1 h-11 bg-emerald-500 text-white font-medium rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-600 transition-colors">
+            </a>
+            <a
+              href={whatsappHref(appSettings.whatsappNumber)}
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1 h-11 bg-emerald-500 text-white font-medium rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-600 transition-colors"
+            >
               <MessageCircle size={16} />
               WhatsApp
-            </button>
+            </a>
           </div>
           <div className="flex items-center justify-center gap-1 mt-3">
             <Clock size={14} className="text-neutral-400" />
-            <p className="text-xs text-neutral-500">Mon-Sat, 9 AM - 6 PM</p>
+            <p className="text-xs text-neutral-500">{appSettings.businessHours}</p>
           </div>
         </div>
       </div>

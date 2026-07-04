@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -23,6 +23,7 @@ import {
   normalizeProductUrl,
   type ProductLinkPreview,
 } from '@/lib/customerOrders';
+import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings';
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -103,6 +104,7 @@ export default function PasteLink() {
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const cleanUrl = useMemo(() => normalizeProductUrl(url), [url]);
@@ -125,8 +127,33 @@ export default function PasteLink() {
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [canTryPreview, cleanUrl]);
 
+  useEffect(() => {
+    let active = true;
+
+    async function loadSettings() {
+      try {
+        const loaded = await fetchPublicAppSettings();
+        if (active) setAppSettings(loaded);
+      } catch (error) {
+        console.warn('[PasteLink] App settings skipped:', error);
+      }
+    }
+
+    void loadSettings();
+
+    const handleSettingsUpdated = () => { void loadSettings(); };
+    window.addEventListener('shop2bhutan:app-settings-updated', handleSettingsUpdated);
+
+    return () => {
+      active = false;
+      window.removeEventListener('shop2bhutan:app-settings-updated', handleSettingsUpdated);
+    };
+  }, []);
+
+  const visiblePlatforms = platforms.filter((platform) => appSettings.acceptedPlatforms[platform.key as keyof typeof appSettings.acceptedPlatforms]);
+
   /* ---- Screenshot upload ---- */
-  const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleScreenshotChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) { setError('Please select an image file.'); return; }
@@ -150,6 +177,16 @@ export default function PasteLink() {
     const hasScreenshot = Boolean(screenshotFile);
     if (!hasUrl && !hasScreenshot) { setError('Please paste a product link or upload a product screenshot.'); return; }
     if (!user) { navigate('/login', { state: { from: location.pathname, initialUrl: url } }); return; }
+
+    if (appSettings.maintenanceEnabled) {
+      setError(appSettings.maintenanceMessage || 'Shop2Bhutan is under maintenance. Please try again later.');
+      return;
+    }
+
+    if (!appSettings.orderAcceptanceEnabled) {
+      setError('Shop2Bhutan is temporarily not accepting new order requests. Please try again later.');
+      return;
+    }
 
     let productPreview: ProductLinkPreview | null = null;
     if (hasUrl) {
@@ -254,7 +291,7 @@ export default function PasteLink() {
               Select Store
             </p>
             <div className="grid grid-cols-4 gap-2.5">
-              {platforms.map((p) => (
+              {visiblePlatforms.map((p) => (
                 <a
                   key={p.name}
                   href={p.url}

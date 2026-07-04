@@ -3,11 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Copy, Upload, CheckCircle, Wallet, Building2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchCustomerOrderById, fetchPaymentMethods, submitCustomerPaymentProof } from '@/lib/customerOrders';
+import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings';
 import type { Order, PaymentMethod } from '@/types';
 
 const ALLOWED_SCREENSHOT_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024;
-const MIN_INITIAL_PAYMENT_RATIO = 0.5;
 
 function formatCurrency(amount: number) {
   return `Nu. ${Number(amount || 0).toLocaleString()}`;
@@ -80,6 +80,7 @@ export default function PaymentUpload() {
   const [copiedField, setCopiedField] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
 
   const loadOrder = useCallback(async () => {
     if (!orderId || !user) {
@@ -136,6 +137,33 @@ export default function PaymentUpload() {
   }, [loadPaymentMethods]);
 
   useEffect(() => {
+    let active = true;
+
+    async function loadAppSettings() {
+      try {
+        const loadedSettings = await fetchPublicAppSettings();
+        if (active) setAppSettings(loadedSettings);
+      } catch (err) {
+        console.warn('[PaymentUpload] App settings skipped:', err);
+        if (active) setAppSettings(DEFAULT_APP_SETTINGS);
+      }
+    }
+
+    void loadAppSettings();
+
+    const handleSettingsUpdated = () => {
+      void loadAppSettings();
+    };
+
+    window.addEventListener('shop2bhutan:app-settings-updated', handleSettingsUpdated);
+
+    return () => {
+      active = false;
+      window.removeEventListener('shop2bhutan:app-settings-updated', handleSettingsUpdated);
+    };
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (screenshotPreview?.startsWith('blob:')) {
         URL.revokeObjectURL(screenshotPreview);
@@ -151,8 +179,11 @@ export default function PaymentUpload() {
   const paymentSummary = getPaymentSummary(order);
   const quotationTotal = paymentSummary.totalPayable;
   const amountPaidNumber = Number(amountPaid);
+  const minimumAdvancePercent = appSettings.partialPaymentEnabled
+    ? Math.min(100, Math.max(1, Math.round(Number(appSettings.minimumAdvancePaymentPercent) || 50)))
+    : 100;
   const minimumInitialPayment = quotationTotal > 0 && paymentSummary.verifiedPaid <= 0
-    ? Math.ceil(quotationTotal * MIN_INITIAL_PAYMENT_RATIO)
+    ? Math.ceil(quotationTotal * (minimumAdvancePercent / 100))
     : 0;
   const amountAboveBalance = paymentSummary.balanceDue > 0 && amountPaidNumber > paymentSummary.balanceDue;
   const firstPaymentBelowMinimum = minimumInitialPayment > 0 && amountPaidNumber > 0 && amountPaidNumber < minimumInitialPayment;
@@ -250,7 +281,7 @@ export default function PaymentUpload() {
     }
 
     if (firstPaymentBelowMinimum) {
-      setError(`Minimum first payment is 50% of the quotation: ${formatCurrency(minimumInitialPayment)}.`);
+      setError(`Minimum first payment is ${minimumAdvancePercent}% of the quotation: ${formatCurrency(minimumInitialPayment)}.`);
       return;
     }
 
@@ -454,16 +485,7 @@ export default function PaymentUpload() {
                 Pay full balance
                 <span className="mt-0.5 block text-[11px] font-bold text-gray-950">{formatCurrency(paymentSummary.balanceDue)}</span>
               </button>
-              {minimumInitialPayment > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setSuggestedAmount(minimumInitialPayment)}
-                  className="rounded-xl bg-white/80 px-3 py-2 text-left text-xs font-semibold text-blue-700 ring-1 ring-blue-100 active:scale-[0.98]"
-                >
-                  Pay 50% advance
-                  <span className="mt-0.5 block text-[11px] font-bold text-gray-950">{formatCurrency(minimumInitialPayment)}</span>
-                </button>
-              ) : (
+              {paymentSummary.isPartiallyPaid ? (
                 <button
                   type="button"
                   onClick={() => setSuggestedAmount(paymentSummary.balanceDue)}
@@ -472,7 +494,16 @@ export default function PaymentUpload() {
                   Remaining payment
                   <span className="mt-0.5 block text-[11px] font-bold text-gray-950">{formatCurrency(paymentSummary.balanceDue)}</span>
                 </button>
-              )}
+              ) : appSettings.partialPaymentEnabled && minimumAdvancePercent < 100 && minimumInitialPayment > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setSuggestedAmount(minimumInitialPayment)}
+                  className="rounded-xl bg-white/80 px-3 py-2 text-left text-xs font-semibold text-blue-700 ring-1 ring-blue-100 active:scale-[0.98]"
+                >
+                  Pay {minimumAdvancePercent}% advance
+                  <span className="mt-0.5 block text-[11px] font-bold text-gray-950">{formatCurrency(minimumInitialPayment)}</span>
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -626,13 +657,13 @@ export default function PaymentUpload() {
             />
             <p className="text-xs text-neutral-400 mt-1">Balance due: {formatCurrency(paymentSummary.balanceDue)}</p>
             {minimumInitialPayment > 0 && (
-              <p className="mt-1 text-xs text-blue-600">Minimum first payment: {formatCurrency(minimumInitialPayment)} (50% advance).</p>
+              <p className="mt-1 text-xs text-blue-600">Minimum first payment: {formatCurrency(minimumInitialPayment)} ({minimumAdvancePercent}% advance).</p>
             )}
             {amountAboveBalance && (
               <p className="mt-1 text-xs font-medium text-red-600">Amount cannot exceed the remaining balance.</p>
             )}
             {firstPaymentBelowMinimum && (
-              <p className="mt-1 text-xs font-medium text-red-600">First payment must be at least 50% of the quotation.</p>
+              <p className="mt-1 text-xs font-medium text-red-600">First payment must be at least {minimumAdvancePercent}% of the quotation.</p>
             )}
           </div>
 
