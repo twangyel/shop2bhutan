@@ -268,12 +268,18 @@ export async function createParcelRequest(input: CreateParcelRequestInput) {
       customer_notes: nullableText(input.customerNotes),
       declaration_confirmed: true,
     })
-    .select('*, parcel_trips(*)')
+    .select('*')
     .single()
 
-  if (error) throw error
+  if (error) {
+    console.error('[createParcelRequest] Supabase error:', error)
+    throw new Error(error.message || 'Failed to submit parcel request.')
+  }
 
-  return mapRequest(data)
+  return mapRequest({
+    ...data,
+    parcel_trips: null,
+  })
 }
 
 export async function fetchMyParcelRequests() {
