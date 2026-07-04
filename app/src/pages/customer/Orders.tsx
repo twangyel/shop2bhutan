@@ -120,7 +120,7 @@ function CustomerOrderCard({ order }: { order: Order }) {
           navigate(`/order/${order.id}`);
         }
       }}
-      className="cursor-pointer rounded-2xl bg-white p-3 border border-gray-100 transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+      className="cursor-pointer rounded-2xl bg-white p-4 border border-gray-100 transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-orange-500/30"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -160,12 +160,11 @@ function CustomerOrderCard({ order }: { order: Order }) {
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between rounded-2xl bg-gray-50 px-3 py-2.5">
+      <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
         <div className="min-w-0">
           <p className="text-xs font-bold text-gray-900">{actionHint(order)}</p>
-          <p className="mt-0.5 text-[11px] text-gray-500">Tap to open order details.</p>
         </div>
-        <div className="ml-3 inline-flex h-9 shrink-0 items-center gap-1 rounded-full bg-white px-3 text-xs font-bold text-gray-900 border border-gray-100">
+        <div className="ml-3 flex shrink-0 items-center gap-1 text-xs font-bold text-orange-500">
           View Details
           <ChevronRight size={14} strokeWidth={2.5} />
         </div>
@@ -271,7 +270,7 @@ export default function Orders() {
                   onClick={() => setActiveTab(tab.key)}
                   className={`flex flex-shrink-0 items-center gap-2 rounded-2xl px-3.5 py-2.5 text-xs font-bold transition-all ${
                     isActive
-                      ? 'bg-gray-900 text-white shadow-sm'
+                      ? 'bg-orange-500 text-white shadow-sm'
                       : tab.key === 'quoted' && count > 0
                         ? 'bg-orange-50 text-orange-700 border border-orange-100 hover:bg-orange-100'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -281,7 +280,7 @@ export default function Orders() {
                   <span>{tab.shortLabel}</span>
                   <span
                     className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold ${
-                      isActive ? 'bg-white text-gray-900' : 'bg-white/90 text-gray-500'
+                      isActive ? 'bg-white/20 text-white' : 'bg-white/90 text-gray-500'
                     }`}
                   >
                     {count > 99 ? '99+' : count}
