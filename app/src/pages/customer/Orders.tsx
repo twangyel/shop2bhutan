@@ -14,7 +14,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/shared/StatusBadge';
 import EmptyState from '@/components/shared/EmptyState';
-import { fetchCustomerOrders } from '@/lib/customerOrders';
+import { fetchCustomerOrdersSummary } from '@/lib/customerOrders';
 import type { Order, OrderItem } from '@/types';
 
 type FilterTab = 'all' | 'pending' | 'quoted' | 'in_transit' | 'delivered';
@@ -26,6 +26,36 @@ const tabs: { key: FilterTab; label: string; shortLabel: string; icon: ElementTy
   { key: 'in_transit', label: 'In Transit', shortLabel: 'Transit', icon: Truck },
   { key: 'delivered', label: 'Delivered', shortLabel: 'Delivered', icon: CheckCircle2 },
 ];
+
+const ORDERS_CACHE_PREFIX = 'shop2bhutan:orders:';
+
+function ordersCacheKey(userId: string) {
+  return `${ORDERS_CACHE_PREFIX}${userId}`;
+}
+
+function readCachedOrders(userId: string): Order[] {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const raw = window.sessionStorage.getItem(ordersCacheKey(userId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Order[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCachedOrders(userId: string, value: Order[]) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.sessionStorage.setItem(ordersCacheKey(userId), JSON.stringify(value));
+  } catch {
+    // Storage can be unavailable in private mode. Ignore silently.
+  }
+}
+
 
 function tabMatches(order: Order, tab: FilterTab) {
   if (tab === 'all') return true;
@@ -188,12 +218,20 @@ export default function Orders() {
       return;
     }
 
-    setLoading(true);
+    const cachedOrders = readCachedOrders(user.id);
+    if (cachedOrders.length > 0) {
+      setOrders(cachedOrders);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     setError('');
 
     try {
-      const realOrders = await fetchCustomerOrders(user.id, user.email ?? '');
+      const realOrders = await fetchCustomerOrdersSummary(user.id, user.email ?? '');
       setOrders(realOrders);
+      writeCachedOrders(user.id, realOrders);
     } catch (err) {
       console.error('Failed to load customer orders:', err);
       setError(err instanceof Error ? err.message : 'Unable to load your orders.');

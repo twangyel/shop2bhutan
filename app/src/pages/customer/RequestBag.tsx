@@ -19,6 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import {
   fetchActiveRequestBag,
+  fetchActiveRequestBagFast,
   removeRequestBagItem,
   submitRequestBagAsOrder,
   updateRequestBagItem,
@@ -156,6 +157,46 @@ function platformLabel(platform?: string) {
   if (raw === 'meesho') return 'Meesho';
 
   return 'Link';
+}
+
+
+const REQUEST_BAG_CACHE_PREFIX = 'shop2bhutan:request-bag:';
+
+function requestBagCacheKey(userId: string) {
+  return `${REQUEST_BAG_CACHE_PREFIX}${userId}`;
+}
+
+function readCachedRequestBag(userId: string): RequestBagType | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.sessionStorage.getItem(requestBagCacheKey(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as RequestBagType;
+    return parsed?.id ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedRequestBag(userId: string, value: RequestBagType | null) {
+  if (typeof window === 'undefined' || !value) return;
+
+  try {
+    window.sessionStorage.setItem(requestBagCacheKey(userId), JSON.stringify(value));
+  } catch {
+    // Storage can be unavailable in private mode. Ignore silently.
+  }
+}
+
+function clearCachedRequestBag(userId: string) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.sessionStorage.removeItem(requestBagCacheKey(userId));
+  } catch {
+    // Ignore silently.
+  }
 }
 
 async function fetchSavedDefaultAddress(userId: string, options: DzongkhagOption[]) {
@@ -351,16 +392,34 @@ export default function RequestBag() {
       return;
     }
 
-    setLoading(true);
+    const cachedBag = readCachedRequestBag(user.id);
+    if (cachedBag) {
+      setBag(cachedBag);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     setError('');
 
     try {
-      const activeBag = await fetchActiveRequestBag(user.id);
-      setBag(activeBag);
+      const fastBag = await fetchActiveRequestBagFast(user.id);
+      setBag(fastBag);
+      writeCachedRequestBag(user.id, fastBag);
+      setLoading(false);
+
+      // Upgrade private screenshot thumbnails in the background after the page is usable.
+      fetchActiveRequestBag(user.id)
+        .then((fullBag) => {
+          setBag(fullBag);
+          writeCachedRequestBag(user.id, fullBag);
+        })
+        .catch((backgroundError) => {
+          console.warn('[RequestBag] Background image refresh skipped:', backgroundError);
+        });
     } catch (err) {
       console.error('Failed to load Request Bag:', err);
       setError(err instanceof Error ? err.message : 'Unable to load your Request Bag.');
-    } finally {
       setLoading(false);
     }
   }, [user]);
@@ -458,10 +517,13 @@ export default function RequestBag() {
   ) => {
     if (!user || !bag) return;
 
-    setBag({
+    const nextBag = {
       ...bag,
       items: bag.items.map((item) => (item.id === itemId ? { ...item, ...patch } : item)),
-    });
+    };
+
+    setBag(nextBag);
+    writeCachedRequestBag(user.id, nextBag);
 
     setSavingItemId(itemId);
     setError('');
@@ -485,10 +547,12 @@ export default function RequestBag() {
 
     try {
       await removeRequestBagItem(user.id, itemId);
-      setBag({
+      const nextBag = {
         ...bag,
         items: bag.items.filter((item) => item.id !== itemId),
-      });
+      };
+      setBag(nextBag);
+      writeCachedRequestBag(user.id, nextBag);
       window.dispatchEvent(new Event('shop2bhutan:request-bag-updated'));
     } catch (err) {
       console.error('Failed to remove Request Bag item:', err);
@@ -552,6 +616,7 @@ export default function RequestBag() {
         customerNotes: customer.notes.trim() || 'Request Bag quotation request submitted by customer.',
       });
 
+      clearCachedRequestBag(user.id);
       window.dispatchEvent(new Event('shop2bhutan:request-bag-updated'));
       navigate(`/order/${result.orderId}`, { replace: true });
     } catch (err) {

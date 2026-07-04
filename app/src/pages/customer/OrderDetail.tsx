@@ -17,7 +17,7 @@ import {
 import { appSettings } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/shared/StatusBadge';
-import { fetchCustomerOrderById } from '@/lib/customerOrders';
+import { fetchCustomerOrderById, fetchCustomerOrderByIdFast } from '@/lib/customerOrders';
 import type { Order, OrderStatus } from '@/types';
 
 const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
@@ -114,6 +114,36 @@ const progressSteps: Array<{
     next: 'Package delivered successfully.',
   },
 ];
+
+const ORDER_DETAIL_CACHE_PREFIX = 'shop2bhutan:order-detail:';
+
+function orderDetailCacheKey(userId: string, orderId: string) {
+  return `${ORDER_DETAIL_CACHE_PREFIX}${userId}:${orderId}`;
+}
+
+function readCachedOrderDetail(userId: string, orderId: string): Order | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.sessionStorage.getItem(orderDetailCacheKey(userId, orderId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Order;
+    return parsed?.id ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedOrderDetail(userId: string, orderId: string, value: Order | null) {
+  if (typeof window === 'undefined' || !value) return;
+
+  try {
+    window.sessionStorage.setItem(orderDetailCacheKey(userId, orderId), JSON.stringify(value));
+  } catch {
+    // Storage can be unavailable in private mode. Ignore silently.
+  }
+}
+
 
 function money(value?: number) {
   return `Nu. ${Number(value ?? 0).toLocaleString()}`;
@@ -338,12 +368,27 @@ export default function OrderDetail() {
       return;
     }
 
-    setLoading(true);
+    const cachedOrder = readCachedOrderDetail(user.id, id);
+    if (cachedOrder) {
+      setOrder(cachedOrder);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     setError('');
 
     try {
+      const fastOrder = await fetchCustomerOrderByIdFast(id, user.id, user.email ?? '');
+      if (fastOrder) {
+        setOrder(fastOrder);
+        writeCachedOrderDetail(user.id, id, fastOrder);
+        setLoading(false);
+      }
+
       const realOrder = await fetchCustomerOrderById(id, user.id, user.email ?? '');
       setOrder(realOrder);
+      writeCachedOrderDetail(user.id, id, realOrder);
     } catch (err) {
       console.error('Failed to load order detail:', err);
       setError(err instanceof Error ? err.message : 'Unable to load order details.');

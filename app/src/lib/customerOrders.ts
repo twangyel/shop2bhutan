@@ -713,6 +713,17 @@ async function makeDisplayImage(primary: string, fallbackPath?: string) {
   return PLACEHOLDER_PRODUCT_IMAGE
 }
 
+
+function makeFastDisplayImage(primary: unknown, fallbackPath?: unknown) {
+  const primaryValue = cleanText(primary)
+  if (primaryValue && isExternalOrDataUrl(primaryValue)) return primaryValue
+
+  const fallbackValue = cleanText(fallbackPath)
+  if (fallbackValue && isExternalOrDataUrl(fallbackValue)) return fallbackValue
+
+  return PLACEHOLDER_PRODUCT_IMAGE
+}
+
 export function normalizeOrderStatus(status: unknown): OrderStatus {
   const raw = String(status ?? '').toLowerCase()
 
@@ -2440,6 +2451,227 @@ async function querySingleAdminOrderRow(orderIdOrNumber: string) {
   return null
 }
 
+
+function makeOrderItemsFast(row: AnyRow, relatedItems: AnyRow[]): OrderItem[] {
+  const mappedItems = relatedItems.map((item, index) => {
+    const attachmentPath = firstString(item, ['attachment_path', 'screenshot_path', 'proof_file_path'], '')
+    const productImage = makeFastDisplayImage(
+      firstString(item, ['product_image', 'image_url', 'image', 'thumbnail_url', 'image_path', 'screenshot_url'], ''),
+      attachmentPath
+    )
+
+    return {
+      id: firstString(item, ['id'], `item-${row.id}-${index}`),
+      productId: firstString(item, ['product_id'], ''),
+      sourceUrl: firstString(item, ['source_url', 'product_url', 'url'], ''),
+      sourcePlatform: firstString(item, ['source_platform', 'platform'], 'internal') as OrderItem['sourcePlatform'],
+      productName: firstString(item, ['title_snapshot', 'product_name', 'item_name', 'name', 'title'], 'Product item'),
+      productImage,
+      quantity: firstNumber(item, ['quantity', 'qty'], 1),
+      unitPrice: firstNumber(item, ['quoted_unit_price', 'estimated_price', 'unit_price', 'price', 'quoted_price', 'product_price', 'price_shown'], 0),
+      attributes: firstJsonObject(item, ['attributes', 'selected_attributes']) as Record<string, string>,
+      notes: firstString(item, ['notes', 'customer_notes', 'variant_text', 'item_notes'], ''),
+      screenshotUrl: '',
+      attachmentPath,
+    }
+  })
+
+  if (mappedItems.length > 0) return mappedItems
+
+  const productLinks = toArray(firstValue(row, ['product_links', 'links', 'source_urls']))
+  const quantities = toArray(firstValue(row, ['quantities', 'qtys']))
+
+  if (productLinks.length > 0) {
+    return productLinks.map((link, index) => ({
+      id: `item-${row.id}-${index}`,
+      sourceUrl: String(link),
+      sourcePlatform: 'internal',
+      productName: `Product link ${index + 1}`,
+      productImage: PLACEHOLDER_PRODUCT_IMAGE,
+      quantity: Number(quantities[index] ?? 1) || 1,
+      unitPrice: 0,
+      attributes: {},
+      notes: '',
+      screenshotUrl: '',
+      attachmentPath: '',
+    }))
+  }
+
+  return [
+    {
+      id: `item-${row.id}-fallback`,
+      sourceUrl: firstString(row, ['product_url', 'source_url'], ''),
+      sourcePlatform: 'internal',
+      productName: firstString(row, ['product_name', 'item_name', 'title'], 'Order item'),
+      productImage: makeFastDisplayImage(firstString(row, ['product_image', 'image_url', 'screenshot_url'], '')),
+      quantity: firstNumber(row, ['quantity', 'qty'], 1),
+      unitPrice: firstNumber(row, ['unit_price', 'product_price', 'amount'], 0),
+      attributes: {},
+      notes: firstString(row, ['notes', 'customer_notes'], ''),
+      screenshotUrl: '',
+      attachmentPath: '',
+    },
+  ]
+}
+
+function makeQuotationSummary(quotation: AnyRow | undefined, orderItems: OrderItem[]): Quotation | undefined {
+  if (!quotation) return undefined
+
+  const productTotal = firstNumber(
+    quotation,
+    ['product_subtotal', 'product_total', 'product_price', 'subtotal'],
+    orderItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
+  )
+  const serviceCharge = firstNumber(quotation, ['service_charge', 'service_fee'], 0)
+  const deliveryFee = firstNumber(quotation, ['delivery_fee', 'shipping_fee'], 0)
+  const taxAmount = firstNumber(quotation, ['tax_amount', 'tax'], 0)
+  const additionalChargeAmount = firstNumber(quotation, ['additional_charge_amount', 'extra_charge_amount', 'other_charges'], 0)
+  const totalAmount = firstNumber(quotation, ['total_amount', 'total'], productTotal + serviceCharge + deliveryFee + taxAmount + additionalChargeAmount)
+
+  return {
+    id: firstString(quotation, ['id'], ''),
+    orderId: firstString(quotation, ['order_id'], ''),
+    status: normalizeQuotationStatus(firstValue(quotation, ['status'])),
+    items: [],
+    productTotal,
+    serviceCharge,
+    deliveryFee,
+    taxAmount,
+    additionalChargeLabel: firstString(quotation, ['additional_charge_label', 'extra_charge_label'], ''),
+    additionalChargeAmount,
+    totalAmount,
+    validUntil: firstString(quotation, ['valid_until', 'expires_at'], ''),
+    notes: firstString(quotation, ['notes', 'customer_message', 'admin_notes'], ''),
+    createdAt: firstString(quotation, ['created_at'], ''),
+    respondedAt: firstString(quotation, ['responded_at', 'updated_at'], ''),
+  }
+}
+
+function makePaymentFast(payment: AnyRow | undefined): Payment | undefined {
+  if (!payment) return undefined
+
+  const proofPath = firstString(payment, ['proof_file_path', 'screenshot_url', 'payment_proof_url', 'proof_url'], '')
+
+  return {
+    id: firstString(payment, ['id'], ''),
+    orderId: firstString(payment, ['order_id'], ''),
+    amount: firstNumber(payment, ['amount', 'total_amount', 'advance_paid'], 0),
+    paymentType: normalizePaymentType(firstValue(payment, ['payment_type', 'payment_kind', 'coverage_type'])),
+    method: firstString(payment, ['payment_method_name', 'method_name', 'method', 'payment_method'], ''),
+    transactionId: firstString(payment, ['transaction_id', 'reference_id', 'txn_id'], ''),
+    screenshotUrl: isExternalOrDataUrl(proofPath) ? proofPath : '',
+    status: normalizePaymentStatus(firstValue(payment, ['status'])),
+    verifiedBy: firstString(payment, ['verified_by'], ''),
+    verifiedAt: firstString(payment, ['verified_at'], ''),
+    notes: firstString(payment, ['notes', 'admin_notes'], ''),
+    createdAt: firstString(payment, ['created_at'], ''),
+  }
+}
+
+function makePaymentsFast(payments: AnyRow[]): Payment[] {
+  return sortPayments(payments.map((payment) => makePaymentFast(payment)).filter(Boolean) as Payment[])
+}
+
+function mapOrderRowSummary(row: AnyRow, related: RelatedRows, authUserId: string, authEmail = ''): Order {
+  const displayRow = mergeSubmittedRequestBagAddress(row, related)
+  const items = makeOrderItemsFast(row, related.items.filter((item) => itemBelongsToOrder(item, row)))
+  const quotationRow = findQuotationForOrder(row, related.quotations)
+  const quotation = makeQuotationSummary(quotationRow, items)
+  const relatedPaymentRows = related.payments.filter((payment) => paymentBelongsToOrder(payment, row))
+  const payments = makePaymentsFast(relatedPaymentRows)
+  const payment = getPrimaryPayment(payments)
+  const customerId = firstString(displayRow, ORDER_OWNER_COLUMNS, authUserId)
+
+  return {
+    id: firstString(row, ['id'], ''),
+    orderNumber: firstString(
+      row,
+      ['order_no', 'order_number', 'public_id'],
+      firstString(row, ['id'], '').slice(0, 8).toUpperCase()
+    ),
+    userId: customerId,
+    user: makeFallbackUser(displayRow, authEmail, related.profiles),
+    items,
+    status: normalizeOrderStatus(firstValue(row, ['status', 'order_status'])),
+    type: firstString(row, ['order_type', 'type'], 'paste_link') as OrderType,
+    deliveryHubId: firstString(row, ['delivery_hub_id', 'hub_id'], 'hub1'),
+    deliveryHub: makeDeliveryHub(displayRow),
+    shippingAddress: makeShippingAddress(displayRow, customerId, related.profiles),
+    quotation,
+    payment,
+    payments,
+    paymentSummary: calculatePaymentSummary({
+      quotationTotal: quotation?.totalAmount ?? 0,
+      payments,
+    }),
+    trackingEvents: [],
+    notes: firstString(displayRow, ['notes', 'customer_notes', 'admin_notes'], ''),
+    createdAt: firstString(row, ['created_at'], ''),
+    updatedAt: firstString(row, ['updated_at'], firstString(row, ['created_at'], '')),
+  }
+}
+
+export async function fetchCustomerOrdersSummary(userId: string, email = '') {
+  if (!userId) return [] as Order[]
+
+  const rows = await queryCustomerOrderRows(userId)
+  const dbIds = rows.map((row) => String(row.id ?? '')).filter(Boolean)
+  const ownerIds = rows
+    .flatMap((row) => ORDER_OWNER_COLUMNS.map((column) => String(row[column] ?? '')))
+    .filter(Boolean)
+
+  const [items, quotations, payments, profiles, requestBags] = await Promise.all([
+    safeSelectIn('order_items', 'order_id', dbIds),
+    safeSelectIn('quotations', 'order_id', dbIds),
+    safeSelectIn('payments', 'order_id', dbIds),
+    safeSelectIn('profiles', 'id', Array.from(new Set(ownerIds))),
+    safeSelectIn('customer_request_bags', 'submitted_order_id', dbIds),
+  ])
+
+  const related: RelatedRows = {
+    items,
+    quotations,
+    quotationItems: [],
+    payments,
+    profiles,
+    requestBags,
+    trackingEvents: [],
+  }
+
+  return rows.map((row) => mapOrderRowSummary(row, related, userId, email))
+}
+
+
+export async function fetchCustomerOrderByIdFast(orderIdOrNumber: string, userId: string, email = '') {
+  if (!orderIdOrNumber || !userId) return null
+
+  const row = await querySingleCustomerOrderRow(orderIdOrNumber, userId)
+  if (!row) return null
+
+  const dbIds = [String(row.id ?? '')].filter(Boolean)
+  const ownerIds = ORDER_OWNER_COLUMNS.map((column) => String(row[column] ?? '')).filter(Boolean)
+
+  const [items, quotations, payments, profiles, requestBags] = await Promise.all([
+    safeSelectIn('order_items', 'order_id', dbIds),
+    safeSelectIn('quotations', 'order_id', dbIds),
+    safeSelectIn('payments', 'order_id', dbIds),
+    safeSelectIn('profiles', 'id', Array.from(new Set(ownerIds))),
+    safeSelectIn('customer_request_bags', 'submitted_order_id', dbIds),
+  ])
+
+  const related: RelatedRows = {
+    items,
+    quotations,
+    quotationItems: [],
+    payments,
+    profiles,
+    requestBags,
+    trackingEvents: [],
+  }
+
+  return mapOrderRowSummary(row, related, userId, email)
+}
+
 export async function fetchCustomerOrders(userId: string, email = '') {
   if (!userId) return [] as Order[]
 
@@ -3936,6 +4168,62 @@ async function makeRequestBagItemDisplay(row: AnyRow): Promise<RequestBagItem> {
   }
 }
 
+
+function makeRequestBagItemDisplayFast(row: AnyRow): RequestBagItem {
+  const screenshotPath = firstString(row, ['screenshot_path', 'attachment_path'], '')
+  const productImage = makeFastDisplayImage(
+    firstString(row, ['product_image', 'image_url', 'image'], ''),
+    screenshotPath
+  )
+  const quantity = firstNumber(row, ['quantity'], 1)
+  const priceShown = firstNumber(row, ['price_shown', 'estimated_price', 'price'], 0)
+
+  return {
+    id: firstString(row, ['id'], ''),
+    bagId: firstString(row, ['bag_id'], ''),
+    userId: firstString(row, ['user_id'], ''),
+    sourceUrl: firstString(row, ['source_url'], ''),
+    sourcePlatform: firstString(row, ['source_platform'], 'other'),
+    productName: firstString(row, ['product_name', 'title_snapshot', 'name'], 'Product request'),
+    productImage,
+    priceShown,
+    quantity: quantity > 0 ? quantity : 1,
+    notes: firstString(row, ['notes', 'customer_notes', 'variant_text'], ''),
+    screenshotPath,
+    screenshotUrl: '',
+    createdAt: firstString(row, ['created_at'], ''),
+    updatedAt: firstString(row, ['updated_at'], firstString(row, ['created_at'], '')),
+  }
+}
+
+async function fetchRequestBagItemsFast(bagId: string) {
+  const { data, error } = await supabase
+    .from('customer_request_bag_items')
+    .select('*')
+    .eq('bag_id', bagId)
+    .order('created_at', { ascending: true })
+
+  if (error) throw error
+
+  return ((data ?? []) as AnyRow[]).map(makeRequestBagItemDisplayFast)
+}
+
+function makeRequestBagDisplayFromItems(row: AnyRow, items: RequestBagItem[]): RequestBag {
+  return {
+    id: firstString(row, ['id'], ''),
+    userId: firstString(row, ['user_id'], ''),
+    status: normalizeBagStatus(firstValue(row, ['status'])),
+    customerName: firstString(row, ['customer_name'], ''),
+    customerPhone: firstString(row, ['customer_phone'], ''),
+    deliveryAddress: firstString(row, ['delivery_address'], ''),
+    customerNotes: firstString(row, ['customer_notes'], ''),
+    submittedOrderId: firstString(row, ['submitted_order_id'], ''),
+    items,
+    createdAt: firstString(row, ['created_at'], ''),
+    updatedAt: firstString(row, ['updated_at'], firstString(row, ['created_at'], '')),
+  }
+}
+
 async function fetchRequestBagItems(bagId: string) {
   const { data, error } = await supabase
     .from('customer_request_bag_items')
@@ -3950,20 +4238,18 @@ async function fetchRequestBagItems(bagId: string) {
 
 async function makeRequestBagDisplay(row: AnyRow): Promise<RequestBag> {
   const items = await fetchRequestBagItems(firstString(row, ['id'], ''))
+  return makeRequestBagDisplayFromItems(row, items)
+}
 
-  return {
-    id: firstString(row, ['id'], ''),
-    userId: firstString(row, ['user_id'], ''),
-    status: normalizeBagStatus(firstValue(row, ['status'])),
-    customerName: firstString(row, ['customer_name'], ''),
-    customerPhone: firstString(row, ['customer_phone'], ''),
-    deliveryAddress: firstString(row, ['delivery_address'], ''),
-    customerNotes: firstString(row, ['customer_notes'], ''),
-    submittedOrderId: firstString(row, ['submitted_order_id'], ''),
-    items,
-    createdAt: firstString(row, ['created_at'], ''),
-    updatedAt: firstString(row, ['updated_at'], firstString(row, ['created_at'], '')),
-  }
+async function makeRequestBagDisplayFast(row: AnyRow): Promise<RequestBag> {
+  const items = await fetchRequestBagItemsFast(firstString(row, ['id'], ''))
+  return makeRequestBagDisplayFromItems(row, items)
+}
+
+export async function fetchActiveRequestBagFast(userId: string) {
+  if (!userId) throw new Error('Please sign in to view your Request Bag.')
+  const row = await ensureActiveRequestBagRow(userId)
+  return makeRequestBagDisplayFast(row)
 }
 
 export async function fetchActiveRequestBag(userId: string) {
