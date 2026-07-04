@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
   ChevronRight,
   ClipboardList,
   HeadphonesIcon,
-  Home,
-  LayoutDashboard,
   KeyRound,
   LogOut,
   MapPin,
@@ -109,18 +107,11 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
   },
 ];
 
-const primaryActions: MenuItem[] = [
-  { icon: ClipboardList, label: 'My Orders', path: '/orders' },
-  { icon: Bell, label: 'Notifications', path: '/notifications', badge: true },
-  { icon: HeadphonesIcon, label: 'Support', path: '/support' },
-];
-
 export default function Account() {
   const navigate = useNavigate();
-  const { unreadCount, orders } = useApp();
+  const { unreadCount } = useApp();
   const { user, context, signOut } = useAuth();
 
-  const [addressCount, setAddressCount] = useState(0);
   const [dzongkhagOptions, setDzongkhagOptions] = useState<DzongkhagOption[]>([]);
 
   const profile = (context?.profile ?? null) as ProfileLike | null;
@@ -136,15 +127,6 @@ export default function Account() {
   );
   const avatarUrl = profile?.avatar_url?.trim() || null;
   const emailAdded = displayEmail !== 'No email added' && isLoggedIn;
-  const canAccessAdmin = Boolean(context?.is_admin || context?.is_super_admin);
-
-  const pendingOrders = useMemo(
-    () =>
-      orders.filter((o) =>
-        ['pending_confirmation', 'quoted', 'payment_pending', 'quotation_pending'].includes(o.status)
-      ).length,
-    [orders]
-  );
 
   useEffect(() => {
     let active = true;
@@ -161,31 +143,6 @@ export default function Account() {
       active = false;
     };
   }, []);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadAddressCount() {
-      if (!user) {
-        setAddressCount(0);
-        return;
-      }
-
-      const { count, error } = await supabase
-        .from('customer_addresses')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-
-      if (!active) return;
-      if (!error) setAddressCount(count ?? 0);
-    }
-
-    void loadAddressCount();
-
-    return () => {
-      active = false;
-    };
-  }, [user]);
 
   const handleLogout = async () => {
     await signOut();
@@ -251,47 +208,6 @@ export default function Account() {
           </div>
         )}
 
-        {/* ===== Primary Actions ===== */}
-        {isLoggedIn && (
-          <div className="mt-5 grid grid-cols-3 gap-3">
-            {primaryActions.map((action) => {
-              const Icon = action.icon;
-              return (
-                <button
-                  key={action.label}
-                  type="button"
-                  onClick={() => navigate(action.path)}
-                  className="rounded-2xl bg-white border border-gray-100 p-3 text-center transition-colors hover:bg-gray-50 active:scale-[0.98]"
-                >
-                  <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
-                    <Icon size={18} strokeWidth={2.5} />
-                  </span>
-                  <span className="mt-2 block text-[11px] font-bold text-gray-700">{action.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ===== Stats ===== */}
-        <div className="mt-4 grid grid-cols-3 gap-3">
-          {[
-            { label: 'Orders', value: orders.length, path: '/orders' },
-            { label: 'Pending', value: pendingOrders, path: '/orders' },
-            { label: 'Addresses', value: addressCount, path: '/addresses' },
-          ].map((stat) => (
-            <button
-              key={stat.label}
-              type="button"
-              onClick={() => navigate(stat.path)}
-              className="rounded-2xl bg-white border border-gray-100 p-3 text-center transition-colors hover:bg-gray-50"
-            >
-              <p className="text-xl font-extrabold text-orange-500">{stat.value}</p>
-              <p className="text-[11px] font-semibold text-gray-500">{stat.label}</p>
-            </button>
-          ))}
-        </div>
-
         {/* ===== Add Email Prompt ===== */}
         {isLoggedIn && !emailAdded && (
           <button
@@ -303,28 +219,6 @@ export default function Account() {
             <p className="mt-0.5 text-xs leading-5 text-gray-500">
               Email is optional, but adding one helps with password recovery and order updates.
             </p>
-          </button>
-        )}
-
-        {/* ===== Admin Panel ===== */}
-        {canAccessAdmin && (
-          <button
-            type="button"
-            onClick={() => navigate('/admin')}
-            className="mt-4 w-full overflow-hidden rounded-2xl bg-gray-900 p-4 text-left text-white transition-colors hover:bg-gray-800"
-          >
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-orange-400">
-                <LayoutDashboard size={22} strokeWidth={2} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-extrabold">Admin Panel</span>
-                <span className="mt-0.5 block text-xs leading-5 text-gray-400">
-                  Manage orders, quotations, payments, products, parcels, and settings.
-                </span>
-              </span>
-              <ChevronRight size={18} className="text-gray-500" />
-            </div>
           </button>
         )}
 
@@ -388,7 +282,6 @@ export default function Account() {
             onClick={() => navigate('/login')}
             className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white transition-colors hover:bg-orange-600"
           >
-            <Home size={18} />
             Sign In to Continue
           </button>
         )}
