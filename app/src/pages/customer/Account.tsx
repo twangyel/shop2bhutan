@@ -10,9 +10,7 @@ import {
   KeyRound,
   LogOut,
   MapPin,
-  PackageCheck,
   Pencil,
-  ShieldCheck,
   Truck,
   User,
   Wallet,
@@ -22,9 +20,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
 const PHONE_ONLY_EMAIL_SUFFIX = '@phone.shop2bhutan.com';
-
-const coverageLine = 'Orders accepted from all 20 dzongkhags.';
-const deliveryLine = 'Delivery currently available in Thimphu, Paro, and Chhukha.';
 
 type ProfileLike = {
   full_name?: string | null;
@@ -54,9 +49,7 @@ function isPhoneOnlyEmail(value?: string | null) {
 
 function getDisplayEmail(value?: string | null) {
   const email = value?.trim() || '';
-
   if (!email || isPhoneOnlyEmail(email)) return 'No email added';
-
   return email;
 }
 
@@ -66,7 +59,6 @@ function getDisplayName(profile: ProfileLike | null, email?: string | null) {
   if (email && !isPhoneOnlyEmail(email)) return email.split('@')[0];
   return 'Guest';
 }
-
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -159,12 +151,8 @@ export default function Account() {
 
     async function loadDzongkhags() {
       const { data, error } = await supabase.rpc('get_dzongkhag_options');
-
       if (!active) return;
-
-      if (!error) {
-        setDzongkhagOptions(normalizeDzongkhagOptions(data));
-      }
+      if (!error) setDzongkhagOptions(normalizeDzongkhagOptions(data));
     }
 
     void loadDzongkhags();
@@ -189,7 +177,6 @@ export default function Account() {
         .eq('user_id', user.id);
 
       if (!active) return;
-
       if (!error) setAddressCount(count ?? 0);
     }
 
@@ -206,81 +193,67 @@ export default function Account() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-24">
-      <div className="mx-auto max-w-md px-4 pt-4">
-        <div className="overflow-hidden rounded-[2rem] bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 p-4 text-white shadow-lg shadow-amber-500/20">
-          <div className="flex items-start gap-4">
-            <button
-              type="button"
-              onClick={() => isLoggedIn && navigate('/profile')}
-              className="relative shrink-0"
-            >
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={displayName}
-                  className="h-20 w-20 rounded-3xl border-4 border-white/80 object-cover shadow-md"
-                />
-              ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-3xl border-4 border-white/80 bg-white/95 shadow-md">
-                  <span className="text-2xl font-extrabold text-amber-600">
-                    {displayName.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-              )}
-              {isLoggedIn && (
-                <span className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-white text-amber-600 shadow-md">
-                  <Pencil size={15} />
+    <div className="min-h-screen bg-white pb-24">
+      <div className="mx-auto max-w-3xl px-4 pt-4">
+
+        {/* ===== Profile Header ===== */}
+        <div className="flex items-start gap-4">
+          <button
+            type="button"
+            onClick={() => isLoggedIn && navigate('/profile')}
+            className="relative shrink-0"
+          >
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={displayName}
+                className="h-20 w-20 rounded-3xl object-cover border border-gray-100 shadow-sm"
+              />
+            ) : (
+              <div className="flex h-20 w-20 items-center justify-center rounded-3xl border border-gray-100 bg-gray-50 shadow-sm">
+                <span className="text-2xl font-extrabold text-gray-400">
+                  {displayName.charAt(0).toUpperCase()}
                 </span>
-              )}
-            </button>
-
-            <div className="min-w-0 flex-1 pt-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/75">My Account</p>
-              <h1 className="mt-1 truncate text-2xl font-extrabold leading-tight">{displayName}</h1>
-              <p className="mt-1 truncate text-sm text-white/90">{displayEmail}</p>
-              {displayPhone && <p className="text-sm text-white/85">+975 {displayPhone}</p>}
-              {displayDzongkhag && <p className="text-xs text-white/75">Registered dzongkhag: {displayDzongkhag}</p>}
-            </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="rounded-2xl bg-white/15 p-3 backdrop-blur">
-              <div className="flex items-center gap-2 text-xs font-semibold text-white/80">
-                <ShieldCheck size={15} /> Order coverage
               </div>
-              <p className="mt-1 text-xs leading-4 text-white/90">{coverageLine}</p>
-            </div>
-            <div className="rounded-2xl bg-white/15 p-3 backdrop-blur">
-              <div className="flex items-center gap-2 text-xs font-semibold text-white/80">
-                <PackageCheck size={15} /> Delivery
-              </div>
-              <p className="mt-1 text-xs leading-4 text-white/90">{deliveryLine}</p>
-            </div>
+            )}
+            {isLoggedIn && (
+              <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-orange-500 text-white shadow-sm border-2 border-white">
+                <Pencil size={13} strokeWidth={2.5} />
+              </span>
+            )}
+          </button>
+
+          <div className="min-w-0 flex-1 pt-1">
+            <h1 className="truncate text-xl font-bold text-gray-900">{displayName}</h1>
+            <p className="mt-0.5 truncate text-sm text-gray-500">{displayEmail}</p>
+            {displayPhone && <p className="text-sm text-gray-500">+975 {displayPhone}</p>}
+            {displayDzongkhag && <p className="text-xs text-gray-400">{displayDzongkhag}</p>}
           </div>
         </div>
 
+        {/* ===== Auth Buttons ===== */}
         {!isLoggedIn && (
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="mt-5 grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => navigate('/login')}
-              className="h-12 rounded-2xl bg-amber-500 text-sm font-bold text-white shadow-sm"
+              className="h-12 rounded-2xl bg-orange-500 text-sm font-bold text-white transition-colors hover:bg-orange-600"
             >
               Sign In
             </button>
             <button
               type="button"
               onClick={() => navigate('/register')}
-              className="h-12 rounded-2xl bg-white text-sm font-bold text-neutral-800 shadow-sm"
+              className="h-12 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50"
             >
               Register
             </button>
           </div>
         )}
 
+        {/* ===== Primary Actions ===== */}
         {isLoggedIn && (
-          <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="mt-5 grid grid-cols-3 gap-3">
             {primaryActions.map((action) => {
               const Icon = action.icon;
               return (
@@ -288,18 +261,19 @@ export default function Account() {
                   key={action.label}
                   type="button"
                   onClick={() => navigate(action.path)}
-                  className="rounded-2xl bg-white p-3 text-center shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                  className="rounded-2xl bg-white border border-gray-100 p-3 text-center transition-colors hover:bg-gray-50 active:scale-[0.98]"
                 >
-                  <span className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                    <Icon size={18} />
+                  <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
+                    <Icon size={18} strokeWidth={2.5} />
                   </span>
-                  <span className="mt-2 block text-[11px] font-bold text-neutral-800">{action.label}</span>
+                  <span className="mt-2 block text-[11px] font-bold text-gray-700">{action.label}</span>
                 </button>
               );
             })}
           </div>
         )}
 
+        {/* ===== Stats ===== */}
         <div className="mt-4 grid grid-cols-3 gap-3">
           {[
             { label: 'Orders', value: orders.length, path: '/orders' },
@@ -310,56 +284,59 @@ export default function Account() {
               key={stat.label}
               type="button"
               onClick={() => navigate(stat.path)}
-              className="rounded-2xl bg-white p-3 text-center shadow-sm transition hover:bg-neutral-50"
+              className="rounded-2xl bg-white border border-gray-100 p-3 text-center transition-colors hover:bg-gray-50"
             >
-              <p className="text-xl font-extrabold text-amber-600">{stat.value}</p>
-              <p className="text-[11px] font-semibold text-neutral-500">{stat.label}</p>
+              <p className="text-xl font-extrabold text-orange-500">{stat.value}</p>
+              <p className="text-[11px] font-semibold text-gray-500">{stat.label}</p>
             </button>
           ))}
         </div>
 
+        {/* ===== Add Email Prompt ===== */}
         {isLoggedIn && !emailAdded && (
           <button
             type="button"
             onClick={() => navigate('/profile')}
-            className="mt-4 w-full rounded-2xl border border-amber-100 bg-amber-50 p-3 text-left shadow-sm"
+            className="mt-4 w-full rounded-2xl border border-gray-100 bg-white p-4 text-left border-l-4 border-l-orange-400"
           >
-            <p className="text-sm font-bold text-amber-800">Add email for recovery</p>
-            <p className="mt-0.5 text-xs leading-5 text-amber-700">
+            <p className="text-sm font-bold text-gray-900">Add email for recovery</p>
+            <p className="mt-0.5 text-xs leading-5 text-gray-500">
               Email is optional, but adding one helps with password recovery and order updates.
             </p>
           </button>
         )}
 
+        {/* ===== Admin Panel ===== */}
         {canAccessAdmin && (
           <button
             type="button"
             onClick={() => navigate('/admin')}
-            className="mt-4 w-full overflow-hidden rounded-3xl bg-neutral-900 p-4 text-left text-white shadow-lg shadow-neutral-900/15 transition hover:-translate-y-0.5 hover:shadow-xl"
+            className="mt-4 w-full overflow-hidden rounded-2xl bg-gray-900 p-4 text-left text-white transition-colors hover:bg-gray-800"
           >
             <div className="flex items-center gap-3">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-amber-300">
-                <LayoutDashboard size={22} />
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-orange-400">
+                <LayoutDashboard size={22} strokeWidth={2} />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-extrabold">Admin Panel</span>
-                <span className="mt-0.5 block text-xs leading-5 text-white/70">
+                <span className="mt-0.5 block text-xs leading-5 text-gray-400">
                   Manage orders, quotations, payments, products, parcels, and settings.
                 </span>
               </span>
-              <ChevronRight size={18} className="text-white/45" />
+              <ChevronRight size={18} className="text-gray-500" />
             </div>
           </button>
         )}
 
+        {/* ===== Menu Groups ===== */}
         <div className="mt-5 space-y-5">
           {menuGroups.map((group) => (
             <div key={group.title}>
-              <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-400">
+              <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-gray-400">
                 {group.title}
               </p>
 
-              <div className="overflow-hidden rounded-3xl bg-white shadow-sm">
+              <div className="overflow-hidden rounded-2xl bg-white border border-gray-100">
                 {group.items.map((item, index) => {
                   const Icon = item.icon;
 
@@ -368,17 +345,17 @@ export default function Account() {
                       key={item.label}
                       type="button"
                       onClick={() => navigate(item.path)}
-                      className={`flex w-full items-center gap-3 px-4 py-4 text-left transition hover:bg-neutral-50 ${
-                        index < group.items.length - 1 ? 'border-b border-neutral-100' : ''
+                      className={`flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-gray-50 ${
+                        index < group.items.length - 1 ? 'border-b border-gray-100' : ''
                       }`}
                     >
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-neutral-50 text-neutral-500">
-                        <Icon size={19} />
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-50 text-gray-500">
+                        <Icon size={19} strokeWidth={2} />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-bold text-neutral-900">{item.label}</span>
+                        <span className="block text-sm font-bold text-gray-900">{item.label}</span>
                         {item.description && (
-                          <span className="mt-0.5 block truncate text-xs text-neutral-500">{item.description}</span>
+                          <span className="mt-0.5 block truncate text-xs text-gray-500">{item.description}</span>
                         )}
                       </span>
                       {item.badge && unreadCount > 0 && (
@@ -386,7 +363,7 @@ export default function Account() {
                           {unreadCount}
                         </span>
                       )}
-                      <ChevronRight size={17} className="text-neutral-300" />
+                      <ChevronRight size={17} className="text-gray-300" />
                     </button>
                   );
                 })}
@@ -395,20 +372,21 @@ export default function Account() {
           ))}
         </div>
 
+        {/* ===== Logout ===== */}
         {isLoggedIn ? (
           <button
             type="button"
             onClick={handleLogout}
-            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-red-50 font-bold text-red-600 transition hover:bg-red-100"
+            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50"
           >
-            <LogOut size={18} />
+            <LogOut size={18} strokeWidth={2} />
             Logout
           </button>
         ) : (
           <button
             type="button"
             onClick={() => navigate('/login')}
-            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 font-bold text-white transition hover:bg-amber-600"
+            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white transition-colors hover:bg-orange-600"
           >
             <Home size={18} />
             Sign In to Continue
