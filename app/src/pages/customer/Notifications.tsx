@@ -26,6 +26,7 @@ import {
 import type { Notification as AppNotification, NotificationType } from '@/types';
 
 const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
+const SWIPE_THRESHOLD = 80;
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -70,9 +71,6 @@ function notificationTypeLabel(type: NotificationType) {
 /*  Swipeable Notification Card                                        */
 /* ------------------------------------------------------------------ */
 
-const SWIPE_THRESHOLD = 80;
-const MAX_SWIPE = 120;
-
 function SwipeableNotification({
   notification,
   onClick,
@@ -85,32 +83,32 @@ function SwipeableNotification({
   const [offset, setOffset] = useState(0);
   const [deleting, setDeleting] = useState(false);
   const startX = useRef(0);
-  const currentOffset = useRef(0);
   const isDragging = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const style = getNotificationStyle(notification.type, notification.title);
   const Icon = style.icon;
   const formattedTime = formatBhutanDateTime(notification.createdAt);
   const hasLink = Boolean(notification.link);
 
-  const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
+  const handleStart = (clientX: number) => {
     isDragging.current = true;
-    startX.current = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    currentOffset.current = offset;
+    startX.current = clientX;
   };
 
-  const handleTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
+  const handleMove = (clientX: number) => {
     if (!isDragging.current) return;
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const delta = clientX - startX.current;
-    // Only allow left swipe
-    const newOffset = Math.max(-MAX_SWIPE, Math.min(0, currentOffset.current + delta));
+    // Only left swipe
+    if (delta > 0) return;
+    const newOffset = Math.max(-SWIPE_THRESHOLD, delta);
     setOffset(newOffset);
   };
 
-  const handleTouchEnd = () => {
+  const handleEnd = () => {
+    if (!isDragging.current) return;
     isDragging.current = false;
-    if (offset < -SWIPE_THRESHOLD) {
+    if (offset <= -SWIPE_THRESHOLD * 0.6) {
       setOffset(-SWIPE_THRESHOLD);
     } else {
       setOffset(0);
@@ -119,18 +117,16 @@ function SwipeableNotification({
 
   const handleDelete = () => {
     setDeleting(true);
-    setTimeout(() => onDelete(), 250);
+    setTimeout(() => onDelete(), 200);
   };
 
   if (deleting) {
-    return (
-      <div className="h-0 overflow-hidden transition-all duration-300" />
-    );
+    return <div className="h-0 overflow-hidden transition-all duration-200" />;
   }
 
   return (
-    <div className="relative">
-      {/* Delete background */}
+    <div ref={containerRef} className="relative overflow-hidden rounded-2xl">
+      {/* Delete background layer */}
       <div className="absolute inset-0 flex items-center justify-end rounded-2xl bg-red-500 px-5">
         <button
           type="button"
@@ -142,53 +138,60 @@ function SwipeableNotification({
         </button>
       </div>
 
-      {/* Card */}
-      <button
-        type="button"
-        onClick={() => { if (offset === 0) onClick(); }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onMouseDown={handleTouchStart}
-        onMouseMove={handleTouchMove}
-        onMouseUp={handleTouchEnd}
-        onMouseLeave={handleTouchEnd}
-        style={{ transform: `translateX(${offset}px)`, transition: isDragging.current ? 'none' : 'transform 0.2s ease-out' }}
-        className={`relative w-full rounded-2xl border bg-white p-4 text-left shadow-sm ${
-          notification.isRead ? 'border-gray-100 opacity-75' : 'border-gray-100'
-        }`}
+      {/* Card layer */}
+      <div
+        onTouchStart={(e) => handleStart(e.touches[0].clientX)}
+        onTouchMove={(e) => handleMove(e.touches[0].clientX)}
+        onTouchEnd={handleEnd}
+        onMouseDown={(e) => handleStart(e.clientX)}
+        onMouseMove={(e) => { if (e.buttons === 1) handleMove(e.clientX); }}
+        onMouseUp={handleEnd}
+        onMouseLeave={handleEnd}
+        style={{
+          transform: `translateX(${offset}px)`,
+          transition: isDragging.current ? 'none' : 'transform 0.2s ease-out',
+        }}
+        className="relative z-10 w-full"
       >
-        <div className="flex gap-3">
-          <div className={`mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl ${style.bg} ${style.text}`}>
-            <Icon size={20} strokeWidth={2} />
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-bold text-gray-900">{notification.title}</p>
-                  {!notification.isRead && (
-                    <span className="h-2 w-2 rounded-full bg-orange-500" aria-label="Unread" />
-                  )}
-                </div>
-                <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                  {notificationTypeLabel(notification.type)}
-                </p>
-              </div>
-              {hasLink && <ChevronRight size={18} className="mt-1 flex-shrink-0 text-gray-300" />}
+        <button
+          type="button"
+          onClick={() => { if (offset === 0) onClick(); }}
+          className={`w-full rounded-2xl border bg-white p-4 text-left shadow-sm ${
+            notification.isRead ? 'border-gray-100 opacity-75' : 'border-gray-100'
+          }`}
+        >
+          <div className="flex gap-3">
+            <div className={`mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl ${style.bg} ${style.text}`}>
+              <Icon size={20} strokeWidth={2} />
             </div>
 
-            {notification.message && (
-              <p className="mt-2 text-sm leading-5 text-gray-600">{notification.message}</p>
-            )}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-bold text-gray-900">{notification.title}</p>
+                    {!notification.isRead && (
+                      <span className="h-2 w-2 rounded-full bg-orange-500" aria-label="Unread" />
+                    )}
+                  </div>
+                  <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                    {notificationTypeLabel(notification.type)}
+                  </p>
+                </div>
+                {hasLink && <ChevronRight size={18} className="mt-1 flex-shrink-0 text-gray-300" />}
+              </div>
 
-            <p className="mt-3 text-xs font-medium text-gray-400">
-              {formattedTime || 'Just now'}
-            </p>
+              {notification.message && (
+                <p className="mt-2 text-sm leading-5 text-gray-600">{notification.message}</p>
+              )}
+
+              <p className="mt-3 text-xs font-medium text-gray-400">
+                {formattedTime || 'Just now'}
+              </p>
+            </div>
           </div>
-        </div>
-      </button>
+        </button>
+      </div>
     </div>
   );
 }
