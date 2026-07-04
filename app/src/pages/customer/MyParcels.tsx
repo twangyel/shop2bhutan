@@ -1,96 +1,341 @@
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Package, Calendar } from 'lucide-react';
-import { parcelRequests, parcelStatusLabels, parcelStatusColors } from '@/data/parcelData';
-import EmptyState from '@/components/shared/EmptyState';
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  ArrowLeft,
+  Calendar,
+  CheckCircle2,
+  Package,
+  Truck,
+} from 'lucide-react'
+import { fetchMyParcelRequests } from '@/lib/parcels'
+import {
+  parcelSizeLabels,
+  parcelStatusLabels,
+  parcelTypeLabels,
+} from '@/types/parcel'
+import type { ParcelRequest } from '@/types/parcel'
+
+const timeline = ['pending', 'picked_up', 'in_transit', 'delivered'] as const
+
+function formatDate(value?: string | null) {
+  if (!value) return 'Date not fixed'
+
+  return new Date(value).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return ''
+
+  return new Date(value).toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function statusClass(status: string) {
+  if (status === 'delivered') return 'bg-emerald-50 text-emerald-700'
+  if (status === 'picked_up' || status === 'collected') {
+    return 'bg-blue-50 text-blue-700'
+  }
+  if (status === 'in_transit') return 'bg-purple-50 text-purple-700'
+  if (status === 'rejected') return 'bg-red-50 text-red-700'
+  if (status === 'cancelled') return 'bg-neutral-100 text-neutral-600'
+  return 'bg-amber-50 text-amber-700'
+}
+
+function normalizeStatus(status: string) {
+  if (status === 'collected') return 'picked_up'
+  return status
+}
 
 export default function MyParcels() {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
 
-  if (parcelRequests.length === 0) {
-    return (
-      <div className="min-h-screen bg-neutral-50">
-        <div className="px-4 py-4 bg-white border-b border-neutral-200">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="p-1"><ArrowLeft size={22} className="text-neutral-700" /></button>
-            <h1 className="text-lg font-semibold text-gray-900">My Parcels</h1>
-          </div>
-        </div>
-        <EmptyState
-          icon={<Package size={40} className="text-neutral-300" />}
-          title="No parcels yet"
-          description="Book a parcel trip to get started"
-          action={{ label: 'Book a Parcel', onClick: () => navigate('/parcel') }}
-        />
-      </div>
-    );
+  const [requests, setRequests] = useState<ParcelRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  async function loadParcels() {
+    try {
+      setLoading(true)
+      setError('')
+
+      const rows = await fetchMyParcelRequests()
+      setRequests(rows)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load parcels.')
+    } finally {
+      setLoading(false)
+    }
   }
 
+  useEffect(() => {
+    loadParcels()
+  }, [])
+
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <div className="px-4 py-4 bg-white border-b border-neutral-200">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-1"><ArrowLeft size={22} className="text-neutral-700" /></button>
-          <h1 className="text-lg font-semibold text-gray-900">My Parcels</h1>
+    <div className="min-h-screen bg-white pb-24">
+      <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white/95 backdrop-blur">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="-ml-1 rounded-full p-1 hover:bg-neutral-100"
+          >
+            <ArrowLeft size={22} />
+          </button>
+
+          <div>
+            <h1 className="text-lg font-bold text-neutral-900">
+              My Parcels
+            </h1>
+            <p className="text-xs text-neutral-500">
+              Track pickup and delivery status
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="px-4 py-4 space-y-3">
-        {parcelRequests.map((pr) => {
-          const colors = parcelStatusColors[pr.status];
-          return (
-            <div key={pr.id} className="bg-white rounded-xl p-4 shadow-sm">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-neutral-100 rounded-lg flex items-center justify-center">
-                    <Package size={18} className="text-neutral-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">{pr.description}</p>
-                    <p className="text-[11px] text-neutral-500">{pr.trip.name}</p>
-                  </div>
-                </div>
-                <span className={`px-2 py-0.5 ${colors.bg} ${colors.text} text-[10px] font-bold rounded-full`}>
-                  {parcelStatusLabels[pr.status]}
-                </span>
-              </div>
+      <div className="px-4 py-4">
+        {error && (
+          <div className="mb-4 rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
-              <div className="mt-3 pt-3 border-t border-neutral-100 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <Calendar size={12} className="text-neutral-400" />
-                  <span className="text-[11px] text-neutral-600">
-                    Trip: {new Date(pr.trip.goingDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} — {new Date(pr.trip.returnDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                  </span>
-                </div>
-                <p className="text-[11px] text-neutral-500">
-                  Pickup: {pr.pickupAddress}
-                </p>
-                <p className="text-[11px] text-neutral-500">
-                  Size: {pr.parcelSize} · Weight: {pr.weightKg}kg · Type: {pr.parcelType}
-                </p>
-                {pr.instructions && (
-                  <p className="text-[11px] text-amber-600 italic">Note: {pr.instructions}</p>
-                )}
-              </div>
-
-              {/* Status timeline */}
-              <div className="flex items-center gap-1.5 mt-3">
-                {(['pending', 'collected', 'in_transit', 'delivered'] as const).map((s, i) => {
-                  const isDone = ['pending', 'collected', 'in_transit', 'delivered'].indexOf(pr.status) >= i;
-                  return (
-                    <div key={s} className="flex items-center gap-1.5 flex-1">
-                      <div className={`w-2 h-2 rounded-full ${isDone ? 'bg-amber-500' : 'bg-neutral-200'}`} />
-                      <span className={`text-[9px] ${isDone ? 'text-neutral-700 font-medium' : 'text-neutral-400'}`}>
-                        {parcelStatusLabels[s]}
-                      </span>
-                      {i < 3 && <div className={`flex-1 h-px ${isDone ? 'bg-amber-300' : 'bg-neutral-200'}`} />}
-                    </div>
-                  );
-                })}
-              </div>
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((item) => (
+              <div
+                key={item}
+                className="h-56 animate-pulse rounded-3xl bg-neutral-100"
+              />
+            ))}
+          </div>
+        ) : requests.length === 0 ? (
+          <div className="rounded-3xl border border-neutral-100 bg-neutral-50 p-6 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-neutral-400">
+              <Package size={24} />
             </div>
-          );
-        })}
+
+            <h3 className="mt-3 text-sm font-bold text-neutral-800">
+              No parcels yet
+            </h3>
+
+            <p className="mt-1 text-xs leading-relaxed text-neutral-500">
+              Book a parcel once admin opens a Thimphu to Phuentsholing trip
+              date.
+            </p>
+
+            <button
+              onClick={() => navigate('/parcel')}
+              className="mt-4 rounded-2xl bg-orange-500 px-4 py-2 text-sm font-bold text-white"
+            >
+              Book a Parcel
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {requests.map((request) => (
+              <ParcelCard key={request.id} request={request} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
-  );
+  )
+}
+
+function ParcelCard({ request }: { request: ParcelRequest }) {
+  const displayStatus = normalizeStatus(request.status)
+  const currentIndex = timeline.indexOf(displayStatus as (typeof timeline)[number])
+  const isException =
+    request.status === 'cancelled' || request.status === 'rejected'
+
+  const title =
+    request.packageDescription || request.description || 'Parcel request'
+
+  return (
+    <article className="overflow-hidden rounded-3xl border border-neutral-100 bg-white shadow-sm">
+      {request.parcelPhotoUrl && (
+        <img
+          src={request.parcelPhotoUrl}
+          alt={title}
+          className="h-36 w-full bg-neutral-100 object-cover"
+        />
+      )}
+
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-neutral-400">
+              {request.parcelNo || 'Parcel Request'}
+            </p>
+
+            <h2 className="mt-1 text-base font-bold text-neutral-900">
+              {title}
+            </h2>
+          </div>
+
+          <span
+            className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${statusClass(
+              request.status,
+            )}`}
+          >
+            {parcelStatusLabels[request.status] || request.status}
+          </span>
+        </div>
+
+        <div className="mt-3 space-y-2 rounded-2xl bg-neutral-50 p-3">
+          <div className="flex items-center gap-2 text-xs text-neutral-600">
+            <Calendar size={14} />
+            <span>Trip: {formatDate(request.trip?.goingDate)}</span>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-neutral-600">
+            <Truck size={14} />
+            <span>
+              {request.trip?.origin ||
+                request.trip?.fromLocation ||
+                'Thimphu'}{' '}
+              →{' '}
+              {request.trip?.destination ||
+                request.trip?.toLocation ||
+                'Phuentsholing'}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-neutral-100 p-3">
+          <div className="flex gap-3">
+            <div className="flex flex-col items-center pt-1">
+              <span className="h-3 w-3 rounded-full bg-emerald-500" />
+              <span className="h-12 w-px bg-neutral-200" />
+              <span className="h-3 w-3 rounded-full bg-orange-500" />
+            </div>
+
+            <div className="flex-1 space-y-3">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                  Pickup
+                </p>
+                <p className="text-sm font-semibold text-neutral-900">
+                  {request.pickupAddress || 'Pickup address'}
+                </p>
+                <p className="text-xs text-neutral-500">
+                  {request.senderName || 'Pickup contact'} ·{' '}
+                  {request.senderPhone || request.contactNumber || 'Phone'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                  Drop-off
+                </p>
+                <p className="text-sm font-semibold text-neutral-900">
+                  {request.dropoffAddress || 'Drop-off address'}
+                </p>
+                <p className="text-xs text-neutral-500">
+                  {request.receiverName || 'Receiver'} ·{' '}
+                  {request.receiverPhone || 'Phone'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {request.parcelType && (
+            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+              {parcelTypeLabels[request.parcelType] || request.parcelType}
+            </span>
+          )}
+
+          <span className="rounded-full bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700">
+            {parcelSizeLabels[request.parcelSize] || request.parcelSize}
+          </span>
+        </div>
+
+        <div className="mt-5">
+          <p className="mb-3 text-xs font-bold uppercase tracking-wider text-neutral-400">
+            Progress
+          </p>
+
+          {isException ? (
+            <div
+              className={`rounded-2xl px-3 py-2 text-sm font-semibold ${statusClass(
+                request.status,
+              )}`}
+            >
+              {parcelStatusLabels[request.status] || request.status}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {timeline.map((status, index) => {
+                const done = currentIndex >= index
+                const event = request.trackingEvents?.find(
+                  (item) => normalizeStatus(item.status) === status,
+                )
+
+                return (
+                  <div key={status} className="flex gap-3">
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`flex h-7 w-7 items-center justify-center rounded-full ${
+                          done
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-neutral-100 text-neutral-400'
+                        }`}
+                      >
+                        {done ? (
+                          <CheckCircle2 size={16} />
+                        ) : (
+                          <span className="h-2 w-2 rounded-full bg-current" />
+                        )}
+                      </div>
+
+                      {index < timeline.length - 1 && (
+                        <div
+                          className={`h-7 w-px ${
+                            done ? 'bg-emerald-200' : 'bg-neutral-200'
+                          }`}
+                        />
+                      )}
+                    </div>
+
+                    <div>
+                      <p
+                        className={`text-sm font-bold ${
+                          done ? 'text-neutral-900' : 'text-neutral-400'
+                        }`}
+                      >
+                        {parcelStatusLabels[status] || status}
+                      </p>
+
+                      {event && (
+                        <p className="text-xs text-neutral-400">
+                          {formatDateTime(event.createdAt)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {(request.customerNotes || request.instructions) && (
+          <p className="mt-4 rounded-2xl bg-neutral-50 p-3 text-xs text-neutral-600">
+            Note: {request.customerNotes || request.instructions}
+          </p>
+        )}
+      </div>
+    </article>
+  )
 }

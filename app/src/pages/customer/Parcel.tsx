@@ -1,116 +1,275 @@
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, MapPin, ArrowRight, Package } from 'lucide-react';
-import { parcelTrips } from '@/data/parcelData';
-import { parcelRequests } from '@/data/parcelData';
-import { parcelStatusLabels, parcelStatusColors } from '@/data/parcelData';
-import EmptyState from '@/components/shared/EmptyState';
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Calendar,
+  MapPin,
+  Package,
+  Truck,
+} from 'lucide-react'
+import {
+  fetchMyParcelRequests,
+  fetchOpenParcelTrips,
+} from '@/lib/parcels'
+import type { ParcelRequest, ParcelTrip } from '@/types/parcel'
+import { parcelStatusLabels } from '@/types/parcel'
+
+function formatDate(value?: string | null) {
+  if (!value) return 'Date not fixed'
+
+  return new Date(value).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function statusClass(status: string) {
+  if (status === 'delivered') return 'bg-emerald-50 text-emerald-700'
+  if (status === 'picked_up') return 'bg-blue-50 text-blue-700'
+  if (status === 'in_transit') return 'bg-purple-50 text-purple-700'
+  if (status === 'rejected') return 'bg-red-50 text-red-700'
+  if (status === 'cancelled') return 'bg-neutral-100 text-neutral-600'
+  return 'bg-amber-50 text-amber-700'
+}
 
 export default function Parcel() {
-  const navigate = useNavigate();
-  const activeTrips = parcelTrips.filter((t) => t.isActive);
-  const myRequests = parcelRequests;
+  const navigate = useNavigate()
+
+  const [trips, setTrips] = useState<ParcelTrip[]>([])
+  const [requests, setRequests] = useState<ParcelRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  async function loadParcelHome() {
+    try {
+      setLoading(true)
+      setError('')
+
+      const [tripRows, requestRows] = await Promise.all([
+        fetchOpenParcelTrips(),
+        fetchMyParcelRequests().catch(() => []),
+      ])
+
+      setTrips(tripRows)
+      setRequests(requestRows)
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to load parcel trips.',
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadParcelHome()
+  }, [])
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <div className="bg-white border-b border-neutral-200 px-4 py-3">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/')} className="p-1 -ml-1">
-            <ArrowLeft size={22} className="text-neutral-700" />
+    <div className="min-h-screen bg-white pb-24">
+      <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white/95 backdrop-blur">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <button
+            onClick={() => navigate('/')}
+            className="-ml-1 rounded-full p-1 hover:bg-neutral-100"
+          >
+            <ArrowLeft size={22} />
           </button>
-          <h1 className="text-lg font-semibold text-gray-900">Parcel Service</h1>
+
+          <div>
+            <h1 className="text-lg font-bold text-neutral-900">
+              Parcel Pickup
+            </h1>
+            <p className="text-xs text-neutral-500">
+              Thimphu to Phuentsholing delivery
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="px-4 py-4 space-y-4">
-        {/* My Recent Parcels */}
-        {myRequests.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-[15px] font-bold text-gray-900">My Parcels</h3>
-              <button onClick={() => navigate('/my-parcels')} className="text-xs font-semibold text-amber-600">
-                View All
-              </button>
+      <div className="space-y-5 px-4 py-4">
+        <div className="rounded-3xl border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-blue-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-sm">
+              <Truck size={22} />
             </div>
-            <div className="space-y-2">
-              {myRequests.slice(0, 2).map((pr) => {
-                const colors = parcelStatusColors[pr.status];
-                return (
-                  <button
-                    key={pr.id}
-                    onClick={() => navigate('/my-parcels')}
-                    className="w-full bg-white rounded-xl p-3 shadow-sm flex items-center gap-3 text-left hover:shadow-md transition-shadow"
-                  >
-                    <div className="w-10 h-10 bg-neutral-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Package size={18} className="text-neutral-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{pr.description}</p>
-                      <p className="text-[11px] text-neutral-500">{pr.trip.name}</p>
-                    </div>
-                    <span className={`px-2 py-0.5 ${colors.bg} ${colors.text} text-[10px] font-bold rounded-full`}>
-                      {parcelStatusLabels[pr.status]}
-                    </span>
-                  </button>
-                );
-              })}
+
+            <div className="flex-1">
+              <p className="text-sm font-bold text-neutral-900">
+                Scheduled lightweight parcel delivery
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-neutral-600">
+                Book documents, small electronics, or medicine for an
+                admin-fixed trip date. Parcel photo and declaration are
+                required.
+              </p>
             </div>
+          </div>
+        </div>
+
+        {error && (
+          <div className="rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
           </div>
         )}
 
-        {/* Available Trips */}
-        <div>
-          <h3 className="text-[15px] font-bold text-gray-900 mb-3">Available Trips</h3>
-          <p className="text-[12px] text-neutral-500 mb-3 -mt-2">Select a trip to book your parcel</p>
+        {requests.length > 0 && (
+          <section>
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-sm font-bold text-neutral-900">
+                My Recent Parcels
+              </h2>
 
-          {activeTrips.length === 0 ? (
-            <EmptyState
-              icon={<Calendar size={40} className="text-neutral-300" />}
-              title="No trips available"
-              description="Check back soon for new parcel trips."
-            />
+              <button
+                onClick={() => navigate('/my-parcels')}
+                className="text-xs font-semibold text-orange-600"
+              >
+                View All
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {requests.slice(0, 2).map((request) => (
+                <button
+                  key={request.id}
+                  onClick={() => navigate('/my-parcels')}
+                  className="flex w-full items-center gap-3 rounded-2xl border border-neutral-100 bg-white p-3 text-left shadow-sm transition active:scale-[0.99]"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                    <Package size={20} />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-neutral-900">
+                      {request.packageDescription ||
+                        request.description ||
+                        'Parcel request'}
+                    </p>
+                    <p className="truncate text-xs text-neutral-500">
+                      {request.trip?.title ||
+                        request.trip?.name ||
+                        'Parcel trip'}
+                    </p>
+                  </div>
+
+                  <span
+                    className={`rounded-full px-2 py-1 text-[11px] font-bold ${statusClass(
+                      request.status,
+                    )}`}
+                  >
+                    {parcelStatusLabels[request.status] || request.status}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section>
+          <div className="mb-3">
+            <h2 className="text-sm font-bold text-neutral-900">
+              Available Trip Dates
+            </h2>
+            <p className="text-xs text-neutral-500">
+              Select the date fixed by admin.
+            </p>
+          </div>
+
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2].map((item) => (
+                <div
+                  key={item}
+                  className="h-32 animate-pulse rounded-3xl bg-neutral-100"
+                />
+              ))}
+            </div>
+          ) : trips.length === 0 ? (
+            <div className="rounded-3xl border border-neutral-100 bg-neutral-50 p-6 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-neutral-400">
+                <Calendar size={24} />
+              </div>
+
+              <h3 className="mt-3 text-sm font-bold text-neutral-800">
+                No parcel trips available
+              </h3>
+
+              <p className="mt-1 text-xs leading-relaxed text-neutral-500">
+                Trip dates will appear here once admin opens booking.
+              </p>
+            </div>
           ) : (
             <div className="space-y-3">
-              {activeTrips.map((trip) => (
+              {trips.map((trip) => (
                 <button
                   key={trip.id}
                   onClick={() => navigate(`/parcel-booking/${trip.id}`)}
-                  className="w-full bg-white rounded-xl p-4 shadow-sm border border-neutral-100 hover:border-amber-200 hover:shadow-md active:scale-[0.98] transition-all text-left"
+                  className="w-full rounded-3xl border border-neutral-100 bg-white p-4 text-left shadow-sm transition hover:border-orange-200 active:scale-[0.99]"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-bold text-gray-900">{trip.name}</h4>
-                      <p className="text-[11px] text-neutral-500 mt-0.5">{trip.description}</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-bold text-neutral-900">
+                        {trip.title || trip.name || 'Thimphu to Phuentsholing'}
+                      </h3>
+                      <p className="mt-1 text-xs text-neutral-500">
+                        Admin fixed trip date
+                      </p>
+                    </div>
 
-                      <div className="flex items-center gap-1.5 mt-2">
-                        <MapPin size={12} className="text-amber-500" />
-                        <span className="text-[11px] text-neutral-600">{trip.fromLocation}</span>
-                        <ArrowRight size={10} className="text-neutral-400" />
-                        <span className="text-[11px] text-neutral-600">{trip.toLocation}</span>
+                    <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
+                      <ArrowRight size={18} />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl bg-neutral-50 p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex flex-col items-center">
+                        <span className="h-3 w-3 rounded-full bg-emerald-500" />
+                        <span className="h-8 w-px bg-neutral-300" />
+                        <span className="h-3 w-3 rounded-full bg-orange-500" />
                       </div>
 
-                      <div className="flex items-center gap-3 mt-2">
-                        <div className="flex items-center gap-1">
-                          <Calendar size={11} className="text-emerald-500" />
-                          <span className="text-[11px] text-neutral-600">
-                            Go: {new Date(trip.goingDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                          </span>
+                      <div className="flex-1 space-y-3">
+                        <div>
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">
+                            Pickup
+                          </p>
+                          <p className="text-sm font-semibold text-neutral-900">
+                            {trip.origin || trip.fromLocation || 'Thimphu'}
+                          </p>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar size={11} className="text-blue-500" />
-                          <span className="text-[11px] text-neutral-600">
-                            Return: {new Date(trip.returnDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                          </span>
+
+                        <div>
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">
+                            Drop-off
+                          </p>
+                          <p className="text-sm font-semibold text-neutral-900">
+                            {trip.destination ||
+                              trip.toLocation ||
+                              'Phuentsholing'}
+                          </p>
                         </div>
                       </div>
                     </div>
-                    <ArrowRight size={18} className="text-amber-500 flex-shrink-0 mt-1" />
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-2 text-xs text-neutral-600">
+                    <Calendar size={14} />
+                    <span>{formatDate(trip.goingDate)}</span>
+                  </div>
+
+                  <div className="mt-1 flex items-center gap-2 text-xs text-neutral-500">
+                    <MapPin size={14} />
+                    <span>Documents, small electronics, medicine only</span>
                   </div>
                 </button>
               ))}
             </div>
           )}
-        </div>
+        </section>
       </div>
     </div>
-  );
+  )
 }
