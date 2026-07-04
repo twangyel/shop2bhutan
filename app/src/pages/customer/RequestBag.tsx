@@ -753,9 +753,10 @@ export default function RequestBag() {
         )}
       </div>
 
+      {/* ===== CLEANED CONFIRMATION DIALOG ===== */}
       {confirmOpen && (
         <div
-          className="fixed inset-0 z-[90] flex items-end justify-center bg-gray-950/45 px-4 pt-16"
+          className="fixed inset-0 z-[90] flex items-end justify-center bg-gray-950/50 px-4 pt-20"
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-quotation-title"
@@ -767,69 +768,79 @@ export default function RequestBag() {
             aria-label="Close confirmation"
           />
 
-          <div className="relative flex max-h-[82vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-gray-100 bg-white shadow-2xl">
-            <div className="flex-1 overflow-y-auto p-4 pb-3">
-              <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-gray-200" />
+          <div className="relative flex max-h-[78vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[28px] border border-gray-100 bg-white shadow-2xl">
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto p-5 pb-2">
+              <div className="mx-auto mb-5 h-1.5 w-10 rounded-full bg-gray-200" />
 
-              <div className="flex items-start gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
-                  <Package size={21} strokeWidth={2.4} />
+              {/* Header */}
+              <div className="flex items-start gap-3.5">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
+                  <Package size={22} strokeWidth={2.2} />
                 </span>
-
                 <div className="min-w-0 flex-1">
-                  <h2 id="confirm-quotation-title" className="text-base font-extrabold text-gray-900">
+                  <h2 id="confirm-quotation-title" className="text-lg font-extrabold text-gray-900">
                     Confirm quotation request?
                   </h2>
                   <p className="mt-1 text-sm leading-6 text-gray-500">
-                    You are sending {itemCount} item{itemCount === 1 ? '' : 's'} to Shop2Bhutan for admin review. We will check price, availability, service charge, and delivery fee before sending your quotation.
+                    You are sending <span className="font-semibold text-gray-700">{itemCount} item{itemCount === 1 ? '' : 's'}</span> to Shop2Bhutan for admin review. We will check price, availability, service charge, and delivery fee before sending your quotation.
                   </p>
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-gray-100 bg-white p-3">
+              {/* Summary cards */}
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Items</p>
-                  <p className="mt-1 text-lg font-extrabold text-gray-900">
-                    {itemCount}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {totalQuantity} total qty
-                  </p>
+                  <p className="mt-1 text-2xl font-extrabold text-gray-900">{itemCount}</p>
+                  <p className="mt-0.5 text-xs text-gray-500">{totalQuantity} total qty</p>
                 </div>
 
-                <div className="rounded-2xl border border-gray-100 bg-white p-3">
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Site estimate</p>
-                  <p className="mt-1 text-lg font-extrabold text-gray-900">
-                    {estimatedSiteTotal > 0 ? formatPrice(estimatedSiteTotal) : 'Optional'}
+                  <p className="mt-1 text-2xl font-extrabold text-gray-900">
+                    {estimatedSiteTotal > 0 ? formatPrice(estimatedSiteTotal) : '—'}
                   </p>
-                  <p className="text-xs text-gray-500">Final quote may change</p>
+                  <p className="mt-0.5 text-xs text-gray-500">Final quote may change</p>
                 </div>
               </div>
 
-              <div className="mt-3 rounded-2xl border border-emerald-100 bg-white p-3">
-                <div className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                    <CheckCircle size={18} strokeWidth={2.5} />
-                  </span>
+              {/* Divider */}
+              <div className="my-5 h-px bg-gray-100" />
 
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-extrabold text-gray-900">{customer.name || 'Customer'}</p>
-                    {customer.phone && <p className="mt-0.5 text-xs font-semibold text-emerald-700">{customer.phone}</p>}
-                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500">
-                      {customer.deliveryAddress}
-                    </p>
-                  </div>
+              {/* Delivery info */}
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                  <CheckCircle size={18} strokeWidth={2.5} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-gray-900">{customer.name || 'Customer'}</p>
+                  {customer.phone && (
+                    <p className="mt-0.5 text-xs font-medium text-gray-600">{customer.phone}</p>
+                  )}
+                  <p className="mt-1.5 text-xs leading-5 text-gray-500">
+                    {customer.deliveryAddress}
+                  </p>
                 </div>
               </div>
 
-              <div className="mt-4 rounded-2xl border border-orange-100 bg-orange-50 px-3 py-2">
-                <p className="text-xs leading-5 text-orange-800">
+              {/* Warning banner — cleaner */}
+              <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
+                <span className="mt-0.5 text-amber-500">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                </span>
+                <p className="text-xs leading-5 text-amber-800">
                   This is not a payment or final order. Admin will send a quotation for your approval first.
                 </p>
               </div>
             </div>
 
-            <div className="border-t border-gray-100 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            {/* Button area — extra bottom padding to prevent cutoff */}
+            <div className="shrink-0 border-t border-gray-100 bg-white p-5 pb-8">
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
