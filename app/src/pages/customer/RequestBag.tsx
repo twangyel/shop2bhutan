@@ -209,7 +209,7 @@ function BagItemCard({
  value={item.productName}
  onChange={(e) => onPatch(item.id, { productName: e.target.value })}
  onBlur={() => onPatch(item.id, { productName: item.productName })}
- className="w-full border-0 p-0 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-0"
+ className="w-full border-0 p-0 text-sm font-semibold text-gray-900 outline-none"
  placeholder="Product name"
  />
 
@@ -657,7 +657,7 @@ export default function RequestBag() {
  Add another product
  </button>
 
- <div className="rounded-2xl border border-gray-100 bg-white p-4">
+ <div className="rounded-2xl border border-gray-100 bg-white p-4 ">
  <div className="flex items-start justify-between gap-3">
  <div>
  <h3 className="text-base font-semibold text-gray-900">Contact & Delivery</h3>
@@ -754,104 +754,106 @@ export default function RequestBag() {
  </div>
 
  {confirmOpen && (
+ <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+ {/* Backdrop */}
  <div
- className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/60 px-4 pb-8 pt-20"
- role="dialog"
- aria-modal="true"
- aria-labelledby="confirm-quotation-title"
->
- <button
- type="button"
- className="absolute inset-0 h-full w-full cursor-default"
+ className="absolute inset-0 bg-gray-950/60"
  onClick={() => !submitting && setConfirmOpen(false)}
- aria-label="Close confirmation"
  />
 
- <div className="relative w-full max-w-lg rounded-3xl border border-gray-100 bg-white p-4">
- <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-gray-200" />
+ {/* Bottom sheet */}
+ <div className="absolute bottom-0 left-0 right-0 flex justify-center px-4 pb-6">
+ <div className="relative w-full max-w-lg rounded-t-3xl border-t border-gray-100 bg-white p-5">
+ {/* Drag handle */}
+ <div className="mx-auto mb-5 h-1.5 w-10 rounded-full bg-gray-300" />
 
- <div className="flex items-start gap-3">
- <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
- <Package size={21} strokeWidth={2.4} />
- </span>
-
- <div className="min-w-0 flex-1">
- <h2 id="confirm-quotation-title" className="text-base font-extrabold text-gray-900">
- Confirm quotation request?
+ {/* Header */}
+ <div className="flex items-center gap-3 mb-4">
+ <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-100">
+ <Package size={20} className="text-orange-500" />
+ </div>
+ <div className="min-w-0">
+ <h2 id="confirm-title" className="text-lg font-bold text-gray-900">
+ Confirm quotation request
  </h2>
- <p className="mt-1 text-sm leading-6 text-gray-500">
- You are sending {itemCount} item{itemCount === 1 ? '' : 's'} to Shop2Bhutan for admin review. We will check price, availability, service charge, and delivery fee before sending your quotation.
+ <p className="text-sm text-gray-500">
+ {itemCount} item{itemCount === 1 ? '' : 's'} for admin review
  </p>
  </div>
  </div>
 
- <div className="mt-4 grid grid-cols-2 gap-3">
- <div className="rounded-2xl border border-gray-100 bg-white p-3">
- <p className="text-[11px] font-bold text-gray-400">Items</p>
- <p className="mt-1 text-lg font-extrabold text-gray-900">
- {itemCount}
+ {/* Description */}
+ <p className="text-sm text-gray-500 mb-5 leading-relaxed">
+ We will check price, availability, service charge, and delivery fee before sending your quotation.
  </p>
- <p className="text-xs text-gray-500">
- {totalQuantity} total qty
- </p>
- </div>
 
- <div className="rounded-2xl border border-gray-100 bg-white p-3">
- <p className="text-[11px] font-bold text-gray-400">Site estimate</p>
- <p className="mt-1 text-lg font-extrabold text-gray-900">
- {estimatedSiteTotal> 0 ? formatPrice(estimatedSiteTotal) : 'Optional'}
+ {/* Summary */}
+ <div className="grid grid-cols-2 gap-3 mb-4">
+ <div className="rounded-2xl bg-gray-50 p-4">
+ <p className="text-xs text-gray-400 mb-1">Items</p>
+ <p className="text-2xl font-bold text-gray-900">{itemCount}</p>
+ <p className="text-xs text-gray-500">{totalQuantity} total qty</p>
+ </div>
+ <div className="rounded-2xl bg-gray-50 p-4">
+ <p className="text-xs text-gray-400 mb-1">Site estimate</p>
+ <p className="text-2xl font-bold text-gray-900">
+ {estimatedSiteTotal> 0 ? formatPrice(estimatedSiteTotal) : '—'}
  </p>
  <p className="text-xs text-gray-500">Final quote may change</p>
  </div>
  </div>
 
- <div className="mt-3 rounded-2xl border border-emerald-100 bg-white p-3">
+ {/* Delivery info */}
+ <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 mb-4">
  <div className="flex items-start gap-3">
- <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
- <CheckCircle size={18} strokeWidth={2.5} />
- </span>
-
- <div className="min-w-0 flex-1">
- <p className="text-sm font-extrabold text-gray-900">{customer.name || 'Customer'}</p>
- {customer.phone && <p className="mt-0.5 text-xs font-semibold text-emerald-700">{customer.phone}</p>}
- <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500">
+ <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+ <CheckCircle size={16} strokeWidth={2.5} />
+ </div>
+ <div className="min-w-0">
+ <p className="text-sm font-bold text-gray-900">{customer.name || 'Customer'}</p>
+ {customer.phone && (
+ <p className="text-xs font-semibold text-emerald-700">{customer.phone}</p>
+ )}
+ <p className="text-xs text-gray-500 mt-1 leading-relaxed">
  {customer.deliveryAddress}
  </p>
  </div>
  </div>
  </div>
 
- <div className="mt-4 rounded-2xl border border-orange-100 bg-orange-50 px-3 py-2">
- <p className="text-xs leading-5 text-orange-800">
+ {/* Warning */}
+ <div className="rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 mb-5">
+ <p className="text-xs text-orange-700 leading-relaxed">
  This is not a payment or final order. Admin will send a quotation for your approval first.
  </p>
  </div>
 
- <div className="mt-4 grid grid-cols-2 gap-3">
+ {/* Actions */}
+ <div className="grid grid-cols-2 gap-3">
  <button
  type="button"
  onClick={() => setConfirmOpen(false)}
  disabled={submitting}
- className="h-12 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+ className="h-12 rounded-2xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
 >
  Cancel
  </button>
-
  <button
  type="button"
  onClick={submitBag}
  disabled={submitting}
- className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
+ className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
 >
  {submitting ? (
  <>
- <Loader2 size={17} className="animate-spin" />
+ <Loader2 size={16} className="animate-spin" />
  Sending...
  </>
  ) : (
  'Send Request'
  )}
  </button>
+ </div>
  </div>
  </div>
  </div>
