@@ -15,7 +15,6 @@ import {
   ShieldCheck,
   Trash2,
   Truck,
-  X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';

@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Check,
   Clock,
+  CreditCard,
   ExternalLink,
   FileText,
   Info,
@@ -386,6 +387,25 @@ export default function QuotationReview() {
               <p className="shrink-0 whitespace-nowrap text-xl font-black tracking-tight text-amber-600 sm:text-2xl">
                 {money(quotation.totalAmount)}
               </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-neutral-100">
+          <div className="mb-3 flex items-center gap-2">
+            <CreditCard size={18} className="text-blue-500" />
+            <h3 className="text-base font-semibold text-gray-900">Payment options</h3>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-100">
+              <p className="text-xs font-semibold text-emerald-700">Full payment</p>
+              <p className="mt-1 text-lg font-black text-emerald-800">{money(quotation.totalAmount)}</p>
+              <p className="mt-1 text-xs leading-5 text-emerald-700">Pay full quotation amount now and keep the balance clear.</p>
+            </div>
+            <div className="rounded-2xl bg-blue-50 p-3 ring-1 ring-blue-100">
+              <p className="text-xs font-semibold text-blue-700">50% advance accepted</p>
+              <p className="mt-1 text-lg font-black text-blue-800">{money(Math.ceil(quotation.totalAmount * 0.5))}</p>
+              <p className="mt-1 text-xs leading-5 text-blue-700">We can start fulfillment after verified advance. Remaining balance stays visible until paid.</p>
             </div>
           </div>
         </section>

@@ -566,6 +566,15 @@ export default function OrderDetail() {
               </div>
             )}
 
+            {paymentSummary.coverage === 'partial_paid' && (
+              <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 p-3">
+                <p className="text-sm font-semibold text-blue-800">Partial payment verified</p>
+                <p className="mt-1 text-xs leading-5 text-blue-700">
+                  Fulfillment can continue after verified advance payment, but collect the remaining balance of {formatAmount(paymentSummary.balanceDue)} before final handover.
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
               <div className="rounded-lg bg-neutral-50 p-3">
                 <p className="text-xs text-neutral-500">Quotation Total</p>
@@ -680,7 +689,11 @@ export default function OrderDetail() {
                 <p className="mt-1 text-xs text-neutral-500">Update the post-payment journey after ordering from the Indian seller.</p>
               </div>
               <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${fulfillmentReady ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
-                {fulfillmentReady ? 'Ready after payment' : 'Waiting for verified payment'}
+                {fulfillmentReady
+                  ? paymentSummary.coverage === 'partial_paid'
+                    ? 'Ready after partial payment'
+                    : 'Ready after payment'
+                  : 'Waiting for verified payment'}
               </span>
             </div>
 

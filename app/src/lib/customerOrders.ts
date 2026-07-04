@@ -2805,6 +2805,27 @@ async function insertPaymentWithKnownSchema(payload: {
 
 export async function submitCustomerPaymentProof(input: PaymentProofInput) {
   const { order, userId, file, paymentMethodName, paymentMethodId, paymentMethodType, transactionId, amount, note } = input
+  const paymentAmount = numericAmount(amount)
+  const payments = order.payments ?? (order.payment ? [order.payment] : [])
+  const paymentSummary = calculatePaymentSummary({
+    quotationTotal: order.paymentSummary?.totalPayable ?? order.quotation?.totalAmount ?? 0,
+    payments,
+  })
+  const firstVerifiedPayment = paymentSummary.verifiedPaid <= 0
+  const minimumInitialPayment = paymentSummary.totalPayable > 0 ? Math.ceil(paymentSummary.totalPayable * 0.5) : 0
+
+  if (paymentAmount <= 0) {
+    throw new Error('Payment amount must be greater than 0.')
+  }
+
+  if (paymentSummary.balanceDue > 0 && paymentAmount > paymentSummary.balanceDue) {
+    throw new Error(`Payment amount cannot be more than the remaining balance of Nu. ${paymentSummary.balanceDue.toLocaleString()}.`)
+  }
+
+  if (firstVerifiedPayment && minimumInitialPayment > 0 && paymentAmount < minimumInitialPayment) {
+    throw new Error(`Minimum first payment is 50% of the quotation: Nu. ${minimumInitialPayment.toLocaleString()}.`)
+  }
+
   const path = makeStoragePath(userId, order.id, file, 'payment')
 
   const { error: uploadError } = await supabase.storage.from('order-screenshots').upload(path, file, {
@@ -2820,7 +2841,7 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
       orderId: order.id,
       quotationId: order.quotation?.id,
       userId,
-      amount,
+      amount: paymentAmount,
       paymentMethodName,
       paymentMethodId,
       paymentMethodType,
@@ -2842,7 +2863,10 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
   }
 
   try {
-    await updateCustomerOrderStatus(order.id, 'payment_pending')
+    const context = await getOrderPaymentReviewContext(order.id)
+    if (!isPastPaymentStage(context.orderStatus)) {
+      await updateCustomerOrderStatus(order.id, 'payment_pending')
+    }
   } catch (error) {
     console.warn('[customerOrders] order status update skipped:', error)
   }
@@ -2850,6 +2874,45 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
   return { path }
 }
 
+
+const ORDER_PROGRESS_SEQUENCE: OrderStatus[] = [
+  'pending_confirmation',
+  'quotation_pending',
+  'quoted',
+  'payment_pending',
+  'payment_verified',
+  'order_placed',
+  'in_transit',
+  'arrived_at_hub',
+  'out_for_delivery',
+  'delivered',
+]
+
+function orderProgressIndex(status: OrderStatus) {
+  const index = ORDER_PROGRESS_SEQUENCE.indexOf(status)
+  return index >= 0 ? index : 0
+}
+
+function isPastPaymentStage(status: OrderStatus) {
+  return orderProgressIndex(status) > orderProgressIndex('payment_verified')
+}
+
+async function getOrderPaymentReviewContext(orderId: string) {
+  const orderResult = await supabase.from('orders').select('status, order_status').eq('id', orderId).maybeSingle()
+  const rawOrderStatus = orderResult.error
+    ? 'payment_pending'
+    : firstValue(orderResult.data as AnyRow | null, ['status', 'order_status'])
+  const orderStatus = normalizeOrderStatus(rawOrderStatus)
+
+  const paymentsResult = await supabase.from('payments').select('status, amount').eq('order_id', orderId)
+  const rows = paymentsResult.error ? [] : ((paymentsResult.data ?? []) as AnyRow[])
+  const hasVerifiedPayment = rows.some((row) => normalizePaymentStatus(firstValue(row, ['status'])) === 'verified')
+
+  return {
+    orderStatus,
+    hasVerifiedPayment,
+  }
+}
 
 async function updateOrderStatusAfterPaymentReview(paymentId: string, status: PaymentStatus) {
   const { data, error } = await supabase
@@ -2866,7 +2929,17 @@ async function updateOrderStatusAfterPaymentReview(paymentId: string, status: Pa
   const orderId = firstString(data as AnyRow | null, ['order_id'], '')
   if (!orderId) return
 
-  const nextOrderStatus: OrderStatus = status === 'verified' ? 'payment_verified' : 'payment_pending'
+  const context = await getOrderPaymentReviewContext(orderId)
+
+  // Never move an order backwards once fulfillment has started. This is important
+  // when the customer uploads the remaining balance after admin already marked
+  // the order as ordered / in transit / out for delivery.
+  if (isPastPaymentStage(context.orderStatus)) return
+
+  const nextOrderStatus: OrderStatus =
+    status === 'verified' || context.hasVerifiedPayment ? 'payment_verified' : 'payment_pending'
+
+  if (nextOrderStatus === context.orderStatus) return
 
   try {
     await updateCustomerOrderStatus(orderId, nextOrderStatus)

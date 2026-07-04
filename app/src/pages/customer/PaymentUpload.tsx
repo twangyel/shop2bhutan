@@ -7,6 +7,7 @@ import type { Order, PaymentMethod } from '@/types';
 
 const ALLOWED_SCREENSHOT_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024;
+const MIN_INITIAL_PAYMENT_RATIO = 0.5;
 
 function formatCurrency(amount: number) {
   return `Nu. ${Number(amount || 0).toLocaleString()}`;
@@ -150,6 +151,15 @@ export default function PaymentUpload() {
   const paymentSummary = getPaymentSummary(order);
   const quotationTotal = paymentSummary.totalPayable;
   const amountPaidNumber = Number(amountPaid);
+  const minimumInitialPayment = quotationTotal > 0 && paymentSummary.verifiedPaid <= 0
+    ? Math.ceil(quotationTotal * MIN_INITIAL_PAYMENT_RATIO)
+    : 0;
+  const amountAboveBalance = paymentSummary.balanceDue > 0 && amountPaidNumber > paymentSummary.balanceDue;
+  const firstPaymentBelowMinimum = minimumInitialPayment > 0 && amountPaidNumber > 0 && amountPaidNumber < minimumInitialPayment;
+  const setSuggestedAmount = (value: number) => {
+    const safeValue = Math.max(0, Math.min(Math.round(value), paymentSummary.balanceDue || value));
+    setAmountPaid(safeValue > 0 ? String(safeValue) : '');
+  };
   const canStartPayment = Boolean(
     order &&
       (order.status === 'payment_pending' ||
@@ -162,7 +172,15 @@ export default function PaymentUpload() {
       !paymentSummary.isFullyPaid &&
       paymentSummary.balanceDue > 0
   );
-  const canSubmit = Boolean(screenshotFile && selectedPaymentMethod && amountPaidNumber > 0 && canUpload && !submitting);
+  const canSubmit = Boolean(
+    screenshotFile &&
+      selectedPaymentMethod &&
+      amountPaidNumber > 0 &&
+      !amountAboveBalance &&
+      !firstPaymentBelowMinimum &&
+      canUpload &&
+      !submitting
+  );
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -223,6 +241,16 @@ export default function PaymentUpload() {
 
     if (!Number.isFinite(amountPaidNumber) || amountPaidNumber <= 0) {
       setError('Amount paid must be greater than 0.');
+      return;
+    }
+
+    if (amountAboveBalance) {
+      setError(`Amount paid cannot be more than the remaining balance of ${formatCurrency(paymentSummary.balanceDue)}.`);
+      return;
+    }
+
+    if (firstPaymentBelowMinimum) {
+      setError(`Minimum first payment is 50% of the quotation: ${formatCurrency(minimumInitialPayment)}.`);
       return;
     }
 
@@ -396,8 +424,8 @@ export default function PaymentUpload() {
               <p className="text-xs font-medium text-amber-600 uppercase tracking-wider">Upload Payment Proof</p>
               <h2 className="text-lg font-bold text-gray-900 mt-1">Order #{order.orderNumber}</h2>
             </div>
-            <span className="shrink-0 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-              Payment Pending
+            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${paymentSummary.isPartiallyPaid ? 'bg-blue-50 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+              {paymentSummary.isPartiallyPaid ? 'Balance Due' : 'Payment Pending'}
             </span>
           </div>
 
@@ -415,8 +443,37 @@ export default function PaymentUpload() {
               </div>
             </div>
             {paymentSummary.isPartiallyPaid && (
-              <p className="text-xs text-amber-700 mt-3">Partial payment verified. Please upload the remaining balance only.</p>
+              <p className="text-xs text-blue-700 mt-3">Partial payment verified. You can upload the remaining balance when ready.</p>
             )}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setSuggestedAmount(paymentSummary.balanceDue)}
+                className="rounded-xl bg-white/80 px-3 py-2 text-left text-xs font-semibold text-amber-700 ring-1 ring-amber-100 active:scale-[0.98]"
+              >
+                Pay full balance
+                <span className="mt-0.5 block text-[11px] font-bold text-gray-950">{formatCurrency(paymentSummary.balanceDue)}</span>
+              </button>
+              {minimumInitialPayment > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setSuggestedAmount(minimumInitialPayment)}
+                  className="rounded-xl bg-white/80 px-3 py-2 text-left text-xs font-semibold text-blue-700 ring-1 ring-blue-100 active:scale-[0.98]"
+                >
+                  Pay 50% advance
+                  <span className="mt-0.5 block text-[11px] font-bold text-gray-950">{formatCurrency(minimumInitialPayment)}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setSuggestedAmount(paymentSummary.balanceDue)}
+                  className="rounded-xl bg-white/80 px-3 py-2 text-left text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100 active:scale-[0.98]"
+                >
+                  Remaining payment
+                  <span className="mt-0.5 block text-[11px] font-bold text-gray-950">{formatCurrency(paymentSummary.balanceDue)}</span>
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -434,9 +491,9 @@ export default function PaymentUpload() {
         <div className="bg-white rounded-2xl p-5 border border-neutral-200 shadow-sm">
           <h3 className="text-base font-semibold text-gray-900 mb-3">Payment Instructions</h3>
           <div className="space-y-2 text-sm text-neutral-600">
-            <p>Please pay the quoted amount using bank transfer or mobile banking.</p>
-            <p>Upload your payment screenshot after payment.</p>
-            <p>Your order will be processed after payment verification.</p>
+            <p>You can pay the full balance or start with a 50% advance payment.</p>
+            <p>Upload your payment screenshot after payment. Each upload stays in the payment ledger.</p>
+            <p>We can start fulfillment after a verified advance, but the remaining balance will stay visible until paid.</p>
           </div>
         </div>
 
@@ -561,12 +618,22 @@ export default function PaymentUpload() {
               type="number"
               inputMode="decimal"
               min="0"
+              max={paymentSummary.balanceDue || undefined}
               value={amountPaid}
               onChange={(event) => setAmountPaid(event.target.value)}
               placeholder="Enter amount paid or balance amount"
               className="w-full h-12 mt-1.5 px-4 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
             />
             <p className="text-xs text-neutral-400 mt-1">Balance due: {formatCurrency(paymentSummary.balanceDue)}</p>
+            {minimumInitialPayment > 0 && (
+              <p className="mt-1 text-xs text-blue-600">Minimum first payment: {formatCurrency(minimumInitialPayment)} (50% advance).</p>
+            )}
+            {amountAboveBalance && (
+              <p className="mt-1 text-xs font-medium text-red-600">Amount cannot exceed the remaining balance.</p>
+            )}
+            {firstPaymentBelowMinimum && (
+              <p className="mt-1 text-xs font-medium text-red-600">First payment must be at least 50% of the quotation.</p>
+            )}
           </div>
 
           <div>
@@ -629,7 +696,7 @@ export default function PaymentUpload() {
             disabled={!canSubmit || paymentMethodsLoading}
             className="w-full h-12 bg-amber-500 text-white font-semibold rounded-xl hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitting ? 'Uploading...' : 'Submit Payment Proof'}
+            {submitting ? 'Uploading...' : paymentSummary.isPartiallyPaid ? 'Submit Remaining Payment Proof' : 'Submit Payment Proof'}
           </button>
         </div>
       </div>

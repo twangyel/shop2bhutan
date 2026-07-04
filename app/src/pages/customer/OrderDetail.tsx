@@ -144,6 +144,28 @@ function safeAddress(order: Order) {
     .join(', ') || 'Delivery address pending';
 }
 
+function getPaymentSummary(order: Order) {
+  const payments = order.payments ?? (order.payment ? [order.payment] : []);
+  const totalPayable = order.paymentSummary?.totalPayable ?? order.quotation?.totalAmount ?? 0;
+  const verifiedPaid = order.paymentSummary?.verifiedPaid ?? payments
+    .filter((payment) => payment.status === 'verified')
+    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const pendingAmount = order.paymentSummary?.pendingAmount ?? payments
+    .filter((payment) => payment.status === 'pending')
+    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const balanceDue = order.paymentSummary?.balanceDue ?? Math.max(totalPayable - verifiedPaid, 0);
+
+  return {
+    totalPayable,
+    verifiedPaid,
+    pendingAmount,
+    balanceDue,
+    hasPendingPayment: order.paymentSummary?.hasPendingPayment ?? pendingAmount > 0,
+    isPartiallyPaid: totalPayable > 0 && verifiedPaid > 0 && verifiedPaid < totalPayable,
+    isFullyPaid: totalPayable > 0 && verifiedPaid >= totalPayable,
+  };
+}
+
 function getEffectiveOrderStatus(order: Order): OrderStatus {
   if (order.status === 'cancelled' || order.status === 'delivered') return order.status;
 
@@ -390,9 +412,18 @@ export default function OrderDetail() {
   }
 
   const payments = order.payments ?? (order.payment ? [order.payment] : []);
-  const hasOpenPayment = payments.some((payment) => payment.status === 'pending' || payment.status === 'verified');
+  const paymentSummary = getPaymentSummary(order);
+  const hasPendingPayment = payments.some((payment) => payment.status === 'pending');
   const quotationReady = Boolean(order.quotation && effectiveStatus === 'quoted');
-  const showPaymentUpload = effectiveStatus === 'payment_pending' && !hasOpenPayment;
+  const paymentUploadStatuses: OrderStatus[] = ['payment_pending', 'payment_verified', 'order_placed', 'in_transit', 'arrived_at_hub', 'out_for_delivery'];
+  const showPaymentUpload = Boolean(
+    order.quotation &&
+      order.quotation.status === 'approved' &&
+      paymentSummary.balanceDue > 0 &&
+      !hasPendingPayment &&
+      effectiveStatus &&
+      paymentUploadStatuses.includes(effectiveStatus)
+  );
 
   return (
     <div className="min-h-screen bg-white pb-8">
@@ -459,8 +490,12 @@ export default function OrderDetail() {
                     <CreditCard size={22} strokeWidth={2} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-emerald-950">Payment pending</p>
-                    <p className="text-xs text-emerald-700">Upload your payment screenshot to continue.</p>
+                    <p className="text-sm font-bold text-emerald-950">{paymentSummary.isPartiallyPaid ? 'Balance payment due' : 'Payment pending'}</p>
+                    <p className="text-xs text-emerald-700">
+                      {paymentSummary.isPartiallyPaid
+                        ? `Remaining balance: ${money(paymentSummary.balanceDue)}`
+                        : 'Upload your payment screenshot to continue.'}
+                    </p>
                   </div>
                 </div>
                 <ChevronRight size={21} className="text-emerald-500" />
@@ -585,9 +620,65 @@ export default function OrderDetail() {
           </div>
         </section>
 
+        {order.quotation && (
+          <section className="rounded-2xl bg-white p-4 border border-gray-100">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-base font-bold text-gray-900">Payment summary</h3>
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                  paymentSummary.isFullyPaid
+                    ? 'bg-emerald-50 text-emerald-600'
+                    : paymentSummary.isPartiallyPaid
+                      ? 'bg-blue-50 text-blue-600'
+                      : hasPendingPayment
+                        ? 'bg-orange-50 text-orange-600'
+                        : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {paymentSummary.isFullyPaid
+                  ? 'Fully paid'
+                  : paymentSummary.isPartiallyPaid
+                    ? 'Partial paid'
+                    : hasPendingPayment
+                      ? 'Under review'
+                      : 'Payment due'}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-2xl bg-gray-50 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Total</p>
+                <p className="mt-1 text-xs font-black text-gray-950">{money(paymentSummary.totalPayable)}</p>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600">Paid</p>
+                <p className="mt-1 text-xs font-black text-emerald-700">{money(paymentSummary.verifiedPaid)}</p>
+              </div>
+              <div className="rounded-2xl bg-amber-50 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600">Balance</p>
+                <p className="mt-1 text-xs font-black text-amber-700">{money(paymentSummary.balanceDue)}</p>
+              </div>
+            </div>
+            {paymentSummary.balanceDue > 0 && !hasPendingPayment && order.quotation.status === 'approved' && (
+              <button
+                type="button"
+                onClick={() => navigate(`/payment/${order.id}`)}
+                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white active:scale-[0.98]"
+              >
+                {paymentSummary.isPartiallyPaid ? 'Upload Remaining Payment' : 'Upload Payment'}
+                <ChevronRight size={17} />
+              </button>
+            )}
+            {hasPendingPayment && (
+              <p className="mt-3 rounded-2xl bg-orange-50 p-3 text-xs leading-5 text-orange-700">
+                A payment proof is under review. Balance will update after admin verification.
+              </p>
+            )}
+          </section>
+        )}
+
         {order.payment && (
           <section className="rounded-2xl bg-white p-4 border border-gray-100">
-            <h3 className="mb-3 text-base font-bold text-gray-900">Payment details</h3>
+            <h3 className="mb-3 text-base font-bold text-gray-900">Latest payment details</h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between gap-4">
                 <span className="text-gray-600">Method</span>
