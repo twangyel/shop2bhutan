@@ -195,6 +195,7 @@ export default function PaymentUpload() {
  paymentSelection === 'advance'
  ? advancePaymentAmount
  : fullPaymentAmount;
+ const balanceAfterSelectedPayment = Math.max(0, Math.round(paymentSummary.balanceDue - selectedPaymentAmount));
  const selectedLedgerPaymentType: PaymentTypeForLedger =
  paymentSelection === 'advance'
  ? 'advance'
@@ -492,9 +493,14 @@ export default function PaymentUpload() {
 
  <div className="bg-white rounded-2xl p-5 border border-orange-100 ">
  <div className="flex items-start justify-between gap-3 mb-4">
- <div>
+ <div className="min-w-0 flex-1">
  <p className="text-xs font-medium text-orange-600 tracking-wider">Upload Payment Proof</p>
- <h2 className="text-lg font-bold text-gray-900 mt-1">Order #{order.orderNumber}</h2>
+ <div className="mt-1">
+ <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Order ID</p>
+ <p className="mt-0.5 inline-flex max-w-full rounded-xl bg-gray-50 px-2.5 py-1 font-mono text-[13px] font-extrabold leading-5 text-gray-900 ring-1 ring-gray-100 sm:text-sm">
+ <span className="truncate">#{order.orderNumber}</span>
+ </p>
+ </div>
  </div>
  <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${paymentSummary.isPartiallyPaid ? 'bg-blue-50 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
  {paymentSummary.isPartiallyPaid ? 'Balance Due' : 'Payment Pending'}
@@ -510,8 +516,8 @@ export default function PaymentUpload() {
  <p className="font-bold text-gray-900 mt-1">{formatCurrency(paymentSummary.verifiedPaid)}</p>
  </div>
  <div className="rounded-2xl bg-white p-3">
- <p className="text-xs text-orange-700">Balance Due</p>
- <p className="font-bold text-gray-900 mt-1">{formatCurrency(paymentSummary.balanceDue)}</p>
+ <p className="text-xs text-orange-700">Balance After This</p>
+ <p className="font-bold text-gray-900 mt-1">{formatCurrency(balanceAfterSelectedPayment)}</p>
  </div>
  </div>
  {paymentSummary.isPartiallyPaid && (
@@ -707,7 +713,7 @@ export default function PaymentUpload() {
  </div>
  </div>
  <p className="text-xs text-gray-400 mt-1">
- Amount is locked based on the payment type selected above. Balance due: {formatCurrency(paymentSummary.balanceDue)}.
+ Amount is locked based on the payment type selected above. Balance after this payment: {formatCurrency(balanceAfterSelectedPayment)}.
  </p>
  {minimumInitialPayment > 0 && (
  <p className="mt-1 text-xs text-blue-600">Minimum first payment: {formatCurrency(minimumInitialPayment)} ({minimumAdvancePercent}% advance).</p>
