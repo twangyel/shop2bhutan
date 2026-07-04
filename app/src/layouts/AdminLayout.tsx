@@ -3,11 +3,20 @@ import {
   LayoutDashboard, ClipboardList, CreditCard, Users, Package,
   Grid3X3, Image, Truck, Percent, Wallet, Settings, FileText,
   LogOut, ChevronDown, Search, Bell, ClipboardCheck, Menu, X,
-  PanelLeftClose, PanelLeft
+  PanelLeftClose, PanelLeft, CheckCheck, Loader2
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Logo from '@/components/shared/Logo';
+import { supabase } from '@/lib/supabase';
+import {
+  fetchAdminNotifications,
+  getUnreadAdminNotificationCount,
+  markAdminNotificationRead,
+  markAllAdminNotificationsRead,
+} from '@/lib/customerOrders';
+import type { Notification as AppNotification, NotificationType } from '@/types';
 
 const navGroups = [
   {
@@ -41,13 +50,80 @@ const navGroups = [
   },
 ];
 
+
+const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
+
+function formatAdminNotificationTime(value?: string) {
+  if (!value) return 'Just now';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Just now';
+
+  const dateText = new Intl.DateTimeFormat('en-US', {
+    timeZone: BHUTAN_TIME_ZONE,
+    month: 'short',
+    day: 'numeric',
+  }).format(date);
+  const timeText = new Intl.DateTimeFormat('en-US', {
+    timeZone: BHUTAN_TIME_ZONE,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date);
+
+  return `${dateText}, ${timeText} BTT`;
+}
+
+function adminNotificationStyle(type: NotificationType, title: string) {
+  const text = title.toLowerCase();
+
+  if (type === 'payment') {
+    return { icon: CreditCard, bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Payment' };
+  }
+
+  if (type === 'quotation') {
+    const rejected = text.includes('reject') || text.includes('declin');
+    return {
+      icon: FileText,
+      bg: rejected ? 'bg-red-50' : 'bg-violet-50',
+      text: rejected ? 'text-red-600' : 'text-violet-600',
+      label: 'Quotation',
+    };
+  }
+
+  if (type === 'order_update') {
+    return { icon: ClipboardList, bg: 'bg-blue-50', text: 'text-blue-600', label: 'Order' };
+  }
+
+  return { icon: Bell, bg: 'bg-amber-50', text: 'text-amber-600', label: 'System' };
+}
+
+function profileDisplayName(profile: unknown, fallbackEmail?: string | null) {
+  const row = (profile && typeof profile === 'object' ? profile : {}) as Record<string, unknown>;
+  const fullName = typeof row.full_name === 'string' ? row.full_name.trim() : '';
+  const name = typeof row.name === 'string' ? row.name.trim() : '';
+  if (fullName) return fullName;
+  if (name) return name;
+  if (fallbackEmail) return fallbackEmail.split('@')[0];
+  return 'Admin User';
+}
+
 export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useApp();
+  const { user, context, signOut } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [notificationLoading, setNotificationLoading] = useState(false);
+  const [notificationError, setNotificationError] = useState('');
+  const [adminNotifications, setAdminNotifications] = useState<AppNotification[]>([]);
+  const [adminUnreadCount, setAdminUnreadCount] = useState(0);
+  const notificationPanelRef = useRef<HTMLDivElement>(null);
+
+  const adminDisplayName = profileDisplayName(context?.profile, context?.email || user?.email);
+  const adminInitial = (adminDisplayName || 'A').charAt(0).toUpperCase();
 
   const pageTitle = navGroups.flatMap(g => g.items).find(i =>
     i.path === location.pathname || (i.path !== '/admin' && location.pathname.startsWith(i.path))
@@ -68,9 +144,119 @@ export default function AdminLayout() {
     return () => { document.body.style.overflow = ''; };
   }, [sidebarOpen]);
 
+  const loadAdminNotifications = useCallback(async (options?: { silent?: boolean }) => {
+    if (!user) {
+      setAdminNotifications([]);
+      setAdminUnreadCount(0);
+      setNotificationLoading(false);
+      return;
+    }
+
+    const silent = Boolean(options?.silent);
+    if (!silent) setNotificationLoading(true);
+    setNotificationError('');
+
+    try {
+      const [rows, unread] = await Promise.all([
+        fetchAdminNotifications(user.id),
+        getUnreadAdminNotificationCount(user.id),
+      ]);
+      setAdminNotifications(rows.slice(0, 12));
+      setAdminUnreadCount(unread);
+    } catch (error) {
+      console.error('[AdminLayout] Failed to load admin notifications:', error);
+      if (!silent) setNotificationError(error instanceof Error ? error.message : 'Unable to load notifications.');
+    } finally {
+      if (!silent) setNotificationLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    void loadAdminNotifications({ silent: true });
+  }, [loadAdminNotifications, location.pathname]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    const channel = supabase
+      .channel(`admin-notifications:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void loadAdminNotifications({ silent: true });
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') void loadAdminNotifications({ silent: true });
+      });
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [loadAdminNotifications, user]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!notificationPanelRef.current) return;
+      if (!notificationPanelRef.current.contains(event.target as Node)) {
+        setNotificationOpen(false);
+      }
+    }
+
+    if (notificationOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [notificationOpen]);
+
   const handleNav = (path: string) => {
     navigate(path);
     setSidebarOpen(false);
+  };
+
+  const handleOpenNotification = async (notification: AppNotification) => {
+    if (!user) return;
+
+    if (!notification.isRead) {
+      setAdminNotifications((current) =>
+        current.map((item) => (item.id === notification.id ? { ...item, isRead: true } : item))
+      );
+      setAdminUnreadCount((count) => Math.max(0, count - 1));
+
+      try {
+        await markAdminNotificationRead(notification.id, user.id);
+      } catch (error) {
+        console.warn('[AdminLayout] Mark notification read skipped:', error);
+        void loadAdminNotifications({ silent: true });
+      }
+    }
+
+    setNotificationOpen(false);
+    if (notification.link) navigate(notification.link);
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    if (!user || adminUnreadCount <= 0) return;
+
+    setAdminNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
+    setAdminUnreadCount(0);
+
+    try {
+      await markAllAdminNotificationsRead(user.id);
+    } catch (error) {
+      console.warn('[AdminLayout] Mark all notifications read skipped:', error);
+      void loadAdminNotifications({ silent: true });
+    }
+  };
+
+  const handleLogout = async () => {
+    logout();
+    await signOut();
+    navigate('/login');
   };
 
   return (
@@ -166,15 +352,15 @@ export default function AdminLayout() {
         <div className="p-4 border-t border-neutral-200 shrink-0">
           <div className={`flex items-center gap-3 mb-3 overflow-hidden transition-all duration-300 ${sidebarCollapsed ? 'md:justify-center' : ''}`}>
             <div className="w-9 h-9 rounded-full bg-amber-500 flex items-center justify-center text-white font-semibold text-sm shrink-0">
-              A
+              {adminInitial}
             </div>
             <div className={`whitespace-nowrap transition-all duration-300 overflow-hidden ${sidebarCollapsed ? 'md:opacity-0 md:w-0' : 'opacity-100 w-auto'}`}>
-              <p className="text-sm font-semibold text-gray-900">Admin User</p>
+              <p className="text-sm font-semibold text-gray-900">{adminDisplayName}</p>
               <p className="text-xs text-neutral-500">Administrator</p>
             </div>
           </div>
           <button
-            onClick={() => { logout(); navigate('/login'); }}
+            onClick={handleLogout}
             className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors ${sidebarCollapsed ? 'md:justify-center' : ''}`}
             title={sidebarCollapsed ? 'Logout' : undefined}
           >
@@ -219,13 +405,107 @@ export default function AdminLayout() {
                 className="w-48 lg:w-64 h-9 pl-9 pr-4 bg-neutral-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
               />
             </div>
-            <button className="relative p-2 hover:bg-neutral-100 rounded-lg transition-colors">
-              <Bell size={20} className="text-neutral-600" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-            </button>
+            <div className="relative" ref={notificationPanelRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setNotificationOpen((open) => !open);
+                  void loadAdminNotifications({ silent: true });
+                }}
+                className="relative p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+                aria-label="Open admin notifications"
+              >
+                <Bell size={20} className="text-neutral-600" />
+                {adminUnreadCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white ring-2 ring-white">
+                    {adminUnreadCount > 9 ? '9+' : adminUnreadCount}
+                  </span>
+                )}
+              </button>
+
+              {notificationOpen && (
+                <div className="absolute right-0 top-12 z-50 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl">
+                  <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">Admin Notifications</p>
+                      <p className="text-xs text-neutral-500">
+                        {adminUnreadCount > 0 ? `${adminUnreadCount} unread update${adminUnreadCount === 1 ? '' : 's'}` : 'All caught up'}
+                      </p>
+                    </div>
+                    {adminUnreadCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleMarkAllNotificationsRead}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100"
+                      >
+                        <CheckCheck size={14} />
+                        Mark read
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-[420px] overflow-y-auto p-2">
+                    {notificationLoading ? (
+                      <div className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-neutral-500">
+                        <Loader2 size={17} className="animate-spin text-amber-500" />
+                        Loading notifications...
+                      </div>
+                    ) : notificationError ? (
+                      <div className="rounded-xl border border-red-100 bg-red-50 px-3 py-3 text-sm text-red-600">
+                        {notificationError}
+                      </div>
+                    ) : adminNotifications.length === 0 ? (
+                      <div className="px-4 py-8 text-center">
+                        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-50 text-neutral-400">
+                          <Bell size={22} />
+                        </div>
+                        <p className="text-sm font-semibold text-gray-900">No notifications yet</p>
+                        <p className="mt-1 text-xs text-neutral-500">New orders, payments, and quotation responses will appear here.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        {adminNotifications.map((notification) => {
+                          const style = adminNotificationStyle(notification.type, notification.title);
+                          const Icon = style.icon;
+
+                          return (
+                            <button
+                              key={notification.id}
+                              type="button"
+                              onClick={() => handleOpenNotification(notification)}
+                              className={`flex w-full gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
+                                notification.isRead ? 'hover:bg-neutral-50' : 'bg-amber-50/60 hover:bg-amber-50'
+                              }`}
+                            >
+                              <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${style.bg} ${style.text}`}>
+                                <Icon size={18} />
+                              </span>
+
+                              <span className="min-w-0 flex-1">
+                                <span className="flex items-start justify-between gap-2">
+                                  <span className="text-sm font-bold text-gray-900">{notification.title}</span>
+                                  {!notification.isRead && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-orange-500" />}
+                                </span>
+                                <span className="mt-1 block line-clamp-2 text-xs leading-5 text-neutral-600">
+                                  {notification.message}
+                                </span>
+                                <span className="mt-2 flex items-center justify-between gap-2">
+                                  <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{style.label}</span>
+                                  <span className="text-[11px] text-neutral-400">{formatAdminNotificationTime(notification.createdAt)}</span>
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             <button className="hidden sm:flex items-center gap-2 hover:bg-neutral-100 rounded-lg px-2 py-1.5 transition-colors">
               <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white font-semibold text-sm">
-                A
+                {adminInitial}
               </div>
               <ChevronDown size={16} className="text-neutral-500" />
             </button>

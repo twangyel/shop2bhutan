@@ -923,6 +923,180 @@ export async function markAllCustomerNotificationsRead(userId: string) {
   emitNotificationUpdated()
 }
 
+
+export async function fetchAdminNotifications(adminId: string): Promise<AppNotification[]> {
+  return fetchCustomerNotifications(adminId)
+}
+
+export async function getUnreadAdminNotificationCount(adminId: string): Promise<number> {
+  return getUnreadNotificationCount(adminId)
+}
+
+export async function markAdminNotificationRead(notificationId: string, adminId: string) {
+  return markCustomerNotificationRead(notificationId, adminId)
+}
+
+export async function markAllAdminNotificationsRead(adminId: string) {
+  return markAllCustomerNotificationsRead(adminId)
+}
+
+async function fetchAdminNotificationTargetUserIds() {
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('user_id, role')
+    .in('role', ['admin', 'super_admin'])
+
+  if (error) {
+    console.warn('[customerOrders] admin notification targets skipped:', error.message)
+    return [] as string[]
+  }
+
+  return Array.from(
+    new Set(
+      ((data ?? []) as AnyRow[])
+        .map((row) => firstString(row, ['user_id', 'profile_id', 'id'], ''))
+        .filter(Boolean)
+    )
+  )
+}
+
+async function createAdminNotificationForAdmins(input: {
+  type: AppNotification['type']
+  title: string
+  message: string
+  link?: string
+  dedupeKey?: string
+}) {
+  try {
+    const adminIds = await fetchAdminNotificationTargetUserIds()
+    if (adminIds.length === 0) return
+
+    const results = await Promise.allSettled(
+      adminIds.map((adminId) =>
+        createCustomerNotification({
+          userId: adminId,
+          type: input.type,
+          title: input.title,
+          message: input.message,
+          link: input.link,
+          dedupeKey: input.dedupeKey ? `${input.dedupeKey}:${adminId}` : undefined,
+        })
+      )
+    )
+
+    const rejected = results.find((result) => result.status === 'rejected')
+    if (rejected && rejected.status === 'rejected') {
+      console.warn('[customerOrders] one or more admin notifications were skipped:', rejected.reason)
+    }
+  } catch (error) {
+    console.warn('[customerOrders] admin notification skipped:', error)
+  }
+}
+
+async function createAdminOrderSubmittedNotification(input: {
+  orderId: string
+  orderNo: string
+  customerName?: string | null
+  customerPhone?: string | null
+  itemCount?: number
+}) {
+  const orderId = cleanText(input.orderId)
+  if (!orderId) return
+
+  const orderNo = cleanText(input.orderNo) || orderId.slice(0, 8).toUpperCase()
+  const customerName = cleanText(input.customerName) || 'Customer'
+  const customerPhone = cleanText(input.customerPhone)
+  const itemCount = Number(input.itemCount || 0)
+  const itemText = itemCount > 0 ? `${itemCount} item${itemCount === 1 ? '' : 's'}` : 'an order request'
+
+  await createAdminNotificationForAdmins({
+    type: 'order_update',
+    title: 'New Order Request',
+    message: `${customerName}${customerPhone ? ` (${customerPhone})` : ''} submitted ${itemText} for order #${orderNo}.`,
+    link: `/admin/orders/${orderId}`,
+    dedupeKey: `admin:new-order:${orderId}`,
+  })
+}
+
+async function createAdminPaymentUploadedNotification(input: {
+  order: Order
+  amount: number
+  transactionId?: string
+}) {
+  const order = input.order
+  const orderNo = cleanText(order.orderNumber) || order.id.slice(0, 8).toUpperCase()
+  const customerName = cleanText(order.user?.name) || cleanText(order.shippingAddress?.recipientName) || 'Customer'
+  const amount = numericAmount(input.amount)
+  const transactionId = cleanText(input.transactionId)
+
+  await createAdminNotificationForAdmins({
+    type: 'payment',
+    title: 'Payment Proof Uploaded',
+    message: `${customerName} uploaded ${amount > 0 ? `Nu. ${amount.toLocaleString()}` : 'a payment proof'} for order #${orderNo}.`,
+    link: `/admin/orders/${order.id}`,
+    dedupeKey: transactionId ? `admin:payment-uploaded:${order.id}:${transactionId}` : undefined,
+  })
+}
+
+async function createAdminQuotationResponseNotification(input: {
+  orderId: string
+  quotationId?: string
+  response: 'accepted' | 'rejected'
+}) {
+  const orderId = cleanText(input.orderId)
+  if (!orderId) return
+
+  let orderNo = orderId.slice(0, 8).toUpperCase()
+  let customerName = 'Customer'
+
+  try {
+    const orderRow = await querySingleAdminOrderRow(orderId)
+    if (orderRow) {
+      orderNo = firstString(orderRow, ['order_no', 'order_number', 'public_id'], orderNo)
+      customerName = firstString(orderRow, ['customer_name', 'recipient_name', 'delivery_name', 'full_name', 'name'], customerName)
+    }
+  } catch (error) {
+    console.warn('[customerOrders] quotation response order lookup skipped:', error)
+  }
+
+  const accepted = input.response === 'accepted'
+
+  await createAdminNotificationForAdmins({
+    type: 'quotation',
+    title: accepted ? 'Quotation Accepted' : 'Quotation Rejected',
+    message: `${customerName} ${accepted ? 'accepted' : 'rejected'} quotation for order #${orderNo}.`,
+    link: `/admin/orders/${orderId}`,
+    dedupeKey: `admin:quotation-response:${cleanText(input.quotationId) || orderId}:${input.response}`,
+  })
+}
+
+
+async function createAdminQuotationRejectedNotificationFromQuotationId(quotationId: string) {
+  const cleanQuotationId = cleanText(quotationId)
+  if (!cleanQuotationId) return
+
+  try {
+    const { data, error } = await supabase
+      .from('quotations')
+      .select('id, order_id')
+      .eq('id', cleanQuotationId)
+      .maybeSingle()
+
+    if (error) throw error
+
+    const orderId = firstString(data as AnyRow | null, ['order_id'], '')
+    if (!orderId) return
+
+    await createAdminQuotationResponseNotification({
+      orderId,
+      quotationId: cleanQuotationId,
+      response: 'rejected',
+    })
+  } catch (error) {
+    console.warn('[customerOrders] quotation rejected admin notification skipped:', error)
+  }
+}
+
 async function createCustomerNotification(input: {
   userId: string
   type: AppNotification['type']
@@ -2267,7 +2441,10 @@ export async function updateQuotationStatus(quotationId: string, status: Quotati
     if (dbStatus === 'accepted') payload.accepted_at = now
 
     const withTimestamp = await supabase.from('quotations').update(payload).eq('id', quotationId)
-    if (!withTimestamp.error) return
+    if (!withTimestamp.error) {
+      if (status === 'rejected') await createAdminQuotationRejectedNotificationFromQuotationId(quotationId)
+      return
+    }
 
     lastError = withTimestamp.error
     if (!shouldTryFallbackPayload(withTimestamp.error)) throw withTimestamp.error
@@ -2276,7 +2453,10 @@ export async function updateQuotationStatus(quotationId: string, status: Quotati
     if (dbStatus === 'accepted') fallbackPayload.accepted_at = now
 
     const withoutTimestamp = await supabase.from('quotations').update(fallbackPayload).eq('id', quotationId)
-    if (!withoutTimestamp.error) return
+    if (!withoutTimestamp.error) {
+      if (status === 'rejected') await createAdminQuotationRejectedNotificationFromQuotationId(quotationId)
+      return
+    }
 
     lastError = withoutTimestamp.error
     if (!shouldTryFallbackPayload(withoutTimestamp.error)) throw withoutTimestamp.error
@@ -2542,6 +2722,12 @@ export async function acceptCustomerQuotation(input: { orderId: string; quotatio
     const message = typeof data === 'object' && data !== null ? cleanText((data as AnyRow).message) : ''
     throw new Error(message || 'Unable to accept quotation.')
   }
+
+  await createAdminQuotationResponseNotification({
+    orderId,
+    quotationId,
+    response: 'accepted',
+  })
 
   return data
 }
@@ -2958,6 +3144,12 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
   } catch (error) {
     console.warn('[customerOrders] order status update skipped:', error)
   }
+
+  await createAdminPaymentUploadedNotification({
+    order,
+    amount: paymentAmount,
+    transactionId,
+  })
 
   return { path }
 }
@@ -3565,10 +3757,20 @@ export async function submitPasteLinkOrder(input: SubmitPasteLinkOrderInput): Pr
     throw error
   }
 
-  return {
+  const result = {
     orderId: orderRow.id,
     orderNo: orderRow.order_no || orderRow.id,
   }
+
+  await createAdminOrderSubmittedNotification({
+    orderId: result.orderId,
+    orderNo: result.orderNo,
+    customerName: input.customerName,
+    customerPhone: input.customerPhone,
+    itemCount: cleanItems.length,
+  })
+
+  return result
 }
 
 
