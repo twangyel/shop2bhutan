@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AlertCircle, ChevronLeft, ChevronRight, Eye, Loader2, Package, RefreshCw, Search } from 'lucide-react';
 import StatusBadge from '@/components/shared/StatusBadge';
 import { fetchAdminOrders } from '@/lib/customerOrders';
+import { getFulfillmentDisplay, isSelfPickupOrder } from '@/lib/fulfillment';
 import type { Order } from '@/types';
 
 const statusFilters = ['All', 'Pending', 'Quoted', 'In Transit', 'Delivered', 'Cancelled'] as const;
@@ -67,6 +68,11 @@ function compactAddressParts(parts: Array<string | undefined>) {
 }
 
 function fullDeliveryAddress(order: Order) {
+  if (isSelfPickupOrder(order)) {
+    const display = getFulfillmentDisplay(order);
+    return display.details || display.title;
+  }
+
   return compactAddressParts([
     order.shippingAddress.village,
     order.shippingAddress.gewog,
@@ -301,7 +307,7 @@ export default function OrdersPanel() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Order #</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Customer</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Phone</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Dzongkhag / Address</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Fulfillment / Address</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Payment</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Items</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Total</th>
@@ -351,9 +357,14 @@ export default function OrdersPanel() {
                       <div className="text-xs text-neutral-500 truncate max-w-[190px]">{order.user.email || '-'}</div>
                     </td>
                     <td className="px-4 py-3 text-sm text-neutral-600">{order.user.phone || order.shippingAddress.phone || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-neutral-600 max-w-[220px]">
-                      <div>{order.shippingAddress.dzongkhag || '-'}</div>
-                      <div className="text-xs text-neutral-400 truncate">{deliveryAddressText || '-'}</div>
+                    <td className="px-4 py-3 text-sm text-neutral-600 max-w-[240px]">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${getFulfillmentDisplay(order).badgeClass}`}>
+                          {getFulfillmentDisplay(order).label}
+                        </span>
+                        <span className="font-medium text-neutral-700">{isSelfPickupOrder(order) ? getFulfillmentDisplay(order).title : order.shippingAddress.dzongkhag || '-'}</span>
+                      </div>
+                      <div className="mt-1 text-xs text-neutral-400 truncate">{deliveryAddressText || '-'}</div>
                     </td>
                     <td className="px-4 py-3 text-sm text-neutral-600 min-w-[210px]">
                       <div className="flex flex-col gap-1">

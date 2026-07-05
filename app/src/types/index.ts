@@ -33,6 +33,8 @@ export type PaymentCoverage = 'unpaid' | 'partial_paid' | 'fully_paid' | 'overpa
 
 export type OrderType = 'catalog' | 'paste_link';
 
+export type FulfillmentMode = 'delivery' | 'self_pickup';
+
 export type BannerPosition = 'home_top' | 'home_mid' | 'catalog_top';
 
 export type BannerLinkType = 'product' | 'category' | 'url' | 'none';
@@ -241,6 +243,10 @@ export interface Order {
   type: OrderType;
   deliveryHubId: string;
   deliveryHub: DeliveryHub;
+  fulfillmentMode?: FulfillmentMode;
+  pickupHubId?: string;
+  pickupHubName?: string;
+  pickupInstructions?: string;
   shippingAddress: Address;
   quotation?: Quotation;
   payment?: Payment;

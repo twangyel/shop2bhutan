@@ -24,7 +24,8 @@ import {
   submitRequestBagAsOrder,
   updateRequestBagItem,
 } from '@/lib/customerOrders';
-import type { RequestBag as RequestBagType, RequestBagItem } from '@/types';
+import { SELF_PICKUP_HUBS, getPickupHubById } from '@/lib/fulfillment';
+import type { FulfillmentMode, RequestBag as RequestBagType, RequestBagItem } from '@/types';
 
 type AnyRow = Record<string, any>;
 
@@ -370,6 +371,8 @@ export default function RequestBag() {
   const [addressLoading, setAddressLoading] = useState(false);
   const [savedAddress, setSavedAddress] = useState<CustomerAddress | null>(null);
   const [dzongkhagOptions, setDzongkhagOptions] = useState<DzongkhagOption[]>([]);
+  const [fulfillmentMode, setFulfillmentMode] = useState<FulfillmentMode>('delivery');
+  const [pickupHubId, setPickupHubId] = useState(SELF_PICKUP_HUBS[0].id);
 
   const [customer, setCustomer] = useState({
     name: '',
@@ -379,8 +382,10 @@ export default function RequestBag() {
   });
 
   const hasItems = Boolean(bag?.items.length);
-  const hasDeliveryAddress = Boolean(customer.deliveryAddress.trim());
-  const showDeliveryFields = deliveryExpanded || !hasDeliveryAddress;
+  const selectedPickupHub = getPickupHubById(pickupHubId);
+  const isSelfPickup = fulfillmentMode === 'self_pickup';
+  const hasDeliveryAddress = isSelfPickup || Boolean(customer.deliveryAddress.trim());
+  const showDeliveryFields = deliveryExpanded || !customer.name.trim() || !customer.phone.trim() || (!isSelfPickup && !customer.deliveryAddress.trim());
   const itemCount = bag?.items.length ?? 0;
   const totalQuantity = bag?.items.reduce((sum, item) => sum + Math.max(1, item.quantity || 1), 0) ?? 0;
   const estimatedSiteTotal = bag?.items.reduce((sum, item) => sum + Math.max(0, item.priceShown || 0) * Math.max(1, item.quantity || 1), 0) ?? 0;
@@ -584,7 +589,12 @@ export default function RequestBag() {
       return false;
     }
 
-    if (!customer.deliveryAddress.trim()) {
+    if (isSelfPickup && !selectedPickupHub?.id) {
+      setError('Please select a pickup hub.');
+      return false;
+    }
+
+    if (!isSelfPickup && !customer.deliveryAddress.trim()) {
       setError('Please select or enter your delivery address.');
       setDeliveryExpanded(true);
       return false;
@@ -612,8 +622,12 @@ export default function RequestBag() {
         email: user.email,
         customerName: customer.name.trim(),
         customerPhone: customer.phone.trim(),
-        deliveryAddress: customer.deliveryAddress.trim(),
+        deliveryAddress: isSelfPickup ? `Self Pickup — ${selectedPickupHub.name}` : customer.deliveryAddress.trim(),
         customerNotes: customer.notes.trim() || 'Request Bag quotation request submitted by customer.',
+        fulfillmentMode,
+        pickupHubId: isSelfPickup ? selectedPickupHub.id : null,
+        pickupHubName: isSelfPickup ? selectedPickupHub.name : null,
+        pickupInstructions: isSelfPickup ? selectedPickupHub.pickupInstructions : null,
       });
 
       clearCachedRequestBag(user.id);
@@ -725,14 +739,14 @@ export default function RequestBag() {
             <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-semibold text-gray-900">Contact & Delivery</h3>
+                  <h3 className="text-base font-semibold text-gray-900">Contact & Fulfillment</h3>
                   <p className="text-xs text-gray-500">
                     {addressLoading
                       ? 'Loading your saved delivery address...'
-                      : 'Used by admin to prepare and confirm your quotation.'}
+                      : 'Choose delivery or self pickup before requesting quotation.'}
                   </p>
                 </div>
-                {hasDeliveryAddress && !showDeliveryFields && (
+                {!isSelfPickup && hasDeliveryAddress && !showDeliveryFields && (
                   <button
                     type="button"
                     onClick={() => setDeliveryExpanded(true)}
@@ -744,6 +758,59 @@ export default function RequestBag() {
                 )}
               </div>
 
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFulfillmentMode('delivery')}
+                  className={`rounded-2xl border px-3 py-3 text-left transition ${
+                    fulfillmentMode === 'delivery'
+                      ? 'border-orange-300 bg-orange-50 text-orange-700'
+                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="block text-sm font-extrabold">Deliver to me</span>
+                  <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Use saved/manual address</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFulfillmentMode('self_pickup')}
+                  className={`rounded-2xl border px-3 py-3 text-left transition ${
+                    fulfillmentMode === 'self_pickup'
+                      ? 'border-blue-300 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="block text-sm font-extrabold">I will pick up</span>
+                  <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Collect from S2B hub</span>
+                </button>
+              </div>
+
+              {isSelfPickup && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Pickup hub</p>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {SELF_PICKUP_HUBS.map((hub) => (
+                      <button
+                        key={hub.id}
+                        type="button"
+                        onClick={() => setPickupHubId(hub.id)}
+                        className={`rounded-2xl border p-3 text-left transition ${
+                          pickupHubId === hub.id
+                            ? 'border-blue-300 bg-blue-50 text-blue-800'
+                            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        <span className="block text-sm font-bold">{hub.name}</span>
+                        <span className="mt-0.5 block text-[11px] text-gray-500">{hub.dzongkhag}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="rounded-2xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-800">
+                    {selectedPickupHub.pickupInstructions}
+                  </div>
+                </div>
+              )}
+
               {addressLoading && (
                 <div className="mt-3 flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs text-gray-500">
                   <Loader2 size={15} className="animate-spin text-orange-500" />
@@ -751,7 +818,7 @@ export default function RequestBag() {
                 </div>
               )}
 
-              {hasDeliveryAddress && !showDeliveryFields && (
+              {!isSelfPickup && hasDeliveryAddress && !showDeliveryFields && (
                 <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
                   <div className="flex items-start gap-3">
                     <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-600">
@@ -764,6 +831,21 @@ export default function RequestBag() {
                       )}
                       {customer.phone && <p className="text-xs text-emerald-700">{customer.phone}</p>}
                       <p className="mt-1 text-xs leading-5 text-emerald-800">{customer.deliveryAddress}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {isSelfPickup && (
+                <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 p-3">
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600">
+                      <MapPin size={18} strokeWidth={2.5} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-blue-950">Self Pickup</p>
+                      <p className="mt-0.5 text-xs font-semibold text-blue-700">{selectedPickupHub.name}</p>
+                      <p className="mt-1 text-xs leading-5 text-blue-800">{selectedPickupHub.pickupInstructions}</p>
                     </div>
                   </div>
                 </div>
@@ -793,16 +875,18 @@ export default function RequestBag() {
                     />
                   </div>
 
-                  <div className="relative">
-                    <MapPin size={17} className="absolute left-3 top-3 text-gray-400" />
-                    <textarea
-                      value={customer.deliveryAddress}
-                      onChange={(e) => setCustomer((prev) => ({ ...prev, deliveryAddress: e.target.value }))}
-                      placeholder="Delivery address"
-                      rows={3}
-                      className="w-full resize-none rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-                    />
-                  </div>
+                  {!isSelfPickup && (
+                    <div className="relative">
+                      <MapPin size={17} className="absolute left-3 top-3 text-gray-400" />
+                      <textarea
+                        value={customer.deliveryAddress}
+                        onChange={(e) => setCustomer((prev) => ({ ...prev, deliveryAddress: e.target.value }))}
+                        placeholder="Delivery address"
+                        rows={3}
+                        className="w-full resize-none rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -848,7 +932,7 @@ export default function RequestBag() {
                     Confirm quotation request?
                   </h2>
                   <p className="mt-1 text-sm leading-6 text-gray-500">
-                    You are sending <span className="font-semibold text-gray-700">{itemCount} item{itemCount === 1 ? '' : 's'}</span> to Shop2Bhutan for admin review. We will check price, availability, service charge, and delivery fee before sending your quotation.
+                    You are sending <span className="font-semibold text-gray-700">{itemCount} item{itemCount === 1 ? '' : 's'}</span> to Shop2Bhutan for admin review. We will check price, availability, service charge, and fulfillment option before sending your quotation.
                   </p>
                 </div>
               </div>
@@ -884,7 +968,9 @@ export default function RequestBag() {
                     <p className="mt-0.5 text-xs font-medium text-gray-600">{customer.phone}</p>
                   )}
                   <p className="mt-1.5 text-xs leading-5 text-gray-500">
-                    {customer.deliveryAddress}
+                    {isSelfPickup
+                      ? `Self Pickup — ${selectedPickupHub.name}. ${selectedPickupHub.pickupInstructions}`
+                      : customer.deliveryAddress}
                   </p>
                 </div>
               </div>

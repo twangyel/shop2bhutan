@@ -16,6 +16,7 @@ import {
 import StatusBadge from '@/components/shared/StatusBadge';
 import TrackingTimeline from '@/components/shared/TrackingTimeline';
 import { fetchAdminOrderById, rejectCustomerPayment, updateAdminFulfillmentStatus, verifyCustomerPayment } from '@/lib/customerOrders';
+import { getFulfillmentDisplay, isSelfPickupOrder } from '@/lib/fulfillment';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Order, OrderStatus, Payment, PaymentCoverage, PaymentStatus } from '@/types';
 
@@ -82,6 +83,11 @@ function compactAddressParts(parts: Array<string | undefined>) {
 }
 
 function fullDeliveryAddress(order: Order) {
+  if (isSelfPickupOrder(order)) {
+    const display = getFulfillmentDisplay(order);
+    return display.details || display.title;
+  }
+
   return compactAddressParts([
     order.shippingAddress.village,
     order.shippingAddress.gewog,
@@ -194,6 +200,36 @@ const fulfillmentActions: FulfillmentAction[] = [
     description: 'Stop fulfillment for this order.',
   },
 ];
+
+function displayFulfillmentAction(action: FulfillmentAction, order: Order): FulfillmentAction {
+  if (!isSelfPickupOrder(order)) return action;
+
+  if (action.status === 'out_for_delivery') {
+    return {
+      ...action,
+      label: 'Mark Ready for Pickup',
+      description: 'Package is ready and customer can collect from the pickup hub.',
+    };
+  }
+
+  if (action.status === 'delivered') {
+    return {
+      ...action,
+      label: 'Mark Picked Up',
+      description: 'Customer has collected the package from the pickup hub.',
+    };
+  }
+
+  if (action.status === 'arrived_at_hub') {
+    return {
+      ...action,
+      label: 'Mark Arrived at Pickup Hub',
+      description: 'Package has reached the selected pickup hub.',
+    };
+  }
+
+  return action;
+}
 
 const statusOrder: OrderStatus[] = [
   'pending_confirmation',
@@ -470,11 +506,16 @@ export default function OrderDetail() {
           </div>
 
           <div className="bg-white rounded-xl p-5 shadow-card">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Delivery Address</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Fulfillment Details</h3>
             <div className="space-y-2">
               <div className="flex items-start gap-2">
                 <MapPin size={16} className="text-amber-500 mt-0.5 flex-shrink-0" />
                 <div>
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${getFulfillmentDisplay(order).badgeClass}`}>
+                      {getFulfillmentDisplay(order).label}
+                    </span>
+                  </div>
                   <p className="text-sm font-medium">{order.shippingAddress.recipientName}</p>
                   <p className="text-xs text-neutral-500">{order.shippingAddress.phone || '-'}</p>
                   <p className="text-xs text-neutral-600 mt-1 whitespace-pre-wrap">
@@ -485,8 +526,8 @@ export default function OrderDetail() {
               <div className="flex items-start gap-2">
                 <Truck size={16} className="text-emerald-500 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-medium">{order.deliveryHub.name}</p>
-                  <p className="text-xs text-neutral-500">{order.deliveryHub.address || '-'}</p>
+                  <p className="text-sm font-medium">{isSelfPickupOrder(order) ? getFulfillmentDisplay(order).title : order.deliveryHub.name}</p>
+                  <p className="text-xs text-neutral-500">{isSelfPickupOrder(order) ? getFulfillmentDisplay(order).subtitle : order.deliveryHub.address || '-'}</p>
                 </div>
               </div>
             </div>
@@ -721,7 +762,7 @@ export default function OrderDetail() {
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h3 className="text-sm font-semibold text-gray-900">Fulfillment & Tracking</h3>
-                <p className="mt-1 text-xs text-neutral-500">Update the post-payment journey after ordering from the Indian seller.</p>
+                <p className="mt-1 text-xs text-neutral-500">Update the post-payment journey after ordering from the Indian seller. Self-pickup orders use Ready for Pickup / Picked Up labels.</p>
               </div>
               <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${fulfillmentReady ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
                 {fulfillmentReady
@@ -772,6 +813,7 @@ export default function OrderDetail() {
 
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
               {fulfillmentActions.map((action) => {
+                const displayAction = displayFulfillmentAction(action, order);
                 const actionIndex = statusIndex(action.status);
                 const isCancelAction = action.status === 'cancelled';
                 const isSuggested = action.status === suggestedNextStatus && !isTerminalOrder;
@@ -794,9 +836,9 @@ export default function OrderDetail() {
                   >
                     <span className="flex items-center gap-2 text-xs font-bold">
                       {action.status === 'order_placed' ? <Package size={14} /> : action.status === 'in_transit' ? <Truck size={14} /> : action.status === 'cancelled' ? <XCircle size={14} /> : <CheckCircle size={14} />}
-                      {fulfillmentBusyStatus === action.status ? 'Updating...' : action.label}
+                      {fulfillmentBusyStatus === action.status ? 'Updating...' : displayAction.label}
                     </span>
-                    <span className="mt-1 block text-[11px] leading-relaxed opacity-75">{action.description}</span>
+                    <span className="mt-1 block text-[11px] leading-relaxed opacity-75">{displayAction.description}</span>
                   </button>
                 );
               })}
@@ -827,14 +869,14 @@ export default function OrderDetail() {
               <div>
                 <h3 className="text-base font-bold text-gray-950">Confirm status update</h3>
                 <p className="mt-1 text-sm text-neutral-500">
-                  {pendingFulfillmentAction.label} for order #{order.orderNumber}?
+                  {displayFulfillmentAction(pendingFulfillmentAction, order).label} for order #{order.orderNumber}?
                 </p>
               </div>
             </div>
 
             <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
-              <p className="text-sm font-semibold text-gray-900">{pendingFulfillmentAction.label}</p>
-              <p className="mt-1 text-xs leading-relaxed text-neutral-500">{pendingFulfillmentAction.description}</p>
+              <p className="text-sm font-semibold text-gray-900">{displayFulfillmentAction(pendingFulfillmentAction, order).label}</p>
+              <p className="mt-1 text-xs leading-relaxed text-neutral-500">{displayFulfillmentAction(pendingFulfillmentAction, order).description}</p>
               {pendingFulfillmentAction.status === 'order_placed' && sellerReference.trim() && (
                 <p className="mt-2 text-xs text-neutral-600">
                   <span className="font-semibold">Seller reference:</span> {sellerReference.trim()}

@@ -18,6 +18,7 @@ import { appSettings } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/shared/StatusBadge';
 import { fetchCustomerOrderById, fetchCustomerOrderByIdFast } from '@/lib/customerOrders';
+import { getFulfillmentDisplay, isSelfPickupOrder } from '@/lib/fulfillment';
 import type { Order, OrderStatus } from '@/types';
 
 const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
@@ -115,6 +116,42 @@ const progressSteps: Array<{
   },
 ];
 
+function displayProgressStep(step: (typeof progressSteps)[number], order: Order) {
+  if (!isSelfPickupOrder(order)) return step;
+
+  if (step.status === 'arrived_at_hub') {
+    return {
+      ...step,
+      label: 'Arrived at Pickup Hub',
+      shortLabel: 'Hub',
+      description: 'Package arrived at your pickup hub',
+      next: 'We will notify you when your order is ready for pickup.',
+    };
+  }
+
+  if (step.status === 'out_for_delivery') {
+    return {
+      ...step,
+      label: 'Ready for Pickup',
+      shortLabel: 'Pickup',
+      description: 'Your order is ready for pickup',
+      next: 'Please collect your order from the selected pickup hub.',
+    };
+  }
+
+  if (step.status === 'delivered') {
+    return {
+      ...step,
+      label: 'Picked Up',
+      shortLabel: 'Picked Up',
+      description: 'Package collected successfully',
+      next: 'Package collected successfully.',
+    };
+  }
+
+  return step;
+}
+
 const ORDER_DETAIL_CACHE_PREFIX = 'shop2bhutan:order-detail:';
 
 function orderDetailCacheKey(userId: string, orderId: string) {
@@ -150,6 +187,12 @@ function money(value?: number) {
 }
 
 function statusMessage(order: Order, status = getEffectiveOrderStatus(order)) {
+  if (isSelfPickupOrder(order)) {
+    if (status === 'delivered') return 'Your order has been picked up successfully.';
+    if (status === 'out_for_delivery') return `Your order is ready for pickup at ${getFulfillmentDisplay(order).title}.`;
+    if (status === 'arrived_at_hub') return `Your order has reached ${getFulfillmentDisplay(order).title}.`;
+  }
+
   if (status === 'delivered') return 'Your order has been delivered successfully.';
   if (status === 'out_for_delivery') return 'Your order is out for delivery.';
   if (status === 'arrived_at_hub') return 'Your order has reached the delivery hub.';
@@ -169,6 +212,11 @@ function statusMessage(order: Order, status = getEffectiveOrderStatus(order)) {
 }
 
 function safeAddress(order: Order) {
+  if (isSelfPickupOrder(order)) {
+    const display = getFulfillmentDisplay(order);
+    return `${display.title}. ${display.details}`;
+  }
+
   return [order.shippingAddress.village, order.shippingAddress.gewog, order.shippingAddress.dzongkhag]
     .filter(Boolean)
     .join(', ') || 'Delivery address pending';
@@ -238,7 +286,7 @@ function getCompactProgress(order: Order) {
   }
 
   const index = getProgressIndex(effectiveStatus);
-  const current = progressSteps[index] ?? progressSteps[0];
+  const current = displayProgressStep(progressSteps[index] ?? progressSteps[0], order);
   const progressPercent = Math.max(8, Math.round((index / Math.max(1, progressSteps.length - 1)) * 100));
 
   return {
@@ -314,6 +362,7 @@ function OrderProgressTimeline({ order }: { order: Order }) {
         const timestamp = stepTimestamp(order, step.status);
         const formattedTime = formatBhutanDateTime(timestamp);
         const event = latestTrackingEvent(order, step.status);
+        const displayStep = displayProgressStep(step, order);
 
         return (
           <div key={step.status} className="relative flex gap-3 pb-5 last:pb-0">
@@ -339,8 +388,8 @@ function OrderProgressTimeline({ order }: { order: Order }) {
             </div>
 
             <div className="min-w-0 flex-1 pt-0.5">
-              <p className={`text-sm font-bold ${isActive ? 'text-gray-900' : 'text-gray-400'}`}>{step.label}</p>
-              <p className={`mt-0.5 text-xs ${isActive ? 'text-gray-600' : 'text-gray-400'}`}>{event?.message || step.description}</p>
+              <p className={`text-sm font-bold ${isActive ? 'text-gray-900' : 'text-gray-400'}`}>{displayStep.label}</p>
+              <p className={`mt-0.5 text-xs ${isActive ? 'text-gray-600' : 'text-gray-400'}`}>{event?.message || displayStep.description}</p>
               <p className={`mt-1 text-[11px] font-medium ${formattedTime ? 'text-gray-500' : 'text-gray-300'}`}>
                 {formattedTime || 'Pending'}
               </p>
@@ -577,7 +626,7 @@ export default function OrderDetail() {
               </div>
               <div className="mt-2 flex justify-between text-[10px] font-bold uppercase tracking-wide text-gray-400">
                 <span>Received</span>
-                <span>Delivered</span>
+                <span>{isSelfPickupOrder(order) ? 'Picked up' : 'Delivered'}</span>
               </div>
             </div>
           </button>
@@ -639,13 +688,18 @@ export default function OrderDetail() {
         </section>
 
         <section className="rounded-2xl bg-white p-4 border border-gray-100">
-          <h3 className="mb-3 text-base font-bold text-gray-900">Delivery details</h3>
+          <h3 className="mb-3 text-base font-bold text-gray-900">Fulfillment details</h3>
           <div className="space-y-4">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
                 <MapPin size={18} strokeWidth={2.5} />
               </div>
               <div className="min-w-0">
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${getFulfillmentDisplay(order).badgeClass}`}>
+                    {getFulfillmentDisplay(order).label}
+                  </span>
+                </div>
                 <p className="text-sm font-bold text-gray-900">{order.shippingAddress.recipientName}</p>
                 {order.shippingAddress.phone && <p className="text-xs text-gray-500">{order.shippingAddress.phone}</p>}
                 <p className="mt-1 text-xs leading-relaxed text-gray-600">{safeAddress(order)}</p>
@@ -656,9 +710,11 @@ export default function OrderDetail() {
                 <Truck size={18} strokeWidth={2.5} />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-gray-900">{order.deliveryHub.name}</p>
+                <p className="text-sm font-bold text-gray-900">{isSelfPickupOrder(order) ? getFulfillmentDisplay(order).title : order.deliveryHub.name}</p>
                 <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                  {appSettings.orderCoverage.label}. Delivery currently available in {appSettings.deliveryHubs.hubNamesJoined}.
+                  {isSelfPickupOrder(order)
+                    ? getFulfillmentDisplay(order).subtitle
+                    : `${appSettings.orderCoverage.label}. Delivery currently available in ${appSettings.deliveryHubs.hubNamesJoined}.`}
                 </p>
               </div>
             </div>

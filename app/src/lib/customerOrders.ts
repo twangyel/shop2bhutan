@@ -23,6 +23,7 @@ import type {
   ServiceChargeRule,
   User,
   VerificationBadge,
+  FulfillmentMode,
 } from '@/types'
 
 // React Order Step 03 helper:
@@ -149,6 +150,10 @@ export type SubmitPasteLinkOrderInput = {
   customerPhone: string
   deliveryAddress?: string | null
   customerNotes?: string | null
+  fulfillmentMode?: FulfillmentMode | string
+  pickupHubId?: string | null
+  pickupHubName?: string | null
+  pickupInstructions?: string | null
   items: PasteLinkOrderItemInput[]
 }
 
@@ -261,6 +266,89 @@ const DEFAULT_PAYMENT_METHODS: PaymentMethod[] = [
     sortOrder: 2,
   },
 ]
+
+
+const DEFAULT_PICKUP_HUBS = [
+  {
+    id: 'phuntsholing',
+    name: 'Phuntsholing Hub',
+    instructions: 'Collect from Shop2Bhutan Phuntsholing pickup point after admin marks the order ready.',
+  },
+  {
+    id: 'thimphu',
+    name: 'Thimphu Hub',
+    instructions: 'Collect from Shop2Bhutan Thimphu pickup point after admin marks the order ready.',
+  },
+  {
+    id: 'paro',
+    name: 'Paro Hub',
+    instructions: 'Collect from Shop2Bhutan Paro pickup point after admin marks the order ready.',
+  },
+]
+
+function normalizeFulfillmentModeValue(value: unknown): FulfillmentMode {
+  return cleanText(value).toLowerCase() === 'self_pickup' ? 'self_pickup' : 'delivery'
+}
+
+function defaultPickupHub() {
+  return DEFAULT_PICKUP_HUBS[0]
+}
+
+function resolvePickupHub(input: Pick<SubmitPasteLinkOrderInput, 'pickupHubId' | 'pickupHubName' | 'pickupInstructions'>) {
+  const id = cleanText(input.pickupHubId).toLowerCase() || defaultPickupHub().id
+  const fallback = DEFAULT_PICKUP_HUBS.find((hub) => hub.id === id) || defaultPickupHub()
+
+  return {
+    id,
+    name: cleanText(input.pickupHubName) || fallback.name,
+    instructions: cleanText(input.pickupInstructions) || fallback.instructions,
+  }
+}
+
+function makeFulfillmentAddress(input: Pick<SubmitPasteLinkOrderInput, 'deliveryAddress' | 'fulfillmentMode' | 'pickupHubId' | 'pickupHubName' | 'pickupInstructions'>) {
+  const mode = normalizeFulfillmentModeValue(input.fulfillmentMode)
+  if (mode !== 'self_pickup') return cleanText(input.deliveryAddress)
+
+  const hub = resolvePickupHub(input)
+  return `Self Pickup — ${hub.name}`
+}
+
+function makeFulfillmentNote(input: Pick<SubmitPasteLinkOrderInput, 'fulfillmentMode' | 'pickupHubId' | 'pickupHubName' | 'pickupInstructions'>) {
+  const mode = normalizeFulfillmentModeValue(input.fulfillmentMode)
+  if (mode !== 'self_pickup') return 'Fulfillment: Delivery to customer address.'
+
+  const hub = resolvePickupHub(input)
+  return `Fulfillment: Self Pickup. Customer will collect from ${hub.name}. ${hub.instructions}`
+}
+
+function fulfillmentSource(row: AnyRow) {
+  const nested = firstJsonObject(row, ['shipping_address', 'delivery_address_json', 'address'])
+  return { ...row, ...nested }
+}
+
+function orderFulfillmentMode(row: AnyRow): FulfillmentMode {
+  const source = fulfillmentSource(row)
+  return normalizeFulfillmentModeValue(firstValue(source, ['fulfillment_mode', 'fulfillmentMode']))
+}
+
+function orderPickupHubId(row: AnyRow) {
+  const source = fulfillmentSource(row)
+  return firstString(source, ['pickup_hub_id', 'pickupHubId', 'delivery_hub_id', 'hub_id'], '')
+}
+
+function orderPickupHubName(row: AnyRow) {
+  const source = fulfillmentSource(row)
+  const hubId = orderPickupHubId(row)
+  const fallback = DEFAULT_PICKUP_HUBS.find((hub) => hub.id === hubId) || defaultPickupHub()
+  return firstString(source, ['pickup_hub_name', 'pickupHubName', 'delivery_hub_name', 'hub_name', 'delivery_hub'], fallback.name)
+}
+
+function orderPickupInstructions(row: AnyRow) {
+  const source = fulfillmentSource(row)
+  const hubId = orderPickupHubId(row)
+  const fallback = DEFAULT_PICKUP_HUBS.find((hub) => hub.id === hubId) || defaultPickupHub()
+  return firstString(source, ['pickup_instructions', 'pickupInstructions'], fallback.instructions)
+}
 
 export type CalculatedChargeSettings = {
   serviceCharge: number
@@ -649,7 +737,9 @@ function uniqueAddressParts(parts: unknown[]) {
 }
 
 function makeSubmittedAddressSnapshot(input: SubmitPasteLinkOrderInput) {
-  const fullAddress = cleanText(input.deliveryAddress)
+  const fulfillmentMode = normalizeFulfillmentModeValue(input.fulfillmentMode)
+  const pickupHub = resolvePickupHub(input)
+  const fullAddress = makeFulfillmentAddress(input)
 
   return {
     recipient_name: cleanText(input.customerName),
@@ -659,6 +749,12 @@ function makeSubmittedAddressSnapshot(input: SubmitPasteLinkOrderInput) {
     full_address: fullAddress,
     formatted_address: fullAddress,
     village: fullAddress,
+    fulfillment_mode: fulfillmentMode,
+    pickup_hub_id: fulfillmentMode === 'self_pickup' ? pickupHub.id : null,
+    pickup_hub_name: fulfillmentMode === 'self_pickup' ? pickupHub.name : null,
+    pickup_instructions: fulfillmentMode === 'self_pickup' ? pickupHub.instructions : null,
+    delivery_hub_id: fulfillmentMode === 'self_pickup' ? pickupHub.id : undefined,
+    delivery_hub_name: fulfillmentMode === 'self_pickup' ? pickupHub.name : undefined,
   }
 }
 
@@ -1509,7 +1605,7 @@ async function createQuotationReadyNotificationForOrder(orderId: string, quotati
   }
 }
 
-function orderStatusNotificationCopy(status: OrderStatus, orderNo: string, sellerReference?: string, adminNote?: string) {
+function orderStatusNotificationCopy(status: OrderStatus, orderNo: string, sellerReference?: string, adminNote?: string, selfPickup = false) {
   const reference = cleanText(sellerReference)
   const note = cleanText(adminNote)
 
@@ -1553,18 +1649,24 @@ function orderStatusNotificationCopy(status: OrderStatus, orderNo: string, selle
     },
     arrived_at_hub: {
       type: 'order_update',
-      title: 'Arrived at Hub',
-      message: `Your order #${orderNo} has arrived at the delivery hub.`,
+      title: selfPickup ? 'Arrived at Pickup Hub' : 'Arrived at Hub',
+      message: selfPickup
+        ? `Your order #${orderNo} has arrived at the pickup hub.`
+        : `Your order #${orderNo} has arrived at the delivery hub.`,
     },
     out_for_delivery: {
       type: 'order_update',
-      title: 'Out for Delivery',
-      message: `Your order #${orderNo} is out for delivery.`,
+      title: selfPickup ? 'Ready for Pickup' : 'Out for Delivery',
+      message: selfPickup
+        ? `Your order #${orderNo} is ready for pickup.`
+        : `Your order #${orderNo} is out for delivery.`,
     },
     delivered: {
       type: 'order_update',
-      title: 'Delivered',
-      message: `Your order #${orderNo} has been delivered successfully.`,
+      title: selfPickup ? 'Picked Up' : 'Delivered',
+      message: selfPickup
+        ? `Your order #${orderNo} has been picked up successfully.`
+        : `Your order #${orderNo} has been delivered successfully.`,
     },
     cancelled: {
       type: 'order_update',
@@ -1603,7 +1705,7 @@ async function createOrderStatusNotificationForOrder(input: {
     if (!userId) return
 
     const orderNo = firstString(orderRow, ['order_no', 'order_number', 'public_id'], orderId.slice(0, 8).toUpperCase())
-    const copy = orderStatusNotificationCopy(input.status, orderNo, input.sellerReference, input.adminNote)
+    const copy = orderStatusNotificationCopy(input.status, orderNo, input.sellerReference, input.adminNote, orderFulfillmentMode(orderRow) === 'self_pickup')
 
     await createCustomerNotification({
       userId,
@@ -2626,6 +2728,10 @@ function mergeSubmittedRequestBagAddress(row: AnyRow, related: RelatedRows) {
     customer_phone: firstString(row, ['customer_phone']) || firstString(bag, ['customer_phone']),
     delivery_address: firstString(row, ['delivery_address', 'full_address', 'formatted_address']) || firstString(bag, ['delivery_address', 'full_address', 'formatted_address']),
     customer_notes: firstString(row, ['customer_notes', 'notes']) || firstString(bag, ['customer_notes']),
+    fulfillment_mode: firstString(row, ['fulfillment_mode', 'fulfillmentMode']) || firstString(bag, ['fulfillment_mode', 'fulfillmentMode']),
+    pickup_hub_id: firstString(row, ['pickup_hub_id', 'pickupHubId']) || firstString(bag, ['pickup_hub_id', 'pickupHubId']),
+    pickup_hub_name: firstString(row, ['pickup_hub_name', 'pickupHubName']) || firstString(bag, ['pickup_hub_name', 'pickupHubName']),
+    pickup_instructions: firstString(row, ['pickup_instructions', 'pickupInstructions']) || firstString(bag, ['pickup_instructions', 'pickupInstructions']),
   }
 }
 
@@ -2656,8 +2762,12 @@ async function mapOrderRow(row: AnyRow, related: RelatedRows, authUserId: string
     items,
     status: normalizeOrderStatus(firstValue(row, ['status', 'order_status'])),
     type: firstString(row, ['order_type', 'type'], 'paste_link') as OrderType,
-    deliveryHubId: firstString(row, ['delivery_hub_id', 'hub_id'], 'hub1'),
+    deliveryHubId: firstString(row, ['delivery_hub_id', 'hub_id'], orderPickupHubId(displayRow) || 'hub1'),
     deliveryHub: makeDeliveryHub(displayRow),
+    fulfillmentMode: orderFulfillmentMode(displayRow),
+    pickupHubId: orderPickupHubId(displayRow),
+    pickupHubName: orderPickupHubName(displayRow),
+    pickupInstructions: orderPickupInstructions(displayRow),
     shippingAddress: makeShippingAddress(displayRow, customerId, related.profiles),
     quotation,
     payment,
@@ -2937,8 +3047,12 @@ function mapOrderRowSummary(row: AnyRow, related: RelatedRows, authUserId: strin
     items,
     status: normalizeOrderStatus(firstValue(row, ['status', 'order_status'])),
     type: firstString(row, ['order_type', 'type'], 'paste_link') as OrderType,
-    deliveryHubId: firstString(row, ['delivery_hub_id', 'hub_id'], 'hub1'),
+    deliveryHubId: firstString(row, ['delivery_hub_id', 'hub_id'], orderPickupHubId(displayRow) || 'hub1'),
     deliveryHub: makeDeliveryHub(displayRow),
+    fulfillmentMode: orderFulfillmentMode(displayRow),
+    pickupHubId: orderPickupHubId(displayRow),
+    pickupHubName: orderPickupHubName(displayRow),
+    pickupInstructions: orderPickupInstructions(displayRow),
     shippingAddress: makeShippingAddress(displayRow, customerId, related.profiles),
     quotation,
     payment,
@@ -4200,15 +4314,22 @@ export async function fetchProductLinkPreview(url: string): Promise<ProductLinkP
 }
 
 function makeOrderPayloadCandidates(input: SubmitPasteLinkOrderInput): AnyRow[] {
-  const deliveryAddress = cleanText(input.deliveryAddress)
+  const fulfillmentMode = normalizeFulfillmentModeValue(input.fulfillmentMode)
+  const pickupHub = resolvePickupHub(input)
+  const deliveryAddress = makeFulfillmentAddress(input)
+  const fulfillmentNote = makeFulfillmentNote(input)
   const customerNotes =
     cleanText(input.customerNotes) ||
     `Paste-link order submitted by customer. Name: ${cleanText(input.customerName)}. Phone: ${cleanText(input.customerPhone)}.`
-  const notesWithAddress = deliveryAddress && !customerNotes.toLowerCase().includes('delivery address')
-    ? `${customerNotes}
+  const notesWithAddress = `${customerNotes}
+
+${fulfillmentNote}${
+    deliveryAddress && !customerNotes.toLowerCase().includes('delivery address') && fulfillmentMode === 'delivery'
+      ? `
 
 Delivery address: ${deliveryAddress}`
-    : customerNotes
+      : ''
+  }`
   const shippingSnapshot = makeSubmittedAddressSnapshot(input)
 
   const base: AnyRow = {
@@ -4218,6 +4339,12 @@ Delivery address: ${deliveryAddress}`
     customer_email: cleanText(input.email),
     delivery_address: deliveryAddress || null,
     customer_notes: notesWithAddress,
+    fulfillment_mode: fulfillmentMode,
+    pickup_hub_id: fulfillmentMode === 'self_pickup' ? pickupHub.id : null,
+    pickup_hub_name: fulfillmentMode === 'self_pickup' ? pickupHub.name : null,
+    pickup_instructions: fulfillmentMode === 'self_pickup' ? pickupHub.instructions : null,
+    delivery_hub_id: fulfillmentMode === 'self_pickup' ? pickupHub.id : undefined,
+    delivery_hub_name: fulfillmentMode === 'self_pickup' ? pickupHub.name : undefined,
   }
 
   return [
@@ -4443,6 +4570,10 @@ export type SubmitRequestBagInput = {
   customerPhone: string
   deliveryAddress: string
   customerNotes?: string | null
+  fulfillmentMode?: FulfillmentMode | string
+  pickupHubId?: string | null
+  pickupHubName?: string | null
+  pickupInstructions?: string | null
 }
 
 function normalizeBagStatus(status: unknown): RequestBag['status'] {
@@ -4786,6 +4917,10 @@ export async function submitRequestBagAsOrder(input: SubmitRequestBagInput): Pro
     customerNotes:
       cleanText(input.customerNotes) ||
       `Request Bag submitted by customer. Name: ${cleanText(input.customerName)}. Phone: ${cleanText(input.customerPhone)}.`,
+    fulfillmentMode: input.fulfillmentMode,
+    pickupHubId: input.pickupHubId,
+    pickupHubName: input.pickupHubName,
+    pickupInstructions: input.pickupInstructions,
     items,
   })
 
@@ -4796,8 +4931,12 @@ export async function submitRequestBagAsOrder(input: SubmitRequestBagInput): Pro
       submitted_order_id: result.orderId,
       customer_name: cleanText(input.customerName),
       customer_phone: cleanText(input.customerPhone),
-      delivery_address: cleanText(input.deliveryAddress),
+      delivery_address: makeFulfillmentAddress(input),
       customer_notes: cleanText(input.customerNotes) || null,
+      fulfillment_mode: normalizeFulfillmentModeValue(input.fulfillmentMode),
+      pickup_hub_id: normalizeFulfillmentModeValue(input.fulfillmentMode) === 'self_pickup' ? resolvePickupHub(input).id : null,
+      pickup_hub_name: normalizeFulfillmentModeValue(input.fulfillmentMode) === 'self_pickup' ? resolvePickupHub(input).name : null,
+      pickup_instructions: normalizeFulfillmentModeValue(input.fulfillmentMode) === 'self_pickup' ? resolvePickupHub(input).instructions : null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', input.bagId)

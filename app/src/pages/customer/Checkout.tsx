@@ -1,16 +1,22 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Check } from 'lucide-react';
+import { ArrowLeft, MapPin, Check, Package, Truck } from 'lucide-react';
 import { addresses, deliveryHubs } from '@/data/mockData';
 import { useApp } from '@/contexts/AppContext';
+import { SELF_PICKUP_HUBS, getPickupHubById } from '@/lib/fulfillment';
+import type { FulfillmentMode } from '@/types';
 
 export default function Checkout() {
   const navigate = useNavigate();
   const { cart } = useApp();
   const [selectedAddress, setSelectedAddress] = useState(addresses[0].id);
+  const [fulfillmentMode, setFulfillmentMode] = useState<FulfillmentMode>('delivery');
+  const [pickupHubId, setPickupHubId] = useState(SELF_PICKUP_HUBS[0].id);
   const [step] = useState(1);
 
   const subtotal = cart.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const selectedPickupHub = getPickupHubById(pickupHubId);
+  const isSelfPickup = fulfillmentMode === 'self_pickup';
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -27,7 +33,7 @@ export default function Checkout() {
         <div className="flex items-center gap-2 mt-4 px-2">
           {[
             { num: 1, label: 'Cart', done: true },
-            { num: 2, label: 'Shipping', done: step >= 2 },
+            { num: 2, label: 'Fulfillment', done: step >= 2 },
             { num: 3, label: 'Payment', done: false },
           ].map((s, i) => (
             <div key={s.num} className="flex items-center gap-2 flex-1">
@@ -46,7 +52,49 @@ export default function Checkout() {
       </div>
 
       <div className="px-4 py-4 space-y-4">
+        {/* Fulfillment Method */}
+        <div className="rounded-xl bg-white p-4">
+          <h3 className="text-base font-semibold text-gray-900 mb-3">Fulfillment Method</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setFulfillmentMode('delivery')}
+              className={`rounded-2xl border p-3 text-left transition ${fulfillmentMode === 'delivery' ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-neutral-200 bg-white text-neutral-600'}`}
+            >
+              <Truck size={18} />
+              <p className="mt-2 text-sm font-bold">Deliver to me</p>
+              <p className="text-xs opacity-75">Use saved address</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFulfillmentMode('self_pickup')}
+              className={`rounded-2xl border p-3 text-left transition ${fulfillmentMode === 'self_pickup' ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-neutral-200 bg-white text-neutral-600'}`}
+            >
+              <Package size={18} />
+              <p className="mt-2 text-sm font-bold">I will pick up</p>
+              <p className="text-xs opacity-75">Collect from S2B hub</p>
+            </button>
+          </div>
+
+          {isSelfPickup && (
+            <div className="mt-3 space-y-2">
+              {SELF_PICKUP_HUBS.map((hub) => (
+                <button
+                  key={hub.id}
+                  type="button"
+                  onClick={() => setPickupHubId(hub.id)}
+                  className={`w-full rounded-2xl border p-3 text-left transition ${pickupHubId === hub.id ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-neutral-200 bg-white text-neutral-600'}`}
+                >
+                  <p className="text-sm font-bold">{hub.name}</p>
+                  <p className="text-xs text-neutral-500">{hub.pickupInstructions}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Delivery Address */}
+        {!isSelfPickup && (
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-base font-semibold text-gray-900">Deliver To</h3>
@@ -95,6 +143,14 @@ export default function Checkout() {
             })}
           </div>
         </div>
+        )}
+
+        {isSelfPickup && (
+          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-blue-800">
+            <p className="text-sm font-bold">Self Pickup — {selectedPickupHub.name}</p>
+            <p className="mt-1 text-xs leading-5">{selectedPickupHub.pickupInstructions}</p>
+          </div>
+        )}
 
         {/* Order Items */}
         <div className="bg-white rounded-xl p-4">
