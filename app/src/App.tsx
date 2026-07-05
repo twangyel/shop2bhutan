@@ -30,6 +30,7 @@ import Profile from '@/pages/customer/Profile';
 import Addresses from '@/pages/customer/Addresses';
 import ChangePassword from '@/pages/customer/ChangePassword';
 import Support from '@/pages/customer/Support';
+import PolicyPage from '@/pages/customer/PolicyPage';
 import Notifications from '@/pages/customer/Notifications';
 import Parcel from '@/pages/customer/Parcel';
 import ParcelBooking from '@/pages/customer/ParcelBooking';
@@ -106,6 +107,9 @@ export default function App() {
           <Route path="/paste-link" element={<PasteLink />} />
           <Route path="/account" element={<Account />} />
           <Route path="/support" element={<Support />} />
+          <Route path="/terms" element={<PolicyPage slug="terms" />} />
+          <Route path="/privacy" element={<PolicyPage slug="privacy" />} />
+          <Route path="/return-policy" element={<PolicyPage slug="returns" />} />
           <Route path="/parcel" element={<Parcel />} />
           <Route path="/shop" element={<Shop />} />
 
