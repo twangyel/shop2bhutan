@@ -14,11 +14,14 @@ import {
   UserX,
   XCircle,
 } from 'lucide-react';
+import VerificationBadge, { getVerificationBadgeLabel } from '@/components/shared/VerificationBadge';
+import type { VerificationBadge as VerificationBadgeType } from '@/types';
 import {
   deactivateCustomerAccount,
   fetchAdminCustomers,
   reactivateCustomerAccount,
   resetCustomerTemporaryPassword,
+  updateCustomerVerificationBadge,
   type AdminCustomerRecord,
 } from '@/lib/customerOrders';
 
@@ -73,6 +76,7 @@ export default function CustomersPanel() {
   const [success, setSuccess] = useState('');
   const [reactivatingId, setReactivatingId] = useState('');
   const [deactivatingId, setDeactivatingId] = useState('');
+  const [updatingVerificationId, setUpdatingVerificationId] = useState('');
   const [deactivationReason, setDeactivationReason] = useState('');
   const [resettingId, setResettingId] = useState('');
   const [resetResult, setResetResult] = useState<{
@@ -133,6 +137,9 @@ export default function CustomersPanel() {
         customer.accountStatus,
         customer.deactivationReason,
         customer.mustChangePassword ? 'temporary password must change password reset' : '',
+        getVerificationBadgeLabel(customer.verificationBadge),
+        customer.verificationBadge === 'gold' ? 'trusted customer gold badge' : '',
+        customer.verificationBadge === 'blue' ? 'verified contact blue badge' : '',
         customer.accountType === 'email' ? 'email account' : 'phone-only',
         deactivated ? 'deactivated inactive disabled' : 'active enabled',
       ]
@@ -168,6 +175,33 @@ export default function CustomersPanel() {
     setError('');
     setSuccess('');
     setConfirmAction({ type: 'reset-password', customer });
+  }
+
+  async function handleVerificationBadgeChange(
+    customer: AdminCustomerRecord,
+    badge: VerificationBadgeType,
+  ) {
+    try {
+      setUpdatingVerificationId(customer.id);
+      setError('');
+      setSuccess('');
+
+      await updateCustomerVerificationBadge(customer.id, badge);
+      setSuccess(
+        badge === 'none'
+          ? `Verification badge removed for ${customer.name || 'customer'}.`
+          : `${getVerificationBadgeLabel(badge)} badge assigned to ${customer.name || 'customer'}.`,
+      );
+      await loadCustomers();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to update verification badge.',
+      );
+    } finally {
+      setUpdatingVerificationId('');
+    }
   }
 
   async function confirmReactivate(customer: AdminCustomerRecord) {
@@ -351,7 +385,7 @@ export default function CustomersPanel() {
 
       <div className="overflow-hidden rounded-xl bg-white shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1240px]">
+          <table className="w-full min-w-[1360px]">
             <thead>
               <tr className="border-b border-neutral-200 bg-neutral-50">
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-neutral-500">
@@ -365,6 +399,9 @@ export default function CustomersPanel() {
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-neutral-500">
                   Account
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-neutral-500">
+                  Badge
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-neutral-500">
                   Status
@@ -389,7 +426,7 @@ export default function CustomersPanel() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-10 text-center text-sm text-neutral-500">
+                  <td colSpan={11} className="px-4 py-10 text-center text-sm text-neutral-500">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 size={18} className="animate-spin text-amber-500" />
                       Loading customers...
@@ -400,7 +437,7 @@ export default function CustomersPanel() {
 
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center">
+                  <td colSpan={11} className="px-4 py-12 text-center">
                     <p className="text-sm font-medium text-neutral-600">
                       No customers found
                     </p>
@@ -417,6 +454,7 @@ export default function CustomersPanel() {
                   const isReactivating = reactivatingId === customer.id;
                   const isDeactivating = deactivatingId === customer.id;
                   const isResetting = resettingId === customer.id;
+                  const isUpdatingVerification = updatingVerificationId === customer.id;
 
                   return (
                     <tr
@@ -437,9 +475,12 @@ export default function CustomersPanel() {
                               .toUpperCase()}
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-gray-900">
-                              {customer.name || 'Customer'}
-                            </p>
+                            <div className="flex min-w-0 items-center gap-1.5">
+                              <p className="truncate text-sm font-semibold text-gray-900">
+                                {customer.name || 'Customer'}
+                              </p>
+                              <VerificationBadge badge={customer.verificationBadge} size="xs" />
+                            </div>
                             <p className="text-xs text-neutral-400">
                               {deactivated
                                 ? 'Deactivated customer profile'
@@ -471,6 +512,33 @@ export default function CustomersPanel() {
                             ? 'Email account'
                             : 'Phone-only'}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <div className="space-y-2">
+                          {customer.verificationBadge && customer.verificationBadge !== 'none' ? (
+                            <VerificationBadge badge={customer.verificationBadge} size="sm" showLabel />
+                          ) : (
+                            <span className="inline-flex rounded-full border border-neutral-100 bg-neutral-50 px-2.5 py-1 text-xs font-bold text-neutral-400">
+                              No badge
+                            </span>
+                          )}
+
+                          <select
+                            value={customer.verificationBadge || 'none'}
+                            disabled={isUpdatingVerification}
+                            onChange={(event) =>
+                              void handleVerificationBadgeChange(
+                                customer,
+                                event.target.value as VerificationBadgeType,
+                              )
+                            }
+                            className="h-8 w-full min-w-[150px] rounded-lg border border-neutral-200 bg-white px-2 text-xs font-semibold text-neutral-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 disabled:opacity-60"
+                          >
+                            <option value="none">No badge</option>
+                            <option value="blue">Verified Contact</option>
+                            <option value="gold">Trusted Customer</option>
+                          </select>
+                        </div>
                       </td>
                       <td className="px-4 py-3 align-top">
                         <div className="space-y-1.5">
@@ -666,9 +734,12 @@ export default function CustomersPanel() {
               )}
 
               <div className="rounded-2xl bg-neutral-50 p-3">
-                <p className="text-sm font-bold text-neutral-900">
-                  {confirmAction.customer.name || 'Customer'}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-bold text-neutral-900">
+                    {confirmAction.customer.name || 'Customer'}
+                  </p>
+                  <VerificationBadge badge={confirmAction.customer.verificationBadge} size="xs" />
+                </div>
                 <p className="mt-0.5 text-xs text-neutral-500">
                   {confirmAction.customer.phone || confirmAction.customer.email || 'No contact shown'}
                 </p>
@@ -736,9 +807,12 @@ export default function CustomersPanel() {
                 <p className="mb-1 text-xs font-bold uppercase tracking-wider text-neutral-400">
                   Customer
                 </p>
-                <p className="text-sm font-semibold text-neutral-900">
-                  {resetResult.customer.name || resetResult.customer.phone || 'Customer'}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-semibold text-neutral-900">
+                    {resetResult.customer.name || resetResult.customer.phone || 'Customer'}
+                  </p>
+                  <VerificationBadge badge={resetResult.customer.verificationBadge} size="xs" />
+                </div>
                 <p className="text-xs text-neutral-500">
                   {resetResult.customer.phone || resetResult.customer.email || 'No contact shown'}
                 </p>

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import VerificationBadge, { getVerificationBadgeLabel, normalizeVerificationBadge } from '@/components/shared/VerificationBadge';
 
 type ProfileLike = {
   id?: string | null;
@@ -23,6 +24,10 @@ type ProfileLike = {
   default_dzongkhag_id?: string | null;
   dzongkhag?: string | null;
   avatar_url?: string | null;
+  verification_badge?: string | null;
+  verificationBadge?: string | null;
+  verified_at?: string | null;
+  verification_note?: string | null;
 };
 
 type DzongkhagOption = {
@@ -92,6 +97,10 @@ function getDzongkhagName(idOrName: string | null | undefined, options: Dzongkha
   return options.find((item) => item.id === value)?.name || '';
 }
 
+function getProfileVerificationBadge(profile: ProfileLike | null) {
+  return normalizeVerificationBadge(profile?.verification_badge ?? profile?.verificationBadge);
+}
+
 export default function Profile() {
   const navigate = useNavigate();
   const { user, context, refreshContext, signOut } = useAuth();
@@ -113,6 +122,7 @@ export default function Profile() {
   const [success, setSuccess] = useState('');
 
   const displayEmail = getDisplayEmail(context?.email || user?.email);
+  const verificationBadge = getProfileVerificationBadge(profile);
   const registeredDzongkhagName = getDzongkhagName(dzongkhagId, dzongkhagOptions);
 
   const initials = useMemo(() => {
@@ -337,7 +347,15 @@ export default function Profile() {
               />
             </label>
           </div>
-          <p className="mt-3 text-sm font-bold text-gray-900">{fullName || 'Your Profile'}</p>
+          <div className="mt-3 flex items-center justify-center gap-1.5">
+            <p className="text-sm font-bold text-gray-900">{fullName || 'Your Profile'}</p>
+            <VerificationBadge badge={verificationBadge} size="sm" />
+          </div>
+          {verificationBadge !== 'none' && (
+            <p className="mt-0.5 text-xs font-bold text-amber-600">
+              {getVerificationBadgeLabel(verificationBadge)}
+            </p>
+          )}
           <p className="text-xs text-gray-500">{displayEmail}</p>
         </div>
 

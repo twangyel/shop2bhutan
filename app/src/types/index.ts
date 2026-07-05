@@ -17,6 +17,8 @@ export type ProductSource = 'internal' | 'amazon' | 'flipkart' | 'myntra' | 'mee
 
 export type UserRole = 'customer' | 'admin';
 
+export type VerificationBadge = 'none' | 'blue' | 'gold';
+
 export type NotificationType = 'order_update' | 'quotation' | 'payment' | 'promotion' | 'system';
 
 export type PaymentMethodType = 'bank_transfer' | 'mobile_banking' | 'mobile_wallet' | 'other';
@@ -111,6 +113,9 @@ export interface User {
   role: UserRole;
   dzongkhag: string;
   isActive: boolean;
+  verificationBadge?: VerificationBadge;
+  verifiedAt?: string;
+  verificationNote?: string;
   createdAt: string;
 }
 

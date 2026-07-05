@@ -21,6 +21,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { getUnreadNotificationCount } from '@/lib/customerOrders';
 import { deactivateMyAccount } from '@/lib/account';
+import VerificationBadge, { getVerificationBadgeLabel, normalizeVerificationBadge } from '@/components/shared/VerificationBadge';
 
 const PHONE_ONLY_EMAIL_SUFFIX = '@phone.shop2bhutan.com';
 
@@ -34,6 +35,10 @@ type ProfileLike = {
   account_status?: string | null;
   is_active?: boolean | null;
   deactivated_at?: string | null;
+  verification_badge?: string | null;
+  verificationBadge?: string | null;
+  verified_at?: string | null;
+  verification_note?: string | null;
 };
 
 type DzongkhagOption = {
@@ -67,6 +72,10 @@ function getDisplayName(profile: ProfileLike | null, email?: string | null) {
   if (profile?.name?.trim()) return profile.name.trim();
   if (email && !isPhoneOnlyEmail(email)) return email.split('@')[0];
   return 'Guest';
+}
+
+function getProfileVerificationBadge(profile: ProfileLike | null) {
+  return normalizeVerificationBadge(profile?.verification_badge ?? profile?.verificationBadge);
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -154,6 +163,7 @@ export default function Account() {
     dzongkhagOptions
   );
   const avatarUrl = profile?.avatar_url?.trim() || null;
+  const verificationBadge = getProfileVerificationBadge(profile);
   const emailAdded = displayEmail !== 'No email added' && isLoggedIn;
   const canAccessAdmin = Boolean(context?.is_admin || context?.is_super_admin);
 
@@ -295,7 +305,15 @@ export default function Account() {
           </button>
 
           <div className="min-w-0 flex-1 pt-1">
-            <h1 className="truncate text-xl font-bold text-gray-900">{displayName}</h1>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <h1 className="truncate text-xl font-bold text-gray-900">{displayName}</h1>
+              <VerificationBadge badge={verificationBadge} size="sm" />
+            </div>
+            {verificationBadge !== 'none' && (
+              <p className="mt-0.5 text-xs font-bold text-amber-600">
+                {getVerificationBadgeLabel(verificationBadge)}
+              </p>
+            )}
             <p className="mt-0.5 truncate text-sm text-gray-500">{displayEmail}</p>
             {displayPhone && <p className="text-sm text-gray-500">+975 {displayPhone}</p>}
             {displayDzongkhag && <p className="text-xs text-gray-400">{displayDzongkhag}</p>}

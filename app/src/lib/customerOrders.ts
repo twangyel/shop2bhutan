@@ -22,6 +22,7 @@ import type {
   RequestBagItem,
   ServiceChargeRule,
   User,
+  VerificationBadge,
 } from '@/types'
 
 // React Order Step 03 helper:
@@ -85,6 +86,10 @@ export type AdminCustomerRecord = {
   mustChangePassword: boolean
   passwordResetByAdminAt?: string
   accountType: 'phone_only' | 'email'
+  verificationBadge: VerificationBadge
+  verifiedAt?: string
+  verifiedBy?: string
+  verificationNote?: string
 }
 
 export type AdminTemporaryPasswordResetResult = {
@@ -570,6 +575,11 @@ function getCustomerAccountType(profile: AnyRow): AdminCustomerRecord['accountTy
   if (hasRealEmail === false) return 'phone_only'
 
   return email && !isPhoneOnlyAuthEmail(email) ? 'email' : 'phone_only'
+}
+
+function normalizeVerificationBadgeValue(value: unknown): VerificationBadge {
+  const raw = cleanText(value).toLowerCase()
+  return raw === 'blue' || raw === 'gold' ? raw : 'none'
 }
 
 function errorMessage(error: unknown, fallback = 'Unexpected Supabase error.') {
@@ -2475,6 +2485,10 @@ export async function fetchAdminCustomers(): Promise<AdminCustomerRecord[]> {
       mustChangePassword: Boolean(firstValue(profile, ['must_change_password', 'mustChangePassword']) ?? false),
       passwordResetByAdminAt: firstString(profile, ['password_reset_by_admin_at', 'passwordResetByAdminAt'], ''),
       accountType: getCustomerAccountType({ ...profile, email: rawEmail }),
+      verificationBadge: normalizeVerificationBadgeValue(firstValue(profile, ['verification_badge', 'verificationBadge'])),
+      verifiedAt: firstString(profile, ['verified_at', 'verifiedAt'], ''),
+      verifiedBy: firstString(profile, ['verified_by', 'verifiedBy'], ''),
+      verificationNote: firstString(profile, ['verification_note', 'verificationNote'], ''),
     })
   }
 
@@ -2515,6 +2529,33 @@ export async function deactivateCustomerAccount(customerId: string, reason?: str
 
   if (isMissingColumnOrRelationError(error) || message.toLowerCase().includes('deactivate_customer_account')) {
     throw new Error('Admin deactivation is not ready. Please run the deactivate_customer_account SQL in Supabase first.')
+  }
+
+  throw error
+}
+
+export async function updateCustomerVerificationBadge(
+  customerId: string,
+  badge: VerificationBadge,
+  note?: string,
+) {
+  const id = cleanText(customerId)
+  if (!id) throw new Error('Customer ID is required.')
+
+  const nextBadge = normalizeVerificationBadgeValue(badge)
+
+  const { error } = await supabase.rpc('set_customer_verification_badge', {
+    p_user_id: id,
+    p_badge: nextBadge,
+    p_note: cleanText(note) || null,
+  })
+
+  if (!error) return
+
+  const message = errorMessage(error, '')
+
+  if (isMissingColumnOrRelationError(error) || message.toLowerCase().includes('set_customer_verification_badge')) {
+    throw new Error('Customer verification badges are not ready. Please run the verified_badge_system SQL in Supabase first.')
   }
 
   throw error
