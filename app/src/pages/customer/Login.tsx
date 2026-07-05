@@ -36,6 +36,22 @@ function getSafeReturnTo(value: unknown) {
   return value;
 }
 
+async function isLoginEmailDeactivated(loginEmail: string) {
+  const cleanEmail = loginEmail.trim().toLowerCase();
+  if (!cleanEmail) return false;
+
+  const { data, error } = await supabase.rpc('is_login_account_deactivated', {
+    p_login_email: cleanEmail,
+  });
+
+  if (error) {
+    console.warn('[Login] Pre-login deactivated check skipped:', error.message);
+    return false;
+  }
+
+  return Boolean(data);
+}
+
 async function isDeactivatedLoginUser(userId?: string | null) {
   if (!userId) return false;
 
@@ -142,6 +158,14 @@ export default function Login() {
     } catch (err) {
       setSubmitting(false);
       setSubmitError(err instanceof Error ? err.message : 'Unable to sign in.');
+      return;
+    }
+
+    const preLoginDeactivated = await isLoginEmailDeactivated(loginEmail);
+
+    if (preLoginDeactivated) {
+      setSubmitting(false);
+      setSubmitError(DEACTIVATED_ACCOUNT_MESSAGE);
       return;
     }
 
