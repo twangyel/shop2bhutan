@@ -42,24 +42,48 @@ function formatDate(value?: string | null) {
 }
 
 function statusClass(status: string) {
-  if (status === 'delivered') return 'bg-emerald-50 text-emerald-700'
-  if (status === 'accepted') return 'bg-orange-50 text-orange-700'
-  if (status === 'picked_up' || status === 'collected') {
-    return 'bg-blue-50 text-blue-700'
+  if (status === 'pending') {
+    return 'bg-amber-50 text-amber-700 border border-amber-100'
   }
-  if (status === 'in_transit') return 'bg-purple-50 text-purple-700'
-  if (status === 'rejected') return 'bg-red-50 text-red-700'
-  if (status === 'cancelled') return 'bg-neutral-100 text-neutral-600'
-  return 'bg-amber-50 text-amber-700'
+
+  if (status === 'accepted') {
+    return 'bg-orange-50 text-orange-700 border border-orange-200'
+  }
+
+  if (status === 'picked_up' || status === 'collected') {
+    return 'bg-blue-50 text-blue-700 border border-blue-100'
+  }
+
+  if (status === 'in_transit') {
+    return 'bg-purple-50 text-purple-700 border border-purple-100'
+  }
+
+  if (status === 'delivered') {
+    return 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+  }
+
+  if (status === 'rejected') {
+    return 'bg-rose-50 text-rose-700 border border-rose-100'
+  }
+
+  if (status === 'cancelled') {
+    return 'bg-neutral-100 text-neutral-600 border border-neutral-200'
+  }
+
+  return 'bg-neutral-100 text-neutral-600 border border-neutral-200'
 }
 
 function nextStatuses(status: ParcelRequestStatus): ParcelRequestStatus[] {
   if (status === 'pending') return ['accepted', 'rejected', 'cancelled']
+
   if (status === 'accepted') return ['picked_up', 'cancelled']
+
   if (status === 'picked_up' || status === 'collected') {
     return ['in_transit', 'cancelled']
   }
+
   if (status === 'in_transit') return ['delivered', 'cancelled']
+
   return []
 }
 
@@ -70,6 +94,7 @@ function actionLabel(status: ParcelRequestStatus) {
   if (status === 'delivered') return 'Mark Delivered'
   if (status === 'rejected') return 'Reject'
   if (status === 'cancelled') return 'Cancel'
+
   return parcelStatusLabels[status] || status
 }
 
@@ -78,6 +103,7 @@ function actionClass(status: ParcelRequestStatus) {
   if (status === 'picked_up') return 'bg-blue-500 hover:bg-blue-600'
   if (status === 'in_transit') return 'bg-purple-500 hover:bg-purple-600'
   if (status === 'delivered') return 'bg-emerald-500 hover:bg-emerald-600'
+
   return 'bg-red-500 hover:bg-red-600'
 }
 
@@ -122,10 +148,10 @@ export default function ParcelRequests() {
     )
   }, [requests])
 
- async function changeStatus(
-  request: ParcelRequest,
-  status: ParcelRequestStatus,
-) {
+  async function changeStatus(
+    request: ParcelRequest,
+    status: ParcelRequestStatus,
+  ) {
   let adminNotes: string | undefined
 
   if (status === 'rejected') {

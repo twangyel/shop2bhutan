@@ -39,15 +39,35 @@ function formatDateTime(value?: string | null) {
 }
 
 function statusClass(status: string) {
-  if (status === 'delivered') return 'bg-emerald-50 text-emerald-700'
-  if (status === 'accepted') return 'bg-orange-50 text-orange-700'
-  if (status === 'picked_up' || status === 'collected') {
-    return 'bg-blue-50 text-blue-700'
+  if (status === 'pending') {
+    return 'bg-amber-50 text-amber-700 border border-amber-100'
   }
-  if (status === 'in_transit') return 'bg-purple-50 text-purple-700'
-  if (status === 'rejected') return 'bg-red-50 text-red-700'
-  if (status === 'cancelled') return 'bg-neutral-100 text-neutral-600'
-  return 'bg-amber-50 text-amber-700'
+
+  if (status === 'accepted') {
+    return 'bg-orange-50 text-orange-700 border border-orange-200'
+  }
+
+  if (status === 'picked_up' || status === 'collected') {
+    return 'bg-blue-50 text-blue-700 border border-blue-100'
+  }
+
+  if (status === 'in_transit') {
+    return 'bg-purple-50 text-purple-700 border border-purple-100'
+  }
+
+  if (status === 'delivered') {
+    return 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+  }
+
+  if (status === 'rejected') {
+    return 'bg-rose-50 text-rose-700 border border-rose-100'
+  }
+
+  if (status === 'cancelled') {
+    return 'bg-neutral-100 text-neutral-600 border border-neutral-200'
+  }
+
+  return 'bg-neutral-100 text-neutral-600 border border-neutral-200'
 }
 
 function normalizeStatus(status: string) {
