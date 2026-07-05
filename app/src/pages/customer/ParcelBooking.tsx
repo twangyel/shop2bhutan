@@ -12,6 +12,15 @@ import {
   MapPin,
   Package,
   ShieldCheck,
+  User,
+  Phone,
+  Home,
+  MapPinned,
+  FileText,
+  Smartphone,
+  Pill,
+  Box,
+  Upload,
 } from 'lucide-react'
 import {
   createParcelRequest,
@@ -32,6 +41,18 @@ const allowedParcelSizes: { key: ParcelSize; label: string }[] = [
   { key: 'small_packet', label: 'Small Packet' },
   { key: 'small_box', label: 'Small Box' },
 ]
+
+const parcelTypeIcons: Record<string, React.ElementType> = {
+  documents: FileText,
+  small_electronics: Smartphone,
+  medicine: Pill,
+}
+
+const parcelSizeIcons: Record<string, React.ElementType> = {
+  document_envelope: FileText,
+  small_packet: Package,
+  small_box: Box,
+}
 
 function formatDate(value?: string | null) {
   if (!value) return 'Date not fixed'
@@ -286,224 +307,283 @@ export default function ParcelBooking() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-24">
-      <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white/95 backdrop-blur">
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white">
         <div className="flex items-center gap-3 px-4 py-3">
           <button
             onClick={() => navigate(-1)}
-            className="-ml-1 rounded-full p-1 hover:bg-neutral-100"
+            className="-ml-1 flex h-9 w-9 items-center justify-center rounded-full hover:bg-neutral-100"
           >
             <ArrowLeft size={22} />
           </button>
 
           <div>
-            <h1 className="text-lg font-bold text-neutral-900">
-              Book Parcel
-            </h1>
-            <p className="text-xs text-neutral-500">
-              Pickup and drop-off details
-            </p>
+            <h1 className="text-lg font-bold text-neutral-900">Book Parcel</h1>
+            <p className="text-xs text-neutral-500">Pickup and drop-off details</p>
           </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4 px-4 py-4">
+      {/* Step Indicator */}
+      <div className="px-4 pt-4 pb-2">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 text-white">
+            <CheckCircle2 size={14} />
+          </div>
+          <div className="h-0.5 flex-1 bg-emerald-500" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-500 text-white text-xs font-bold">
+            2
+          </div>
+          <div className="h-0.5 flex-1 bg-neutral-200" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-200 text-neutral-400 text-xs font-bold">
+            3
+          </div>
+        </div>
+        <div className="mt-1.5 flex justify-between text-[11px] font-medium text-neutral-400">
+          <span className="text-emerald-600">Trip</span>
+          <span className="text-orange-600">Details</span>
+          <span>Confirm</span>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-5 px-4 py-4 pb-28">
         {error && (
-          <div className="rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
         )}
 
         {willBookAsGuest && !submitted && (
-          <div className="rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-700">
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700">
             Guest booking is available. We will save this parcel request on this device so you can track it from <b>My Parcels</b>.
           </div>
         )}
 
+        {/* Trip Route Card */}
         {trip && (
-          <div className="rounded-3xl border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-blue-50 p-4">
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-500 text-white">
-                <Package size={22} />
-              </div>
-
-              <div className="flex-1">
-                <h2 className="font-bold text-neutral-900">
-                  {tripDisplayTitle(trip)}
-                </h2>
-
-                <div className="mt-2 flex items-center gap-2 text-xs text-neutral-600">
-                  <Calendar size={14} />
-                  <span>{formatDate(trip.goingDate)}</span>
+          <div className="overflow-hidden rounded-3xl border border-neutral-100 bg-white">
+            <div className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white">
+                  <Package size={20} />
                 </div>
-
-                <div className="mt-1 flex items-center gap-2 text-xs text-neutral-600">
-                  <MapPin size={14} />
-                  <span>{tripDisplayTitle(trip)}</span>
-                </div>
-
-                <div className="mt-1 flex items-center gap-2 text-xs text-neutral-600">
-                  <Clock size={14} />
-                  <span>Booking cutoff: {formatDateTime(trip.bookingCutoffAt)}</span>
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-bold text-neutral-900">{tripDisplayTitle(trip)}</h2>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500">
+                    <span className="flex items-center gap-1">
+                      <Calendar size={12} />
+                      {formatDate(trip.goingDate)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock size={12} />
+                      {formatDateTime(trip.bookingCutoffAt)}
+                    </span>
+                  </div>
                 </div>
               </div>
+
+              {/* Route Visual */}
+              <div className="mt-4 flex items-center gap-3 rounded-2xl bg-neutral-50 p-3">
+                <div className="flex flex-col items-center py-1">
+                  <span className="h-3 w-3 rounded-full bg-emerald-500" />
+                  <span className="my-1 h-6 w-px bg-neutral-300" />
+                  <span className="h-3 w-3 rounded-full bg-orange-500" />
+                </div>
+                <div className="flex-1 space-y-2">
+                  <div>
+                    <p className="text-[11px] font-semibold text-neutral-400">Pickup</p>
+                    <p className="text-sm font-bold text-neutral-900">{trip.origin || trip.fromLocation || 'Thimphu'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold text-neutral-400">Drop-off</p>
+                    <p className="text-sm font-bold text-neutral-900">{trip.destination || trip.toLocation || 'Phuentsholing'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {bookingClosed && (
+                <div className="mt-3 flex gap-2 rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs leading-relaxed text-amber-700">
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                  <span>{bookingClosedReason}</span>
+                </div>
+              )}
             </div>
-
-            {bookingClosed && (
-              <div className="mt-4 flex gap-2 rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs leading-relaxed text-amber-700">
-                <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-                <span>{bookingClosedReason}</span>
-              </div>
-            )}
           </div>
         )}
 
-        <div className="rounded-3xl border border-neutral-100 bg-white p-4 shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="flex flex-col items-center pt-2">
-              <span className="h-4 w-4 rounded-full bg-emerald-500 ring-4 ring-emerald-50" />
-              <span className="h-28 w-px bg-neutral-200" />
-              <span className="h-4 w-4 rounded-full bg-orange-500 ring-4 ring-orange-50" />
+        {/* Pickup Section */}
+        <div className="rounded-3xl border border-neutral-100 bg-white p-4">
+          <div className="mb-4 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+              <MapPin size={16} />
             </div>
-
-            <div className="flex-1 space-y-5">
-              <section>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-600">
-                  Pickup in Thimphu
-                </p>
-
-                <div className="mt-3 space-y-3">
-                  <Field
-                    label="Pickup Contact Name"
-                    value={form.senderName}
-                    error={errors.senderName}
-                    onChange={(value) => update('senderName', value)}
-                    placeholder="Sender / pickup person"
-                  />
-
-                  <Field
-                    label="Pickup Contact Phone"
-                    value={form.senderPhone}
-                    error={errors.senderPhone}
-                    onChange={(value) => update('senderPhone', value)}
-                    placeholder="+975 XXXXXXXX"
-                    type="tel"
-                  />
-
-                  <TextAreaField
-                    label="Pickup Address"
-                    value={form.pickupAddress}
-                    error={errors.pickupAddress}
-                    onChange={(value) => update('pickupAddress', value)}
-                    placeholder="Exact pickup address in Thimphu"
-                  />
-                </div>
-              </section>
-
-              <section>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-orange-600">
-                  Drop-off in Phuentsholing
-                </p>
-
-                <div className="mt-3 space-y-3">
-                  <Field
-                    label="Receiver Name"
-                    value={form.receiverName}
-                    error={errors.receiverName}
-                    onChange={(value) => update('receiverName', value)}
-                    placeholder="Receiver name"
-                  />
-
-                  <Field
-                    label="Receiver Phone"
-                    value={form.receiverPhone}
-                    error={errors.receiverPhone}
-                    onChange={(value) => update('receiverPhone', value)}
-                    placeholder="+975 XXXXXXXX"
-                    type="tel"
-                  />
-
-                  <TextAreaField
-                    label="Drop-off Address"
-                    value={form.dropoffAddress}
-                    error={errors.dropoffAddress}
-                    onChange={(value) => update('dropoffAddress', value)}
-                    placeholder="Exact drop-off address in Phuentsholing"
-                  />
-                </div>
-              </section>
+            <div>
+              <p className="text-sm font-bold text-neutral-900">Pickup in Thimphu</p>
+              <p className="text-[11px] text-neutral-400">Sender details</p>
             </div>
+          </div>
+
+          <div className="space-y-3">
+            <IconField
+              icon={User}
+              label="Pickup Contact Name"
+              value={form.senderName}
+              error={errors.senderName}
+              onChange={(value) => update('senderName', value)}
+              placeholder="Sender / pickup person"
+            />
+            <IconField
+              icon={Phone}
+              label="Pickup Contact Phone"
+              value={form.senderPhone}
+              error={errors.senderPhone}
+              onChange={(value) => update('senderPhone', value)}
+              placeholder="+975 XXXXXXXX"
+              type="tel"
+            />
+            <IconTextArea
+              icon={Home}
+              label="Pickup Address"
+              value={form.pickupAddress}
+              error={errors.pickupAddress}
+              onChange={(value) => update('pickupAddress', value)}
+              placeholder="Exact pickup address in Thimphu"
+            />
           </div>
         </div>
 
-        <div className="space-y-4 rounded-3xl border border-neutral-100 bg-white p-4 shadow-sm">
-          <div>
-            <h2 className="text-sm font-bold text-neutral-900">
-              Parcel Details
-            </h2>
-            <p className="mt-1 text-xs text-neutral-500">
-              Only lightweight documents, small electronics, and medicine are
-              accepted.
-            </p>
+        {/* Drop-off Section */}
+        <div className="rounded-3xl border border-neutral-100 bg-white p-4">
+          <div className="mb-4 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+              <MapPinned size={16} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-neutral-900">Drop-off in Phuentsholing</p>
+              <p className="text-[11px] text-neutral-400">Receiver details</p>
+            </div>
           </div>
 
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-neutral-700">
+          <div className="space-y-3">
+            <IconField
+              icon={User}
+              label="Receiver Name"
+              value={form.receiverName}
+              error={errors.receiverName}
+              onChange={(value) => update('receiverName', value)}
+              placeholder="Receiver name"
+            />
+            <IconField
+              icon={Phone}
+              label="Receiver Phone"
+              value={form.receiverPhone}
+              error={errors.receiverPhone}
+              onChange={(value) => update('receiverPhone', value)}
+              placeholder="+975 XXXXXXXX"
+              type="tel"
+            />
+            <IconTextArea
+              icon={Home}
+              label="Drop-off Address"
+              value={form.dropoffAddress}
+              error={errors.dropoffAddress}
+              onChange={(value) => update('dropoffAddress', value)}
+              placeholder="Exact drop-off address in Phuentsholing"
+            />
+          </div>
+        </div>
+
+        {/* Parcel Details Section */}
+        <div className="rounded-3xl border border-neutral-100 bg-white p-4">
+          <div className="mb-4 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <Package size={16} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-neutral-900">Parcel Details</p>
+              <p className="text-[11px] text-neutral-400">Only lightweight items accepted</p>
+            </div>
+          </div>
+
+          {/* Parcel Type */}
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-semibold text-neutral-700">
               Parcel Type
             </label>
-
-            <div className="mt-2 grid grid-cols-1 gap-2">
-              {allowedParcelTypes.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => update('parcelType', item.key)}
-                  className={`rounded-2xl border p-3 text-left transition ${
-                    form.parcelType === item.key
-                      ? 'border-orange-400 bg-orange-50'
-                      : 'border-neutral-200 bg-white'
-                  }`}
-                >
-                  <p className="text-sm font-bold text-neutral-900">
-                    {item.label}
-                  </p>
-                </button>
-              ))}
+            <div className="grid grid-cols-3 gap-2">
+              {allowedParcelTypes.map((item) => {
+                const Icon = parcelTypeIcons[item.key] || Package
+                const isSelected = form.parcelType === item.key
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => update('parcelType', item.key)}
+                    className={`flex flex-col items-center gap-2 rounded-2xl border p-3 text-center transition ${
+                      isSelected
+                        ? 'border-orange-400 bg-orange-50'
+                        : 'border-neutral-200 bg-white hover:border-neutral-300'
+                    }`}
+                  >
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                      isSelected ? 'bg-orange-500 text-white' : 'bg-neutral-100 text-neutral-400'
+                    }`}>
+                      <Icon size={20} />
+                    </div>
+                    <p className={`text-xs font-bold leading-tight ${
+                      isSelected ? 'text-orange-700' : 'text-neutral-700'
+                    }`}>
+                      {item.label}
+                    </p>
+                  </button>
+                )
+              })}
             </div>
-
             {errors.parcelType && (
-              <p className="mt-1 text-xs text-red-500">
-                {errors.parcelType}
-              </p>
+              <p className="mt-1.5 text-xs text-red-500">{errors.parcelType}</p>
             )}
           </div>
 
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-neutral-700">
+          {/* Parcel Size */}
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-semibold text-neutral-700">
               Parcel Size
             </label>
-
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {allowedParcelSizes.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => update('parcelSize', item.key)}
-                  className={`rounded-2xl border p-2 text-center transition ${
-                    form.parcelSize === item.key
-                      ? 'border-orange-400 bg-orange-50'
-                      : 'border-neutral-200 bg-white'
-                  }`}
-                >
-                  <p className="text-xs font-bold text-neutral-900">
-                    {item.label}
-                  </p>
-                </button>
-              ))}
+            <div className="grid grid-cols-3 gap-2">
+              {allowedParcelSizes.map((item) => {
+                const Icon = parcelSizeIcons[item.key] || Package
+                const isSelected = form.parcelSize === item.key
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => update('parcelSize', item.key)}
+                    className={`flex flex-col items-center gap-2 rounded-2xl border p-3 text-center transition ${
+                      isSelected
+                        ? 'border-orange-400 bg-orange-50'
+                        : 'border-neutral-200 bg-white hover:border-neutral-300'
+                    }`}
+                  >
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                      isSelected ? 'bg-orange-500 text-white' : 'bg-neutral-100 text-neutral-400'
+                    }`}>
+                      <Icon size={20} />
+                    </div>
+                    <p className={`text-xs font-bold leading-tight ${
+                      isSelected ? 'text-orange-700' : 'text-neutral-700'
+                    }`}>
+                      {item.label}
+                    </p>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
-          <TextAreaField
+          {/* Description */}
+          <IconTextArea
+            icon={FileText}
             label="Parcel Description"
             value={form.packageDescription}
             error={errors.packageDescription}
@@ -511,28 +591,37 @@ export default function ParcelBooking() {
             placeholder="Example: A4 documents in envelope, sealed medicine packet, earbuds box"
           />
 
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-neutral-700">
+          {/* Photo Upload */}
+          <div className="mt-4">
+            <label className="mb-2 block text-sm font-semibold text-neutral-700">
               Parcel Photo
             </label>
-
             <label
-              className={`mt-2 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed p-4 text-center transition ${
+              className={`flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed p-5 text-center transition ${
                 errors.photoFile
                   ? 'border-red-300 bg-red-50'
-                  : 'border-neutral-200 bg-neutral-50 hover:border-orange-300'
+                  : photoFile
+                    ? 'border-orange-300 bg-orange-50'
+                    : 'border-neutral-200 bg-neutral-50 hover:border-orange-300'
               }`}
             >
-              <Camera size={24} className="text-neutral-400" />
-
-              <p className="mt-2 text-sm font-semibold text-neutral-700">
-                {photoFile ? photoFile.name : 'Upload clear parcel photo'}
-              </p>
-
-              <p className="mt-1 text-xs text-neutral-400">
-                Required. Image should be below 5 MB.
-              </p>
-
+              {photoFile ? (
+                <>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-500 text-white">
+                    <Camera size={24} />
+                  </div>
+                  <p className="mt-2 text-sm font-bold text-neutral-900">{photoFile.name}</p>
+                  <p className="mt-1 text-xs text-neutral-400">Tap to change photo</p>
+                </>
+              ) : (
+                <>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-100 text-neutral-400">
+                    <Upload size={24} />
+                  </div>
+                  <p className="mt-2 text-sm font-bold text-neutral-700">Upload clear parcel photo</p>
+                  <p className="mt-1 text-xs text-neutral-400">Required. Image should be below 5 MB.</p>
+                </>
+              )}
               <input
                 type="file"
                 accept="image/*"
@@ -544,22 +633,24 @@ export default function ParcelBooking() {
                 }}
               />
             </label>
-
             {errors.photoFile && (
-              <p className="mt-1 text-xs text-red-500">
-                {errors.photoFile}
-              </p>
+              <p className="mt-1.5 text-xs text-red-500">{errors.photoFile}</p>
             )}
           </div>
 
-          <TextAreaField
-            label="Special Note"
-            value={form.customerNotes}
-            onChange={(value) => update('customerNotes', value)}
-            placeholder="Optional pickup/drop-off note"
-          />
+          {/* Special Note */}
+          <div className="mt-4">
+            <IconTextArea
+              icon={FileText}
+              label="Special Note"
+              value={form.customerNotes}
+              onChange={(value) => update('customerNotes', value)}
+              placeholder="Optional pickup/drop-off note"
+            />
+          </div>
         </div>
 
+        {/* Declaration */}
         <div
           className={`rounded-3xl border p-4 ${
             errors.declarationConfirmed
@@ -580,9 +671,7 @@ export default function ParcelBooking() {
             <div>
               <div className="flex items-center gap-2">
                 <ShieldCheck size={16} className="text-blue-600" />
-                <p className="text-sm font-bold text-neutral-900">
-                  Parcel Declaration
-                </p>
+                <p className="text-sm font-bold text-neutral-900">Parcel Declaration</p>
               </div>
 
               <p className="mt-1 text-xs leading-relaxed text-neutral-600">
@@ -600,9 +689,13 @@ export default function ParcelBooking() {
             </p>
           )}
         </div>
+      </form>
 
+      {/* Sticky Bottom Button */}
+      <div className="fixed bottom-0 left-0 right-0 border-t border-neutral-100 bg-white p-4">
         <button
-          type="submit"
+          type="button"
+          onClick={handleSubmit}
           disabled={submitting || bookingClosed}
           className="h-12 w-full rounded-2xl bg-orange-500 font-bold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
         >
@@ -612,12 +705,13 @@ export default function ParcelBooking() {
               ? 'Submitting...'
               : 'Confirm Parcel Request'}
         </button>
-      </form>
+      </div>
     </div>
   )
 }
 
-function Field({
+function IconField({
+  icon: Icon,
   label,
   value,
   onChange,
@@ -625,6 +719,7 @@ function Field({
   error,
   type = 'text',
 }: {
+  icon: React.ElementType
   label: string
   value: string
   onChange: (value: string) => void
@@ -634,32 +729,37 @@ function Field({
 }) {
   return (
     <div>
-      <label className="text-xs font-bold uppercase tracking-wider text-neutral-700">
+      <label className="mb-1.5 block text-sm font-semibold text-neutral-700">
         {label}
       </label>
-
-      <input
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        className={`mt-1.5 h-11 w-full rounded-2xl border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20 ${
-          error ? 'border-red-400' : 'border-neutral-200'
-        }`}
-      />
-
+      <div className="relative">
+        <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+          <Icon size={18} />
+        </div>
+        <input
+          type={type}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className={`h-12 w-full rounded-2xl border bg-white pl-10 pr-3 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10 ${
+            error ? 'border-red-400' : 'border-neutral-200'
+          }`}
+        />
+      </div>
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
   )
 }
 
-function TextAreaField({
+function IconTextArea({
+  icon: Icon,
   label,
   value,
   onChange,
   placeholder,
   error,
 }: {
+  icon: React.ElementType
   label: string
   value: string
   onChange: (value: string) => void
@@ -668,19 +768,22 @@ function TextAreaField({
 }) {
   return (
     <div>
-      <label className="text-xs font-bold uppercase tracking-wider text-neutral-700">
+      <label className="mb-1.5 block text-sm font-semibold text-neutral-700">
         {label}
       </label>
-
-      <textarea
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        className={`mt-1.5 h-20 w-full resize-none rounded-2xl border bg-white p-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20 ${
-          error ? 'border-red-400' : 'border-neutral-200'
-        }`}
-      />
-
+      <div className="relative">
+        <div className="pointer-events-none absolute left-3 top-3 text-neutral-400">
+          <Icon size={18} />
+        </div>
+        <textarea
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className={`h-24 w-full resize-none rounded-2xl border bg-white pl-10 pr-3 pt-3 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10 ${
+            error ? 'border-red-400' : 'border-neutral-200'
+          }`}
+        />
+      </div>
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
   )
