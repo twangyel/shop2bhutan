@@ -1,22 +1,26 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  AlertTriangle,
   Bell,
   ChevronRight,
   ClipboardList,
   HeadphonesIcon,
   KeyRound,
   LayoutDashboard,
+  Loader2,
   LogOut,
   MapPin,
   Pencil,
   Truck,
   User,
   Wallet,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { getUnreadNotificationCount } from '@/lib/customerOrders';
+import { deactivateMyAccount } from '@/lib/account';
 
 const PHONE_ONLY_EMAIL_SUFFIX = '@phone.shop2bhutan.com';
 
@@ -27,6 +31,9 @@ type ProfileLike = {
   default_dzongkhag_id?: string | null;
   dzongkhag?: string | null;
   avatar_url?: string | null;
+  account_status?: string | null;
+  is_active?: boolean | null;
+  deactivated_at?: string | null;
 };
 
 type DzongkhagOption = {
@@ -38,8 +45,11 @@ type MenuItem = {
   icon: React.ElementType;
   label: string;
   description?: string;
-  path: string;
+  path?: string;
   badge?: boolean;
+  action?: 'deactivate_account';
+  danger?: boolean;
+  realAccountOnly?: boolean;
 };
 
 function isPhoneOnlyEmail(value?: string | null) {
@@ -98,6 +108,14 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
       { icon: User, label: 'Profile', description: 'Name, phone, email, and photo', path: '/profile' },
       { icon: KeyRound, label: 'Change Password', description: 'Update your login password', path: '/change-password' },
       { icon: Bell, label: 'Notifications', description: 'Updates and account alerts', path: '/notifications', badge: true },
+      {
+        icon: AlertTriangle,
+        label: 'Deactivate Account',
+        description: 'Disable your account and sign out',
+        action: 'deactivate_account',
+        danger: true,
+        realAccountOnly: true,
+      },
     ],
   },
   {
@@ -110,17 +128,26 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
 
 export default function Account() {
   const navigate = useNavigate();
-  const { user, context, signOut } = useAuth();
+  const { user, context, signOut, isGuest } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [deactivateOpen, setDeactivateOpen] = useState(false);
+  const [deactivationReason, setDeactivationReason] = useState('');
+  const [deactivating, setDeactivating] = useState(false);
+  const [deactivateError, setDeactivateError] = useState('');
 
   const [dzongkhagOptions, setDzongkhagOptions] = useState<DzongkhagOption[]>([]);
 
   const profile = (context?.profile ?? null) as ProfileLike | null;
-  const isLoggedIn = Boolean(user);
+  const hasGuestSession = Boolean(user && isGuest);
+  const isLoggedIn = Boolean(user && !isGuest);
 
   const rawEmail = context?.email || user?.email || '';
-  const displayName = getDisplayName(profile, rawEmail);
-  const displayEmail = isLoggedIn ? getDisplayEmail(rawEmail) : 'Sign in to manage your orders';
+  const displayName = hasGuestSession ? 'Guest Parcel User' : getDisplayName(profile, rawEmail);
+  const displayEmail = hasGuestSession
+    ? 'Guest parcel tracking on this device'
+    : isLoggedIn
+      ? getDisplayEmail(rawEmail)
+      : 'Sign in to manage your orders';
   const displayPhone = profile?.phone?.trim() || null;
   const displayDzongkhag = getDzongkhagDisplayName(
     profile?.default_dzongkhag_id || profile?.dzongkhag,
@@ -131,7 +158,7 @@ export default function Account() {
   const canAccessAdmin = Boolean(context?.is_admin || context?.is_super_admin);
 
   const refreshUnreadCount = useCallback(async () => {
-    if (!user) {
+    if (!user || isGuest) {
       setUnreadCount(0);
       return;
     }
@@ -143,7 +170,7 @@ export default function Account() {
       console.warn('[Account] Notification count skipped:', error);
       setUnreadCount(0);
     }
-  }, [user]);
+  }, [isGuest, user]);
 
   useEffect(() => {
     void refreshUnreadCount();
@@ -164,7 +191,7 @@ export default function Account() {
   }, [refreshUnreadCount]);
 
   useEffect(() => {
-    if (!user) return undefined;
+    if (!user || isGuest) return undefined;
 
     const channel = supabase
       .channel(`customer-notifications-account:${user.id}`)
@@ -189,7 +216,7 @@ export default function Account() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [refreshUnreadCount, user]);
+  }, [isGuest, refreshUnreadCount, user]);
 
   useEffect(() => {
     let active = true;
@@ -206,6 +233,29 @@ export default function Account() {
       active = false;
     };
   }, []);
+
+
+  const handleDeactivateAccount = async () => {
+    if (!user || isGuest) return;
+
+    try {
+      setDeactivating(true);
+      setDeactivateError('');
+
+      await deactivateMyAccount(deactivationReason);
+      setUnreadCount(0);
+      await signOut();
+      navigate('/login', { replace: true });
+    } catch (error) {
+      setDeactivateError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to deactivate account. Please try again.',
+      );
+    } finally {
+      setDeactivating(false);
+    }
+  };
 
   const handleLogout = async () => {
     setUnreadCount(0);
@@ -272,6 +322,19 @@ export default function Account() {
           </div>
         )}
 
+        {hasGuestSession && (
+          <button
+            type="button"
+            onClick={() => navigate('/my-parcels')}
+            className="mt-4 w-full rounded-2xl border border-blue-100 bg-blue-50 p-4 text-left"
+          >
+            <p className="text-sm font-bold text-blue-900">Guest Parcel Tracking</p>
+            <p className="mt-0.5 text-xs leading-5 text-blue-700">
+              You are using a guest parcel session. Your parcel tracking is saved on this device only.
+            </p>
+          </button>
+        )}
+
         {/* ===== Add Email Prompt ===== */}
         {isLoggedIn && !emailAdded && (
           <button
@@ -317,25 +380,44 @@ export default function Account() {
               </p>
 
               <div className="overflow-hidden rounded-2xl bg-white border border-gray-100">
-                {group.items.map((item, index) => {
+                {group.items
+                  .filter((item) => !item.realAccountOnly || isLoggedIn)
+                  .map((item, index, visibleItems) => {
                   const Icon = item.icon;
+                  const isDanger = Boolean(item.danger);
 
                   return (
                     <button
                       key={item.label}
                       type="button"
-                      onClick={() => navigate(item.path)}
-                      className={`flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-gray-50 ${
-                        index < group.items.length - 1 ? 'border-b border-gray-100' : ''
-                      }`}
+                      onClick={() => {
+                        if (item.action === 'deactivate_account') {
+                          setDeactivateOpen(true);
+                          setDeactivateError('');
+                          return;
+                        }
+
+                        if (item.path) navigate(item.path);
+                      }}
+                      className={`flex w-full items-center gap-3 px-4 py-4 text-left transition-colors ${
+                        isDanger ? 'hover:bg-red-50' : 'hover:bg-gray-50'
+                      } ${index < visibleItems.length - 1 ? 'border-b border-gray-100' : ''}`}
                     >
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-50 text-gray-500">
+                      <span
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                          isDanger ? 'bg-red-50 text-red-500' : 'bg-gray-50 text-gray-500'
+                        }`}
+                      >
                         <Icon size={19} strokeWidth={2} />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-bold text-gray-900">{item.label}</span>
+                        <span className={`block text-sm font-bold ${isDanger ? 'text-red-600' : 'text-gray-900'}`}>
+                          {item.label}
+                        </span>
                         {item.description && (
-                          <span className="mt-0.5 block truncate text-xs text-gray-500">{item.description}</span>
+                          <span className={`mt-0.5 block truncate text-xs ${isDanger ? 'text-red-400' : 'text-gray-500'}`}>
+                            {item.description}
+                          </span>
                         )}
                       </span>
                       {item.badge && unreadCount > 0 && (
@@ -343,7 +425,7 @@ export default function Account() {
                           {unreadCount}
                         </span>
                       )}
-                      <ChevronRight size={17} className="text-gray-300" />
+                      <ChevronRight size={17} className={isDanger ? 'text-red-200' : 'text-gray-300'} />
                     </button>
                   );
                 })}
@@ -372,6 +454,77 @@ export default function Account() {
           </button>
         )}
       </div>
+
+      {deactivateOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-4 sm:items-center sm:pb-0">
+          <div className="w-full max-w-md rounded-3xl bg-white p-4 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+                <AlertTriangle size={22} />
+              </span>
+
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base font-extrabold text-gray-900">Deactivate account?</h2>
+                <p className="mt-1 text-sm leading-6 text-gray-500">
+                  Your account will be disabled and you will be signed out. Your orders,
+                  payments, and parcel history will be kept safely for support and admin records.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => !deactivating && setDeactivateOpen(false)}
+                className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                disabled={deactivating}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs leading-5 text-amber-700">
+              You will need Shop2Bhutan admin support to reactivate this account later.
+            </div>
+
+            <label className="mt-4 block text-xs font-bold uppercase tracking-wider text-gray-500">
+              Reason optional
+            </label>
+            <textarea
+              value={deactivationReason}
+              onChange={(event) => setDeactivationReason(event.target.value)}
+              placeholder="Example: I no longer want to use this account"
+              className="mt-1.5 h-24 w-full resize-none rounded-2xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-500/10"
+              disabled={deactivating}
+            />
+
+            {deactivateError && (
+              <div className="mt-3 rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {deactivateError}
+              </div>
+            )}
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setDeactivateOpen(false)}
+                disabled={deactivating}
+                className="h-11 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              >
+                Keep Account
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeactivateAccount}
+                disabled={deactivating}
+                className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-red-500 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-60"
+              >
+                {deactivating && <Loader2 size={16} className="animate-spin" />}
+                Deactivate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

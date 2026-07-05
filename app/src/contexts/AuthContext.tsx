@@ -19,6 +19,9 @@ type CustomerProfile = {
   phone?: string | null;
   default_dzongkhag_id?: string | null;
   avatar_url?: string | null;
+  account_status?: string | null;
+  is_active?: boolean | null;
+  deactivated_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
   [key: string]: unknown;
@@ -57,6 +60,11 @@ const anonContext: SessionContext = {
 
 function isAnonymousAuthUser(user?: User | null) {
   return Boolean((user as { is_anonymous?: boolean } | null)?.is_anonymous);
+}
+
+function isDeactivatedProfile(profile?: CustomerProfile | null) {
+  const status = String(profile?.account_status ?? '').trim().toLowerCase();
+  return status === 'deactivated' || profile?.is_active === false;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -140,7 +148,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setContext(data as SessionContext);
+    const nextContext = data as SessionContext;
+
+    if (isDeactivatedProfile(nextContext.profile)) {
+      await supabase.auth.signOut();
+      setSession(null);
+      setContext(anonContext);
+      return;
+    }
+
+    setContext(nextContext);
   };
 
   const refreshContext = useCallback(async () => {
