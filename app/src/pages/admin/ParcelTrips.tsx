@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Calendar, Plus, RefreshCw, Truck } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Calendar, ChevronDown, Loader2, Plus, RefreshCw, Truck } from 'lucide-react'
 import {
   createParcelTrip,
   fetchAdminParcelTrips,
@@ -61,7 +61,6 @@ function tripActions(status?: ParcelTripStatus) {
   ]
 }
 
-
 export default function ParcelTrips() {
   const [trips, setTrips] = useState<ParcelTrip[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -74,6 +73,13 @@ export default function ParcelTrips() {
     goingDate: '',
     bookingCutoffAt: '',
   })
+
+  // Per-row loading state
+  const [updatingTripId, setUpdatingTripId] = useState<string | null>(null)
+
+  // Action dropdown state
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
+  const dropdownRef = useRef<HTMLDivElement | null>(null)
 
   async function loadTrips() {
     try {
@@ -91,6 +97,23 @@ export default function ParcelTrips() {
   useEffect(() => {
     loadTrips()
   }, [])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setOpenDropdownId(null)
+      }
+    }
+
+    if (openDropdownId) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [openDropdownId])
 
   async function handleCreateTrip() {
     if (!form.goingDate) {
@@ -126,6 +149,7 @@ export default function ParcelTrips() {
 
   async function changeStatus(tripId: string, status: ParcelTripStatus) {
     try {
+      setUpdatingTripId(tripId)
       setError('')
       await updateParcelTripStatus(tripId, status)
       await loadTrips()
@@ -133,6 +157,9 @@ export default function ParcelTrips() {
       setError(
         err instanceof Error ? err.message : 'Failed to update trip status.',
       )
+    } finally {
+      setUpdatingTripId(null)
+      setOpenDropdownId(null)
     }
   }
 
@@ -312,6 +339,8 @@ export default function ParcelTrips() {
               <tbody>
                 {trips.map((trip) => {
                   const actions = tripActions(trip.status)
+                  const isUpdating = updatingTripId === trip.id
+                  const isDropdownOpen = openDropdownId === trip.id
 
                   return (
                     <tr
@@ -359,32 +388,50 @@ export default function ParcelTrips() {
 
                       <td className="px-4 py-3">
                         <div className="flex justify-end">
-                          <select
-                            defaultValue=""
-                            onChange={async (event) => {
-                              const nextStatus = event.target
-                                .value as ParcelTripStatus
-                              event.target.value = ''
+                          <div className="relative" ref={isDropdownOpen ? dropdownRef : undefined}>
+                            <button
+                              onClick={() =>
+                                setOpenDropdownId(
+                                  isDropdownOpen ? null : trip.id,
+                                )
+                              }
+                              disabled={isUpdating}
+                              aria-label={`Manage trip: ${trip.title || trip.name || 'Parcel Trip'}`}
+                              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-bold text-neutral-700 shadow-sm transition hover:border-orange-200 hover:bg-orange-50 disabled:opacity-50"
+                            >
+                              {isUpdating ? (
+                                <>
+                                  <Loader2 size={14} className="animate-spin" />
+                                  Updating...
+                                </>
+                              ) : (
+                                <>
+                                  Manage
+                                  <ChevronDown
+                                    size={14}
+                                    className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+                                  />
+                                </>
+                              )}
+                            </button>
 
-                              if (!nextStatus) return
-
-                              await handleTripAction(trip, nextStatus)
-                            }}
-                            className="h-9 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-bold text-neutral-700 shadow-sm outline-none transition hover:border-orange-200 hover:bg-orange-50 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20"
-                          >
-                            <option value="" disabled>
-                              Manage
-                            </option>
-
-                            {actions.map((action) => (
-                              <option
-                                key={action.status}
-                                value={action.status}
-                              >
-                                {action.label}
-                              </option>
-                            ))}
-                          </select>
+                            {isDropdownOpen && !isUpdating && (
+                              <div className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-xl border border-neutral-100 bg-white shadow-lg">
+                                {actions.map((action) => (
+                                  <button
+                                    key={action.status}
+                                    onClick={() =>
+                                      handleTripAction(trip, action.status)
+                                    }
+                                    disabled={isUpdating}
+                                    className="block w-full px-4 py-2.5 text-left text-sm text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
+                                  >
+                                    {action.label}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>
