@@ -1,4 +1,8 @@
 import { supabase } from '@/lib/supabase'
+import {
+  createAdminParcelSubmittedNotification,
+  createCustomerParcelStatusNotification,
+} from '@/lib/customerOrders'
 import type {
   ParcelRequest,
   ParcelRequestStatus,
@@ -359,10 +363,31 @@ export async function createParcelRequest(input: CreateParcelRequestInput) {
     throw new Error(error.message || 'Failed to submit parcel request.')
   }
 
-  return mapRequest({
+  const createdRequest = await mapRequest({
     ...data,
     parcel_trips: null,
   })
+
+  try {
+    await createAdminParcelSubmittedNotification({
+      requestId: String(data.id),
+      parcelNo: data.parcel_no ?? null,
+      customerName: input.senderName,
+      customerPhone: input.senderPhone,
+      packageDescription: input.packageDescription,
+    })
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('shop2bhutan:admin-parcels-updated'))
+    }
+  } catch (notificationError) {
+    console.warn(
+      '[createParcelRequest] Admin parcel notification skipped:',
+      notificationError,
+    )
+  }
+
+  return createdRequest
 }
 
 export async function fetchMyActiveParcelRequestsPreview(limit = 2) {
@@ -562,6 +587,27 @@ export async function updateParcelRequestStatus(
     console.warn(
       '[updateParcelRequestStatus] Tracking event skipped:',
       trackingError,
+    )
+  }
+
+  try {
+    await createCustomerParcelStatusNotification({
+      userId: String(data.user_id ?? ''),
+      parcelRequestId: requestId,
+      parcelNo: data.parcel_no ?? null,
+      status,
+      adminNotes,
+      packageDescription: data.package_description ?? null,
+    })
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('shop2bhutan:notifications-updated'))
+      window.dispatchEvent(new CustomEvent('shop2bhutan:parcels-updated'))
+    }
+  } catch (notificationError) {
+    console.warn(
+      '[updateParcelRequestStatus] Customer parcel notification skipped:',
+      notificationError,
     )
   }
 

@@ -1278,6 +1278,168 @@ async function createCustomerNotification(input: {
 
   if (lastError) throw lastError
 }
+
+type ParcelNotificationStatus =
+  | 'pending'
+  | 'accepted'
+  | 'picked_up'
+  | 'collected'
+  | 'in_transit'
+  | 'delivered'
+  | 'cancelled'
+  | 'rejected'
+  | string
+
+function parcelDisplayNo(parcelNo: unknown, requestId: unknown) {
+  const cleanParcelNo = cleanText(parcelNo)
+  if (cleanParcelNo) return cleanParcelNo
+
+  const cleanRequestId = cleanText(requestId)
+  return cleanRequestId ? cleanRequestId.slice(0, 8).toUpperCase() : 'parcel'
+}
+
+function parcelPackageLabel(packageDescription: unknown) {
+  const description = cleanText(packageDescription)
+  return description ? ` (${description})` : ''
+}
+
+function parcelStatusNotificationCopy(params: {
+  status: ParcelNotificationStatus
+  parcelNo: string
+  adminNotes?: string | null
+  packageDescription?: string | null
+}) {
+  const status = cleanText(params.status).toLowerCase()
+  const parcelNo = params.parcelNo
+  const note = cleanText(params.adminNotes)
+  const packageLabel = parcelPackageLabel(params.packageDescription)
+  const noteText = note ? ` Note: ${note}` : ''
+
+  const copy: Record<
+    string,
+    { type: AppNotification['type']; title: string; message: string }
+  > = {
+    pending: {
+      type: 'order_update',
+      title: 'Parcel Request Submitted',
+      message: `Your parcel request #${parcelNo}${packageLabel} has been submitted.`,
+    },
+    accepted: {
+      type: 'order_update',
+      title: 'Parcel Request Accepted',
+      message: `Your parcel request #${parcelNo}${packageLabel} has been accepted.`,
+    },
+    picked_up: {
+      type: 'order_update',
+      title: 'Parcel Picked Up',
+      message: `Your parcel #${parcelNo}${packageLabel} has been picked up.`,
+    },
+    collected: {
+      type: 'order_update',
+      title: 'Parcel Picked Up',
+      message: `Your parcel #${parcelNo}${packageLabel} has been picked up.`,
+    },
+    in_transit: {
+      type: 'order_update',
+      title: 'Parcel In Transit',
+      message: `Your parcel #${parcelNo}${packageLabel} is on the way.`,
+    },
+    delivered: {
+      type: 'order_update',
+      title: 'Parcel Delivered',
+      message: `Your parcel #${parcelNo}${packageLabel} has been delivered.`,
+    },
+    rejected: {
+      type: 'order_update',
+      title: 'Parcel Request Rejected',
+      message: `Your parcel request #${parcelNo}${packageLabel} was rejected.`,
+    },
+    cancelled: {
+      type: 'order_update',
+      title: 'Parcel Request Cancelled',
+      message: `Your parcel request #${parcelNo}${packageLabel} was cancelled.`,
+    },
+  }
+
+  const selected = copy[status] ?? {
+    type: 'order_update' as AppNotification['type'],
+    title: 'Parcel Updated',
+    message: `Your parcel request #${parcelNo}${packageLabel} has been updated.`,
+  }
+
+  return {
+    ...selected,
+    message: `${selected.message}${noteText}`,
+  }
+}
+
+export async function createAdminParcelSubmittedNotification(input: {
+  requestId: string
+  parcelNo?: string | null
+  customerName?: string | null
+  customerPhone?: string | null
+  packageDescription?: string | null
+}) {
+  try {
+    const requestId = cleanText(input.requestId)
+    if (!requestId) return
+
+    const parcelNo = parcelDisplayNo(input.parcelNo, requestId)
+    const customerName = cleanText(input.customerName) || 'Customer'
+    const customerPhone = cleanText(input.customerPhone)
+    const packageLabel = parcelPackageLabel(input.packageDescription)
+
+    await createAdminNotificationForAdmins({
+      type: 'order_update',
+      title: 'New Parcel Request',
+      message: `${customerName}${customerPhone ? ` (${customerPhone})` : ''} submitted parcel request #${parcelNo}${packageLabel}.`,
+      link: '/admin/parcel-requests',
+      dedupeKey: `admin:new-parcel:${requestId}`,
+    })
+  } catch (error) {
+    console.warn('[customerOrders] admin parcel notification skipped:', error)
+  }
+}
+
+export async function createCustomerParcelStatusNotification(input: {
+  userId: string
+  parcelRequestId: string
+  parcelNo?: string | null
+  status: ParcelNotificationStatus
+  adminNotes?: string | null
+  packageDescription?: string | null
+}) {
+  try {
+    const userId = cleanText(input.userId)
+    const parcelRequestId = cleanText(input.parcelRequestId)
+    if (!userId || !parcelRequestId) return
+
+    const status = cleanText(input.status).toLowerCase()
+    const parcelNo = parcelDisplayNo(input.parcelNo, parcelRequestId)
+    const copy = parcelStatusNotificationCopy({
+      status,
+      parcelNo,
+      adminNotes: input.adminNotes,
+      packageDescription: input.packageDescription,
+    })
+
+    const historyStatuses = new Set(['delivered', 'cancelled', 'rejected'])
+
+    await createCustomerNotification({
+      userId,
+      type: copy.type,
+      title: copy.title,
+      message: copy.message,
+      link: historyStatuses.has(status)
+        ? '/my-parcels?view=history'
+        : '/my-parcels?view=active',
+      dedupeKey: `parcel-status:${parcelRequestId}:${status}`,
+    })
+  } catch (error) {
+    console.warn('[customerOrders] customer parcel notification skipped:', error)
+  }
+}
+
 async function createQuotationReadyNotificationForOrder(orderId: string, quotationRow: AnyRow) {
   try {
     const orderRow = await querySingleAdminOrderRow(orderId)

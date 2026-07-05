@@ -107,6 +107,15 @@ function formatAdminNotificationTime(value?: string) {
 function adminNotificationStyle(type: NotificationType, title: string) {
   const text = title.toLowerCase()
 
+  if (text.includes('parcel')) {
+    return {
+      icon: Package,
+      bg: 'bg-orange-50',
+      text: 'text-orange-600',
+      label: 'Parcel',
+    }
+  }
+
   if (type === 'payment') {
     return {
       icon: CreditCard,
