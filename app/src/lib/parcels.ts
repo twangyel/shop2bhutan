@@ -136,13 +136,47 @@ function mapTrip(row: Row | null | undefined): ParcelTrip {
   }
 }
 
+async function getCurrentUserId() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  return session?.user?.id ?? null
+}
+
 async function getUserId() {
-  const { data, error } = await supabase.auth.getUser()
+  const userId = await getCurrentUserId()
 
-  if (error) throw error
-  if (!data.user?.id) throw new Error('Please login to continue.')
+  if (!userId) throw new Error('Please login to continue.')
 
-  return data.user.id
+  return userId
+}
+
+export async function ensureParcelGuestSession() {
+  const {
+    data: { session: existingSession },
+  } = await supabase.auth.getSession()
+
+  if (existingSession?.user?.id) return existingSession.user
+
+  const { data, error } = await supabase.auth.signInAnonymously()
+
+  if (error) {
+    throw new Error(
+      'Guest booking is not enabled yet. Please enable Anonymous Sign-Ins in Supabase Authentication settings.',
+    )
+  }
+
+  if (!data.user?.id) {
+    throw new Error('Unable to start guest booking session. Please try again.')
+  }
+
+  return data.user
+}
+
+async function getParcelBookingUserId() {
+  const user = await ensureParcelGuestSession()
+  return user.id
 }
 
 function makePhotoName(file: File) {
@@ -362,7 +396,7 @@ export async function fetchParcelTripById(tripId: string) {
 }
 
 export async function createParcelRequest(input: CreateParcelRequestInput) {
-  const userId = await getUserId()
+  const userId = await getParcelBookingUserId()
   const trip = await fetchParcelTripById(input.tripId)
 
   if (!isParcelTripBookable(trip)) {
@@ -418,6 +452,7 @@ export async function createParcelRequest(input: CreateParcelRequestInput) {
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('shop2bhutan:admin-parcels-updated'))
+      window.dispatchEvent(new CustomEvent('shop2bhutan:parcels-updated'))
     }
   } catch (notificationError) {
     console.warn(
@@ -430,7 +465,9 @@ export async function createParcelRequest(input: CreateParcelRequestInput) {
 }
 
 export async function fetchMyActiveParcelRequestsPreview(limit = 2) {
-  const userId = await getUserId()
+  const userId = await getCurrentUserId()
+
+  if (!userId) return []
 
   const { data, error } = await supabase
     .from('parcel_requests')
@@ -487,7 +524,9 @@ export async function fetchMyActiveParcelRequestsPreview(limit = 2) {
 }
 
 export async function fetchMyParcelRequests() {
-  const userId = await getUserId()
+  const userId = await getCurrentUserId()
+
+  if (!userId) return []
 
   const { data, error } = await supabase
     .from('parcel_requests')

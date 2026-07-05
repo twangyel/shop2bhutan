@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useCallback,
   useMemo,
   useState,
   type ReactNode,
@@ -38,7 +39,9 @@ type AuthContextValue = {
   user: User | null;
   context: SessionContext | null;
   refreshContext: () => Promise<void>;
+  ensureGuestSession: () => Promise<Session>;
   signOut: () => Promise<void>;
+  isGuest: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -51,6 +54,10 @@ const anonContext: SessionContext = {
   is_super_admin: false,
   profile: null,
 };
+
+function isAnonymousAuthUser(user?: User | null) {
+  return Boolean((user as { is_anonymous?: boolean } | null)?.is_anonymous);
+}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -136,13 +143,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setContext(data as SessionContext);
   };
 
-  const refreshContext = async () => {
+  const refreshContext = useCallback(async () => {
     const {
       data: { session },
     } = await supabase.auth.getSession();
 
     await loadSessionContext(session);
-  };
+  }, []);
+
+  const ensureGuestSession = useCallback(async () => {
+    const {
+      data: { session: existingSession },
+    } = await supabase.auth.getSession();
+
+    if (existingSession?.user?.id) {
+      await loadSessionContext(existingSession);
+      return existingSession;
+    }
+
+    const { data, error } = await supabase.auth.signInAnonymously();
+
+    if (error) {
+      throw new Error(
+        'Guest booking is not enabled yet. Please enable Anonymous Sign-Ins in Supabase Authentication settings.',
+      );
+    }
+
+    if (!data.session?.user?.id) {
+      throw new Error('Unable to start guest booking session. Please try again.');
+    }
+
+    await loadSessionContext(data.session);
+    return data.session;
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -197,9 +230,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       context,
       refreshContext,
+      ensureGuestSession,
       signOut,
+      isGuest: isAnonymousAuthUser(session?.user ?? null),
     }),
-    [loading, session, context]
+    [loading, session, context, refreshContext, ensureGuestSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

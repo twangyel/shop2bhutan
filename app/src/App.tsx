@@ -166,22 +166,8 @@ export default function App() {
               </RequireAuth>
             }
           />
-          <Route
-            path="/parcel-booking/:tripId"
-            element={
-              <RequireAuth title="Sign in to book parcel" message="Parcel bookings need your verified customer profile and contact details.">
-                <ParcelBooking />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/my-parcels"
-            element={
-              <RequireAuth title="Sign in to view parcels" message="Your parcel requests and bookings are available after sign in.">
-                <MyParcels />
-              </RequireAuth>
-            }
-          />
+          <Route path="/parcel-booking/:tripId" element={<ParcelBooking />} />
+          <Route path="/my-parcels" element={<MyParcels />} />
         </Route>
 
         {/* Admin Routes */}

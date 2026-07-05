@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@/contexts/AuthContext'
 import {
   ArrowLeft,
   Calendar,
@@ -96,6 +97,7 @@ const activeParcelStatuses = new Set([
 
 export default function MyParcels() {
   const navigate = useNavigate()
+  const { user, loading: authLoading, isGuest } = useAuth()
 
   const [requests, setRequests] = useState<ParcelRequest[]>([])
   const [loading, setLoading] = useState(true)
@@ -152,6 +154,12 @@ export default function MyParcels() {
         {error && (
           <div className="mb-4 rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
+          </div>
+        )}
+
+        {!authLoading && (!user || isGuest) && (
+          <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-700">
+            Guest parcel tracking is saved on this device only. Create or sign in to an account later if you want permanent access.
           </div>
         )}
 

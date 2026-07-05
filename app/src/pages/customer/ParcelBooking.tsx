@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '@/contexts/AuthContext'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -64,6 +65,7 @@ function tripDisplayTitle(trip?: ParcelTrip | null) {
 export default function ParcelBooking() {
   const { tripId } = useParams<{ tripId: string }>()
   const navigate = useNavigate()
+  const { user, loading: authLoading, isGuest } = useAuth()
 
   const [trip, setTrip] = useState<ParcelTrip | null>(null)
   const [loading, setLoading] = useState(true)
@@ -129,6 +131,7 @@ export default function ParcelBooking() {
   const bookingClosedReason = trip
     ? getParcelTripBookingClosedMessage(trip)
     : 'Booking is not available for this trip.'
+  const willBookAsGuest = !authLoading && (!user || isGuest)
 
   function update(field: keyof typeof form, value: string | boolean) {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -241,6 +244,12 @@ export default function ParcelBooking() {
             has been submitted. Admin will update the status once picked up.
           </p>
 
+          {willBookAsGuest && (
+            <p className="mt-3 rounded-2xl bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-700">
+              Guest parcel saved on this device. Do not clear browser/app data if you want to track it later.
+            </p>
+          )}
+
           <button
             onClick={() => navigate('/my-parcels')}
             className="mt-6 h-12 w-full rounded-2xl bg-orange-500 font-bold text-white transition active:scale-[0.98]"
@@ -302,6 +311,12 @@ export default function ParcelBooking() {
         {error && (
           <div className="rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
+          </div>
+        )}
+
+        {willBookAsGuest && !submitted && (
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-700">
+            Guest booking is available. We will save this parcel request on this device so you can track it from <b>My Parcels</b>.
           </div>
         )}
 

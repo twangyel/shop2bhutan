@@ -35,7 +35,7 @@ function getSafeReturnTo(value: unknown) {
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { refreshContext } = useAuth();
+  const { refreshContext, ensureGuestSession } = useAuth();
 
   const routeState = location.state as LoginRouteState;
   const returnTo = getSafeReturnTo(routeState?.returnTo);
@@ -124,6 +124,24 @@ export default function Login() {
 
     await refreshContext();
     navigate(returnTo, { replace: true });
+  };
+
+  const handleGuestContinue = async () => {
+    setSubmitting(true);
+    setSubmitError('');
+
+    try {
+      await ensureGuestSession();
+      navigate(returnTo, { replace: true });
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to continue as guest. Please try again.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -250,8 +268,9 @@ export default function Login() {
 
         <button
           type="button"
-          onClick={() => navigate('/')}
-          className="w-full h-11 flex items-center justify-center gap-2 border border-gray-200 bg-white text-gray-700 font-medium rounded-2xl hover:bg-gray-50 transition-colors"
+          onClick={handleGuestContinue}
+          disabled={submitting}
+          className="w-full h-11 flex items-center justify-center gap-2 border border-gray-200 bg-white text-gray-700 font-medium rounded-2xl hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <User size={18} />
           <span className="text-sm">Continue as Guest</span>
