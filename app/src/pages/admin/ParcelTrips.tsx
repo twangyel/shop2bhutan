@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Calendar, Plus, RefreshCw, Truck } from 'lucide-react'
+import { Calendar, ChevronDown, Plus, RefreshCw, Truck } from 'lucide-react'
 import {
   createParcelTrip,
   fetchAdminParcelTrips,
@@ -26,12 +26,64 @@ function statusClass(status?: ParcelTripStatus) {
   return 'bg-neutral-100 text-neutral-600'
 }
 
+function tripActions(status?: ParcelTripStatus) {
+  if (status === 'open') {
+    return [
+      { status: 'closed' as ParcelTripStatus, label: 'Close booking' },
+      { status: 'completed' as ParcelTripStatus, label: 'Mark completed' },
+      { status: 'cancelled' as ParcelTripStatus, label: 'Cancel trip' },
+    ]
+  }
+
+  if (status === 'closed') {
+    return [
+      { status: 'open' as ParcelTripStatus, label: 'Re-open booking' },
+      { status: 'completed' as ParcelTripStatus, label: 'Mark completed' },
+      { status: 'cancelled' as ParcelTripStatus, label: 'Cancel trip' },
+    ]
+  }
+
+  if (status === 'completed') {
+    return [
+      { status: 'open' as ParcelTripStatus, label: 'Re-open booking' },
+    ]
+  }
+
+  if (status === 'cancelled') {
+    return [
+      { status: 'open' as ParcelTripStatus, label: 'Re-open booking' },
+    ]
+  }
+
+  return [
+    { status: 'open' as ParcelTripStatus, label: 'Open booking' },
+    { status: 'cancelled' as ParcelTripStatus, label: 'Cancel trip' },
+  ]
+}
+
+function actionTextClass(status: ParcelTripStatus) {
+  if (status === 'open') return 'text-emerald-700 hover:bg-emerald-50'
+  if (status === 'closed') return 'text-amber-700 hover:bg-amber-50'
+  if (status === 'completed') return 'text-blue-700 hover:bg-blue-50'
+  if (status === 'cancelled') return 'text-red-700 hover:bg-red-50'
+  return 'text-neutral-700 hover:bg-neutral-50'
+}
+
+function actionDotClass(status: ParcelTripStatus) {
+  if (status === 'open') return 'bg-emerald-500'
+  if (status === 'closed') return 'bg-amber-500'
+  if (status === 'completed') return 'bg-blue-500'
+  if (status === 'cancelled') return 'bg-red-500'
+  return 'bg-neutral-400'
+}
+
 export default function ParcelTrips() {
   const [trips, setTrips] = useState<ParcelTrip[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     title: '',
@@ -90,6 +142,7 @@ export default function ParcelTrips() {
 
   async function changeStatus(tripId: string, status: ParcelTripStatus) {
     try {
+      setOpenMenuId(null)
       setError('')
       await updateParcelTripStatus(tripId, status)
       await loadTrips()
@@ -98,6 +151,30 @@ export default function ParcelTrips() {
         err instanceof Error ? err.message : 'Failed to update trip status.',
       )
     }
+  }
+
+  async function handleTripAction(
+    trip: ParcelTrip,
+    status: ParcelTripStatus,
+  ) {
+    if (status === trip.status) {
+      setOpenMenuId(null)
+      return
+    }
+
+    if (status === 'cancelled') {
+      const ok = window.confirm(
+        'Cancel this parcel trip? Customers will no longer be able to book it.',
+      )
+      if (!ok) return
+    }
+
+    if (status === 'completed') {
+      const ok = window.confirm('Mark this parcel trip as completed?')
+      if (!ok) return
+    }
+
+    await changeStatus(trip.id, status)
   }
 
   return (
@@ -207,7 +284,7 @@ export default function ParcelTrips() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-sm">
+      <div className="rounded-2xl border border-neutral-100 bg-white shadow-sm">
         {loading ? (
           <div className="p-8 text-center text-sm text-neutral-500">
             Loading parcel trips...
@@ -225,7 +302,7 @@ export default function ParcelTrips() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-visible">
             <table className="w-full min-w-[760px]">
               <thead>
                 <tr className="border-b border-neutral-100 bg-neutral-50">
@@ -251,95 +328,101 @@ export default function ParcelTrips() {
               </thead>
 
               <tbody>
-                {trips.map((trip) => (
-                  <tr
-                    key={trip.id}
-                    className="border-b border-neutral-50 last:border-0 hover:bg-neutral-50"
-                  >
-                    <td className="px-4 py-3">
-                      <p className="text-sm font-bold text-neutral-900">
-                        {trip.title || trip.name || 'Parcel Trip'}
-                      </p>
-                      <p className="text-xs text-neutral-500">
-                        Admin fixed trip date
-                      </p>
-                    </td>
+                {trips.map((trip) => {
+                  const actions = tripActions(trip.status)
 
-                    <td className="px-4 py-3 text-sm text-neutral-700">
-                      {formatDate(trip.goingDate)}
-                    </td>
+                  return (
+                    <tr
+                      key={trip.id}
+                      className="border-b border-neutral-50 last:border-0 hover:bg-neutral-50"
+                    >
+                      <td className="px-4 py-3">
+                        <p className="text-sm font-bold text-neutral-900">
+                          {trip.title || trip.name || 'Parcel Trip'}
+                        </p>
+                        <p className="text-xs text-neutral-500">
+                          Admin fixed trip date
+                        </p>
+                      </td>
 
-                    <td className="px-4 py-3">
-                      <div className="inline-flex items-center gap-2 text-sm text-neutral-700">
-                        <Truck size={15} />
-                        {trip.origin || trip.fromLocation || 'Thimphu'} →{' '}
-                        {trip.destination ||
-                          trip.toLocation ||
-                          'Phuentsholing'}
-                      </div>
-                    </td>
+                      <td className="px-4 py-3 text-sm text-neutral-700">
+                        {formatDate(trip.goingDate)}
+                      </td>
 
-                    <td className="px-4 py-3 text-sm font-semibold text-neutral-700">
-                      {trip.requestCount ?? 0}
-                    </td>
+                      <td className="px-4 py-3">
+                        <div className="inline-flex items-center gap-2 text-sm text-neutral-700">
+                          <Truck size={15} />
+                          {trip.origin || trip.fromLocation || 'Thimphu'} →{' '}
+                          {trip.destination ||
+                            trip.toLocation ||
+                            'Phuentsholing'}
+                        </div>
+                      </td>
 
-                    <td className="px-4 py-3">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusClass(
-                          trip.status,
-                        )}`}
-                      >
-                        {trip.status
-                          ? parcelTripStatusLabels[trip.status]
-                          : 'Draft'}
-                      </span>
-                    </td>
+                      <td className="px-4 py-3 text-sm font-semibold text-neutral-700">
+                        {trip.requestCount ?? 0}
+                      </td>
 
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        {trip.status !== 'open' && (
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusClass(
+                            trip.status,
+                          )}`}
+                        >
+                          {trip.status
+                            ? parcelTripStatusLabels[trip.status]
+                            : 'Draft'}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <div className="relative flex justify-end">
                           <button
-                            onClick={() => changeStatus(trip.id, 'open')}
-                            className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
-                          >
-                            Open
-                          </button>
-                        )}
-
-                        {trip.status === 'open' && (
-                          <button
-                            onClick={() => changeStatus(trip.id, 'closed')}
-                            className="rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700 hover:bg-amber-100"
-                          >
-                            Close
-                          </button>
-                        )}
-
-                        {trip.status !== 'completed' && (
-                          <button
+                            type="button"
                             onClick={() =>
-                              changeStatus(trip.id, 'completed')
+                              setOpenMenuId((current) =>
+                                current === trip.id ? null : trip.id,
+                              )
                             }
-                            className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100"
+                            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-700 shadow-sm transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700"
                           >
-                            Complete
+                            Manage
+                            <ChevronDown
+                              size={14}
+                              className={`transition ${
+                                openMenuId === trip.id ? 'rotate-180' : ''
+                              }`}
+                            />
                           </button>
-                        )}
 
-                        {trip.status !== 'cancelled' && (
-                          <button
-                            onClick={() =>
-                              changeStatus(trip.id, 'cancelled')
-                            }
-                            className="rounded-lg bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700 hover:bg-red-100"
-                          >
-                            Cancel
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {openMenuId === trip.id && (
+                            <div className="absolute right-0 top-10 z-30 w-48 overflow-hidden rounded-2xl border border-neutral-100 bg-white p-1 shadow-xl">
+                              {actions.map((action) => (
+                                <button
+                                  key={action.status}
+                                  type="button"
+                                  onClick={() =>
+                                    handleTripAction(trip, action.status)
+                                  }
+                                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-bold transition ${actionTextClass(
+                                    action.status,
+                                  )}`}
+                                >
+                                  <span>{action.label}</span>
+                                  <span
+                                    className={`h-2 w-2 rounded-full ${actionDotClass(
+                                      action.status,
+                                    )}`}
+                                  />
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
