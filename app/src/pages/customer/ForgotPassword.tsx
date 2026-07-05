@@ -112,23 +112,23 @@ export default function ForgotPassword() {
 
   if (submitted) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-white px-6">
-        <div className="max-w-sm text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100">
-            <CheckCircle size={32} className="text-emerald-600" />
+      <div className="flex min-h-screen flex-col items-center justify-center bg-white px-6 pb-8">
+        <div className="w-full max-w-sm text-center">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600">
+            <CheckCircle size={36} strokeWidth={2} />
           </div>
 
-          <h1 className="mb-2 text-2xl font-bold text-gray-900">Check your email</h1>
-          <p className="mb-6 text-sm leading-6 text-gray-500">
+          <h1 className="mt-6 text-2xl font-bold text-neutral-900">Check your email</h1>
+          <p className="mt-2 text-sm leading-relaxed text-neutral-500">
             If a real email is linked to this account, we sent a password reset link. Open the latest email and follow the link to set a new password.
           </p>
 
           <button
             type="button"
             onClick={() => navigate('/login')}
-            className="h-12 w-full rounded-2xl bg-orange-500 font-bold text-white transition hover:bg-orange-600"
+            className="mt-8 h-12 w-full rounded-2xl bg-orange-500 font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-[0.98]"
           >
-            Back to sign in
+            Back to Sign In
           </button>
         </div>
       </div>
@@ -137,33 +137,43 @@ export default function ForgotPassword() {
 
   if (supportReset) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-white px-6">
-        <div className="max-w-sm text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-100">
-            <HeadphonesIcon size={32} className="text-orange-600" />
+      <div className="flex min-h-screen flex-col items-center justify-center bg-white px-6 pb-8">
+        <div className="w-full max-w-sm text-center">
+          {/* Icon */}
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-orange-500 shadow-lg shadow-orange-500/20">
+            <HeadphonesIcon size={36} className="text-white" strokeWidth={2} />
           </div>
 
-          <h1 className="mb-2 text-2xl font-bold text-gray-900">Support reset required</h1>
-          <p className="mb-6 text-sm leading-6 text-gray-500">
-            This account was registered with phone only, so email password reset is not available. Please contact Shop2Bhutan support to reset your password.
+          {/* Title */}
+          <h1 className="mt-6 text-2xl font-bold text-neutral-900">Need help with your password?</h1>
+          <p className="mt-2 text-sm leading-relaxed text-neutral-500">
+            Phone-only accounts can't reset passwords by email. Contact us and we'll help you out.
           </p>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* Actions */}
+          <div className="mt-8 space-y-3">
             <button
               type="button"
               onClick={() => navigate('/support')}
-              className="h-12 rounded-2xl bg-orange-500 font-bold text-white transition hover:bg-orange-600"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-[0.98]"
             >
-              Contact support
+              <HeadphonesIcon size={18} />
+              Contact Support
             </button>
+
             <button
               type="button"
               onClick={() => navigate('/login')}
-              className="h-12 rounded-2xl bg-gray-100 font-bold text-gray-700 transition hover:bg-gray-200"
+              className="h-12 w-full rounded-2xl border border-neutral-200 bg-neutral-50 font-bold text-neutral-700 transition hover:bg-neutral-100 active:scale-[0.98]"
             >
-              Back to login
+              Back to Login
             </button>
           </div>
+
+          {/* Trust signal */}
+          <p className="mt-6 text-xs text-neutral-400">
+            Our team usually responds within a few hours
+          </p>
         </div>
       </div>
     );
