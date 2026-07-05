@@ -82,7 +82,16 @@ export default function CustomerLayout() {
   useEffect(() => {
     void refreshBagCount()
     void refreshNotificationCount()
-    void refreshParcelBadge()
+
+    // The Parcel screen already loads parcel data. Avoid running the
+    // badge-count queries at the exact same time when opening parcel pages.
+    if (
+      location.pathname !== '/parcel' &&
+      !location.pathname.startsWith('/my-parcels') &&
+      !location.pathname.startsWith('/parcel-booking/')
+    ) {
+      void refreshParcelBadge()
+    }
   }, [
     refreshBagCount,
     refreshNotificationCount,

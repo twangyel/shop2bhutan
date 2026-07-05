@@ -205,11 +205,19 @@ function parcelStatusMessage(status: ParcelRequestStatus, adminNotes?: string) {
   return 'Your parcel request has been submitted.'
 }
 
-async function mapRequest(row: Row): Promise<ParcelRequest> {
+type MapRequestOptions = {
+  includePhotoUrl?: boolean
+}
+
+async function mapRequest(
+  row: Row,
+  options: MapRequestOptions = {},
+): Promise<ParcelRequest> {
   const trip = mapTrip(row.parcel_trips)
 
   const photoPath = row.parcel_photo_path ?? null
-  const photoUrl = await getSignedPhotoUrl(photoPath)
+  const shouldLoadPhotoUrl = options.includePhotoUrl ?? true
+  const photoUrl = shouldLoadPhotoUrl ? await getSignedPhotoUrl(photoPath) : null
 
   return {
     id: String(row.id),
@@ -357,6 +365,63 @@ export async function createParcelRequest(input: CreateParcelRequestInput) {
   })
 }
 
+export async function fetchMyActiveParcelRequestsPreview(limit = 2) {
+  const userId = await getUserId()
+
+  const { data, error } = await supabase
+    .from('parcel_requests')
+    .select(`
+      id,
+      parcel_no,
+      user_id,
+      trip_id,
+      status,
+      sender_name,
+      sender_phone,
+      pickup_address,
+      receiver_name,
+      receiver_phone,
+      dropoff_address,
+      package_description,
+      parcel_type,
+      parcel_size,
+      customer_notes,
+      admin_notes,
+      declaration_confirmed,
+      created_at,
+      updated_at,
+      parcel_trips(
+        id,
+        title,
+        origin,
+        destination,
+        going_date,
+        booking_cutoff_at,
+        pickup_areas,
+        status
+      )
+    `)
+    .eq('user_id', userId)
+    .in('status', ['pending', 'accepted', 'picked_up', 'in_transit'])
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+
+  return Promise.all(
+    (data ?? []).map((row) =>
+      mapRequest(
+        {
+          ...row,
+          parcel_photo_path: null,
+          parcel_tracking_events: [],
+        },
+        { includePhotoUrl: false },
+      ),
+    ),
+  )
+}
+
 export async function fetchMyParcelRequests() {
   const userId = await getUserId()
 
@@ -447,7 +512,7 @@ export async function fetchAdminParcelRequests() {
 
   if (error) throw error
 
-  return Promise.all((data ?? []).map(mapRequest))
+  return Promise.all((data ?? []).map((row) => mapRequest(row)))
 }
 
 export async function updateParcelRequestStatus(

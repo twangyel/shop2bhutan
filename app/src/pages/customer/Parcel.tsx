@@ -8,7 +8,10 @@ import {
   Package,
   Truck,
 } from 'lucide-react'
-import { fetchMyParcelRequests, fetchOpenParcelTrips } from '@/lib/parcels'
+import {
+  fetchMyActiveParcelRequestsPreview,
+  fetchOpenParcelTrips,
+} from '@/lib/parcels'
 import type { ParcelRequest, ParcelTrip } from '@/types/parcel'
 import { parcelStatusLabels } from '@/types/parcel'
 
@@ -84,7 +87,7 @@ export default function Parcel() {
 
       const [tripRows, requestRows] = await Promise.all([
         fetchOpenParcelTrips(),
-        fetchMyParcelRequests().catch(() => []),
+        fetchMyActiveParcelRequestsPreview(2).catch(() => []),
       ])
 
       setTrips(tripRows)
@@ -162,10 +165,10 @@ export default function Parcel() {
               </h2>
 
               <button
-                onClick={() => navigate('/my-parcels')}
+                onClick={() => navigate('/my-parcels?view=active')}
                 className="text-xs font-semibold text-orange-600"
               >
-                View All
+                View Active
               </button>
             </div>
 
@@ -173,7 +176,7 @@ export default function Parcel() {
               {activeRequests.slice(0, 2).map((request) => (
                 <button
                   key={request.id}
-                  onClick={() => navigate('/my-parcels')}
+                  onClick={() => navigate('/my-parcels?view=active')}
                   className="flex w-full items-center gap-3 rounded-2xl border border-neutral-100 bg-white p-3 text-left shadow-sm transition active:scale-[0.99]"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
