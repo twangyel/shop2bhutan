@@ -175,17 +175,17 @@ export default function ChangePassword() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-white px-4 py-8">
-        <div className="mx-auto max-w-md rounded-2xl bg-white p-6 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
-            <KeyRound size={26} />
+      <div className="flex min-h-screen items-center justify-center bg-white px-4 py-8">
+        <div className="w-full max-w-sm text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
+            <KeyRound size={28} />
           </div>
-          <h1 className="mb-2 text-xl font-extrabold text-gray-900">Sign in required</h1>
-          <p className="mb-5 text-sm text-gray-500">Please sign in to change your password.</p>
+          <h1 className="mt-4 text-xl font-bold text-neutral-900">Sign in required</h1>
+          <p className="mt-2 text-sm text-neutral-500">Please sign in to change your password.</p>
           <button
             type="button"
             onClick={() => navigate('/login')}
-            className="h-12 w-full rounded-2xl bg-orange-500 font-bold text-white"
+            className="mt-5 h-12 w-full rounded-2xl bg-orange-500 font-bold text-white transition hover:bg-orange-600 active:scale-[0.98]"
           >
             Sign In
           </button>
@@ -195,128 +195,174 @@ export default function ChangePassword() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-24">
-      <div className="rounded-b-[2rem] bg-orange-500 px-4 pb-8 pt-6 text-white">
-        <div className="mx-auto max-w-md">
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white">
+        <div className="flex items-center gap-3 px-4 py-3">
           {!forced && (
             <button
               type="button"
               onClick={() => navigate('/account')}
-              className="mb-6 flex items-center gap-2 text-sm font-semibold text-white/90"
+              className="-ml-1 flex h-9 w-9 items-center justify-center rounded-full hover:bg-neutral-100"
             >
-              <ArrowLeft size={18} />
-              Back to Account
+              <ArrowLeft size={22} />
             </button>
           )}
 
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-orange-600 shadow-md">
-              <KeyRound size={28} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold tracking-[0.2em] text-white/90">Security</p>
-              <h1 className="text-2xl font-extrabold">
-                {forced ? 'Set New Password' : 'Change Password'}
-              </h1>
-              <p className="mt-1 text-sm text-white/90">
-                {forced
-                  ? 'Admin reset your password. Please create your own password now.'
-                  : 'Keep your Shop2Bhutan account secure.'}
-              </p>
-            </div>
+          <div>
+            <h1 className="text-lg font-bold text-neutral-900">
+              {forced ? 'Set New Password' : 'Change Password'}
+            </h1>
+            <p className="text-xs text-neutral-500">
+              {forced
+                ? 'Admin reset your password. Create your own now.'
+                : 'Keep your account secure'}
+            </p>
           </div>
         </div>
       </div>
 
-      <div className="mx-auto -mt-4 max-w-md px-4">
-        <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl bg-white p-4 shadow-sm">
-          {forced && (
-            <div className="flex items-start gap-2 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-3 text-sm text-amber-700">
-              <ShieldCheck size={17} className="mt-0.5 shrink-0" />
-              <span>
-                For your security, you must replace the temporary password before using the app.
-              </span>
+      <form onSubmit={handleSubmit} className="space-y-5 px-4 py-4 pb-28">
+        {/* Security Notice */}
+        {forced && (
+          <div className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
+            <div className="mt-0.5 shrink-0 text-amber-500">
+              <ShieldCheck size={18} />
             </div>
-          )}
-
-          {error && (
-            <div className="rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-600">
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-              <CheckCircle size={16} />
-              {success}
-            </div>
-          )}
-
-          {[
-            {
-              label: forced ? 'Temporary Password' : 'Current Password',
-              value: currentPassword,
-              setter: setCurrentPassword,
-              placeholder: forced ? 'Enter temporary password' : 'Enter current password',
-            },
-            {
-              label: 'New Password',
-              value: newPassword,
-              setter: setNewPassword,
-              placeholder: 'Min 6 characters',
-            },
-            {
-              label: 'Confirm New Password',
-              value: confirmPassword,
-              setter: setConfirmPassword,
-              placeholder: 'Confirm new password',
-            },
-          ].map((field) => (
-            <div key={field.label}>
-              <label className="mb-1.5 block text-xs font-bold tracking-wider text-gray-600">
-                {field.label}
-              </label>
-              <div className="relative">
-                <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={field.value}
-                  onChange={(event) => {
-                    field.setter(event.target.value);
-                    setError('');
-                    setSuccess('');
-                  }}
-                  placeholder={field.placeholder}
-                  className="h-12 w-full rounded-2xl border border-gray-200 pl-10 pr-11 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((value) => !value)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  aria-label="Toggle password visibility"
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-          ))}
-
-          <div className="rounded-2xl bg-gray-50 p-3">
-            <p className="text-xs font-bold text-gray-700">Password tip</p>
-            <p className="mt-1 text-xs leading-5 text-gray-500">
-              Use a password that is hard to guess and different from other apps.
+            <p className="text-xs leading-relaxed text-amber-700">
+              For your security, you must replace the temporary password before using the app.
             </p>
           </div>
+        )}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submitting ? <Loader2 size={18} className="animate-spin" /> : <KeyRound size={18} />}
-            {submitting ? 'Updating...' : forced ? 'Save New Password' : 'Update Password'}
-          </button>
-        </form>
+        {error && (
+          <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            <CheckCircle size={16} />
+            {success}
+          </div>
+        )}
+
+        {/* Password Fields */}
+        <div className="space-y-4">
+          <PasswordField
+            label={forced ? 'Temporary Password' : 'Current Password'}
+            value={currentPassword}
+            onChange={(value) => {
+              setCurrentPassword(value);
+              setError('');
+              setSuccess('');
+            }}
+            placeholder={forced ? 'Enter temporary password' : 'Enter current password'}
+            showPassword={showPassword}
+            onToggleShow={() => setShowPassword((v) => !v)}
+          />
+
+          <PasswordField
+            label="New Password"
+            value={newPassword}
+            onChange={(value) => {
+              setNewPassword(value);
+              setError('');
+              setSuccess('');
+            }}
+            placeholder="Min 6 characters"
+            showPassword={showPassword}
+            onToggleShow={() => setShowPassword((v) => !v)}
+          />
+
+          <PasswordField
+            label="Confirm New Password"
+            value={confirmPassword}
+            onChange={(value) => {
+              setConfirmPassword(value);
+              setError('');
+              setSuccess('');
+            }}
+            placeholder="Confirm new password"
+            showPassword={showPassword}
+            onToggleShow={() => setShowPassword((v) => !v)}
+          />
+        </div>
+
+        {/* Password Tip */}
+        <div className="rounded-2xl bg-neutral-50 p-4">
+          <p className="text-xs font-bold text-neutral-700">Password tip</p>
+          <p className="mt-1 text-xs leading-relaxed text-neutral-500">
+            Use a password that is hard to guess and different from other apps.
+          </p>
+        </div>
+      </form>
+
+      {/* Sticky Bottom Button */}
+      <div className="fixed bottom-0 left-0 right-0 border-t border-neutral-100 bg-white p-4">
+        <button
+          type="submit"
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
+        >
+          {submitting ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              Updating...
+            </>
+          ) : (
+            <>
+              <KeyRound size={18} />
+              {forced ? 'Save Password' : 'Update Password'}
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PasswordField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  showPassword,
+  onToggleShow,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  showPassword: boolean;
+  onToggleShow: () => void;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-semibold text-neutral-700">
+        {label}
+      </label>
+      <div className="relative">
+        <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400">
+          <Lock size={18} />
+        </div>
+        <input
+          type={showPassword ? 'text' : 'password'}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className="h-12 w-full rounded-2xl border border-neutral-200 bg-neutral-50 pl-11 pr-11 text-sm outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/10"
+        />
+        <button
+          type="button"
+          onClick={onToggleShow}
+          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+          aria-label="Toggle password visibility"
+        >
+          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+        </button>
       </div>
     </div>
   );
