@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -43,9 +43,16 @@ export default function ChangePassword() {
   const routeState = location.state as RouteState;
   const forcedByRoute = Boolean(routeState?.forced);
   const forcedByProfile = mustChangePassword(context?.profile);
-  const forceModeStarted = forcedByRoute || forcedByProfile;
-  const [passwordChanged, setPasswordChanged] = useState(false);
-  const forced = forceModeStarted && !passwordChanged;
+  const [forcedSession, setForcedSession] = useState(() => forcedByRoute || forcedByProfile);
+  const [completed, setCompleted] = useState(false);
+
+  useEffect(() => {
+    if (forcedByRoute || forcedByProfile) {
+      setForcedSession(true);
+    }
+  }, [forcedByRoute, forcedByProfile]);
+
+  const forced = forcedSession && !completed;
   const returnTo = useMemo(
     () => getSafeReturnTo(routeState?.returnTo),
     [routeState?.returnTo],
@@ -57,10 +64,9 @@ export default function ChangePassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   const clearMustChangePasswordFlag = async () => {
-    if (!forced || !user?.id) return;
+    if (!forcedSession || !user?.id) return;
 
     const rpcResult = await supabase.rpc('clear_my_must_change_password');
     if (!rpcResult.error) return;
@@ -86,7 +92,6 @@ export default function ChangePassword() {
     event.preventDefault();
 
     setError('');
-    setSuccess('');
 
     if (!user?.email) {
       setError('Please sign in again before changing your password.');
@@ -120,58 +125,56 @@ export default function ChangePassword() {
 
     setSubmitting(true);
 
-    if (!forced) {
-      const { error: verifyError } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: currentPassword,
+    try {
+      if (!forced) {
+        const { error: verifyError } = await supabase.auth.signInWithPassword({
+          email: user.email,
+          password: currentPassword,
+        });
+
+        if (verifyError) {
+          setError('Current password is incorrect. Please try again.');
+          return;
+        }
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
       });
 
-      if (verifyError) {
-        setSubmitting(false);
-        setError('Current password is incorrect. Please try again.');
+      if (updateError) {
+        setError(updateError.message || 'Unable to update password. Please try again.');
         return;
       }
-    }
 
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
-
-    if (updateError) {
-      setSubmitting(false);
-      setError(updateError.message || 'Unable to update password. Please try again.');
-      return;
-    }
-
-    try {
       await clearMustChangePasswordFlag();
-    } catch (flagError) {
-      setSubmitting(false);
+
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setCompleted(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (submitError) {
       setError(
-        flagError instanceof Error
-          ? flagError.message
-          : 'Password changed, but the temporary-password flag could not be cleared.',
+        submitError instanceof Error
+          ? submitError.message
+          : 'Unable to update password. Please try again.',
       );
-      return;
+    } finally {
+      setSubmitting(false);
     }
+  };
 
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setPasswordChanged(true);
-    setSuccess(
-      forceModeStarted
-        ? 'Password updated successfully. You can now continue using Shop2Bhutan.'
-        : 'Password updated successfully. Use your new password next time you sign in.',
-    );
-
+  const handleContinue = async () => {
+    setSubmitting(true);
     try {
       await refreshContext();
     } catch (contextError) {
       console.warn('[ChangePassword] Context refresh skipped:', contextError);
+    } finally {
+      setSubmitting(false);
+      navigate(forcedSession ? returnTo : '/account', { replace: true });
     }
-
-    setSubmitting(false);
   };
 
   if (!user) {
@@ -195,6 +198,35 @@ export default function ChangePassword() {
     );
   }
 
+  if (completed) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white px-4 py-8">
+        <div className="w-full max-w-sm text-center">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600">
+            <CheckCircle size={38} />
+          </div>
+
+          <h1 className="mt-5 text-2xl font-bold text-neutral-900">Password updated</h1>
+          <p className="mt-2 text-sm leading-6 text-neutral-500">
+            {forcedSession
+              ? 'Your temporary password has been replaced. You can now continue using Shop2Bhutan with your new password.'
+              : 'Your Shop2Bhutan password has been updated. Use your new password the next time you sign in.'}
+          </p>
+
+          <button
+            type="button"
+            onClick={handleContinue}
+            disabled={submitting}
+            className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 font-bold text-white transition hover:bg-orange-600 active:scale-[0.98] disabled:opacity-60"
+          >
+            {submitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+            {forcedSession ? 'Continue to Shop2Bhutan' : 'Back to Account'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -212,18 +244,18 @@ export default function ChangePassword() {
 
           <div>
             <h1 className="text-lg font-bold text-neutral-900">
-              {forced ? 'Set New Password' : 'Change Password'}
+              {forced ? 'Update Password' : 'Change Password'}
             </h1>
             <p className="text-xs text-neutral-500">
               {forced
-                ? 'Admin reset your password. Create your own now.'
+                ? 'Create your own password to continue.'
                 : 'Keep your account secure'}
             </p>
           </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5 px-4 py-4 pb-28">
+      <form id="change-password-form" onSubmit={handleSubmit} className="space-y-5 px-4 py-4 pb-28">
         {/* Security Notice */}
         {forced && (
           <div className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
@@ -242,15 +274,7 @@ export default function ChangePassword() {
           </div>
         )}
 
-        {success && (
-          <div className="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            <CheckCircle size={16} />
-            {success}
-          </div>
-        )}
-
         {/* Password Fields */}
-        {!(forceModeStarted && passwordChanged) && (
         <div className="space-y-4">
           {!forced && (
             <PasswordField
@@ -259,7 +283,6 @@ export default function ChangePassword() {
               onChange={(value) => {
                 setCurrentPassword(value);
                 setError('');
-                setSuccess('');
               }}
               placeholder="Enter current password"
               showPassword={showPassword}
@@ -273,7 +296,6 @@ export default function ChangePassword() {
             onChange={(value) => {
               setNewPassword(value);
               setError('');
-              setSuccess('');
             }}
             placeholder="Min 6 characters"
             showPassword={showPassword}
@@ -286,14 +308,12 @@ export default function ChangePassword() {
             onChange={(value) => {
               setConfirmPassword(value);
               setError('');
-              setSuccess('');
             }}
             placeholder="Confirm new password"
             showPassword={showPassword}
             onToggleShow={() => setShowPassword((v) => !v)}
           />
         </div>
-        )}
 
         {/* Password Tip */}
         <div className="rounded-2xl bg-neutral-50 p-4">
@@ -307,15 +327,8 @@ export default function ChangePassword() {
       {/* Sticky Bottom Button */}
       <div className="fixed bottom-0 left-0 right-0 border-t border-neutral-100 bg-white p-4">
         <button
-          type="button"
-          onClick={(event) => {
-            if (forceModeStarted && passwordChanged) {
-              navigate(returnTo, { replace: true });
-              return;
-            }
-
-            void handleSubmit(event as unknown as React.FormEvent);
-          }}
+          type="submit"
+          form="change-password-form"
           disabled={submitting}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
         >
@@ -324,15 +337,10 @@ export default function ChangePassword() {
               <Loader2 size={18} className="animate-spin" />
               Updating...
             </>
-          ) : forceModeStarted && passwordChanged ? (
-            <>
-              <CheckCircle size={18} />
-              Continue
-            </>
           ) : (
             <>
               <KeyRound size={18} />
-              {forced ? 'Save Password' : 'Update Password'}
+              Update Password
             </>
           )}
         </button>
