@@ -1,11 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import {
-  Check,
-  Package,
-  RefreshCw,
-  Truck,
-  XCircle,
-} from 'lucide-react'
+import { Check, Package, RefreshCw, Truck, XCircle } from 'lucide-react'
 import {
   fetchAdminParcelRequests,
   updateParcelRequestStatus,
@@ -15,10 +9,7 @@ import {
   parcelStatusLabels,
   parcelTypeLabels,
 } from '@/types/parcel'
-import type {
-  ParcelRequest,
-  ParcelRequestStatus,
-} from '@/types/parcel'
+import type { ParcelRequest, ParcelRequestStatus } from '@/types/parcel'
 
 const tabs: { key: 'all' | ParcelRequestStatus; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -71,6 +62,14 @@ function statusClass(status: string) {
   }
 
   return 'bg-neutral-100 text-neutral-600 border border-neutral-200'
+}
+
+function tripDisplayTitle(request: ParcelRequest) {
+  const origin = request.trip?.origin || request.trip?.fromLocation || 'Thimphu'
+  const destination =
+    request.trip?.destination || request.trip?.toLocation || 'Phuentsholing'
+
+  return `${origin} → ${destination}`
 }
 
 function nextStatuses(status: ParcelRequestStatus): ParcelRequestStatus[] {
@@ -152,51 +151,52 @@ export default function ParcelRequests() {
     request: ParcelRequest,
     status: ParcelRequestStatus,
   ) {
-  let adminNotes: string | undefined
+    let adminNotes: string | undefined
 
-  if (status === 'rejected') {
-    const reason = window.prompt(
-      'Why is this parcel request rejected? This reason will be visible to the customer.',
-      request.adminNotes || '',
-    )
+    if (status === 'rejected') {
+      const reason = window.prompt(
+        'Why is this parcel request rejected? This reason will be visible to the customer.',
+        request.adminNotes || '',
+      )
 
-    if (reason === null) return
+      if (reason === null) return
 
-    if (!reason.trim()) {
-      setError('Rejection reason is required.')
-      return
+      if (!reason.trim()) {
+        setError('Rejection reason is required.')
+        return
+      }
+
+      adminNotes = reason.trim()
     }
 
-    adminNotes = reason.trim()
+    if (status === 'cancelled') {
+      const reason = window.prompt(
+        'Add cancellation note for the customer. Optional.',
+        request.adminNotes || '',
+      )
+
+      if (reason === null) return
+
+      adminNotes = reason.trim()
+    }
+
+    try {
+      setUpdatingId(request.id)
+      setError('')
+
+      await updateParcelRequestStatus(request.id, status, adminNotes)
+      await loadRequests()
+      window.dispatchEvent(new CustomEvent('shop2bhutan:admin-parcels-updated'))
+      window.dispatchEvent(new CustomEvent('shop2bhutan:parcels-updated'))
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to update parcel request.',
+      )
+    } finally {
+      setUpdatingId('')
+    }
   }
 
-  if (status === 'cancelled') {
-    const reason = window.prompt(
-      'Add cancellation note for the customer. Optional.',
-      request.adminNotes || '',
-    )
-
-    if (reason === null) return
-
-    adminNotes = reason.trim()
-  }
-
-  try {
-    setUpdatingId(request.id)
-    setError('')
-
-    await updateParcelRequestStatus(request.id, status, adminNotes)
-    await loadRequests()
-  } catch (err) {
-    setError(
-      err instanceof Error
-        ? err.message
-        : 'Failed to update parcel request.',
-    )
-  } finally {
-    setUpdatingId('')
-  }
-}
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -292,11 +292,22 @@ function ParcelRequestCard({
       <div className="grid gap-4 p-4 lg:grid-cols-[160px_1fr]">
         <div>
           {request.parcelPhotoUrl ? (
-            <img
-              src={request.parcelPhotoUrl}
-              alt={title}
-              className="h-36 w-full rounded-2xl bg-neutral-100 object-cover"
-            />
+            <div className="space-y-2">
+              <img
+                src={request.parcelPhotoUrl}
+                alt={title}
+                className="h-36 w-full rounded-2xl border border-neutral-100 bg-neutral-100 object-cover"
+              />
+
+              <a
+                href={request.parcelPhotoUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="block text-center text-xs font-bold text-orange-600 hover:text-orange-700"
+              >
+                View photo
+              </a>
+            </div>
           ) : (
             <div className="flex h-36 w-full items-center justify-center rounded-2xl bg-neutral-100 text-neutral-400">
               <Package size={28} />
@@ -316,11 +327,8 @@ function ParcelRequestCard({
               </h3>
 
               <p className="mt-1 text-xs text-neutral-500">
-                Trip:{' '}
-                {request.trip?.title ||
-                  request.trip?.name ||
-                  'Thimphu to Phuentsholing'}{' '}
-                · {formatDate(request.trip?.goingDate)}
+                Trip: {tripDisplayTitle(request)} ·{' '}
+                {formatDate(request.trip?.goingDate)}
               </p>
             </div>
 
@@ -377,13 +385,7 @@ function ParcelRequestCard({
             </span>
 
             <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600">
-              {request.trip?.origin ||
-                request.trip?.fromLocation ||
-                'Thimphu'}{' '}
-              →{' '}
-              {request.trip?.destination ||
-                request.trip?.toLocation ||
-                'Phuentsholing'}
+              {tripDisplayTitle(request)}
             </span>
           </div>
 
@@ -394,26 +396,40 @@ function ParcelRequestCard({
           )}
 
           <div className="mt-4 flex flex-wrap gap-2">
-            {actions.map((status) => (
-              <button
-                key={status}
-                disabled={updating}
-                onClick={() => onChangeStatus(status)}
-                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-white disabled:opacity-60 ${actionClass(
-                  status,
-                )}`}
-              >
-                {status === 'delivered' ? (
-                  <Check size={14} />
-                ) : status === 'rejected' || status === 'cancelled' ? (
-                  <XCircle size={14} />
-                ) : (
-                  <Truck size={14} />
-                )}
+            {actions.length > 0 ? (
+              actions.map((status) => (
+                <button
+                  key={status}
+                  disabled={updating}
+                  onClick={() => onChangeStatus(status)}
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-white disabled:opacity-60 ${actionClass(
+                    status,
+                  )}`}
+                >
+                  {status === 'delivered' ? (
+                    <Check size={14} />
+                  ) : status === 'rejected' || status === 'cancelled' ? (
+                    <XCircle size={14} />
+                  ) : (
+                    <Truck size={14} />
+                  )}
 
-                {updating ? 'Updating...' : actionLabel(status)}
-              </button>
-            ))}
+                  {updating ? 'Updating...' : actionLabel(status)}
+                </button>
+              ))
+            ) : (
+              <span
+                className={`rounded-xl px-3 py-2 text-xs font-bold ${statusClass(request.status)}`}
+              >
+                {request.status === 'delivered'
+                  ? 'Completed'
+                  : request.status === 'rejected'
+                    ? 'Rejected'
+                    : request.status === 'cancelled'
+                      ? 'Cancelled'
+                      : parcelStatusLabels[request.status] || request.status}
+              </span>
+            )}
           </div>
         </div>
       </div>

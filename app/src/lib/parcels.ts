@@ -160,6 +160,51 @@ async function getSignedPhotoUrl(path?: string | null) {
   return data?.signedUrl ?? null
 }
 
+function mapTrackingEvents(row: Row) {
+  const rawEvents = Array.isArray(row.parcel_tracking_events)
+    ? row.parcel_tracking_events
+    : []
+
+  return rawEvents
+    .map((event: Row) => ({
+      id: String(event.id ?? ''),
+      parcelRequestId: String(event.parcel_request_id ?? row.id ?? ''),
+      status: (event.status ?? 'pending') as ParcelRequestStatus,
+      title: text(event.title),
+      message: event.message ?? null,
+      location: event.location ?? null,
+      visibleToCustomer: event.visible_to_customer !== false,
+      createdBy: event.created_by ?? null,
+      createdAt: event.created_at ?? '',
+    }))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+}
+
+function parcelStatusTitle(status: ParcelRequestStatus) {
+  if (status === 'accepted') return 'Request Accepted'
+  if (status === 'picked_up' || status === 'collected') return 'Picked Up'
+  if (status === 'in_transit') return 'In Transit'
+  if (status === 'delivered') return 'Delivered'
+  if (status === 'rejected') return 'Request Rejected'
+  if (status === 'cancelled') return 'Request Cancelled'
+
+  return 'Request Submitted'
+}
+
+function parcelStatusMessage(status: ParcelRequestStatus, adminNotes?: string) {
+  if (adminNotes?.trim()) return adminNotes.trim()
+
+  if (status === 'accepted') return 'Your parcel request has been accepted.'
+  if (status === 'picked_up' || status === 'collected')
+    return 'Your parcel has been picked up.'
+  if (status === 'in_transit') return 'Your parcel is on the way.'
+  if (status === 'delivered') return 'Your parcel has been delivered.'
+  if (status === 'rejected') return 'Your parcel request was rejected.'
+  if (status === 'cancelled') return 'This parcel request was cancelled.'
+
+  return 'Your parcel request has been submitted.'
+}
+
 async function mapRequest(row: Row): Promise<ParcelRequest> {
   const trip = mapTrip(row.parcel_trips)
 
@@ -207,12 +252,42 @@ async function mapRequest(row: Row): Promise<ParcelRequest> {
     createdAt: row.created_at ?? '',
     updatedAt: row.updated_at ?? '',
 
-    trackingEvents: [],
+    trackingEvents: mapTrackingEvents(row),
 
     contactNumber: text(row.sender_phone),
     weightKg: 0,
     instructions: row.customer_notes ?? '',
   }
+}
+
+async function fetchTrackingEventsByRequestIds(requestIds: string[]) {
+  if (requestIds.length === 0) return new Map<string, Row[]>()
+
+  const { data, error } = await supabase
+    .from('parcel_tracking_events')
+    .select('*')
+    .in('parcel_request_id', requestIds)
+    .eq('visible_to_customer', true)
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    console.warn(
+      '[fetchTrackingEventsByRequestIds] Tracking events skipped:',
+      error,
+    )
+    return new Map<string, Row[]>()
+  }
+
+  return (data ?? []).reduce((acc, event) => {
+    const requestId = String(event.parcel_request_id ?? '')
+    if (!requestId) return acc
+
+    const events = acc.get(requestId) ?? []
+    events.push(event)
+    acc.set(requestId, events)
+
+    return acc
+  }, new Map<string, Row[]>())
 }
 
 export async function fetchOpenParcelTrips() {
@@ -293,7 +368,19 @@ export async function fetchMyParcelRequests() {
 
   if (error) throw error
 
-  return Promise.all((data ?? []).map(mapRequest))
+  const rows = data ?? []
+  const eventsByRequestId = await fetchTrackingEventsByRequestIds(
+    rows.map((row) => String(row.id)),
+  )
+
+  return Promise.all(
+    rows.map((row) =>
+      mapRequest({
+        ...row,
+        parcel_tracking_events: eventsByRequestId.get(String(row.id)) ?? [],
+      }),
+    ),
+  )
 }
 
 export async function fetchAdminParcelTrips() {
@@ -380,13 +467,88 @@ export async function updateParcelRequestStatus(
     .from('parcel_requests')
     .update(payload)
     .eq('id', requestId)
-    .select('*')
+    .select('*, parcel_trips(*)')
     .single()
 
   if (error) throw error
 
-  return mapRequest({
-    ...data,
-    parcel_trips: null,
-  })
+  try {
+    const { data: userData } = await supabase.auth.getUser()
+
+    const { error: trackingError } = await supabase
+      .from('parcel_tracking_events')
+      .insert({
+        parcel_request_id: requestId,
+        status,
+        title: parcelStatusTitle(status),
+        message: parcelStatusMessage(status, adminNotes),
+        location: null,
+        visible_to_customer: true,
+        created_by: userData.user?.id ?? null,
+      })
+
+    if (trackingError) {
+      console.warn(
+        '[updateParcelRequestStatus] Tracking event skipped:',
+        trackingError,
+      )
+    }
+  } catch (trackingError) {
+    console.warn(
+      '[updateParcelRequestStatus] Tracking event skipped:',
+      trackingError,
+    )
+  }
+
+  return mapRequest(data)
+}
+
+export async function fetchCustomerParcelBadgeSummary(userId?: string) {
+  let activeCount = 0
+
+  if (userId) {
+    const { count, error } = await supabase
+      .from('parcel_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .in('status', ['pending', 'accepted', 'picked_up', 'in_transit'])
+
+    if (error) throw error
+
+    activeCount = count ?? 0
+  }
+
+  const { count: openTripCount, error: tripError } = await supabase
+    .from('parcel_trips')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'open')
+    .gte('going_date', todayDate())
+
+  if (tripError) throw tripError
+
+  const hasOpenTrip = (openTripCount ?? 0) > 0
+
+  return {
+    activeCount,
+    hasOpenTrip,
+    label:
+      activeCount > 0
+        ? activeCount > 99
+          ? '99+'
+          : String(activeCount)
+        : hasOpenTrip
+          ? 'New'
+          : null,
+  }
+}
+
+export async function fetchPendingParcelRequestCount() {
+  const { count, error } = await supabase
+    .from('parcel_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pending')
+
+  if (error) throw error
+
+  return count ?? 0
 }

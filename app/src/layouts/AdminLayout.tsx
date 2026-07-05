@@ -1,22 +1,42 @@
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, ClipboardList, CreditCard, Users, Package,
-  Grid3X3, Image, Truck, Percent, Wallet, Settings, FileText,
-  LogOut, ChevronDown, Search, Bell, ClipboardCheck, Menu, X,
-  PanelLeftClose, PanelLeft, CheckCheck, Loader2
-} from 'lucide-react';
-import { useApp } from '@/contexts/AppContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { useState, useEffect, useCallback, useRef } from 'react';
-import Logo from '@/components/shared/Logo';
-import { supabase } from '@/lib/supabase';
+  LayoutDashboard,
+  ClipboardList,
+  CreditCard,
+  Users,
+  Package,
+  Grid3X3,
+  Image,
+  Truck,
+  Percent,
+  Wallet,
+  Settings,
+  FileText,
+  LogOut,
+  ChevronDown,
+  Search,
+  Bell,
+  ClipboardCheck,
+  Menu,
+  X,
+  PanelLeftClose,
+  PanelLeft,
+  CheckCheck,
+  Loader2,
+} from 'lucide-react'
+import { useApp } from '@/contexts/AppContext'
+import { useAuth } from '@/contexts/AuthContext'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import Logo from '@/components/shared/Logo'
+import { supabase } from '@/lib/supabase'
 import {
   fetchAdminNotifications,
   getUnreadAdminNotificationCount,
   markAdminNotificationRead,
   markAllAdminNotificationsRead,
-} from '@/lib/customerOrders';
-import type { Notification as AppNotification, NotificationType } from '@/types';
+} from '@/lib/customerOrders'
+import { fetchPendingParcelRequestCount } from '@/lib/parcels'
+import type { Notification as AppNotification, NotificationType } from '@/types'
 
 const navGroups = [
   {
@@ -25,10 +45,14 @@ const navGroups = [
       { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
       { path: '/admin/orders', label: 'Orders', icon: ClipboardList },
       { path: '/admin/parcels', label: 'Parcel Trips', icon: ClipboardCheck },
-      { path: '/admin/parcel-requests', label: 'Parcel Requests', icon: Package },
+      {
+        path: '/admin/parcel-requests',
+        label: 'Parcel Requests',
+        icon: Package,
+      },
       { path: '/admin/payments', label: 'Payments', icon: CreditCard },
       { path: '/admin/customers', label: 'Customers', icon: Users },
-    ]
+    ],
   },
   {
     title: 'Catalog',
@@ -36,147 +60,228 @@ const navGroups = [
       { path: '/admin/products', label: 'Products', icon: Package },
       { path: '/admin/categories', label: 'Categories', icon: Grid3X3 },
       { path: '/admin/banners', label: 'Banners', icon: Image },
-    ]
+    ],
   },
   {
     title: 'Settings',
     items: [
       { path: '/admin/delivery-fees', label: 'Delivery Fees', icon: Truck },
-      { path: '/admin/service-charges', label: 'Service Charges', icon: Percent },
-      { path: '/admin/payment-methods', label: 'Payment Methods', icon: Wallet },
+      {
+        path: '/admin/service-charges',
+        label: 'Service Charges',
+        icon: Percent,
+      },
+      {
+        path: '/admin/payment-methods',
+        label: 'Payment Methods',
+        icon: Wallet,
+      },
       { path: '/admin/settings', label: 'App Settings', icon: Settings },
       { path: '/admin/faq', label: 'FAQ / Terms', icon: FileText },
-    ]
+    ],
   },
-];
+]
 
-
-const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
+const BHUTAN_TIME_ZONE = 'Asia/Thimphu'
 
 function formatAdminNotificationTime(value?: string) {
-  if (!value) return 'Just now';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Just now';
+  if (!value) return 'Just now'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Just now'
 
   const dateText = new Intl.DateTimeFormat('en-US', {
     timeZone: BHUTAN_TIME_ZONE,
     month: 'short',
     day: 'numeric',
-  }).format(date);
+  }).format(date)
   const timeText = new Intl.DateTimeFormat('en-US', {
     timeZone: BHUTAN_TIME_ZONE,
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-  }).format(date);
+  }).format(date)
 
-  return `${dateText}, ${timeText} BTT`;
+  return `${dateText}, ${timeText} BTT`
 }
 
 function adminNotificationStyle(type: NotificationType, title: string) {
-  const text = title.toLowerCase();
+  const text = title.toLowerCase()
 
   if (type === 'payment') {
-    return { icon: CreditCard, bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Payment' };
+    return {
+      icon: CreditCard,
+      bg: 'bg-emerald-50',
+      text: 'text-emerald-600',
+      label: 'Payment',
+    }
   }
 
   if (type === 'quotation') {
-    const rejected = text.includes('reject') || text.includes('declin');
+    const rejected = text.includes('reject') || text.includes('declin')
     return {
       icon: FileText,
       bg: rejected ? 'bg-red-50' : 'bg-violet-50',
       text: rejected ? 'text-red-600' : 'text-violet-600',
       label: 'Quotation',
-    };
+    }
   }
 
   if (type === 'order_update') {
-    return { icon: ClipboardList, bg: 'bg-blue-50', text: 'text-blue-600', label: 'Order' };
+    return {
+      icon: ClipboardList,
+      bg: 'bg-blue-50',
+      text: 'text-blue-600',
+      label: 'Order',
+    }
   }
 
-  return { icon: Bell, bg: 'bg-amber-50', text: 'text-amber-600', label: 'System' };
+  return {
+    icon: Bell,
+    bg: 'bg-amber-50',
+    text: 'text-amber-600',
+    label: 'System',
+  }
 }
 
 function profileDisplayName(profile: unknown, fallbackEmail?: string | null) {
-  const row = (profile && typeof profile === 'object' ? profile : {}) as Record<string, unknown>;
-  const fullName = typeof row.full_name === 'string' ? row.full_name.trim() : '';
-  const name = typeof row.name === 'string' ? row.name.trim() : '';
-  if (fullName) return fullName;
-  if (name) return name;
-  if (fallbackEmail) return fallbackEmail.split('@')[0];
-  return 'Admin User';
+  const row = (profile && typeof profile === 'object' ? profile : {}) as Record<
+    string,
+    unknown
+  >
+  const fullName = typeof row.full_name === 'string' ? row.full_name.trim() : ''
+  const name = typeof row.name === 'string' ? row.name.trim() : ''
+  if (fullName) return fullName
+  if (name) return name
+  if (fallbackEmail) return fallbackEmail.split('@')[0]
+  return 'Admin User'
 }
 
 export default function AdminLayout() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { logout } = useApp();
-  const { user, context, signOut } = useAuth();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [notificationOpen, setNotificationOpen] = useState(false);
-  const [notificationLoading, setNotificationLoading] = useState(false);
-  const [notificationError, setNotificationError] = useState('');
-  const [adminNotifications, setAdminNotifications] = useState<AppNotification[]>([]);
-  const [adminUnreadCount, setAdminUnreadCount] = useState(0);
-  const notificationPanelRef = useRef<HTMLDivElement>(null);
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { logout } = useApp()
+  const { user, context, signOut } = useAuth()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [notificationOpen, setNotificationOpen] = useState(false)
+  const [notificationLoading, setNotificationLoading] = useState(false)
+  const [notificationError, setNotificationError] = useState('')
+  const [adminNotifications, setAdminNotifications] = useState<
+    AppNotification[]
+  >([])
+  const [adminUnreadCount, setAdminUnreadCount] = useState(0)
+  const [pendingParcelCount, setPendingParcelCount] = useState(0)
+  const notificationPanelRef = useRef<HTMLDivElement>(null)
 
-  const adminDisplayName = profileDisplayName(context?.profile, context?.email || user?.email);
-  const adminInitial = (adminDisplayName || 'A').charAt(0).toUpperCase();
+  const adminDisplayName = profileDisplayName(
+    context?.profile,
+    context?.email || user?.email,
+  )
+  const adminInitial = (adminDisplayName || 'A').charAt(0).toUpperCase()
 
-  const pageTitle = navGroups.flatMap(g => g.items).find(i =>
-    i.path === location.pathname || (i.path !== '/admin' && location.pathname.startsWith(i.path))
-  )?.label || 'Dashboard';
+  const pageTitle =
+    navGroups
+      .flatMap((g) => g.items)
+      .find(
+        (i) =>
+          i.path === location.pathname ||
+          (i.path !== '/admin' && location.pathname.startsWith(i.path)),
+      )?.label || 'Dashboard'
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
-    setSidebarOpen(false);
-  }, [location.pathname]);
+    setSidebarOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    let mounted = true
+
+    async function refreshPendingParcels() {
+      try {
+        const count = await fetchPendingParcelRequestCount()
+        if (mounted) setPendingParcelCount(count)
+      } catch (error) {
+        console.warn('[AdminLayout] Pending parcel count skipped:', error)
+        if (mounted) setPendingParcelCount(0)
+      }
+    }
+
+    void refreshPendingParcels()
+
+    const handleRefresh = () => {
+      void refreshPendingParcels()
+    }
+
+    window.addEventListener('focus', handleRefresh)
+    window.addEventListener('shop2bhutan:admin-parcels-updated', handleRefresh)
+
+    return () => {
+      mounted = false
+      window.removeEventListener('focus', handleRefresh)
+      window.removeEventListener(
+        'shop2bhutan:admin-parcels-updated',
+        handleRefresh,
+      )
+    }
+  }, [location.pathname])
 
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {
     if (sidebarOpen) {
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden'
     } else {
-      document.body.style.overflow = '';
+      document.body.style.overflow = ''
     }
-    return () => { document.body.style.overflow = ''; };
-  }, [sidebarOpen]);
-
-  const loadAdminNotifications = useCallback(async (options?: { silent?: boolean }) => {
-    if (!user) {
-      setAdminNotifications([]);
-      setAdminUnreadCount(0);
-      setNotificationLoading(false);
-      return;
+    return () => {
+      document.body.style.overflow = ''
     }
+  }, [sidebarOpen])
 
-    const silent = Boolean(options?.silent);
-    if (!silent) setNotificationLoading(true);
-    setNotificationError('');
+  const loadAdminNotifications = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!user) {
+        setAdminNotifications([])
+        setAdminUnreadCount(0)
+        setNotificationLoading(false)
+        return
+      }
 
-    try {
-      const [rows, unread] = await Promise.all([
-        fetchAdminNotifications(user.id),
-        getUnreadAdminNotificationCount(user.id),
-      ]);
-      setAdminNotifications(rows.slice(0, 12));
-      setAdminUnreadCount(unread);
-    } catch (error) {
-      console.error('[AdminLayout] Failed to load admin notifications:', error);
-      if (!silent) setNotificationError(error instanceof Error ? error.message : 'Unable to load notifications.');
-    } finally {
-      if (!silent) setNotificationLoading(false);
-    }
-  }, [user]);
+      const silent = Boolean(options?.silent)
+      if (!silent) setNotificationLoading(true)
+      setNotificationError('')
+
+      try {
+        const [rows, unread] = await Promise.all([
+          fetchAdminNotifications(user.id),
+          getUnreadAdminNotificationCount(user.id),
+        ])
+        setAdminNotifications(rows.slice(0, 12))
+        setAdminUnreadCount(unread)
+      } catch (error) {
+        console.error(
+          '[AdminLayout] Failed to load admin notifications:',
+          error,
+        )
+        if (!silent)
+          setNotificationError(
+            error instanceof Error
+              ? error.message
+              : 'Unable to load notifications.',
+          )
+      } finally {
+        if (!silent) setNotificationLoading(false)
+      }
+    },
+    [user],
+  )
 
   useEffect(() => {
-    void loadAdminNotifications({ silent: true });
-  }, [loadAdminNotifications, location.pathname]);
+    void loadAdminNotifications({ silent: true })
+  }, [loadAdminNotifications, location.pathname])
 
   useEffect(() => {
-    if (!user) return undefined;
+    if (!user) return undefined
 
     const channel = supabase
       .channel(`admin-notifications:${user.id}`)
@@ -189,75 +294,81 @@ export default function AdminLayout() {
           filter: `user_id=eq.${user.id}`,
         },
         () => {
-          void loadAdminNotifications({ silent: true });
-        }
+          void loadAdminNotifications({ silent: true })
+        },
       )
       .subscribe((status) => {
-        if (status === 'SUBSCRIBED') void loadAdminNotifications({ silent: true });
-      });
+        if (status === 'SUBSCRIBED')
+          void loadAdminNotifications({ silent: true })
+      })
 
     return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [loadAdminNotifications, user]);
+      void supabase.removeChannel(channel)
+    }
+  }, [loadAdminNotifications, user])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (!notificationPanelRef.current) return;
+      if (!notificationPanelRef.current) return
       if (!notificationPanelRef.current.contains(event.target as Node)) {
-        setNotificationOpen(false);
+        setNotificationOpen(false)
       }
     }
 
-    if (notificationOpen) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [notificationOpen]);
+    if (notificationOpen)
+      document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [notificationOpen])
 
   const handleNav = (path: string) => {
-    navigate(path);
-    setSidebarOpen(false);
-  };
+    navigate(path)
+    setSidebarOpen(false)
+  }
 
   const handleOpenNotification = async (notification: AppNotification) => {
-    if (!user) return;
+    if (!user) return
 
     if (!notification.isRead) {
       setAdminNotifications((current) =>
-        current.map((item) => (item.id === notification.id ? { ...item, isRead: true } : item))
-      );
-      setAdminUnreadCount((count) => Math.max(0, count - 1));
+        current.map((item) =>
+          item.id === notification.id ? { ...item, isRead: true } : item,
+        ),
+      )
+      setAdminUnreadCount((count) => Math.max(0, count - 1))
 
       try {
-        await markAdminNotificationRead(notification.id, user.id);
+        await markAdminNotificationRead(notification.id, user.id)
       } catch (error) {
-        console.warn('[AdminLayout] Mark notification read skipped:', error);
-        void loadAdminNotifications({ silent: true });
+        console.warn('[AdminLayout] Mark notification read skipped:', error)
+        void loadAdminNotifications({ silent: true })
       }
     }
 
-    setNotificationOpen(false);
-    if (notification.link) navigate(notification.link);
-  };
+    setNotificationOpen(false)
+    if (notification.link) navigate(notification.link)
+  }
 
   const handleMarkAllNotificationsRead = async () => {
-    if (!user || adminUnreadCount <= 0) return;
+    if (!user || adminUnreadCount <= 0) return
 
-    setAdminNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
-    setAdminUnreadCount(0);
+    setAdminNotifications((current) =>
+      current.map((item) => ({ ...item, isRead: true })),
+    )
+    setAdminUnreadCount(0)
 
     try {
-      await markAllAdminNotificationsRead(user.id);
+      await markAllAdminNotificationsRead(user.id)
     } catch (error) {
-      console.warn('[AdminLayout] Mark all notifications read skipped:', error);
-      void loadAdminNotifications({ silent: true });
+      console.warn('[AdminLayout] Mark all notifications read skipped:', error)
+      void loadAdminNotifications({ silent: true })
     }
-  };
+  }
 
   const handleLogout = async () => {
-    logout();
-    await signOut();
-    navigate('/login');
-  };
+    logout()
+    await signOut()
+    navigate('/login')
+  }
 
   return (
     <div className="flex h-screen bg-neutral-50">
@@ -282,10 +393,14 @@ export default function AdminLayout() {
         {/* Logo */}
         <div className="h-16 flex items-center gap-2 px-4 border-b border-neutral-100 shrink-0 overflow-hidden">
           <Logo size="sm" showText={false} />
-          <span className={`font-bold text-gray-900 whitespace-nowrap transition-all duration-300 ${sidebarCollapsed ? 'md:opacity-0 md:w-0' : 'opacity-100'}`}>
+          <span
+            className={`font-bold text-gray-900 whitespace-nowrap transition-all duration-300 ${sidebarCollapsed ? 'md:opacity-0 md:w-0' : 'opacity-100'}`}
+          >
             Shop2Bhutan
           </span>
-          <span className={`px-2 py-0.5 bg-gray-900 text-white text-[10px] font-medium rounded-full whitespace-nowrap transition-all duration-300 ${sidebarCollapsed ? 'md:opacity-0 md:w-0 md:px-0' : 'opacity-100'}`}>
+          <span
+            className={`px-2 py-0.5 bg-gray-900 text-white text-[10px] font-medium rounded-full whitespace-nowrap transition-all duration-300 ${sidebarCollapsed ? 'md:opacity-0 md:w-0 md:px-0' : 'opacity-100'}`}
+          >
             Admin
           </span>
           {/* Mobile close */}
@@ -301,10 +416,11 @@ export default function AdminLayout() {
             className="hidden md:flex ml-auto p-1.5 rounded-lg hover:bg-neutral-100 shrink-0 transition-colors"
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {sidebarCollapsed
-              ? <PanelLeft size={18} className="text-neutral-500" />
-              : <PanelLeftClose size={18} className="text-neutral-500" />
-            }
+            {sidebarCollapsed ? (
+              <PanelLeft size={18} className="text-neutral-500" />
+            ) : (
+              <PanelLeftClose size={18} className="text-neutral-500" />
+            )}
           </button>
         </div>
 
@@ -312,13 +428,21 @@ export default function AdminLayout() {
         <nav className="flex-1 py-4 overflow-y-auto min-h-0">
           {navGroups.map((group) => (
             <div key={group.title} className="mb-4">
-              <p className={`px-4 text-[11px] font-medium text-neutral-500 uppercase tracking-wider mb-1 whitespace-nowrap transition-all duration-300 overflow-hidden ${sidebarCollapsed ? 'md:opacity-0 md:h-0 md:mb-0' : 'opacity-100 h-auto'}`}>
+              <p
+                className={`px-4 text-[11px] font-medium text-neutral-500 uppercase tracking-wider mb-1 whitespace-nowrap transition-all duration-300 overflow-hidden ${sidebarCollapsed ? 'md:opacity-0 md:h-0 md:mb-0' : 'opacity-100 h-auto'}`}
+              >
                 {group.title}
               </p>
               {group.items.map((item) => {
-                const isActive = location.pathname === item.path ||
-                  (item.path !== '/admin' && location.pathname.startsWith(item.path));
-                const Icon = item.icon;
+                const isActive =
+                  location.pathname === item.path ||
+                  (item.path !== '/admin' &&
+                    location.pathname.startsWith(item.path))
+                const Icon = item.icon
+                const badgeCount =
+                  item.path === '/admin/parcel-requests'
+                    ? pendingParcelCount
+                    : 0
                 return (
                   <button
                     key={item.path}
@@ -330,7 +454,14 @@ export default function AdminLayout() {
                     }`}
                     title={sidebarCollapsed ? item.label : undefined}
                   >
-                    <Icon size={20} className="shrink-0" />
+                    <span className="relative shrink-0">
+                      <Icon size={20} className="shrink-0" />
+                      {badgeCount > 0 && (
+                        <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black leading-none text-white ring-2 ring-white">
+                          {badgeCount > 9 ? '9+' : badgeCount}
+                        </span>
+                      )}
+                    </span>
                     {/* Tooltip on hover when collapsed (desktop) */}
                     {sidebarCollapsed && (
                       <div className="hidden md:group-hover:flex absolute left-full ml-3 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap z-50 shadow-lg pointer-events-none">
@@ -338,11 +469,18 @@ export default function AdminLayout() {
                         <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45" />
                       </div>
                     )}
-                    <span className={`font-medium whitespace-nowrap transition-all duration-300 overflow-hidden ${sidebarCollapsed ? 'md:opacity-0 md:w-0' : 'opacity-100 w-auto'}`}>
+                    <span
+                      className={`font-medium whitespace-nowrap transition-all duration-300 overflow-hidden ${sidebarCollapsed ? 'md:opacity-0 md:w-0' : 'opacity-100 w-auto'}`}
+                    >
                       {item.label}
                     </span>
+                    {!sidebarCollapsed && badgeCount > 0 && (
+                      <span className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-black text-white">
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </span>
+                    )}
                   </button>
-                );
+                )
               })}
             </div>
           ))}
@@ -350,12 +488,18 @@ export default function AdminLayout() {
 
         {/* User Section — always at bottom */}
         <div className="p-4 border-t border-neutral-200 shrink-0">
-          <div className={`flex items-center gap-3 mb-3 overflow-hidden transition-all duration-300 ${sidebarCollapsed ? 'md:justify-center' : ''}`}>
+          <div
+            className={`flex items-center gap-3 mb-3 overflow-hidden transition-all duration-300 ${sidebarCollapsed ? 'md:justify-center' : ''}`}
+          >
             <div className="w-9 h-9 rounded-full bg-amber-500 flex items-center justify-center text-white font-semibold text-sm shrink-0">
               {adminInitial}
             </div>
-            <div className={`whitespace-nowrap transition-all duration-300 overflow-hidden ${sidebarCollapsed ? 'md:opacity-0 md:w-0' : 'opacity-100 w-auto'}`}>
-              <p className="text-sm font-semibold text-gray-900">{adminDisplayName}</p>
+            <div
+              className={`whitespace-nowrap transition-all duration-300 overflow-hidden ${sidebarCollapsed ? 'md:opacity-0 md:w-0' : 'opacity-100 w-auto'}`}
+            >
+              <p className="text-sm font-semibold text-gray-900">
+                {adminDisplayName}
+              </p>
               <p className="text-xs text-neutral-500">Administrator</p>
             </div>
           </div>
@@ -365,7 +509,9 @@ export default function AdminLayout() {
             title={sidebarCollapsed ? 'Logout' : undefined}
           >
             <LogOut size={18} className="shrink-0" />
-            <span className={`whitespace-nowrap transition-all duration-300 overflow-hidden ${sidebarCollapsed ? 'md:opacity-0 md:w-0' : 'opacity-100 w-auto'}`}>
+            <span
+              className={`whitespace-nowrap transition-all duration-300 overflow-hidden ${sidebarCollapsed ? 'md:opacity-0 md:w-0' : 'opacity-100 w-auto'}`}
+            >
               Logout
             </span>
           </button>
@@ -373,11 +519,13 @@ export default function AdminLayout() {
       </aside>
 
       {/* ─── Main Content ─── */}
-      <div className={`
+      <div
+        className={`
         flex-1 flex flex-col min-h-screen w-full
         transition-all duration-300
         ${sidebarCollapsed ? 'md:ml-[72px]' : 'md:ml-[280px]'}
-      `}>
+      `}
+      >
         {/* ─── Header ─── */}
         <header className="h-16 bg-white border-b border-neutral-200 flex items-center justify-between px-4 md:px-6 sticky top-0 z-20">
           {/* Left: Hamburger (mobile) + Title */}
@@ -396,7 +544,10 @@ export default function AdminLayout() {
           {/* Right: Search + Bell + Profile */}
           <div className="flex items-center gap-2 md:gap-4 shrink-0">
             <div className="relative hidden sm:block">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <Search
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+              />
               <input
                 type="text"
                 placeholder="Search..."
@@ -409,8 +560,8 @@ export default function AdminLayout() {
               <button
                 type="button"
                 onClick={() => {
-                  setNotificationOpen((open) => !open);
-                  void loadAdminNotifications({ silent: true });
+                  setNotificationOpen((open) => !open)
+                  void loadAdminNotifications({ silent: true })
                 }}
                 className="relative p-2 hover:bg-neutral-100 rounded-lg transition-colors"
                 aria-label="Open admin notifications"
@@ -427,9 +578,13 @@ export default function AdminLayout() {
                 <div className="absolute right-0 top-12 z-50 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl">
                   <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
                     <div>
-                      <p className="text-sm font-bold text-gray-900">Admin Notifications</p>
+                      <p className="text-sm font-bold text-gray-900">
+                        Admin Notifications
+                      </p>
                       <p className="text-xs text-neutral-500">
-                        {adminUnreadCount > 0 ? `${adminUnreadCount} unread update${adminUnreadCount === 1 ? '' : 's'}` : 'All caught up'}
+                        {adminUnreadCount > 0
+                          ? `${adminUnreadCount} unread update${adminUnreadCount === 1 ? '' : 's'}`
+                          : 'All caught up'}
                       </p>
                     </div>
                     {adminUnreadCount > 0 && (
@@ -447,7 +602,10 @@ export default function AdminLayout() {
                   <div className="max-h-[420px] overflow-y-auto p-2">
                     {notificationLoading ? (
                       <div className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-neutral-500">
-                        <Loader2 size={17} className="animate-spin text-amber-500" />
+                        <Loader2
+                          size={17}
+                          className="animate-spin text-amber-500"
+                        />
                         Loading notifications...
                       </div>
                     ) : notificationError ? (
@@ -459,43 +617,67 @@ export default function AdminLayout() {
                         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-50 text-neutral-400">
                           <Bell size={22} />
                         </div>
-                        <p className="text-sm font-semibold text-gray-900">No notifications yet</p>
-                        <p className="mt-1 text-xs text-neutral-500">New orders, payments, and quotation responses will appear here.</p>
+                        <p className="text-sm font-semibold text-gray-900">
+                          No notifications yet
+                        </p>
+                        <p className="mt-1 text-xs text-neutral-500">
+                          New orders, payments, and quotation responses will
+                          appear here.
+                        </p>
                       </div>
                     ) : (
                       <div className="space-y-1">
                         {adminNotifications.map((notification) => {
-                          const style = adminNotificationStyle(notification.type, notification.title);
-                          const Icon = style.icon;
+                          const style = adminNotificationStyle(
+                            notification.type,
+                            notification.title,
+                          )
+                          const Icon = style.icon
 
                           return (
                             <button
                               key={notification.id}
                               type="button"
-                              onClick={() => handleOpenNotification(notification)}
+                              onClick={() =>
+                                handleOpenNotification(notification)
+                              }
                               className={`flex w-full gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
-                                notification.isRead ? 'hover:bg-neutral-50' : 'bg-amber-50/60 hover:bg-amber-50'
+                                notification.isRead
+                                  ? 'hover:bg-neutral-50'
+                                  : 'bg-amber-50/60 hover:bg-amber-50'
                               }`}
                             >
-                              <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${style.bg} ${style.text}`}>
+                              <span
+                                className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${style.bg} ${style.text}`}
+                              >
                                 <Icon size={18} />
                               </span>
 
                               <span className="min-w-0 flex-1">
                                 <span className="flex items-start justify-between gap-2">
-                                  <span className="text-sm font-bold text-gray-900">{notification.title}</span>
-                                  {!notification.isRead && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-orange-500" />}
+                                  <span className="text-sm font-bold text-gray-900">
+                                    {notification.title}
+                                  </span>
+                                  {!notification.isRead && (
+                                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-orange-500" />
+                                  )}
                                 </span>
                                 <span className="mt-1 block line-clamp-2 text-xs leading-5 text-neutral-600">
                                   {notification.message}
                                 </span>
                                 <span className="mt-2 flex items-center justify-between gap-2">
-                                  <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{style.label}</span>
-                                  <span className="text-[11px] text-neutral-400">{formatAdminNotificationTime(notification.createdAt)}</span>
+                                  <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                                    {style.label}
+                                  </span>
+                                  <span className="text-[11px] text-neutral-400">
+                                    {formatAdminNotificationTime(
+                                      notification.createdAt,
+                                    )}
+                                  </span>
                                 </span>
                               </span>
                             </button>
-                          );
+                          )
                         })}
                       </div>
                     )}
@@ -518,5 +700,5 @@ export default function AdminLayout() {
         </main>
       </div>
     </div>
-  );
+  )
 }

@@ -1,12 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  ArrowLeft,
-  Calendar,
-  CheckCircle2,
-  Package,
-  Truck,
-} from 'lucide-react'
+import { ArrowLeft, Calendar, CheckCircle2, Package, Truck } from 'lucide-react'
 import { fetchMyParcelRequests } from '@/lib/parcels'
 import {
   parcelSizeLabels,
@@ -15,7 +9,13 @@ import {
 } from '@/types/parcel'
 import type { ParcelRequest } from '@/types/parcel'
 
-const timeline = ['pending', 'accepted', 'picked_up', 'in_transit', 'delivered'] as const
+const timeline = [
+  'pending',
+  'accepted',
+  'picked_up',
+  'in_transit',
+  'delivered',
+] as const
 
 function formatDate(value?: string | null) {
   if (!value) return 'Date not fixed'
@@ -75,6 +75,14 @@ function normalizeStatus(status: string) {
   return status
 }
 
+const activeParcelStatuses = new Set([
+  'pending',
+  'accepted',
+  'picked_up',
+  'collected',
+  'in_transit',
+])
+
 export default function MyParcels() {
   const navigate = useNavigate()
 
@@ -100,6 +108,14 @@ export default function MyParcels() {
     loadParcels()
   }, [])
 
+  const activeRequests = requests.filter((request) =>
+    activeParcelStatuses.has(request.status),
+  )
+
+  const historyRequests = requests.filter(
+    (request) => !activeParcelStatuses.has(request.status),
+  )
+
   return (
     <div className="min-h-screen bg-white pb-24">
       <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white/95 backdrop-blur">
@@ -112,9 +128,7 @@ export default function MyParcels() {
           </button>
 
           <div>
-            <h1 className="text-lg font-bold text-neutral-900">
-              My Parcels
-            </h1>
+            <h1 className="text-lg font-bold text-neutral-900">My Parcels</h1>
             <p className="text-xs text-neutral-500">
               Track pickup and delivery status
             </p>
@@ -161,10 +175,34 @@ export default function MyParcels() {
             </button>
           </div>
         ) : (
-          <div className="space-y-4">
-            {requests.map((request) => (
-              <ParcelCard key={request.id} request={request} />
-            ))}
+          <div className="space-y-6">
+            {activeRequests.length > 0 && (
+              <section>
+                <h2 className="mb-3 text-sm font-bold text-neutral-900">
+                  Active Parcels
+                </h2>
+
+                <div className="space-y-4">
+                  {activeRequests.map((request) => (
+                    <ParcelCard key={request.id} request={request} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {historyRequests.length > 0 && (
+              <section>
+                <h2 className="mb-3 text-sm font-bold text-neutral-900">
+                  Parcel History
+                </h2>
+
+                <div className="space-y-4 opacity-95">
+                  {historyRequests.map((request) => (
+                    <ParcelCard key={request.id} request={request} />
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         )}
       </div>
@@ -174,7 +212,9 @@ export default function MyParcels() {
 
 function ParcelCard({ request }: { request: ParcelRequest }) {
   const displayStatus = normalizeStatus(request.status)
-  const currentIndex = timeline.indexOf(displayStatus as (typeof timeline)[number])
+  const currentIndex = timeline.indexOf(
+    displayStatus as (typeof timeline)[number],
+  )
   const isException =
     request.status === 'cancelled' || request.status === 'rejected'
 
@@ -184,11 +224,22 @@ function ParcelCard({ request }: { request: ParcelRequest }) {
   return (
     <article className="overflow-hidden rounded-3xl border border-neutral-100 bg-white shadow-sm">
       {request.parcelPhotoUrl && (
-        <img
-          src={request.parcelPhotoUrl}
-          alt={title}
-          className="h-36 w-full bg-neutral-100 object-cover"
-        />
+        <div className="bg-neutral-50 p-3 pb-0">
+          <img
+            src={request.parcelPhotoUrl}
+            alt={title}
+            className="h-36 w-full rounded-2xl border border-neutral-100 bg-neutral-100 object-cover"
+          />
+
+          <a
+            href={request.parcelPhotoUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 block text-center text-xs font-bold text-orange-600 hover:text-orange-700"
+          >
+            View photo
+          </a>
+        </div>
       )}
 
       <div className="p-4">
@@ -221,9 +272,7 @@ function ParcelCard({ request }: { request: ParcelRequest }) {
           <div className="flex items-center gap-2 text-xs text-neutral-600">
             <Truck size={14} />
             <span>
-              {request.trip?.origin ||
-                request.trip?.fromLocation ||
-                'Thimphu'}{' '}
+              {request.trip?.origin || request.trip?.fromLocation || 'Thimphu'}{' '}
               →{' '}
               {request.trip?.destination ||
                 request.trip?.toLocation ||
@@ -351,28 +400,28 @@ function ParcelCard({ request }: { request: ParcelRequest }) {
           )}
         </div>
 
-      {request.adminNotes && (
-  <div
-    className={`mt-4 rounded-2xl p-3 text-xs ${
-      request.status === 'rejected'
-        ? 'bg-red-50 text-red-700'
-        : 'bg-amber-50 text-amber-700'
-    }`}
-  >
-    <p className="font-bold">
-      {request.status === 'rejected'
-        ? 'Rejection Reason'
-        : 'Admin Note'}
-    </p>
-    <p className="mt-1 leading-relaxed">{request.adminNotes}</p>
-  </div>
-)}
+        {request.adminNotes && (
+          <div
+            className={`mt-4 rounded-2xl p-3 text-xs ${
+              request.status === 'rejected'
+                ? 'bg-red-50 text-red-700'
+                : 'bg-amber-50 text-amber-700'
+            }`}
+          >
+            <p className="font-bold">
+              {request.status === 'rejected'
+                ? 'Rejection Reason'
+                : 'Admin Note'}
+            </p>
+            <p className="mt-1 leading-relaxed">{request.adminNotes}</p>
+          </div>
+        )}
 
-{(request.customerNotes || request.instructions) && (
-  <p className="mt-3 rounded-2xl bg-neutral-50 p-3 text-xs text-neutral-600">
-    Your note: {request.customerNotes || request.instructions}
-  </p>
-)}
+        {(request.customerNotes || request.instructions) && (
+          <p className="mt-3 rounded-2xl bg-neutral-50 p-3 text-xs text-neutral-600">
+            Your note: {request.customerNotes || request.instructions}
+          </p>
+        )}
       </div>
     </article>
   )

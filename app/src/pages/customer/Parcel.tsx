@@ -8,10 +8,7 @@ import {
   Package,
   Truck,
 } from 'lucide-react'
-import {
-  fetchMyParcelRequests,
-  fetchOpenParcelTrips,
-} from '@/lib/parcels'
+import { fetchMyParcelRequests, fetchOpenParcelTrips } from '@/lib/parcels'
 import type { ParcelRequest, ParcelTrip } from '@/types/parcel'
 import { parcelStatusLabels } from '@/types/parcel'
 
@@ -57,6 +54,21 @@ function statusClass(status: string) {
   return 'bg-neutral-100 text-neutral-600 border border-neutral-200'
 }
 
+const activeParcelStatuses = new Set([
+  'pending',
+  'accepted',
+  'picked_up',
+  'collected',
+  'in_transit',
+])
+
+function tripDisplayTitle(trip?: ParcelTrip | null) {
+  const origin = trip?.origin || trip?.fromLocation || 'Thimphu'
+  const destination = trip?.destination || trip?.toLocation || 'Phuentsholing'
+
+  return `${origin} → ${destination}`
+}
+
 export default function Parcel() {
   const navigate = useNavigate()
 
@@ -89,6 +101,10 @@ export default function Parcel() {
   useEffect(() => {
     loadParcelHome()
   }, [])
+
+  const activeRequests = requests.filter((request) =>
+    activeParcelStatuses.has(request.status),
+  )
 
   return (
     <div className="min-h-screen bg-white pb-24">
@@ -138,11 +154,11 @@ export default function Parcel() {
           </div>
         )}
 
-        {requests.length > 0 && (
+        {activeRequests.length > 0 && (
           <section>
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-sm font-bold text-neutral-900">
-                My Recent Parcels
+                Active Parcels
               </h2>
 
               <button
@@ -154,7 +170,7 @@ export default function Parcel() {
             </div>
 
             <div className="space-y-2">
-              {requests.slice(0, 2).map((request) => (
+              {activeRequests.slice(0, 2).map((request) => (
                 <button
                   key={request.id}
                   onClick={() => navigate('/my-parcels')}
@@ -171,9 +187,7 @@ export default function Parcel() {
                         'Parcel request'}
                     </p>
                     <p className="truncate text-xs text-neutral-500">
-                      {request.trip?.title ||
-                        request.trip?.name ||
-                        'Parcel trip'}
+                      {tripDisplayTitle(request.trip)}
                     </p>
                   </div>
 
@@ -234,7 +248,7 @@ export default function Parcel() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="font-bold text-neutral-900">
-                        {trip.title || trip.name || 'Thimphu to Phuentsholing'}
+                        {tripDisplayTitle(trip)}
                       </h3>
                       <p className="mt-1 text-xs text-neutral-500">
                         Admin fixed trip date
