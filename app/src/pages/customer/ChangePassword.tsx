@@ -43,7 +43,9 @@ export default function ChangePassword() {
   const routeState = location.state as RouteState;
   const forcedByRoute = Boolean(routeState?.forced);
   const forcedByProfile = mustChangePassword(context?.profile);
-  const forced = forcedByRoute || forcedByProfile;
+  const forceModeStarted = forcedByRoute || forcedByProfile;
+  const [passwordChanged, setPasswordChanged] = useState(false);
+  const forced = forceModeStarted && !passwordChanged;
   const returnTo = useMemo(
     () => getSafeReturnTo(routeState?.returnTo),
     [routeState?.returnTo],
@@ -91,8 +93,8 @@ export default function ChangePassword() {
       return;
     }
 
-    if (!currentPassword) {
-      setError(forced ? 'Temporary password is required.' : 'Current password is required.');
+    if (!forced && !currentPassword) {
+      setError('Current password is required.');
       return;
     }
 
@@ -106,7 +108,7 @@ export default function ChangePassword() {
       return;
     }
 
-    if (newPassword === currentPassword) {
+    if (!forced && newPassword === currentPassword) {
       setError('New password must be different from your current password.');
       return;
     }
@@ -118,19 +120,17 @@ export default function ChangePassword() {
 
     setSubmitting(true);
 
-    const { error: verifyError } = await supabase.auth.signInWithPassword({
-      email: user.email,
-      password: currentPassword,
-    });
+    if (!forced) {
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
 
-    if (verifyError) {
-      setSubmitting(false);
-      setError(
-        forced
-          ? 'Temporary password is incorrect. Please check the password given by admin.'
-          : 'Current password is incorrect. Please try again.',
-      );
-      return;
+      if (verifyError) {
+        setSubmitting(false);
+        setError('Current password is incorrect. Please try again.');
+        return;
+      }
     }
 
     const { error: updateError } = await supabase.auth.updateUser({
@@ -158,19 +158,20 @@ export default function ChangePassword() {
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
-    await refreshContext();
-    setSubmitting(false);
+    setPasswordChanged(true);
     setSuccess(
-      forced
+      forceModeStarted
         ? 'Password updated successfully. You can now continue using Shop2Bhutan.'
         : 'Password updated successfully. Use your new password next time you sign in.',
     );
 
-    if (forced) {
-      window.setTimeout(() => {
-        navigate(returnTo, { replace: true });
-      }, 800);
+    try {
+      await refreshContext();
+    } catch (contextError) {
+      console.warn('[ChangePassword] Context refresh skipped:', contextError);
     }
+
+    setSubmitting(false);
   };
 
   if (!user) {
@@ -230,7 +231,7 @@ export default function ChangePassword() {
               <ShieldCheck size={18} />
             </div>
             <p className="text-xs leading-relaxed text-amber-700">
-              For your security, you must replace the temporary password before using the app.
+              For your security, create a new password before using the app. You do not need to enter the temporary password again.
             </p>
           </div>
         )}
@@ -249,19 +250,22 @@ export default function ChangePassword() {
         )}
 
         {/* Password Fields */}
+        {!(forceModeStarted && passwordChanged) && (
         <div className="space-y-4">
-          <PasswordField
-            label={forced ? 'Temporary Password' : 'Current Password'}
-            value={currentPassword}
-            onChange={(value) => {
-              setCurrentPassword(value);
-              setError('');
-              setSuccess('');
-            }}
-            placeholder={forced ? 'Enter temporary password' : 'Enter current password'}
-            showPassword={showPassword}
-            onToggleShow={() => setShowPassword((v) => !v)}
-          />
+          {!forced && (
+            <PasswordField
+              label="Current Password"
+              value={currentPassword}
+              onChange={(value) => {
+                setCurrentPassword(value);
+                setError('');
+                setSuccess('');
+              }}
+              placeholder="Enter current password"
+              showPassword={showPassword}
+              onToggleShow={() => setShowPassword((v) => !v)}
+            />
+          )}
 
           <PasswordField
             label="New Password"
@@ -289,6 +293,7 @@ export default function ChangePassword() {
             onToggleShow={() => setShowPassword((v) => !v)}
           />
         </div>
+        )}
 
         {/* Password Tip */}
         <div className="rounded-2xl bg-neutral-50 p-4">
@@ -302,8 +307,15 @@ export default function ChangePassword() {
       {/* Sticky Bottom Button */}
       <div className="fixed bottom-0 left-0 right-0 border-t border-neutral-100 bg-white p-4">
         <button
-          type="submit"
-          onClick={handleSubmit}
+          type="button"
+          onClick={(event) => {
+            if (forceModeStarted && passwordChanged) {
+              navigate(returnTo, { replace: true });
+              return;
+            }
+
+            void handleSubmit(event as unknown as React.FormEvent);
+          }}
           disabled={submitting}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
         >
@@ -311,6 +323,11 @@ export default function ChangePassword() {
             <>
               <Loader2 size={18} className="animate-spin" />
               Updating...
+            </>
+          ) : forceModeStarted && passwordChanged ? (
+            <>
+              <CheckCircle size={18} />
+              Continue
             </>
           ) : (
             <>
