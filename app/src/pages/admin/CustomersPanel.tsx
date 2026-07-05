@@ -3,16 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   CheckCircle2,
+  Copy,
   Eye,
+  KeyRound,
   Loader2,
   RefreshCw,
   RotateCcw,
   Search,
+  ShieldAlert,
   XCircle,
 } from 'lucide-react';
 import {
   fetchAdminCustomers,
   reactivateCustomerAccount,
+  resetCustomerTemporaryPassword,
   type AdminCustomerRecord,
 } from '@/lib/customerOrders';
 
@@ -66,6 +70,12 @@ export default function CustomersPanel() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [reactivatingId, setReactivatingId] = useState('');
+  const [resettingId, setResettingId] = useState('');
+  const [resetResult, setResetResult] = useState<{
+    customer: AdminCustomerRecord;
+    temporaryPassword: string;
+    copied: boolean;
+  } | null>(null);
 
   const loadCustomers = useCallback(async () => {
     setLoading(true);
@@ -114,6 +124,7 @@ export default function CustomersPanel() {
         customer.dzongkhag,
         customer.accountStatus,
         customer.deactivationReason,
+        customer.mustChangePassword ? 'temporary password must change password reset' : '',
         customer.accountType === 'email' ? 'email account' : 'phone-only',
         deactivated ? 'deactivated inactive disabled' : 'active enabled',
       ]
@@ -146,6 +157,56 @@ export default function CustomersPanel() {
       );
     } finally {
       setReactivatingId('');
+    }
+  }
+
+  async function handleResetPassword(customer: AdminCustomerRecord) {
+    if (isDeactivated(customer)) {
+      setError('Reactivate this customer before resetting the password.');
+      return;
+    }
+
+    const ok = window.confirm(
+      `Generate a temporary password for ${customer.name || customer.phone || 'this customer'}? The customer will be forced to set a new password after login.`,
+    );
+
+    if (!ok) return;
+
+    try {
+      setResettingId(customer.id);
+      setError('');
+      setSuccess('');
+      setResetResult(null);
+
+      const result = await resetCustomerTemporaryPassword(customer.id);
+      setResetResult({
+        customer,
+        temporaryPassword: result.temporaryPassword,
+        copied: false,
+      });
+      setSuccess(`Temporary password generated for ${customer.name || 'customer'}.`);
+      await loadCustomers();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to generate temporary password.',
+      );
+    } finally {
+      setResettingId('');
+    }
+  }
+
+  async function copyTemporaryPassword() {
+    if (!resetResult?.temporaryPassword) return;
+
+    try {
+      await navigator.clipboard.writeText(resetResult.temporaryPassword);
+      setResetResult((current) =>
+        current ? { ...current, copied: true } : current,
+      );
+    } catch {
+      setError('Unable to copy automatically. Please select and copy the password manually.');
     }
   }
 
@@ -231,7 +292,7 @@ export default function CustomersPanel() {
 
       <div className="overflow-hidden rounded-xl bg-white shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1080px]">
+          <table className="w-full min-w-[1240px]">
             <thead>
               <tr className="border-b border-neutral-200 bg-neutral-50">
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-neutral-500">
@@ -294,7 +355,8 @@ export default function CustomersPanel() {
               {!loading &&
                 filtered.map((customer) => {
                   const deactivated = isDeactivated(customer);
-                  const isBusy = reactivatingId === customer.id;
+                  const isReactivating = reactivatingId === customer.id;
+                  const isResetting = resettingId === customer.id;
 
                   return (
                     <tr
@@ -321,7 +383,9 @@ export default function CustomersPanel() {
                             <p className="text-xs text-neutral-400">
                               {deactivated
                                 ? 'Deactivated customer profile'
-                                : 'Active customer profile'}
+                                : customer.mustChangePassword
+                                  ? 'Temporary password active'
+                                  : 'Active customer profile'}
                             </p>
                           </div>
                         </div>
@@ -349,7 +413,7 @@ export default function CustomersPanel() {
                         </span>
                       </td>
                       <td className="px-4 py-3 align-top">
-                        <div className="space-y-1">
+                        <div className="space-y-1.5">
                           <span
                             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${statusBadgeClass(
                               customer,
@@ -358,6 +422,19 @@ export default function CustomersPanel() {
                             {deactivated ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
                             {deactivated ? 'Deactivated' : 'Active'}
                           </span>
+
+                          {customer.mustChangePassword && !deactivated && (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">
+                              <ShieldAlert size={12} />
+                              Must change password
+                            </span>
+                          )}
+
+                          {customer.passwordResetByAdminAt && (
+                            <p className="text-[11px] text-neutral-400">
+                              Reset: {formatDateTime(customer.passwordResetByAdminAt)}
+                            </p>
+                          )}
 
                           {deactivated && customer.deactivatedAt && (
                             <p className="text-[11px] text-neutral-400">
@@ -395,14 +472,30 @@ export default function CustomersPanel() {
                             <Eye size={16} />
                           </button>
 
+                          {!deactivated && (
+                            <button
+                              type="button"
+                              onClick={() => void handleResetPassword(customer)}
+                              disabled={isResetting}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-amber-600 disabled:opacity-60"
+                            >
+                              {isResetting ? (
+                                <Loader2 size={14} className="animate-spin" />
+                              ) : (
+                                <KeyRound size={14} />
+                              )}
+                              Reset Password
+                            </button>
+                          )}
+
                           {deactivated && (
                             <button
                               type="button"
                               onClick={() => void handleReactivate(customer)}
-                              disabled={isBusy}
+                              disabled={isReactivating}
                               className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-600 disabled:opacity-60"
                             >
-                              {isBusy ? (
+                              {isReactivating ? (
                                 <Loader2 size={14} className="animate-spin" />
                               ) : (
                                 <RotateCcw size={14} />
@@ -419,6 +512,75 @@ export default function CustomersPanel() {
           </table>
         </div>
       </div>
+
+      {resetResult && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+          <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="border-b border-neutral-100 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+                  <KeyRound size={22} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-neutral-900">
+                    Temporary Password Generated
+                  </h3>
+                  <p className="text-xs text-neutral-500">
+                    Share this once with the customer.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 px-5 py-4">
+              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs leading-relaxed text-amber-700">
+                The customer must use this temporary password to log in, then the app will force them to create their own new password.
+              </div>
+
+              <div>
+                <p className="mb-1 text-xs font-bold uppercase tracking-wider text-neutral-400">
+                  Customer
+                </p>
+                <p className="text-sm font-semibold text-neutral-900">
+                  {resetResult.customer.name || resetResult.customer.phone || 'Customer'}
+                </p>
+                <p className="text-xs text-neutral-500">
+                  {resetResult.customer.phone || resetResult.customer.email || 'No contact shown'}
+                </p>
+              </div>
+
+              <div>
+                <p className="mb-1 text-xs font-bold uppercase tracking-wider text-neutral-400">
+                  Temporary Password
+                </p>
+                <div className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 p-2">
+                  <code className="flex-1 select-all px-2 text-base font-black tracking-wide text-neutral-900">
+                    {resetResult.temporaryPassword}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => void copyTemporaryPassword()}
+                    className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-neutral-900 px-3 text-xs font-bold text-white"
+                  >
+                    <Copy size={14} />
+                    {resetResult.copied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 border-t border-neutral-100 bg-neutral-50 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setResetResult(null)}
+                className="h-11 flex-1 rounded-2xl border border-neutral-200 bg-white text-sm font-bold text-neutral-700"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

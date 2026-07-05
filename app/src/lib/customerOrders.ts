@@ -82,7 +82,15 @@ export type AdminCustomerRecord = {
   accountStatus: 'active' | 'deactivated' | 'unknown'
   deactivatedAt?: string
   deactivationReason?: string
+  mustChangePassword: boolean
+  passwordResetByAdminAt?: string
   accountType: 'phone_only' | 'email'
+}
+
+export type AdminTemporaryPasswordResetResult = {
+  userId: string
+  temporaryPassword: string
+  mustChangePassword: boolean
 }
 
 export type AdminQuotationItemInput = {
@@ -2440,6 +2448,8 @@ export async function fetchAdminCustomers(): Promise<AdminCustomerRecord[]> {
       accountStatus,
       deactivatedAt: firstString(profile, ['deactivated_at', 'deactivatedAt'], ''),
       deactivationReason: firstString(profile, ['deactivation_reason', 'deactivationReason'], ''),
+      mustChangePassword: Boolean(firstValue(profile, ['must_change_password', 'mustChangePassword']) ?? false),
+      passwordResetByAdminAt: firstString(profile, ['password_reset_by_admin_at', 'passwordResetByAdminAt'], ''),
       accountType: getCustomerAccountType({ ...profile, email: rawEmail }),
     })
   }
@@ -2464,6 +2474,54 @@ export async function reactivateCustomerAccount(customerId: string) {
   }
 
   throw error
+}
+
+
+export async function resetCustomerTemporaryPassword(
+  customerId: string,
+): Promise<AdminTemporaryPasswordResetResult> {
+  const id = cleanText(customerId)
+  if (!id) throw new Error('Customer ID is required.')
+
+  const { data, error } = await supabase.functions.invoke(
+    'admin-reset-customer-password',
+    {
+      body: { userId: id },
+    },
+  )
+
+  if (error) {
+    const message = errorMessage(error, '')
+    if (
+      message.toLowerCase().includes('not found') ||
+      message.toLowerCase().includes('failed to fetch') ||
+      message.toLowerCase().includes('functions')
+    ) {
+      throw new Error(
+        'Admin password reset function is not deployed yet. Please deploy the admin-reset-customer-password Edge Function.',
+      )
+    }
+    throw new Error(message || 'Unable to reset customer password.')
+  }
+
+  const row = (data ?? {}) as AnyRow
+  const temporaryPassword = firstString(
+    row,
+    ['temporaryPassword', 'temporary_password'],
+    '',
+  )
+
+  if (!temporaryPassword) {
+    throw new Error('Password was reset but no temporary password was returned.')
+  }
+
+  return {
+    userId: firstString(row, ['userId', 'user_id'], id),
+    temporaryPassword,
+    mustChangePassword: Boolean(
+      firstValue(row, ['mustChangePassword', 'must_change_password']) ?? true,
+    ),
+  }
 }
 
 function findRequestBagForOrder(row: AnyRow, requestBags: AnyRow[]) {

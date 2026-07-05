@@ -22,6 +22,9 @@ type CustomerProfile = {
   account_status?: string | null;
   is_active?: boolean | null;
   deactivated_at?: string | null;
+  must_change_password?: boolean | null;
+  password_reset_by_admin_at?: string | null;
+  password_changed_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
   [key: string]: unknown;

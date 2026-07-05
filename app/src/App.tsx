@@ -1,5 +1,7 @@
-import { Routes, Route } from 'react-router-dom';
+import type { ReactNode } from 'react';
+import { Navigate, Routes, Route, useLocation } from 'react-router-dom';
 import { AppProvider } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Layouts
 import CustomerLayout from '@/layouts/CustomerLayout';
@@ -52,6 +54,39 @@ import FAQCMS from '@/pages/admin/FAQCMS';
 import AdminParcelTrips from '@/pages/admin/ParcelTrips';
 import AdminParcelRequests from '@/pages/admin/ParcelRequests';
 
+
+function mustChangePassword(profile: unknown) {
+  const row = (profile ?? {}) as {
+    must_change_password?: boolean | null;
+    mustChangePassword?: boolean | null;
+  };
+
+  return Boolean(row.must_change_password ?? row.mustChangePassword ?? false);
+}
+
+function PasswordChangeGate({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const { loading, context, isGuest } = useAuth();
+
+  const forced =
+    !loading &&
+    !isGuest &&
+    Boolean(context?.user_id) &&
+    mustChangePassword(context?.profile);
+
+  if (forced && location.pathname !== '/change-password') {
+    return (
+      <Navigate
+        to="/change-password"
+        replace
+        state={{ forced: true, returnTo: location.pathname }}
+      />
+    );
+  }
+
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <AppProvider>
@@ -63,7 +98,7 @@ export default function App() {
         <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Customer Routes */}
-        <Route element={<CustomerLayout />}>
+        <Route element={<PasswordChangeGate><CustomerLayout /></PasswordChangeGate>}>
           {/* Public browsing routes */}
           <Route path="/" element={<Home />} />
           <Route path="/catalog" element={<Catalog />} />
