@@ -1050,6 +1050,30 @@ async function createAdminNotificationForAdmins(input: {
   }
 }
 
+
+export async function createAdminPasswordResetRequestedNotification(input: {
+  identifier?: string | null
+  loginEmail?: string | null
+  phone?: string | null
+}) {
+  try {
+    const identifier = cleanText(input.identifier)
+    const loginEmail = cleanText(input.loginEmail)
+    const phone = cleanText(input.phone)
+    const display = phone || (isPhoneOnlyAuthEmail(loginEmail) ? '' : loginEmail) || identifier || 'a customer account'
+
+    await createAdminNotificationForAdmins({
+      type: 'system',
+      title: 'Password Reset Requested',
+      message: `A customer requested help resetting the password for ${display}. Please verify the customer before issuing a temporary password.`,
+      link: '/admin/customers',
+      dedupeKey: `admin:password-reset-request:${normalizeKey(display || identifier || Date.now())}:${new Date().toISOString().slice(0, 13)}`,
+    })
+  } catch (error) {
+    console.warn('[customerOrders] password reset request admin notification skipped:', error)
+  }
+}
+
 async function createAdminOrderSubmittedNotification(input: {
   orderId: string
   orderNo: string

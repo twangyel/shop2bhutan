@@ -76,6 +76,10 @@ export default function CustomersPanel() {
     temporaryPassword: string;
     copied: boolean;
   } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'reactivate' | 'reset-password';
+    customer: AdminCustomerRecord;
+  } | null>(null);
 
   const loadCustomers = useCallback(async () => {
     setLoading(true);
@@ -136,13 +140,24 @@ export default function CustomersPanel() {
     });
   }, [customers, searchQuery, statusFilter]);
 
-  async function handleReactivate(customer: AdminCustomerRecord) {
-    const ok = window.confirm(
-      `Reactivate ${customer.name || customer.phone || 'this customer'}? They will be able to sign in and use their account again.`,
-    );
+  function handleReactivate(customer: AdminCustomerRecord) {
+    setError('');
+    setSuccess('');
+    setConfirmAction({ type: 'reactivate', customer });
+  }
 
-    if (!ok) return;
+  function handleResetPassword(customer: AdminCustomerRecord) {
+    if (isDeactivated(customer)) {
+      setError('Reactivate this customer before resetting the password.');
+      return;
+    }
 
+    setError('');
+    setSuccess('');
+    setConfirmAction({ type: 'reset-password', customer });
+  }
+
+  async function confirmReactivate(customer: AdminCustomerRecord) {
     try {
       setReactivatingId(customer.id);
       setError('');
@@ -160,18 +175,7 @@ export default function CustomersPanel() {
     }
   }
 
-  async function handleResetPassword(customer: AdminCustomerRecord) {
-    if (isDeactivated(customer)) {
-      setError('Reactivate this customer before resetting the password.');
-      return;
-    }
-
-    const ok = window.confirm(
-      `Generate a temporary password for ${customer.name || customer.phone || 'this customer'}? The customer will be forced to set a new password after login.`,
-    );
-
-    if (!ok) return;
-
+  async function confirmResetPassword(customer: AdminCustomerRecord) {
     try {
       setResettingId(customer.id);
       setError('');
@@ -195,6 +199,20 @@ export default function CustomersPanel() {
     } finally {
       setResettingId('');
     }
+  }
+
+  async function handleConfirmAction() {
+    if (!confirmAction) return;
+
+    const action = confirmAction;
+    setConfirmAction(null);
+
+    if (action.type === 'reactivate') {
+      await confirmReactivate(action.customer);
+      return;
+    }
+
+    await confirmResetPassword(action.customer);
   }
 
   async function copyTemporaryPassword() {
@@ -512,6 +530,91 @@ export default function CustomersPanel() {
           </table>
         </div>
       </div>
+
+      {confirmAction && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+          <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="border-b border-neutral-100 px-5 py-4">
+              <div className="flex items-start gap-3">
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                    confirmAction.type === 'reset-password'
+                      ? 'bg-amber-50 text-amber-600'
+                      : 'bg-emerald-50 text-emerald-600'
+                  }`}
+                >
+                  {confirmAction.type === 'reset-password' ? (
+                    <KeyRound size={22} />
+                  ) : (
+                    <RotateCcw size={22} />
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-bold text-neutral-900">
+                    {confirmAction.type === 'reset-password'
+                      ? 'Generate temporary password?'
+                      : 'Reactivate customer?'}
+                  </h3>
+                  <p className="mt-1 text-sm leading-relaxed text-neutral-500">
+                    {confirmAction.type === 'reset-password'
+                      ? `${
+                          confirmAction.customer.name ||
+                          confirmAction.customer.phone ||
+                          'This customer'
+                        } will be forced to set a new password after login.`
+                      : `${
+                          confirmAction.customer.name ||
+                          confirmAction.customer.phone ||
+                          'This customer'
+                        } will be able to sign in and use the account again.`}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 px-5 py-4">
+              {confirmAction.type === 'reset-password' && (
+                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs leading-relaxed text-amber-700">
+                  The temporary password will be shown only once. Copy it before closing the next dialog.
+                </div>
+              )}
+
+              <div className="rounded-2xl bg-neutral-50 p-3">
+                <p className="text-sm font-bold text-neutral-900">
+                  {confirmAction.customer.name || 'Customer'}
+                </p>
+                <p className="mt-0.5 text-xs text-neutral-500">
+                  {confirmAction.customer.phone || confirmAction.customer.email || 'No contact shown'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 border-t border-neutral-100 bg-neutral-50 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setConfirmAction(null)}
+                className="h-11 flex-1 rounded-2xl border border-neutral-200 bg-white text-sm font-bold text-neutral-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleConfirmAction()}
+                className={`h-11 flex-1 rounded-2xl text-sm font-bold text-white ${
+                  confirmAction.type === 'reset-password'
+                    ? 'bg-amber-500 hover:bg-amber-600'
+                    : 'bg-emerald-500 hover:bg-emerald-600'
+                }`}
+              >
+                {confirmAction.type === 'reset-password'
+                  ? 'Generate Password'
+                  : 'Reactivate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {resetResult && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
