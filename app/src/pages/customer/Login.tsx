@@ -189,7 +189,7 @@ export default function Login() {
                     setSubmitError('');
                   }}
                   placeholder="your@email.com or 17123456"
-                  className={`h-12 w-full rounded-2xl border bg-white pl-11 pr-4 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 ${
+                  className={`h-12 w-full rounded-2xl border bg-neutral-50 pl-11 pr-4 text-sm outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/10 ${
                     errors.identifier ? 'border-red-400' : 'border-neutral-200'
                   }`}
                 />
@@ -217,7 +217,7 @@ export default function Login() {
                     setSubmitError('');
                   }}
                   placeholder="Enter your password"
-                  className={`h-12 w-full rounded-2xl border bg-white pl-11 pr-11 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 ${
+                  className={`h-12 w-full rounded-2xl border bg-neutral-50 pl-11 pr-11 text-sm outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/10 ${
                     errors.password ? 'border-red-400' : 'border-neutral-200'
                   }`}
                 />
@@ -241,7 +241,7 @@ export default function Login() {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-4 w-4 rounded border-neutral-300 text-orange-500 focus:ring-orange-500"
+                  className="h-5 w-5 rounded border-neutral-300 text-orange-500 focus:ring-orange-500"
                 />
                 <span className="text-sm text-neutral-600">Remember me</span>
               </label>

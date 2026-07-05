@@ -49,6 +49,36 @@ function todayDate() {
   return new Date().toISOString().slice(0, 10)
 }
 
+const DUPLICATE_PARCEL_WINDOW_MINUTES = 30
+
+const duplicateParcelStatuses: ParcelRequestStatus[] = [
+  'pending',
+  'accepted',
+  'picked_up',
+  'in_transit',
+  'delivered',
+]
+
+function normalizeParcelPhone(value: unknown) {
+  const digits = text(value).replace(/\D/g, '')
+
+  if (digits.startsWith('975') && digits.length > 8) {
+    return digits.slice(3)
+  }
+
+  return digits || text(value).toLowerCase()
+}
+
+function normalizeParcelDescription(value: unknown) {
+  return text(value).toLowerCase().replace(/\s+/g, ' ')
+}
+
+function duplicateParcelMessage(parcelNo?: string | null) {
+  return parcelNo
+    ? `This parcel request looks already submitted (${parcelNo}). Please check My Parcels before submitting again.`
+    : 'This parcel request looks already submitted. Please check My Parcels before submitting again.'
+}
+
 export function isParcelTripBookable(trip?: ParcelTrip | null) {
   if (!trip) return false
   if (trip.status !== 'open') return false
@@ -395,6 +425,40 @@ export async function fetchParcelTripById(tripId: string) {
   return mapTrip(data)
 }
 
+async function findRecentDuplicateParcelRequest(input: CreateParcelRequestInput) {
+  const since = new Date(
+    Date.now() - DUPLICATE_PARCEL_WINDOW_MINUTES * 60 * 1000,
+  ).toISOString()
+
+  const senderPhone = normalizeParcelPhone(input.senderPhone)
+  const receiverPhone = normalizeParcelPhone(input.receiverPhone)
+  const description = normalizeParcelDescription(input.packageDescription)
+
+  if (!senderPhone || !receiverPhone || !description) return null
+
+  const { data, error } = await supabase
+    .from('parcel_requests')
+    .select('id, parcel_no, sender_phone, receiver_phone, package_description, status, created_at')
+    .eq('trip_id', input.tripId)
+    .in('status', duplicateParcelStatuses)
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  if (error) {
+    console.warn('[findRecentDuplicateParcelRequest] Duplicate check skipped:', error)
+    return null
+  }
+
+  return (data ?? []).find((row) => {
+    return (
+      normalizeParcelPhone(row.sender_phone) === senderPhone &&
+      normalizeParcelPhone(row.receiver_phone) === receiverPhone &&
+      normalizeParcelDescription(row.package_description) === description
+    )
+  }) ?? null
+}
+
 export async function createParcelRequest(input: CreateParcelRequestInput) {
   const userId = await getParcelBookingUserId()
   const trip = await fetchParcelTripById(input.tripId)
@@ -402,6 +466,16 @@ export async function createParcelRequest(input: CreateParcelRequestInput) {
   if (!isParcelTripBookable(trip)) {
     throw new Error(getParcelTripBookingClosedMessage(trip))
   }
+
+  const duplicate = await findRecentDuplicateParcelRequest(input)
+
+  if (duplicate) {
+    throw new Error(duplicateParcelMessage(duplicate.parcel_no ?? null))
+  }
+
+  const senderPhone = normalizeParcelPhone(input.senderPhone) || text(input.senderPhone)
+  const receiverPhone =
+    normalizeParcelPhone(input.receiverPhone) || text(input.receiverPhone)
 
   const photoPath = await uploadParcelPhoto(userId, input.parcelPhotoFile)
 
@@ -413,11 +487,11 @@ export async function createParcelRequest(input: CreateParcelRequestInput) {
       status: 'pending',
 
       sender_name: text(input.senderName),
-      sender_phone: text(input.senderPhone),
+      sender_phone: senderPhone,
       pickup_address: text(input.pickupAddress),
 
       receiver_name: text(input.receiverName),
-      receiver_phone: text(input.receiverPhone),
+      receiver_phone: receiverPhone,
       dropoff_address: text(input.dropoffAddress),
 
       package_description: text(input.packageDescription),

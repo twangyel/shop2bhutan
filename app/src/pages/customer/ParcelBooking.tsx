@@ -157,6 +157,7 @@ export default function ParcelBooking() {
   function update(field: keyof typeof form, value: string | boolean) {
     setForm((prev) => ({ ...prev, [field]: value }))
     setErrors((prev) => ({ ...prev, [field]: '' }))
+    setError('')
   }
 
   function validate() {
