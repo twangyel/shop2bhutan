@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, User, Phone, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import Logo from '@/components/shared/Logo';
+
+const AUTH_MESSAGE_STORAGE_KEY = 'shop2bhutan:auth-message';
+const DEACTIVATED_ACCOUNT_MESSAGE =
+  'Your account is deactivated. Please contact Shop2Bhutan admin to reactivate it.';
 
 function normalizeBhutanPhone(input: string): string | null {
   const digits = input.replace(/\D/g, '');
@@ -35,6 +39,10 @@ function getSafeReturnTo(value: unknown) {
 async function isDeactivatedLoginUser(userId?: string | null) {
   if (!userId) return false;
 
+  const rpcResult = await supabase.rpc('is_my_account_deactivated');
+
+  if (!rpcResult.error) return Boolean(rpcResult.data);
+
   const { data, error } = await supabase
     .from('profiles')
     .select('account_status, is_active')
@@ -65,6 +73,15 @@ export default function Login() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const storedMessage = window.sessionStorage.getItem(AUTH_MESSAGE_STORAGE_KEY);
+
+    if (!storedMessage) return;
+
+    window.sessionStorage.removeItem(AUTH_MESSAGE_STORAGE_KEY);
+    setSubmitError(storedMessage);
+  }, []);
 
   const resolveLoginEmail = async (cleanIdentifier: string) => {
     if (isEmailIdentifier(cleanIdentifier)) {
@@ -144,7 +161,7 @@ export default function Login() {
     if (deactivated) {
       await supabase.auth.signOut();
       setSubmitting(false);
-      setSubmitError('Your account is deactivated. Please contact Shop2Bhutan admin to reactivate it.');
+      setSubmitError(DEACTIVATED_ACCOUNT_MESSAGE);
       return;
     }
 

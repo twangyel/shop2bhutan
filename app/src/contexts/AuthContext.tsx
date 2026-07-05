@@ -49,6 +49,16 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const AUTH_MESSAGE_STORAGE_KEY = 'shop2bhutan:auth-message';
+const DEACTIVATED_ACCOUNT_MESSAGE =
+  'Your account is deactivated. Please contact Shop2Bhutan admin to reactivate it.';
+
+function rememberAuthMessage(message: string) {
+  if (typeof window === 'undefined') return;
+
+  window.sessionStorage.setItem(AUTH_MESSAGE_STORAGE_KEY, message);
+}
+
 const anonContext: SessionContext = {
   user_id: null,
   email: null,
@@ -65,6 +75,31 @@ function isAnonymousAuthUser(user?: User | null) {
 function isDeactivatedProfile(profile?: CustomerProfile | null) {
   const status = String(profile?.account_status ?? '').trim().toLowerCase();
   return status === 'deactivated' || profile?.is_active === false;
+}
+
+async function isCurrentAuthUserDeactivated() {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user?.id || isAnonymousAuthUser(user)) return false;
+
+  const rpcResult = await supabase.rpc('is_my_account_deactivated');
+
+  if (!rpcResult.error) return Boolean(rpcResult.data);
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('account_status, is_active')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[AuthContext] Deactivated account check skipped:', error.message);
+    return false;
+  }
+
+  return isDeactivatedProfile(data as CustomerProfile | null);
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -133,6 +168,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     await ensureProfileRow(activeSession.user);
 
+    if (await isCurrentAuthUserDeactivated()) {
+      rememberAuthMessage(DEACTIVATED_ACCOUNT_MESSAGE);
+      await supabase.auth.signOut();
+      setSession(null);
+      setContext(anonContext);
+      return;
+    }
+
     const { data, error } = await supabase.rpc('get_my_session_context');
 
     if (error) {
@@ -151,6 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const nextContext = data as SessionContext;
 
     if (isDeactivatedProfile(nextContext.profile)) {
+      rememberAuthMessage(DEACTIVATED_ACCOUNT_MESSAGE);
       await supabase.auth.signOut();
       setSession(null);
       setContext(anonContext);
