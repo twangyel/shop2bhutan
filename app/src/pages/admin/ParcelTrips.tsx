@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Calendar, ChevronDown, Loader2, Plus, RefreshCw, Truck } from 'lucide-react'
 import {
   createParcelTrip,
@@ -74,12 +74,8 @@ export default function ParcelTrips() {
     bookingCutoffAt: '',
   })
 
-  // Per-row loading state
   const [updatingTripId, setUpdatingTripId] = useState<string | null>(null)
-
-  // Action dropdown state
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
-  const dropdownRef = useRef<HTMLDivElement | null>(null)
 
   async function loadTrips() {
     try {
@@ -97,23 +93,6 @@ export default function ParcelTrips() {
   useEffect(() => {
     loadTrips()
   }, [])
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setOpenDropdownId(null)
-      }
-    }
-
-    if (openDropdownId) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [openDropdownId])
 
   async function handleCreateTrip() {
     if (!form.goingDate) {
@@ -311,7 +290,7 @@ export default function ParcelTrips() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto overflow-y-visible">
+          <div className="overflow-x-auto">
             <table className="w-full min-w-[760px]">
               <thead>
                 <tr className="border-b border-neutral-100 bg-neutral-50">
@@ -347,7 +326,7 @@ export default function ParcelTrips() {
                       key={trip.id}
                       className="border-b border-neutral-50 last:border-0 hover:bg-neutral-50"
                     >
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 align-top">
                         <p className="text-sm font-bold text-neutral-900">
                           {trip.title || trip.name || 'Parcel Trip'}
                         </p>
@@ -356,11 +335,11 @@ export default function ParcelTrips() {
                         </p>
                       </td>
 
-                      <td className="px-4 py-3 text-sm text-neutral-700">
+                      <td className="px-4 py-3 align-top text-sm text-neutral-700">
                         {formatDate(trip.goingDate)}
                       </td>
 
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 align-top">
                         <div className="inline-flex items-center gap-2 text-sm text-neutral-700">
                           <Truck size={15} />
                           {trip.origin || trip.fromLocation || 'Thimphu'} →{' '}
@@ -370,13 +349,13 @@ export default function ParcelTrips() {
                         </div>
                       </td>
 
-                      <td className="px-4 py-3 text-sm font-semibold text-neutral-700">
+                      <td className="px-4 py-3 align-top text-sm font-semibold text-neutral-700">
                         {trip.requestCount ?? 0}
                       </td>
 
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 align-top">
                         <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusClass(
+                          className={`inline-block rounded-full px-2.5 py-1 text-xs font-bold ${statusClass(
                             trip.status,
                           )}`}
                         >
@@ -386,52 +365,50 @@ export default function ParcelTrips() {
                         </span>
                       </td>
 
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end">
-                          <div className="relative" ref={isDropdownOpen ? dropdownRef : undefined}>
-                            <button
-                              onClick={() =>
-                                setOpenDropdownId(
-                                  isDropdownOpen ? null : trip.id,
-                                )
-                              }
-                              disabled={isUpdating}
-                              aria-label={`Manage trip: ${trip.title || trip.name || 'Parcel Trip'}`}
-                              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-bold text-neutral-700 shadow-sm transition hover:border-orange-200 hover:bg-orange-50 disabled:opacity-50"
-                            >
-                              {isUpdating ? (
-                                <>
-                                  <Loader2 size={14} className="animate-spin" />
-                                  Updating...
-                                </>
-                              ) : (
-                                <>
-                                  Manage
-                                  <ChevronDown
-                                    size={14}
-                                    className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
-                                  />
-                                </>
-                              )}
-                            </button>
-
-                            {isDropdownOpen && !isUpdating && (
-                              <div className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-xl border border-neutral-100 bg-white shadow-lg">
-                                {actions.map((action) => (
-                                  <button
-                                    key={action.status}
-                                    onClick={() =>
-                                      handleTripAction(trip, action.status)
-                                    }
-                                    disabled={isUpdating}
-                                    className="block w-full px-4 py-2.5 text-left text-sm text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
-                                  >
-                                    {action.label}
-                                  </button>
-                                ))}
-                              </div>
+                      <td className="px-4 py-3 align-top">
+                        <div className="flex flex-col items-end gap-2">
+                          <button
+                            onClick={() =>
+                              setOpenDropdownId(
+                                isDropdownOpen ? null : trip.id,
+                              )
+                            }
+                            disabled={isUpdating}
+                            aria-label={`Manage trip: ${trip.title || trip.name || 'Parcel Trip'}`}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-bold text-neutral-700 shadow-sm transition hover:border-orange-200 hover:bg-orange-50 disabled:opacity-50"
+                          >
+                            {isUpdating ? (
+                              <>
+                                <Loader2 size={14} className="animate-spin" />
+                                Updating...
+                              </>
+                            ) : (
+                              <>
+                                Manage
+                                <ChevronDown
+                                  size={14}
+                                  className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+                                />
+                              </>
                             )}
-                          </div>
+                          </button>
+
+                          {isDropdownOpen && !isUpdating && (
+                            <div className="w-44 overflow-hidden rounded-xl border border-neutral-100 bg-white shadow-lg">
+                              {actions.map((action) => (
+                                <button
+                                  key={action.status}
+                                  onClick={() =>
+                                    handleTripAction(trip, action.status)
+                                  }
+                                  disabled={isUpdating}
+                                  className="block w-full px-4 py-2.5 text-left text-sm text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
+                                >
+                                  {action.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
