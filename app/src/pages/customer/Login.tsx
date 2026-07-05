@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, User, Phone, ShieldCheck } from 'lucide-react';
+import { CheckCircle, Loader2, Mail, Lock, Eye, EyeOff, User, Phone, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import Logo from '@/components/shared/Logo';
@@ -8,6 +8,10 @@ import Logo from '@/components/shared/Logo';
 const AUTH_MESSAGE_STORAGE_KEY = 'shop2bhutan:auth-message';
 const DEACTIVATED_ACCOUNT_MESSAGE =
   'Your account is deactivated. Please contact Shop2Bhutan admin to reactivate it.';
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
 
 function normalizeBhutanPhone(input: string): string | null {
   const digits = input.replace(/\D/g, '');
@@ -89,6 +93,7 @@ export default function Login() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [transitionMessage, setTransitionMessage] = useState('');
 
   useEffect(() => {
     const storedMessage = window.sessionStorage.getItem(AUTH_MESSAGE_STORAGE_KEY);
@@ -149,6 +154,7 @@ export default function Login() {
     }
 
     setSubmitting(true);
+    setTransitionMessage('Checking account...');
     setSubmitError('');
 
     let loginEmail = '';
@@ -157,6 +163,7 @@ export default function Login() {
       loginEmail = await resolveLoginEmail(cleanIdentifier);
     } catch (err) {
       setSubmitting(false);
+      setTransitionMessage('');
       setSubmitError(err instanceof Error ? err.message : 'Unable to sign in.');
       return;
     }
@@ -165,9 +172,12 @@ export default function Login() {
 
     if (preLoginDeactivated) {
       setSubmitting(false);
+      setTransitionMessage('');
       setSubmitError(DEACTIVATED_ACCOUNT_MESSAGE);
       return;
     }
+
+    setTransitionMessage('Signing you in...');
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email: loginEmail,
@@ -176,6 +186,7 @@ export default function Login() {
 
     if (error) {
       setSubmitting(false);
+      setTransitionMessage('');
       setSubmitError('Invalid login details. Please check your email/phone and password.');
       return;
     }
@@ -185,21 +196,32 @@ export default function Login() {
     if (deactivated) {
       await supabase.auth.signOut();
       setSubmitting(false);
+      setTransitionMessage('');
       setSubmitError(DEACTIVATED_ACCOUNT_MESSAGE);
       return;
     }
 
-    await refreshContext();
+    setTransitionMessage('Preparing your account...');
+    try {
+      await refreshContext();
+    } catch (contextError) {
+      console.warn('[Login] Context refresh skipped:', contextError);
+    }
+    setTransitionMessage('Welcome back');
+    await wait(180);
     setSubmitting(false);
     navigate(returnTo, { replace: true });
   };
 
   const handleGuestContinue = async () => {
     setSubmitting(true);
+    setTransitionMessage('Starting guest session...');
     setSubmitError('');
 
     try {
       await ensureGuestSession();
+      setTransitionMessage('Opening Shop2Bhutan...');
+      await wait(160);
       navigate(returnTo, { replace: true });
     } catch (err) {
       setSubmitError(
@@ -207,13 +229,13 @@ export default function Login() {
           ? err.message
           : 'Unable to continue as guest. Please try again.',
       );
-    } finally {
+      setTransitionMessage('');
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="relative min-h-screen overflow-hidden bg-white flex flex-col">
       {/* Header Area */}
       <div className="flex flex-col items-center pt-12 pb-8 px-6">
         <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-orange-500 shadow-lg shadow-orange-500/20">
@@ -326,9 +348,16 @@ export default function Login() {
             <button
               type="submit"
               disabled={submitting}
-              className="h-12 w-full rounded-2xl bg-orange-500 font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
             >
-              {submitting ? 'Signing in...' : 'Sign In'}
+              {submitting ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                'Sign In'
+              )}
             </button>
           </form>
 
@@ -346,7 +375,7 @@ export default function Login() {
             disabled={submitting}
             className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 font-semibold text-neutral-700 transition hover:bg-neutral-100 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
           >
-            <User size={18} />
+            {submitting ? <Loader2 size={18} className="animate-spin" /> : <User size={18} />}
             <span className="text-sm">Continue as Guest</span>
           </button>
 
@@ -369,6 +398,24 @@ export default function Login() {
           </div>
         </div>
       </div>
+      {submitting && transitionMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 px-6 backdrop-blur-sm">
+          <div className="w-full max-w-xs rounded-3xl border border-orange-100 bg-white p-5 text-center shadow-2xl shadow-orange-500/10">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
+              {transitionMessage === 'Welcome back' ? (
+                <CheckCircle size={26} />
+              ) : (
+                <Loader2 size={26} className="animate-spin" />
+              )}
+            </div>
+            <p className="mt-4 text-sm font-bold text-neutral-900">{transitionMessage}</p>
+            <p className="mt-1 text-xs leading-5 text-neutral-500">
+              Please wait a moment while we prepare your session.
+            </p>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

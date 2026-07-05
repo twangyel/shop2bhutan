@@ -134,6 +134,7 @@ export default function Account() {
   const [deactivationReason, setDeactivationReason] = useState('');
   const [deactivating, setDeactivating] = useState(false);
   const [deactivateError, setDeactivateError] = useState('');
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const [dzongkhagOptions, setDzongkhagOptions] = useState<DzongkhagOption[]>([]);
 
@@ -258,9 +259,18 @@ export default function Account() {
   };
 
   const handleLogout = async () => {
-    setUnreadCount(0);
-    await signOut();
-    navigate('/login');
+    if (loggingOut) return;
+
+    try {
+      setLoggingOut(true);
+      setUnreadCount(0);
+      await new Promise((resolve) => window.setTimeout(resolve, 160));
+      await signOut();
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.warn('[Account] Logout skipped:', error);
+      setLoggingOut(false);
+    }
   };
 
   return (
@@ -439,10 +449,11 @@ export default function Account() {
           <button
             type="button"
             onClick={handleLogout}
-            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50"
+            disabled={loggingOut}
+            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60"
           >
-            <LogOut size={18} strokeWidth={2} />
-            Logout
+            {loggingOut ? <Loader2 size={18} className="animate-spin" /> : <LogOut size={18} strokeWidth={2} />}
+            {loggingOut ? 'Signing out...' : 'Logout'}
           </button>
         ) : (
           <button
@@ -454,6 +465,18 @@ export default function Account() {
           </button>
         )}
       </div>
+
+      {loggingOut && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-white/80 px-6 backdrop-blur-sm">
+          <div className="w-full max-w-xs rounded-3xl border border-orange-100 bg-white p-5 text-center shadow-2xl shadow-orange-500/10">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
+              <Loader2 size={26} className="animate-spin" />
+            </div>
+            <p className="mt-4 text-sm font-bold text-neutral-900">Signing out...</p>
+            <p className="mt-1 text-xs leading-5 text-neutral-500">Securing your Shop2Bhutan session.</p>
+          </div>
+        </div>
+      )}
 
       {deactivateOpen && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center overflow-y-auto bg-black/30 px-4 py-4 sm:items-center">

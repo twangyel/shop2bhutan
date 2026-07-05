@@ -35,7 +35,9 @@ export default function CustomerLayout() {
   const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS)
 
   const refreshBagCount = useCallback(async () => {
-    if (!user || authLoading) {
+    if (authLoading) return
+
+    if (!user) {
       setBagCount(0)
       return
     }
@@ -50,7 +52,9 @@ export default function CustomerLayout() {
   }, [authLoading, user])
 
   const refreshNotificationCount = useCallback(async () => {
-    if (!user || authLoading) {
+    if (authLoading) return
+
+    if (!user) {
       setUnreadNotificationCount(0)
       return
     }
@@ -65,10 +69,7 @@ export default function CustomerLayout() {
   }, [authLoading, user])
 
   const refreshParcelBadge = useCallback(async () => {
-    if (authLoading) {
-      setParcelBadgeLabel(null)
-      return
-    }
+    if (authLoading) return
 
     try {
       const summary = await fetchCustomerParcelBadgeSummary(user?.id)
@@ -146,7 +147,9 @@ export default function CustomerLayout() {
   }, [refreshBagCount, refreshNotificationCount, refreshParcelBadge])
 
   useEffect(() => {
-    if (!user || authLoading) {
+    if (authLoading) return undefined
+
+    if (!user) {
       setUnreadNotificationCount(0)
       return undefined
     }
@@ -279,7 +282,7 @@ export default function CustomerLayout() {
 
   return (
     <div className="min-h-screen bg-white">
-      <main className="pb-20">
+      <main className="pb-20 transition-opacity duration-200 ease-out">
         {appSettings.maintenanceEnabled && (
           <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
             <div className="mx-auto flex max-w-3xl items-start gap-2 text-sm">
@@ -292,7 +295,7 @@ export default function CustomerLayout() {
       </main>
 
       {!shouldHideTabBar && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 z-50">
+        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-neutral-200 bg-white transition-transform duration-200 ease-out">
           <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
             {tabs.map((tab) => {
               const isActive = location.pathname === tab.path

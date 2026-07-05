@@ -181,6 +181,7 @@ export default function AdminLayout() {
   >([])
   const [adminUnreadCount, setAdminUnreadCount] = useState(0)
   const [pendingParcelCount, setPendingParcelCount] = useState(0)
+  const [loggingOut, setLoggingOut] = useState(false)
   const notificationPanelRef = useRef<HTMLDivElement>(null)
 
   const adminDisplayName = profileDisplayName(
@@ -374,13 +375,35 @@ export default function AdminLayout() {
   }
 
   const handleLogout = async () => {
-    logout()
-    await signOut()
-    navigate('/login')
+    if (loggingOut) return
+
+    try {
+      setLoggingOut(true)
+      setNotificationOpen(false)
+      setSidebarOpen(false)
+      await new Promise((resolve) => window.setTimeout(resolve, 160))
+      logout()
+      await signOut()
+      navigate('/login', { replace: true })
+    } catch (error) {
+      console.warn('[AdminLayout] Logout skipped:', error)
+      setLoggingOut(false)
+    }
   }
 
   return (
     <div className="flex h-screen bg-neutral-50">
+      {loggingOut && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-white/80 px-6 backdrop-blur-sm">
+          <div className="w-full max-w-xs rounded-3xl border border-amber-100 bg-white p-5 text-center shadow-2xl shadow-amber-500/10">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
+              <Loader2 size={26} className="animate-spin" />
+            </div>
+            <p className="mt-4 text-sm font-bold text-neutral-900">Signing out...</p>
+            <p className="mt-1 text-xs leading-5 text-neutral-500">Closing your admin session safely.</p>
+          </div>
+        </div>
+      )}
       {/* ─── Mobile Overlay ─── */}
       {sidebarOpen && (
         <div
@@ -514,14 +537,15 @@ export default function AdminLayout() {
           </div>
           <button
             onClick={handleLogout}
-            className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors ${sidebarCollapsed ? 'md:justify-center' : ''}`}
+            disabled={loggingOut}
+            className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-60 ${sidebarCollapsed ? 'md:justify-center' : ''}`}
             title={sidebarCollapsed ? 'Logout' : undefined}
           >
-            <LogOut size={18} className="shrink-0" />
+            {loggingOut ? <Loader2 size={18} className="shrink-0 animate-spin" /> : <LogOut size={18} className="shrink-0" />}
             <span
               className={`whitespace-nowrap transition-all duration-300 overflow-hidden ${sidebarCollapsed ? 'md:opacity-0 md:w-0' : 'opacity-100 w-auto'}`}
             >
-              Logout
+              {loggingOut ? 'Signing out...' : 'Logout'}
             </span>
           </button>
         </div>

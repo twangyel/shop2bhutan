@@ -18,7 +18,7 @@ import { getUnreadNotificationCount } from '@/lib/customerOrders';
 import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings';
 
 const stores = [
-  { name: 'Amazon.in', platform: 'amazon' },
+  { name: 'Amazon', platform: 'amazon' },
   { name: 'Flipkart', platform: 'flipkart' },
   { name: 'Myntra', platform: 'myntra' },
   { name: 'Meesho', platform: 'meesho' },
@@ -31,9 +31,14 @@ const quickActions = [
   { icon: Headphones, label: 'Support', path: '/support' },
 ];
 
+
+function getDisplayString(value: unknown) {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
 export default function Home() {
   const navigate = useNavigate();
-  const { user: authUser, loading: authLoading } = useAuth();
+  const { user: authUser, loading: authLoading, context: authContext } = useAuth();
   const { user: appUser } = useApp();
   const [unreadCount, setUnreadCount] = useState(0);
   const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
@@ -85,7 +90,12 @@ export default function Home() {
   }, []);
 
   const visibleStores = stores.filter((store) => appSettings.acceptedPlatforms[store.platform as keyof typeof appSettings.acceptedPlatforms]);
-  const deliveryLabel = appUser?.dzongkhag || 'Thimphu';
+  const profile = (authContext?.profile ?? {}) as Record<string, unknown>;
+  const deliveryLabel =
+    getDisplayString(profile.dzongkhag) ||
+    getDisplayString(profile.default_dzongkhag_id) ||
+    getDisplayString((appUser as { dzongkhag?: unknown } | null | undefined)?.dzongkhag) ||
+    'Thimphu';
 
   return (
     <div className="min-h-screen bg-white">
@@ -173,8 +183,8 @@ export default function Home() {
             </h2>
 
             {/* Subtext */}
-            <p className="mt-3 max-w-[260px] text-sm leading-relaxed text-white/80">
-              Any product. Any site. We handle shipping to your nearest hub.
+            <p className="mt-3 max-w-[280px] text-sm leading-relaxed text-white/80">
+              We shop from Amazon, Flipkart, Myntra, and Meesho. Large appliances excluded. We handle shipping to your nearest hub.
             </p>
           </div>
         </section>

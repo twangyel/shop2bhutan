@@ -267,25 +267,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!mounted) return;
 
-      const previousUserId = sessionRef.current?.user?.id ?? null;
-      const nextUserId = newSession?.user?.id ?? null;
-
-      // Do not unmount protected pages for same-user auth refresh events.
-      // Supabase fires USER_UPDATED after password changes, and SIGNED_IN can also
-      // fire when we verify the current password. Keeping loading=false prevents
-      // RequireAuth from replacing the page before ChangePassword can show success.
-      const keepCurrentPageMounted =
-        event === 'USER_UPDATED' ||
-        event === 'TOKEN_REFRESHED' ||
-        (event === 'SIGNED_IN' && Boolean(previousUserId) && previousUserId === nextUserId);
-
-      if (!keepCurrentPageMounted) {
-        setLoading(true);
+      // Keep the current screen mounted during normal auth changes.
+      // Login, logout, token refresh, and password updates are handled with
+      // local button/overlay states so the app does not flash a global loader.
+      if (event === 'SIGNED_OUT') {
+        sessionRef.current = null;
+        setSession(null);
+        setContext(anonContext);
+        setLoading(false);
+        return;
       }
 
       await loadSessionContext(newSession);
 
-      if (mounted && !keepCurrentPageMounted) {
+      if (mounted) {
         setLoading(false);
       }
     });
@@ -296,12 +291,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const signOut = useCallback(async () => {
+    // Clear local auth state first so logout feels instant and predictable.
     sessionRef.current = null;
     setSession(null);
     setContext(anonContext);
-  };
+    setLoading(false);
+
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.warn('[AuthContext] Sign out skipped:', error.message);
+    }
+  }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -314,7 +316,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       isGuest: isAnonymousAuthUser(session?.user ?? null),
     }),
-    [loading, session, context, refreshContext, ensureGuestSession]
+    [loading, session, context, refreshContext, ensureGuestSession, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
