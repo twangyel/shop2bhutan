@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Calendar, ChevronDown, Plus, RefreshCw, Truck } from 'lucide-react'
+import { Calendar, Plus, RefreshCw, Truck } from 'lucide-react'
 import {
   createParcelTrip,
   fetchAdminParcelTrips,
@@ -61,21 +61,6 @@ function tripActions(status?: ParcelTripStatus) {
   ]
 }
 
-function actionTextClass(status: ParcelTripStatus) {
-  if (status === 'open') return 'text-emerald-700 hover:bg-emerald-50'
-  if (status === 'closed') return 'text-amber-700 hover:bg-amber-50'
-  if (status === 'completed') return 'text-blue-700 hover:bg-blue-50'
-  if (status === 'cancelled') return 'text-red-700 hover:bg-red-50'
-  return 'text-neutral-700 hover:bg-neutral-50'
-}
-
-function actionDotClass(status: ParcelTripStatus) {
-  if (status === 'open') return 'bg-emerald-500'
-  if (status === 'closed') return 'bg-amber-500'
-  if (status === 'completed') return 'bg-blue-500'
-  if (status === 'cancelled') return 'bg-red-500'
-  return 'bg-neutral-400'
-}
 
 export default function ParcelTrips() {
   const [trips, setTrips] = useState<ParcelTrip[]>([])
@@ -83,7 +68,6 @@ export default function ParcelTrips() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     title: '',
@@ -142,7 +126,6 @@ export default function ParcelTrips() {
 
   async function changeStatus(tripId: string, status: ParcelTripStatus) {
     try {
-      setOpenMenuId(null)
       setError('')
       await updateParcelTripStatus(tripId, status)
       await loadTrips()
@@ -158,7 +141,6 @@ export default function ParcelTrips() {
     status: ParcelTripStatus,
   ) {
     if (status === trip.status) {
-      setOpenMenuId(null)
       return
     }
 
@@ -376,48 +358,33 @@ export default function ParcelTrips() {
                       </td>
 
                       <td className="px-4 py-3">
-                        <div className="relative flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setOpenMenuId((current) =>
-                                current === trip.id ? null : trip.id,
-                              )
-                            }
-                            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-700 shadow-sm transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700"
-                          >
-                            Manage
-                            <ChevronDown
-                              size={14}
-                              className={`transition ${
-                                openMenuId === trip.id ? 'rotate-180' : ''
-                              }`}
-                            />
-                          </button>
+                        <div className="flex justify-end">
+                          <select
+                            defaultValue=""
+                            onChange={async (event) => {
+                              const nextStatus = event.target
+                                .value as ParcelTripStatus
+                              event.target.value = ''
 
-                          {openMenuId === trip.id && (
-                            <div className="absolute right-0 top-10 z-30 w-48 overflow-hidden rounded-2xl border border-neutral-100 bg-white p-1 shadow-xl">
-                              {actions.map((action) => (
-                                <button
-                                  key={action.status}
-                                  type="button"
-                                  onClick={() =>
-                                    handleTripAction(trip, action.status)
-                                  }
-                                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-bold transition ${actionTextClass(
-                                    action.status,
-                                  )}`}
-                                >
-                                  <span>{action.label}</span>
-                                  <span
-                                    className={`h-2 w-2 rounded-full ${actionDotClass(
-                                      action.status,
-                                    )}`}
-                                  />
-                                </button>
-                              ))}
-                            </div>
-                          )}
+                              if (!nextStatus) return
+
+                              await handleTripAction(trip, nextStatus)
+                            }}
+                            className="h-9 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-bold text-neutral-700 shadow-sm outline-none transition hover:border-orange-200 hover:bg-orange-50 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20"
+                          >
+                            <option value="" disabled>
+                              Manage
+                            </option>
+
+                            {actions.map((action) => (
+                              <option
+                                key={action.status}
+                                value={action.status}
+                              >
+                                {action.label}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       </td>
                     </tr>
