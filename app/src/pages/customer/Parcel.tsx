@@ -223,17 +223,17 @@ export default function Parcel() {
               ))}
             </div>
           ) : trips.length === 0 ? (
-            <div className="rounded-3xl border border-neutral-100 bg-neutral-50 p-6 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-neutral-400">
-                <Calendar size={28} />
+            <div className="flex flex-col items-center py-10">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-50 text-orange-400">
+                <Calendar size={32} />
               </div>
 
-              <h3 className="mt-3 text-sm font-bold text-neutral-800">
-                No parcel trips available
+              <h3 className="mt-4 text-base font-bold text-neutral-900">
+                No trips open yet
               </h3>
 
-              <p className="mt-1 text-xs leading-relaxed text-neutral-500">
-                Trip dates will appear here once admin opens booking.
+              <p className="mt-2 text-center text-sm leading-relaxed text-neutral-500">
+                Booking opens once admin schedules a trip. Check back soon.
               </p>
             </div>
           ) : (

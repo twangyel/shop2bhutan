@@ -14,7 +14,6 @@ import {
   ShoppingBag,
   Trash2,
   User,
-  X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -231,17 +230,17 @@ function BagItemCard({
   onRemove: (itemId: string) => void;
 }) {
   return (
-    <div className="rounded-3xl border border-neutral-100 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
       <div className="flex gap-3">
         {item.productImage ? (
           <img
             src={item.productImage}
             alt=""
-            className="h-20 w-20 shrink-0 rounded-2xl bg-neutral-100 object-cover"
+            className="h-20 w-20 flex-shrink-0 rounded-xl bg-gray-100 object-cover"
           />
         ) : (
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-neutral-100">
-            <ImageIcon size={22} className="text-neutral-400" />
+          <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl bg-gray-100">
+            <ImageIcon size={22} className="text-gray-400" />
           </div>
         )}
 
@@ -251,7 +250,7 @@ function BagItemCard({
             value={item.productName}
             onChange={(e) => onPatch(item.id, { productName: e.target.value })}
             onBlur={() => onPatch(item.id, { productName: item.productName })}
-            className="w-full border-0 p-0 text-sm font-bold text-neutral-900 focus:outline-none focus:ring-0"
+            className="w-full border-0 p-0 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-0"
             placeholder="Product name"
           />
 
@@ -260,7 +259,7 @@ function BagItemCard({
               href={item.sourceUrl}
               target="_blank"
               rel="noreferrer"
-              className="mt-1 block truncate text-[11px] text-neutral-400"
+              className="mt-1 block truncate text-[11px] text-gray-400"
             >
               {item.sourceUrl}
             </a>
@@ -271,7 +270,7 @@ function BagItemCard({
           )}
 
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium uppercase text-neutral-600">
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium uppercase text-gray-600">
               {platformLabel(item.sourcePlatform)}
             </span>
             {item.screenshotUrl && (
@@ -280,7 +279,7 @@ function BagItemCard({
               </span>
             )}
             {saving && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-neutral-400">
+              <span className="inline-flex items-center gap-1 text-[10px] text-gray-400">
                 <Loader2 size={10} className="animate-spin" />
                 Saving
               </span>
@@ -291,7 +290,7 @@ function BagItemCard({
         <button
           type="button"
           onClick={() => onRemove(item.id)}
-          className="self-start rounded-full p-1.5 text-red-400 transition hover:bg-red-50"
+          className="self-start p-1 text-red-400"
           aria-label="Remove item"
         >
           <Trash2 size={17} />
@@ -300,7 +299,7 @@ function BagItemCard({
 
       <div className="mt-3 grid grid-cols-[1fr_auto] gap-3">
         <div>
-          <label className="text-[11px] font-semibold text-neutral-500">
+          <label className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
             Price shown on site
           </label>
           <input
@@ -309,27 +308,27 @@ function BagItemCard({
             onChange={(e) => onPatch(item.id, { priceShown: Number(e.target.value) || 0 })}
             onBlur={() => onPatch(item.id, { priceShown: item.priceShown })}
             placeholder="Optional"
-            className="mt-1 h-10 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-sm outline-none transition focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-500/10"
+            className="mt-1 h-10 w-full rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
           />
         </div>
 
         <div>
-          <label className="block text-center text-[11px] font-semibold text-neutral-500">
+          <label className="block text-center text-[10px] font-medium uppercase tracking-wider text-gray-400">
             Qty
           </label>
           <div className="mt-1 flex items-center gap-1">
             <button
               type="button"
               onClick={() => onPatch(item.id, { quantity: Math.max(1, item.quantity - 1) })}
-              className="flex h-10 w-9 items-center justify-center rounded-xl bg-neutral-100 transition active:scale-90"
+              className="flex h-10 w-9 items-center justify-center rounded-xl bg-gray-100"
             >
               <Minus size={14} />
             </button>
-            <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
+            <span className="w-8 text-center text-sm font-semibold">{item.quantity}</span>
             <button
               type="button"
               onClick={() => onPatch(item.id, { quantity: item.quantity + 1 })}
-              className="flex h-10 w-9 items-center justify-center rounded-xl bg-neutral-100 transition active:scale-90"
+              className="flex h-10 w-9 items-center justify-center rounded-xl bg-gray-100"
             >
               <Plus size={14} />
             </button>
@@ -338,7 +337,7 @@ function BagItemCard({
       </div>
 
       {item.priceShown > 0 && (
-        <p className="mt-2 text-xs font-bold text-orange-600">
+        <p className="mt-2 text-xs font-semibold text-orange-600">
           Site price estimate: {formatPrice(item.priceShown * item.quantity)}
         </p>
       )}
@@ -349,7 +348,7 @@ function BagItemCard({
         onBlur={() => onPatch(item.id, { notes: item.notes || '' })}
         placeholder="Size, color, variant, or instruction for this item..."
         rows={2}
-        className="mt-3 w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm outline-none transition focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-500/10"
+        className="mt-3 w-full resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
       />
     </div>
   );
@@ -628,98 +627,51 @@ export default function RequestBag() {
     }
   };
 
-  // ===== NOT LOGGED IN STATE =====
   if (!authLoading && !user) {
     return (
-      <div className="min-h-screen bg-white">
-        <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="-ml-1 flex h-9 w-9 items-center justify-center rounded-full hover:bg-neutral-100"
-            >
-              <ArrowLeft size={22} />
-            </button>
-            <div>
-              <h1 className="text-lg font-bold text-neutral-900">Request Bag</h1>
-              <p className="text-xs text-neutral-500">Save items before requesting a quote</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col items-center px-6 pt-16 pb-8">
-          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-orange-50 text-orange-500">
-            <ShoppingBag size={36} />
-          </div>
-
-          <h2 className="mt-5 text-xl font-bold text-neutral-900">Sign in to view your bag</h2>
-          <p className="mt-2 text-center text-sm leading-relaxed text-neutral-500">
-            Save product links, screenshots, and quantities in your Request Bag before requesting a quotation.
+      <div className="min-h-screen bg-white px-4 py-8">
+        <div className="rounded-2xl bg-white border border-gray-100 p-6 text-center">
+          <ShoppingBag size={42} className="mx-auto text-gray-300" />
+          <h1 className="mt-3 text-lg font-bold text-gray-900">Sign in to view Request Bag</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Save product links and request quotation after signing in.
           </p>
-
           <button
             type="button"
             onClick={() => navigate('/login', { state: { from: '/request-bag' } })}
-            className="mt-6 h-12 w-full max-w-sm rounded-2xl bg-orange-500 font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-[0.98]"
+            className="mt-4 h-11 rounded-xl bg-orange-500 px-5 text-sm font-semibold text-white hover:bg-orange-600"
           >
             Sign In
           </button>
-
-          <button
-            type="button"
-            onClick={() => navigate('/register')}
-            className="mt-3 h-12 w-full max-w-sm rounded-2xl border border-neutral-200 bg-neutral-50 font-bold text-neutral-700 transition hover:bg-neutral-100 active:scale-[0.98]"
-          >
-            Create Account
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            className="mt-4 text-sm font-semibold text-neutral-500 transition hover:text-neutral-700"
-          >
-            Continue browsing
-          </button>
-
-          <div className="mt-8 w-full max-w-sm rounded-2xl border border-amber-100 bg-amber-50 p-4">
-            <p className="text-xs font-bold text-amber-700">Why sign in?</p>
-            <p className="mt-1 text-xs leading-relaxed text-amber-600">
-              Orders, quotations, payment uploads, addresses, and parcel bookings need a secure customer account so you can track everything later.
-            </p>
-          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white pb-28">
-      {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="-ml-1 flex h-9 w-9 items-center justify-center rounded-full hover:bg-neutral-100"
-          >
-            <ArrowLeft size={22} />
+    <div className="min-h-screen bg-white pb-36">
+      <div className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-3">
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => navigate(-1)} className="p-1">
+            <ArrowLeft size={22} className="text-gray-700" />
           </button>
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-bold text-neutral-900">Request Bag</h1>
-            <p className="text-xs text-neutral-500">
-              Review items and request a quotation when ready
+            <h1 className="text-lg font-bold text-gray-900">Request Bag</h1>
+            <p className="text-xs text-gray-500">
+              Review items and request one quotation when ready.
             </p>
           </div>
           {hasItems && (
-            <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-bold text-neutral-700">
+            <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-700">
               {bag?.items.length} item{bag?.items.length === 1 ? '' : 's'}
             </span>
           )}
         </div>
       </div>
 
-      <div className="space-y-4 px-4 py-4">
+      <div className="px-4 py-4 space-y-4">
         {error && (
-          <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
             {error}
           </div>
         )}
@@ -727,24 +679,22 @@ export default function RequestBag() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((item) => (
-              <div key={item} className="h-32 animate-pulse rounded-3xl bg-neutral-100" />
+              <div key={item} className="h-32 rounded-2xl bg-gray-100 animate-pulse" />
             ))}
           </div>
         ) : !hasItems ? (
-          <div className="flex flex-col items-center py-12">
-            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-neutral-100 text-neutral-400">
-              <ShoppingBag size={36} />
-            </div>
-            <h2 className="mt-4 text-lg font-bold text-neutral-900">Your Request Bag is empty</h2>
-            <p className="mt-2 text-center text-sm leading-relaxed text-neutral-500">
-              Add Amazon, Flipkart, Myntra, or Meesho links first. You can request a quotation after adding items.
+          <div className="rounded-2xl bg-white border border-gray-100 p-6 text-center">
+            <ShoppingBag size={44} className="mx-auto text-gray-300" />
+            <h2 className="mt-3 text-lg font-bold text-gray-900">Your Request Bag is empty</h2>
+            <p className="mt-1 text-sm leading-6 text-gray-500">
+              Add Amazon, Flipkart, Myntra, or Meesho links first. You can request quotation after adding items.
             </p>
             <button
               type="button"
               onClick={() => navigate('/paste-link')}
-              className="mt-5 flex h-12 items-center gap-2 rounded-2xl bg-orange-500 px-6 font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-[0.98]"
+              className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 text-sm font-semibold text-white hover:bg-orange-600"
             >
-              <Plus size={18} />
+              <Plus size={17} />
               Add Product Link
             </button>
           </div>
@@ -766,28 +716,27 @@ export default function RequestBag() {
             <button
               type="button"
               onClick={() => navigate('/paste-link')}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-neutral-300 bg-white text-sm font-bold text-neutral-700 transition hover:bg-neutral-50 active:scale-[0.98]"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-white text-sm font-bold text-gray-700 hover:bg-gray-50"
             >
               <Plus size={17} />
               Add another product
             </button>
 
-            {/* Contact & Delivery */}
-            <div className="rounded-3xl border border-neutral-100 bg-white p-4 shadow-sm">
+            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-bold text-neutral-900">Contact & Delivery</h3>
-                  <p className="text-xs text-neutral-500">
+                  <h3 className="text-base font-semibold text-gray-900">Contact & Delivery</h3>
+                  <p className="text-xs text-gray-500">
                     {addressLoading
                       ? 'Loading your saved delivery address...'
-                      : 'Used by admin to prepare and confirm your quotation'}
+                      : 'Used by admin to prepare and confirm your quotation.'}
                   </p>
                 </div>
                 {hasDeliveryAddress && !showDeliveryFields && (
                   <button
                     type="button"
                     onClick={() => setDeliveryExpanded(true)}
-                    className="flex items-center gap-1 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-bold text-neutral-600 transition hover:bg-neutral-200"
+                    className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-200"
                   >
                     <Edit3 size={13} />
                     Edit
@@ -796,7 +745,7 @@ export default function RequestBag() {
               </div>
 
               {addressLoading && (
-                <div className="mt-3 flex items-center gap-2 rounded-2xl border border-neutral-100 bg-neutral-50 px-3 py-3 text-xs text-neutral-500">
+                <div className="mt-3 flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs text-gray-500">
                   <Loader2 size={15} className="animate-spin text-orange-500" />
                   Loading saved delivery address...
                 </div>
@@ -811,10 +760,10 @@ export default function RequestBag() {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-emerald-900">{customer.name || 'Customer'}</p>
                       {savedAddress?.label && (
-                        <p className="text-[11px] font-semibold text-emerald-600">{savedAddress.label} address</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">{savedAddress.label} address</p>
                       )}
                       {customer.phone && <p className="text-xs text-emerald-700">{customer.phone}</p>}
-                      <p className="mt-1 text-xs leading-relaxed text-emerald-800">{customer.deliveryAddress}</p>
+                      <p className="mt-1 text-xs leading-5 text-emerald-800">{customer.deliveryAddress}</p>
                     </div>
                   </div>
                 </div>
@@ -823,41 +772,35 @@ export default function RequestBag() {
               {showDeliveryFields && (
                 <div className="mt-3 space-y-3">
                   <div className="relative">
-                    <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400">
-                      <User size={17} />
-                    </div>
+                    <User size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                       type="text"
                       value={customer.name}
                       onChange={(e) => setCustomer((prev) => ({ ...prev, name: e.target.value }))}
                       placeholder="Full name"
-                      className="h-11 w-full rounded-xl border border-neutral-200 bg-neutral-50 pl-10 pr-3 text-sm outline-none transition focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-500/10"
+                      className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
                     />
                   </div>
 
                   <div className="relative">
-                    <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400">
-                      <Phone size={17} />
-                    </div>
+                    <Phone size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                       type="tel"
                       value={customer.phone}
                       onChange={(e) => setCustomer((prev) => ({ ...prev, phone: e.target.value }))}
                       placeholder="Phone number"
-                      className="h-11 w-full rounded-xl border border-neutral-200 bg-neutral-50 pl-10 pr-3 text-sm outline-none transition focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-500/10"
+                      className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
                     />
                   </div>
 
                   <div className="relative">
-                    <div className="pointer-events-none absolute left-3.5 top-3 text-neutral-400">
-                      <MapPin size={17} />
-                    </div>
+                    <MapPin size={17} className="absolute left-3 top-3 text-gray-400" />
                     <textarea
                       value={customer.deliveryAddress}
                       onChange={(e) => setCustomer((prev) => ({ ...prev, deliveryAddress: e.target.value }))}
                       placeholder="Delivery address"
                       rows={3}
-                      className="w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50 py-3 pl-10 pr-3 text-sm outline-none transition focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-500/10"
+                      className="w-full resize-none rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
                     />
                   </div>
                 </div>
@@ -868,138 +811,157 @@ export default function RequestBag() {
                 onChange={(e) => setCustomer((prev) => ({ ...prev, notes: e.target.value }))}
                 placeholder="Optional note for all items..."
                 rows={2}
-                className="mt-3 w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm outline-none transition focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-500/10"
+                className="mt-3 w-full resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
               />
             </div>
           </>
         )}
       </div>
 
-      {/* Confirmation Dialog */}
+      {/* ===== CLEANED CONFIRMATION DIALOG ===== */}
       {confirmOpen && (
-        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/30 px-4 py-4 sm:items-center">
-          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-5 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl">
-            {/* Header */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
-                  <Package size={22} />
+        <div
+          className="fixed inset-0 z-[90] flex items-end justify-center bg-gray-950/50 px-4 pt-20"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-quotation-title"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 h-full w-full cursor-default"
+            onClick={() => !submitting && setConfirmOpen(false)}
+            aria-label="Close confirmation"
+          />
+
+          <div className="relative flex max-h-[78vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[28px] border border-gray-100 bg-white shadow-2xl">
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto p-5 pb-2">
+              <div className="mx-auto mb-5 h-1.5 w-10 rounded-full bg-gray-200" />
+
+              {/* Header */}
+              <div className="flex items-start gap-3.5">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
+                  <Package size={22} strokeWidth={2.2} />
                 </span>
-                <div className="min-w-0">
-                  <h2 className="text-base font-bold text-neutral-900">Confirm quotation request?</h2>
-                  <p className="mt-1 text-sm leading-relaxed text-neutral-500">
-                    You are sending <span className="font-bold text-neutral-700">{itemCount} item{itemCount === 1 ? '' : 's'}</span> to Shop2Bhutan for admin review.
+                <div className="min-w-0 flex-1">
+                  <h2 id="confirm-quotation-title" className="text-lg font-extrabold text-gray-900">
+                    Confirm quotation request?
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-gray-500">
+                    You are sending <span className="font-semibold text-gray-700">{itemCount} item{itemCount === 1 ? '' : 's'}</span> to Shop2Bhutan for admin review. We will check price, availability, service charge, and delivery fee before sending your quotation.
                   </p>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => !submitting && setConfirmOpen(false)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600"
-                disabled={submitting}
-              >
-                <X size={20} />
-              </button>
-            </div>
+              {/* Summary cards */}
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Items</p>
+                  <p className="mt-1 text-2xl font-extrabold text-gray-900">{itemCount}</p>
+                  <p className="mt-0.5 text-xs text-gray-500">{totalQuantity} total qty</p>
+                </div>
 
-            {/* Summary */}
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-neutral-100 bg-neutral-50 p-4">
-                <p className="text-[11px] font-bold text-neutral-400">Items</p>
-                <p className="mt-1 text-2xl font-bold text-neutral-900">{itemCount}</p>
-                <p className="mt-0.5 text-xs text-neutral-500">{totalQuantity} total qty</p>
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Site estimate</p>
+                  <p className="mt-1 text-2xl font-extrabold text-gray-900">
+                    {estimatedSiteTotal > 0 ? formatPrice(estimatedSiteTotal) : '—'}
+                  </p>
+                  <p className="mt-0.5 text-xs text-gray-500">Final quote may change</p>
+                </div>
               </div>
-              <div className="rounded-2xl border border-neutral-100 bg-neutral-50 p-4">
-                <p className="text-[11px] font-bold text-neutral-400">Site estimate</p>
-                <p className="mt-1 text-2xl font-bold text-neutral-900">
-                  {estimatedSiteTotal > 0 ? formatPrice(estimatedSiteTotal) : '—'}
+
+              {/* Divider */}
+              <div className="my-5 h-px bg-gray-100" />
+
+              {/* Delivery info */}
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                  <CheckCircle size={18} strokeWidth={2.5} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-gray-900">{customer.name || 'Customer'}</p>
+                  {customer.phone && (
+                    <p className="mt-0.5 text-xs font-medium text-gray-600">{customer.phone}</p>
+                  )}
+                  <p className="mt-1.5 text-xs leading-5 text-gray-500">
+                    {customer.deliveryAddress}
+                  </p>
+                </div>
+              </div>
+
+              {/* Warning banner — cleaner */}
+              <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
+                <span className="mt-0.5 text-amber-500">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                </span>
+                <p className="text-xs leading-5 text-amber-800">
+                  This is not a payment or final order. Admin will send a quotation for your approval first.
                 </p>
-                <p className="mt-0.5 text-xs text-neutral-500">Final quote may change</p>
               </div>
             </div>
 
-            {/* Divider */}
-            <div className="my-5 h-px bg-neutral-100" />
+            {/* Button area — extra bottom padding to prevent cutoff */}
+            <div className="shrink-0 border-t border-gray-100 bg-white p-5 pb-8">
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setConfirmOpen(false)}
+                  disabled={submitting}
+                  className="h-12 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 hover:bg-gray-50 active:scale-[0.98] disabled:opacity-60"
+                >
+                  Cancel
+                </button>
 
-            {/* Delivery Info */}
-            <div className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                <CheckCircle size={16} strokeWidth={2.5} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-neutral-900">{customer.name || 'Customer'}</p>
-                {customer.phone && <p className="text-xs text-neutral-500">{customer.phone}</p>}
-                <p className="mt-1 text-xs leading-relaxed text-neutral-500">{customer.deliveryAddress}</p>
+                <button
+                  type="button"
+                  onClick={submitBag}
+                  disabled={submitting}
+                  className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white shadow-sm hover:bg-orange-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 size={17} className="animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    'Send Request'
+                  )}
+                </button>
               </div>
-            </div>
-
-            {/* Warning */}
-            <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 p-3.5 text-xs leading-relaxed text-amber-700">
-              This is not a payment or final order. Admin will send a quotation for your approval first.
-            </div>
-
-            {error && (
-              <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-3 py-2.5 text-sm text-red-700">
-                {error}
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="sticky bottom-0 -mx-5 mt-5 grid grid-cols-2 gap-3 border-t border-neutral-100 bg-white px-5 pb-[env(safe-area-inset-bottom)] pt-4">
-              <button
-                type="button"
-                onClick={() => setConfirmOpen(false)}
-                disabled={submitting}
-                className="h-12 rounded-2xl bg-neutral-50 text-sm font-bold text-neutral-700 transition hover:bg-neutral-100 active:scale-[0.98] disabled:opacity-60"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                onClick={submitBag}
-                disabled={submitting}
-                className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white transition hover:bg-orange-600 active:scale-[0.98] disabled:opacity-60"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  'Send Request'
-                )}
-              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Sticky Bottom Button */}
       {hasItems && (
-        <div className="fixed bottom-0 left-0 right-0 border-t border-neutral-100 bg-white p-4">
-          <button
-            type="button"
-            onClick={openSubmitConfirmation}
-            disabled={submitting}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-[0.98] disabled:opacity-60"
-          >
-            {submitting ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                Requesting quotation...
-              </>
-            ) : (
-              <>
-                <Package size={18} />
-                Request Quotation
-              </>
-            )}
-          </button>
-          <p className="mt-2 text-center text-[11px] text-neutral-500">
-            You can review before sending. Admin will see your request only after confirmation.
-          </p>
+        <div className="fixed bottom-16 left-0 right-0 z-40 border-t border-gray-200 bg-white px-4 py-3">
+          <div className="mx-auto max-w-lg">
+            <button
+              type="button"
+              onClick={openSubmitConfirmation}
+              disabled={submitting}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 text-sm font-bold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Requesting quotation...
+                </>
+              ) : (
+                <>
+                  Request Quotation
+                  <Package size={18} />
+                </>
+              )}
+            </button>
+            <p className="mt-2 text-center text-[11px] text-gray-500">
+              You can review before sending. Admin will see your request only after confirmation.
+            </p>
+          </div>
         </div>
       )}
     </div>
