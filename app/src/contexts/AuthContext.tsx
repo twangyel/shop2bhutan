@@ -4,6 +4,7 @@ import {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -22,9 +23,6 @@ type CustomerProfile = {
   account_status?: string | null;
   is_active?: boolean | null;
   deactivated_at?: string | null;
-  must_change_password?: boolean | null;
-  password_reset_by_admin_at?: string | null;
-  password_changed_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
   [key: string]: unknown;
@@ -160,8 +158,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [context, setContext] = useState<SessionContext | null>(null);
+  const sessionRef = useRef<Session | null>(null);
 
   const loadSessionContext = async (activeSession: Session | null) => {
+    sessionRef.current = activeSession;
     setSession(activeSession);
 
     if (!activeSession?.user) {
@@ -264,13 +264,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!mounted) return;
 
-      setLoading(true);
+      const previousUserId = sessionRef.current?.user?.id ?? null;
+      const nextUserId = newSession?.user?.id ?? null;
+
+      // Do not unmount protected pages for same-user auth refresh events.
+      // Supabase fires USER_UPDATED after password changes, and SIGNED_IN can also
+      // fire when we verify the current password. Keeping loading=false prevents
+      // RequireAuth from replacing the page before ChangePassword can show success.
+      const keepCurrentPageMounted =
+        event === 'USER_UPDATED' ||
+        event === 'TOKEN_REFRESHED' ||
+        (event === 'SIGNED_IN' && Boolean(previousUserId) && previousUserId === nextUserId);
+
+      if (!keepCurrentPageMounted) {
+        setLoading(true);
+      }
+
       await loadSessionContext(newSession);
 
-      if (mounted) {
+      if (mounted && !keepCurrentPageMounted) {
         setLoading(false);
       }
     });
@@ -283,6 +298,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    sessionRef.current = null;
     setSession(null);
     setContext(anonContext);
   };

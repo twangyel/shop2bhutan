@@ -18,6 +18,16 @@ type RouteState = {
   returnTo?: string;
 } | null;
 
+type PasswordChangeCompletion = {
+  userId: string;
+  forced: boolean;
+  returnTo: string;
+  at: number;
+};
+
+const PASSWORD_CHANGE_SUCCESS_KEY = 'shop2bhutan:password-change-success';
+const PASSWORD_CHANGE_SUCCESS_TTL_MS = 5 * 60 * 1000;
+
 function mustChangePassword(profile: unknown) {
   const row = (profile ?? {}) as {
     must_change_password?: boolean | null;
@@ -35,6 +45,44 @@ function getSafeReturnTo(value: unknown) {
   return value;
 }
 
+function readPasswordChangeCompletion(userId?: string | null): PasswordChangeCompletion | null {
+  if (typeof window === 'undefined' || !userId) return null;
+
+  try {
+    const raw = window.sessionStorage.getItem(PASSWORD_CHANGE_SUCCESS_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Partial<PasswordChangeCompletion>;
+
+    if (parsed.userId !== userId) return null;
+    if (typeof parsed.at !== 'number') return null;
+    if (Date.now() - parsed.at > PASSWORD_CHANGE_SUCCESS_TTL_MS) {
+      window.sessionStorage.removeItem(PASSWORD_CHANGE_SUCCESS_KEY);
+      return null;
+    }
+
+    return {
+      userId,
+      forced: Boolean(parsed.forced),
+      returnTo: getSafeReturnTo(parsed.returnTo),
+      at: parsed.at,
+    };
+  } catch {
+    window.sessionStorage.removeItem(PASSWORD_CHANGE_SUCCESS_KEY);
+    return null;
+  }
+}
+
+function rememberPasswordChangeCompletion(completion: PasswordChangeCompletion) {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.setItem(PASSWORD_CHANGE_SUCCESS_KEY, JSON.stringify(completion));
+}
+
+function clearPasswordChangeCompletion() {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.removeItem(PASSWORD_CHANGE_SUCCESS_KEY);
+}
+
 export default function ChangePassword() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -44,7 +92,9 @@ export default function ChangePassword() {
   const forcedByRoute = Boolean(routeState?.forced);
   const forcedByProfile = mustChangePassword(context?.profile);
   const [forcedSession, setForcedSession] = useState(() => forcedByRoute || forcedByProfile);
-  const [completed, setCompleted] = useState(false);
+  const [completion, setCompletion] = useState<PasswordChangeCompletion | null>(() =>
+    readPasswordChangeCompletion(user?.id),
+  );
 
   useEffect(() => {
     if (forcedByRoute || forcedByProfile) {
@@ -52,6 +102,14 @@ export default function ChangePassword() {
     }
   }, [forcedByRoute, forcedByProfile]);
 
+  useEffect(() => {
+    const savedCompletion = readPasswordChangeCompletion(user?.id);
+    if (savedCompletion) {
+      setCompletion(savedCompletion);
+    }
+  }, [user?.id]);
+
+  const completed = Boolean(completion);
   const forced = forcedSession && !completed;
   const returnTo = useMemo(
     () => getSafeReturnTo(routeState?.returnTo),
@@ -93,7 +151,7 @@ export default function ChangePassword() {
 
     setError('');
 
-    if (!user?.email) {
+    if (!user?.id || !user.email) {
       setError('Please sign in again before changing your password.');
       return;
     }
@@ -149,10 +207,18 @@ export default function ChangePassword() {
 
       await clearMustChangePasswordFlag();
 
+      const nextCompletion: PasswordChangeCompletion = {
+        userId: user.id,
+        forced: forcedSession,
+        returnTo,
+        at: Date.now(),
+      };
+
+      rememberPasswordChangeCompletion(nextCompletion);
+      setCompletion(nextCompletion);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      setCompleted(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (submitError) {
       setError(
@@ -172,8 +238,10 @@ export default function ChangePassword() {
     } catch (contextError) {
       console.warn('[ChangePassword] Context refresh skipped:', contextError);
     } finally {
+      const nextPath = completion?.forced ? completion.returnTo : '/account';
+      clearPasswordChangeCompletion();
       setSubmitting(false);
-      navigate(forcedSession ? returnTo : '/account', { replace: true });
+      navigate(nextPath, { replace: true });
     }
   };
 
@@ -208,7 +276,7 @@ export default function ChangePassword() {
 
           <h1 className="mt-5 text-2xl font-bold text-neutral-900">Password updated</h1>
           <p className="mt-2 text-sm leading-6 text-neutral-500">
-            {forcedSession
+            {completion?.forced
               ? 'Your temporary password has been replaced. You can now continue using Shop2Bhutan with your new password.'
               : 'Your Shop2Bhutan password has been updated. Use your new password the next time you sign in.'}
           </p>
@@ -220,7 +288,7 @@ export default function ChangePassword() {
             className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 font-bold text-white transition hover:bg-orange-600 active:scale-[0.98] disabled:opacity-60"
           >
             {submitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
-            {forcedSession ? 'Continue to Shop2Bhutan' : 'Back to Account'}
+            {completion?.forced ? 'Continue to Shop2Bhutan' : 'Back to Account'}
           </button>
         </div>
       </div>
