@@ -234,6 +234,10 @@ export default function Login() {
     }
   };
 
+  const isSuccessState =
+    transitionMessage === 'Welcome back' ||
+    transitionMessage === 'Opening Shop2Bhutan...';
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-white flex flex-col">
       {/* Header Area */}
@@ -398,24 +402,50 @@ export default function Login() {
           </div>
         </div>
       </div>
+
+      {/* ===== REDESIGNED LOADING OVERLAY ===== */}
       {submitting && transitionMessage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 px-6 backdrop-blur-sm">
-          <div className="w-full max-w-xs rounded-3xl border border-orange-100 bg-white p-5 text-center shadow-2xl shadow-orange-500/10">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
-              {transitionMessage === 'Welcome back' ? (
-                <CheckCircle size={26} />
-              ) : (
-                <Loader2 size={26} className="animate-spin" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/95 backdrop-blur-xl">
+          <div className="w-full max-w-[300px] rounded-[2rem] bg-white p-8 text-center shadow-[0_24px_80px_-20px_rgba(0,0,0,0.08)] ring-1 ring-neutral-900/5">
+            {/* Icon with ambient pulse */}
+            <div className="relative mx-auto flex h-[72px] w-[72px] items-center justify-center">
+              {!isSuccessState && (
+                <>
+                  <div
+                    className="absolute inset-0 rounded-[1.25rem] bg-orange-500/5 animate-ping"
+                    style={{ animationDuration: '2s' }}
+                  />
+                  <div
+                    className="absolute inset-[-6px] rounded-[1.5rem] bg-orange-500/[0.03] animate-pulse"
+                    style={{ animationDuration: '3s' }}
+                  />
+                </>
               )}
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-orange-50 text-orange-500 transition-all duration-300">
+                {isSuccessState ? (
+                  <CheckCircle size={32} />
+                ) : (
+                  <Loader2 size={32} className="animate-spin" />
+                )}
+              </div>
             </div>
-            <p className="mt-4 text-sm font-bold text-neutral-900">{transitionMessage}</p>
-            <p className="mt-1 text-xs leading-5 text-neutral-500">
-              Please wait a moment while we prepare your session.
+
+            {/* Title */}
+            <h3 className="mt-6 text-lg font-bold text-neutral-900 tracking-tight">
+              {transitionMessage}
+            </h3>
+
+            {/* Dynamic subtitle */}
+            <p className="mt-2 text-sm text-neutral-400 leading-relaxed">
+              {transitionMessage === 'Welcome back'
+                ? 'Good to see you again'
+                : transitionMessage === 'Opening Shop2Bhutan...'
+                ? "Let's get shopping"
+                : 'This will only take a moment'}
             </p>
           </div>
         </div>
       )}
-
     </div>
   );
 }

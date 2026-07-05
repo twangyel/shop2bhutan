@@ -11,9 +11,11 @@ import {
   RotateCcw,
   Search,
   ShieldAlert,
+  UserX,
   XCircle,
 } from 'lucide-react';
 import {
+  deactivateCustomerAccount,
   fetchAdminCustomers,
   reactivateCustomerAccount,
   resetCustomerTemporaryPassword,
@@ -70,6 +72,8 @@ export default function CustomersPanel() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [reactivatingId, setReactivatingId] = useState('');
+  const [deactivatingId, setDeactivatingId] = useState('');
+  const [deactivationReason, setDeactivationReason] = useState('');
   const [resettingId, setResettingId] = useState('');
   const [resetResult, setResetResult] = useState<{
     customer: AdminCustomerRecord;
@@ -77,7 +81,7 @@ export default function CustomersPanel() {
     copied: boolean;
   } | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
-    type: 'reactivate' | 'reset-password';
+    type: 'deactivate' | 'reactivate' | 'reset-password';
     customer: AdminCustomerRecord;
   } | null>(null);
 
@@ -146,6 +150,15 @@ export default function CustomersPanel() {
     setConfirmAction({ type: 'reactivate', customer });
   }
 
+  function handleDeactivate(customer: AdminCustomerRecord) {
+    if (isDeactivated(customer)) return;
+
+    setError('');
+    setSuccess('');
+    setDeactivationReason('');
+    setConfirmAction({ type: 'deactivate', customer });
+  }
+
   function handleResetPassword(customer: AdminCustomerRecord) {
     if (isDeactivated(customer)) {
       setError('Reactivate this customer before resetting the password.');
@@ -172,6 +185,29 @@ export default function CustomersPanel() {
       );
     } finally {
       setReactivatingId('');
+    }
+  }
+
+  async function confirmDeactivate(customer: AdminCustomerRecord) {
+    try {
+      setDeactivatingId(customer.id);
+      setError('');
+      setSuccess('');
+
+      await deactivateCustomerAccount(
+        customer.id,
+        deactivationReason || 'Deactivated by admin',
+      );
+
+      setSuccess(`${customer.name || 'Customer'} has been deactivated.`);
+      await loadCustomers();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Unable to deactivate customer.',
+      );
+    } finally {
+      setDeactivatingId('');
+      setDeactivationReason('');
     }
   }
 
@@ -209,6 +245,11 @@ export default function CustomersPanel() {
 
     if (action.type === 'reactivate') {
       await confirmReactivate(action.customer);
+      return;
+    }
+
+    if (action.type === 'deactivate') {
+      await confirmDeactivate(action.customer);
       return;
     }
 
@@ -374,6 +415,7 @@ export default function CustomersPanel() {
                 filtered.map((customer) => {
                   const deactivated = isDeactivated(customer);
                   const isReactivating = reactivatingId === customer.id;
+                  const isDeactivating = deactivatingId === customer.id;
                   const isResetting = resettingId === customer.id;
 
                   return (
@@ -491,19 +533,35 @@ export default function CustomersPanel() {
                           </button>
 
                           {!deactivated && (
-                            <button
-                              type="button"
-                              onClick={() => void handleResetPassword(customer)}
-                              disabled={isResetting}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-amber-600 disabled:opacity-60"
-                            >
-                              {isResetting ? (
-                                <Loader2 size={14} className="animate-spin" />
-                              ) : (
-                                <KeyRound size={14} />
-                              )}
-                              Reset Password
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => void handleResetPassword(customer)}
+                                disabled={isResetting}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-amber-600 disabled:opacity-60"
+                              >
+                                {isResetting ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <KeyRound size={14} />
+                                )}
+                                Reset Password
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => void handleDeactivate(customer)}
+                                disabled={isDeactivating}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-100 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-60"
+                              >
+                                {isDeactivating ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <UserX size={14} />
+                                )}
+                                Deactivate
+                              </button>
+                            </>
                           )}
 
                           {deactivated && (
@@ -540,11 +598,15 @@ export default function CustomersPanel() {
                   className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
                     confirmAction.type === 'reset-password'
                       ? 'bg-amber-50 text-amber-600'
-                      : 'bg-emerald-50 text-emerald-600'
+                      : confirmAction.type === 'deactivate'
+                        ? 'bg-rose-50 text-rose-600'
+                        : 'bg-emerald-50 text-emerald-600'
                   }`}
                 >
                   {confirmAction.type === 'reset-password' ? (
                     <KeyRound size={22} />
+                  ) : confirmAction.type === 'deactivate' ? (
+                    <UserX size={22} />
                   ) : (
                     <RotateCcw size={22} />
                   )}
@@ -554,7 +616,9 @@ export default function CustomersPanel() {
                   <h3 className="text-base font-bold text-neutral-900">
                     {confirmAction.type === 'reset-password'
                       ? 'Generate temporary password?'
-                      : 'Reactivate customer?'}
+                      : confirmAction.type === 'deactivate'
+                        ? 'Deactivate customer?'
+                        : 'Reactivate customer?'}
                   </h3>
                   <p className="mt-1 text-sm leading-relaxed text-neutral-500">
                     {confirmAction.type === 'reset-password'
@@ -563,11 +627,17 @@ export default function CustomersPanel() {
                           confirmAction.customer.phone ||
                           'This customer'
                         } will be forced to set a new password after login.`
-                      : `${
-                          confirmAction.customer.name ||
-                          confirmAction.customer.phone ||
-                          'This customer'
-                        } will be able to sign in and use the account again.`}
+                      : confirmAction.type === 'deactivate'
+                        ? `${
+                            confirmAction.customer.name ||
+                            confirmAction.customer.phone ||
+                            'This customer'
+                          } will no longer be able to sign in until reactivated.`
+                        : `${
+                            confirmAction.customer.name ||
+                            confirmAction.customer.phone ||
+                            'This customer'
+                          } will be able to sign in and use the account again.`}
                   </p>
                 </div>
               </div>
@@ -577,6 +647,21 @@ export default function CustomersPanel() {
               {confirmAction.type === 'reset-password' && (
                 <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs leading-relaxed text-amber-700">
                   The temporary password will be shown only once. Copy it before closing the next dialog.
+                </div>
+              )}
+
+              {confirmAction.type === 'deactivate' && (
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-neutral-400">
+                    Reason
+                  </label>
+                  <textarea
+                    value={deactivationReason}
+                    onChange={(event) => setDeactivationReason(event.target.value)}
+                    rows={3}
+                    placeholder="Example: Customer requested account closure"
+                    className="w-full resize-none rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm outline-none focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-500/10"
+                  />
                 </div>
               )}
 
@@ -593,7 +678,10 @@ export default function CustomersPanel() {
             <div className="flex gap-2 border-t border-neutral-100 bg-neutral-50 px-5 py-4">
               <button
                 type="button"
-                onClick={() => setConfirmAction(null)}
+                onClick={() => {
+                  setConfirmAction(null);
+                  setDeactivationReason('');
+                }}
                 className="h-11 flex-1 rounded-2xl border border-neutral-200 bg-white text-sm font-bold text-neutral-700"
               >
                 Cancel
@@ -604,12 +692,16 @@ export default function CustomersPanel() {
                 className={`h-11 flex-1 rounded-2xl text-sm font-bold text-white ${
                   confirmAction.type === 'reset-password'
                     ? 'bg-amber-500 hover:bg-amber-600'
-                    : 'bg-emerald-500 hover:bg-emerald-600'
+                    : confirmAction.type === 'deactivate'
+                      ? 'bg-rose-500 hover:bg-rose-600'
+                      : 'bg-emerald-500 hover:bg-emerald-600'
                 }`}
               >
                 {confirmAction.type === 'reset-password'
                   ? 'Generate Password'
-                  : 'Reactivate'}
+                  : confirmAction.type === 'deactivate'
+                    ? 'Deactivate'
+                    : 'Reactivate'}
               </button>
             </div>
           </div>

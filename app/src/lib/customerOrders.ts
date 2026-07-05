@@ -2500,6 +2500,26 @@ export async function reactivateCustomerAccount(customerId: string) {
   throw error
 }
 
+export async function deactivateCustomerAccount(customerId: string, reason?: string) {
+  const id = cleanText(customerId)
+  if (!id) throw new Error('Customer ID is required.')
+
+  const { error } = await supabase.rpc('deactivate_customer_account', {
+    p_user_id: id,
+    p_reason: cleanText(reason) || 'Deactivated by admin',
+  })
+
+  if (!error) return
+
+  const message = errorMessage(error, '')
+
+  if (isMissingColumnOrRelationError(error) || message.toLowerCase().includes('deactivate_customer_account')) {
+    throw new Error('Admin deactivation is not ready. Please run the deactivate_customer_account SQL in Supabase first.')
+  }
+
+  throw error
+}
+
 
 export async function resetCustomerTemporaryPassword(
   customerId: string,
