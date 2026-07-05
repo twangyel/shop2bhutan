@@ -124,10 +124,10 @@ export default function Parcel() {
 
           <div>
             <h1 className="text-lg font-bold text-neutral-900">
-              Parcel Pickup
+              Parcel Pickup and Drop
             </h1>
             <p className="text-xs text-neutral-500">
-              Thimphu to Phuentsholing delivery
+              Thimphu to Phuentsholing and vice versa
             </p>
           </div>
         </div>
@@ -140,7 +140,8 @@ export default function Parcel() {
             <Info size={18} />
           </div>
           <p className="text-xs leading-relaxed text-blue-700">
-            Book documents, small electronics, or medicine for an admin-fixed trip date. Parcel photo and declaration are required.
+            Book documents, small electronics, or permitted medicines for an admin-scheduled trip date. A parcel photo and declaration are required before submission.
+
           </p>
         </div>
 

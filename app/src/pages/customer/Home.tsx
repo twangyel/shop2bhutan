@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -16,6 +16,7 @@ import { useApp } from '@/contexts/AppContext';
 import Logo from '@/components/shared/Logo';
 import { getUnreadNotificationCount } from '@/lib/customerOrders';
 import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings';
+import { supabase } from '@/lib/supabase';
 
 const stores = [
   { name: 'Amazon', platform: 'amazon' },
@@ -31,9 +32,58 @@ const quickActions = [
   { icon: Headphones, label: 'Support', path: '/support' },
 ];
 
+type DzongkhagOption = {
+  id: string;
+  name: string;
+};
 
-function getDisplayString(value: unknown) {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function cleanString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function normalizeDzongkhagOptions(data: unknown): DzongkhagOption[] {
+  if (!Array.isArray(data)) return [];
+
+  return data
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const row = item as Record<string, unknown>;
+      const id = cleanString(row.id);
+      const name = cleanString(row.name);
+      return id && name ? { id, name } : null;
+    })
+    .filter((item): item is DzongkhagOption => Boolean(item));
+}
+
+function getProfileField(profile: unknown, key: string) {
+  if (!profile || typeof profile !== 'object') return null;
+  return cleanString((profile as Record<string, unknown>)[key]);
+}
+
+function resolveDeliveryLabel({
+  profile,
+  appDzongkhag,
+  dzongkhags,
+}: {
+  profile: unknown;
+  appDzongkhag?: unknown;
+  dzongkhags: DzongkhagOption[];
+}) {
+  const profileDzongkhag = getProfileField(profile, 'dzongkhag');
+  const defaultDzongkhagId = getProfileField(profile, 'default_dzongkhag_id');
+  const appDzongkhagValue = cleanString(appDzongkhag);
+
+  const firstValue = profileDzongkhag || defaultDzongkhagId || appDzongkhagValue;
+
+  if (!firstValue) return 'Thimphu';
+
+  if (UUID_RE.test(firstValue)) {
+    return dzongkhags.find((item) => item.id === firstValue)?.name || 'Bhutan';
+  }
+
+  return firstValue;
 }
 
 export default function Home() {
@@ -42,9 +92,14 @@ export default function Home() {
   const { user: appUser } = useApp();
   const [unreadCount, setUnreadCount] = useState(0);
   const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
+  const [dzongkhags, setDzongkhags] = useState<DzongkhagOption[]>([]);
 
   const refreshUnreadCount = useCallback(async () => {
-    if (!authUser || authLoading) { setUnreadCount(0); return; }
+    if (!authUser || authLoading) {
+      setUnreadCount(0);
+      return;
+    }
+
     try {
       const count = await getUnreadNotificationCount(authUser.id);
       setUnreadCount(count);
@@ -54,12 +109,18 @@ export default function Home() {
     }
   }, [authLoading, authUser]);
 
-  useEffect(() => { void refreshUnreadCount(); }, [refreshUnreadCount]);
+  useEffect(() => {
+    void refreshUnreadCount();
+  }, [refreshUnreadCount]);
 
   useEffect(() => {
-    const handler = () => { void refreshUnreadCount(); };
+    const handler = () => {
+      void refreshUnreadCount();
+    };
+
     window.addEventListener('shop2bhutan:notifications-updated', handler);
     window.addEventListener('focus', handler);
+
     return () => {
       window.removeEventListener('shop2bhutan:notifications-updated', handler);
       window.removeEventListener('focus', handler);
@@ -80,7 +141,10 @@ export default function Home() {
 
     void loadSettings();
 
-    const handleSettingsUpdated = () => { void loadSettings(); };
+    const handleSettingsUpdated = () => {
+      void loadSettings();
+    };
+
     window.addEventListener('shop2bhutan:app-settings-updated', handleSettingsUpdated);
 
     return () => {
@@ -89,13 +153,45 @@ export default function Home() {
     };
   }, []);
 
-  const visibleStores = stores.filter((store) => appSettings.acceptedPlatforms[store.platform as keyof typeof appSettings.acceptedPlatforms]);
-  const profile = (authContext?.profile ?? {}) as Record<string, unknown>;
-  const deliveryLabel =
-    getDisplayString(profile.dzongkhag) ||
-    getDisplayString(profile.default_dzongkhag_id) ||
-    getDisplayString((appUser as { dzongkhag?: unknown } | null | undefined)?.dzongkhag) ||
-    'Thimphu';
+  useEffect(() => {
+    let active = true;
+
+    async function loadDzongkhags() {
+      try {
+        const { data, error } = await supabase.rpc('get_dzongkhag_options');
+        if (!active) return;
+
+        if (error) {
+          console.warn('[Home] Dzongkhag options skipped:', error.message);
+          return;
+        }
+
+        setDzongkhags(normalizeDzongkhagOptions(data));
+      } catch (error) {
+        console.warn('[Home] Dzongkhag options skipped:', error);
+      }
+    }
+
+    void loadDzongkhags();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const visibleStores = stores.filter(
+    (store) => appSettings.acceptedPlatforms[store.platform as keyof typeof appSettings.acceptedPlatforms],
+  );
+
+  const deliveryLabel = useMemo(
+    () =>
+      resolveDeliveryLabel({
+        profile: authContext?.profile,
+        appDzongkhag: appUser?.dzongkhag,
+        dzongkhags,
+      }),
+    [appUser?.dzongkhag, authContext?.profile, dzongkhags],
+  );
 
   return (
     <div className="min-h-screen bg-white">
@@ -133,7 +229,6 @@ export default function Home() {
 
       {/* ========== MAIN ========== */}
       <main className="mx-auto max-w-3xl px-4 pb-10 pt-4">
-
         {appSettings.homeAnnouncementEnabled && appSettings.homeAnnouncementText && (
           <section className="mb-4 flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-blue-800">
             <Megaphone size={18} className="mt-0.5 shrink-0" />
@@ -184,7 +279,7 @@ export default function Home() {
 
             {/* Subtext */}
             <p className="mt-3 max-w-[280px] text-sm leading-relaxed text-white/80">
-              We shop from Amazon, Flipkart, Myntra, and Meesho. Large appliances excluded. We handle shipping to your nearest hub.
+              We shop from Amazon, Flipkart, Myntra, and Meesho. Large appliances excluded. We order and deliver to Thimphu, Paro and Chhukha.
             </p>
           </div>
         </section>
