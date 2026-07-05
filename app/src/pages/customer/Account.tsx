@@ -456,8 +456,8 @@ export default function Account() {
       </div>
 
       {deactivateOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-4 sm:items-center sm:pb-0">
-          <div className="w-full max-w-md rounded-3xl bg-white p-4 shadow-2xl">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center overflow-y-auto bg-black/40 px-4 py-4 sm:items-center">
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl">
             <div className="flex items-start gap-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600">
                 <AlertTriangle size={22} />
@@ -502,7 +502,7 @@ export default function Account() {
               </div>
             )}
 
-            <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="sticky bottom-0 -mx-4 mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 bg-white px-4 pb-[env(safe-area-inset-bottom)] pt-3">
               <button
                 type="button"
                 onClick={() => setDeactivateOpen(false)}
