@@ -1,5 +1,6 @@
 export type ParcelRequestStatus =
   | 'pending'
+  | 'accepted'
   | 'picked_up'
   | 'collected'
   | 'in_transit'
@@ -130,6 +131,7 @@ export const parcelSizeLabels: Record<string, string> = {
 
 export const parcelStatusLabels: Record<string, string> = {
   pending: 'Request Submitted',
+  accepted: 'Request Accepted',
   picked_up: 'Picked Up',
   collected: 'Picked Up',
   in_transit: 'In Transit',

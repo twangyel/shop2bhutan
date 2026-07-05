@@ -366,15 +366,27 @@ export async function fetchAdminParcelRequests() {
 export async function updateParcelRequestStatus(
   requestId: string,
   status: ParcelRequestStatus,
+  adminNotes?: string,
 ) {
+  const payload: Record<string, unknown> = {
+    status,
+  }
+
+  if (adminNotes !== undefined) {
+    payload.admin_notes = nullableText(adminNotes)
+  }
+
   const { data, error } = await supabase
     .from('parcel_requests')
-    .update({ status })
+    .update(payload)
     .eq('id', requestId)
-    .select('*, parcel_trips(*)')
+    .select('*')
     .single()
 
   if (error) throw error
 
-  return mapRequest(data)
+  return mapRequest({
+    ...data,
+    parcel_trips: null,
+  })
 }

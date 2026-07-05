@@ -23,6 +23,7 @@ import type {
 const tabs: { key: 'all' | ParcelRequestStatus; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
+  { key: 'accepted', label: 'Accepted' },
   { key: 'picked_up', label: 'Picked Up' },
   { key: 'in_transit', label: 'In Transit' },
   { key: 'delivered', label: 'Delivered' },
@@ -42,6 +43,7 @@ function formatDate(value?: string | null) {
 
 function statusClass(status: string) {
   if (status === 'delivered') return 'bg-emerald-50 text-emerald-700'
+  if (status === 'accepted') return 'bg-orange-50 text-orange-700'
   if (status === 'picked_up' || status === 'collected') {
     return 'bg-blue-50 text-blue-700'
   }
@@ -52,7 +54,8 @@ function statusClass(status: string) {
 }
 
 function nextStatuses(status: ParcelRequestStatus): ParcelRequestStatus[] {
-  if (status === 'pending') return ['picked_up', 'rejected', 'cancelled']
+  if (status === 'pending') return ['accepted', 'rejected', 'cancelled']
+  if (status === 'accepted') return ['picked_up', 'cancelled']
   if (status === 'picked_up' || status === 'collected') {
     return ['in_transit', 'cancelled']
   }
@@ -61,6 +64,7 @@ function nextStatuses(status: ParcelRequestStatus): ParcelRequestStatus[] {
 }
 
 function actionLabel(status: ParcelRequestStatus) {
+  if (status === 'accepted') return 'Accept Request'
   if (status === 'picked_up') return 'Mark Picked Up'
   if (status === 'in_transit') return 'Mark In Transit'
   if (status === 'delivered') return 'Mark Delivered'
@@ -70,6 +74,7 @@ function actionLabel(status: ParcelRequestStatus) {
 }
 
 function actionClass(status: ParcelRequestStatus) {
+  if (status === 'accepted') return 'bg-orange-500 hover:bg-orange-600'
   if (status === 'picked_up') return 'bg-blue-500 hover:bg-blue-600'
   if (status === 'in_transit') return 'bg-purple-500 hover:bg-purple-600'
   if (status === 'delivered') return 'bg-emerald-500 hover:bg-emerald-600'
@@ -117,27 +122,55 @@ export default function ParcelRequests() {
     )
   }, [requests])
 
-  async function changeStatus(
-    request: ParcelRequest,
-    status: ParcelRequestStatus,
-  ) {
-    try {
-      setUpdatingId(request.id)
-      setError('')
+ async function changeStatus(
+  request: ParcelRequest,
+  status: ParcelRequestStatus,
+) {
+  let adminNotes: string | undefined
 
-      await updateParcelRequestStatus(request.id, status)
-      await loadRequests()
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to update parcel request.',
-      )
-    } finally {
-      setUpdatingId('')
+  if (status === 'rejected') {
+    const reason = window.prompt(
+      'Why is this parcel request rejected? This reason will be visible to the customer.',
+      request.adminNotes || '',
+    )
+
+    if (reason === null) return
+
+    if (!reason.trim()) {
+      setError('Rejection reason is required.')
+      return
     }
+
+    adminNotes = reason.trim()
   }
 
+  if (status === 'cancelled') {
+    const reason = window.prompt(
+      'Add cancellation note for the customer. Optional.',
+      request.adminNotes || '',
+    )
+
+    if (reason === null) return
+
+    adminNotes = reason.trim()
+  }
+
+  try {
+    setUpdatingId(request.id)
+    setError('')
+
+    await updateParcelRequestStatus(request.id, status, adminNotes)
+    await loadRequests()
+  } catch (err) {
+    setError(
+      err instanceof Error
+        ? err.message
+        : 'Failed to update parcel request.',
+    )
+  } finally {
+    setUpdatingId('')
+  }
+}
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

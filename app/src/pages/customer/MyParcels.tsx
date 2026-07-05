@@ -15,7 +15,7 @@ import {
 } from '@/types/parcel'
 import type { ParcelRequest } from '@/types/parcel'
 
-const timeline = ['pending', 'picked_up', 'in_transit', 'delivered'] as const
+const timeline = ['pending', 'accepted', 'picked_up', 'in_transit', 'delivered'] as const
 
 function formatDate(value?: string | null) {
   if (!value) return 'Date not fixed'
@@ -40,6 +40,7 @@ function formatDateTime(value?: string | null) {
 
 function statusClass(status: string) {
   if (status === 'delivered') return 'bg-emerald-50 text-emerald-700'
+  if (status === 'accepted') return 'bg-orange-50 text-orange-700'
   if (status === 'picked_up' || status === 'collected') {
     return 'bg-blue-50 text-blue-700'
   }
@@ -330,11 +331,28 @@ function ParcelCard({ request }: { request: ParcelRequest }) {
           )}
         </div>
 
-        {(request.customerNotes || request.instructions) && (
-          <p className="mt-4 rounded-2xl bg-neutral-50 p-3 text-xs text-neutral-600">
-            Note: {request.customerNotes || request.instructions}
-          </p>
-        )}
+      {request.adminNotes && (
+  <div
+    className={`mt-4 rounded-2xl p-3 text-xs ${
+      request.status === 'rejected'
+        ? 'bg-red-50 text-red-700'
+        : 'bg-amber-50 text-amber-700'
+    }`}
+  >
+    <p className="font-bold">
+      {request.status === 'rejected'
+        ? 'Rejection Reason'
+        : 'Admin Note'}
+    </p>
+    <p className="mt-1 leading-relaxed">{request.adminNotes}</p>
+  </div>
+)}
+
+{(request.customerNotes || request.instructions) && (
+  <p className="mt-3 rounded-2xl bg-neutral-50 p-3 text-xs text-neutral-600">
+    Your note: {request.customerNotes || request.instructions}
+  </p>
+)}
       </div>
     </article>
   )
