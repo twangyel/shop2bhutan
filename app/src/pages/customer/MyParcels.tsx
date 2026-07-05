@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Calendar, CheckCircle2, Package, Truck } from 'lucide-react'
+import {
+  ArrowLeft,
+  Calendar,
+  CheckCircle2,
+  ChevronDown,
+  HelpCircle,
+  Package,
+  Truck,
+} from 'lucide-react'
 import { fetchMyParcelRequests } from '@/lib/parcels'
 import {
   parcelSizeLabels,
@@ -17,6 +25,8 @@ const timeline = [
   'delivered',
 ] as const
 
+const BHUTAN_TIME_ZONE = 'Asia/Thimphu'
+
 function formatDate(value?: string | null) {
   if (!value) return 'Date not fixed'
 
@@ -30,12 +40,13 @@ function formatDate(value?: string | null) {
 function formatDateTime(value?: string | null) {
   if (!value) return ''
 
-  return new Date(value).toLocaleString('en-GB', {
+  return `${new Date(value).toLocaleString('en-GB', {
+    timeZone: BHUTAN_TIME_ZONE,
     day: 'numeric',
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
-  })
+  })} BTT`
 }
 
 function statusClass(status: string) {
@@ -89,6 +100,7 @@ export default function MyParcels() {
   const [requests, setRequests] = useState<ParcelRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   async function loadParcels() {
     try {
@@ -191,16 +203,38 @@ export default function MyParcels() {
             )}
 
             {historyRequests.length > 0 && (
-              <section>
-                <h2 className="mb-3 text-sm font-bold text-neutral-900">
-                  Parcel History
-                </h2>
+              <section className="rounded-3xl border border-neutral-100 bg-neutral-50 p-3">
+                <button
+                  type="button"
+                  onClick={() => setHistoryOpen((open) => !open)}
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl bg-white px-3 py-3 text-left shadow-sm"
+                >
+                  <div>
+                    <h2 className="text-sm font-bold text-neutral-900">
+                      Parcel History
+                    </h2>
+                    <p className="text-xs text-neutral-500">
+                      {historyRequests.length} past parcel
+                      {historyRequests.length === 1 ? '' : 's'}
+                    </p>
+                  </div>
 
-                <div className="space-y-4 opacity-95">
-                  {historyRequests.map((request) => (
-                    <ParcelCard key={request.id} request={request} />
-                  ))}
-                </div>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-bold text-neutral-600">
+                    {historyOpen ? 'Hide' : 'Show'}
+                    <ChevronDown
+                      size={14}
+                      className={`transition-transform ${historyOpen ? 'rotate-180' : ''}`}
+                    />
+                  </span>
+                </button>
+
+                {historyOpen && (
+                  <div className="mt-3 space-y-4 opacity-95">
+                    {historyRequests.map((request) => (
+                      <ParcelCard key={request.id} request={request} />
+                    ))}
+                  </div>
+                )}
               </section>
             )}
           </div>
@@ -216,6 +250,8 @@ function ParcelCard({ request }: { request: ParcelRequest }) {
     displayStatus as (typeof timeline)[number],
   )
   const isException =
+    request.status === 'cancelled' || request.status === 'rejected'
+  const needsHelp =
     request.status === 'cancelled' || request.status === 'rejected'
 
   const title =
@@ -388,9 +424,16 @@ function ParcelCard({ request }: { request: ParcelRequest }) {
                       </p>
 
                       {event && (
-                        <p className="text-xs text-neutral-400">
-                          {formatDateTime(event.createdAt)}
-                        </p>
+                        <>
+                          <p className="text-xs font-medium text-neutral-400">
+                            {formatDateTime(event.createdAt)}
+                          </p>
+                          {event.message && (
+                            <p className="mt-0.5 text-xs leading-relaxed text-neutral-500">
+                              {event.message}
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -402,19 +445,33 @@ function ParcelCard({ request }: { request: ParcelRequest }) {
 
         {request.adminNotes && (
           <div
-            className={`mt-4 rounded-2xl p-3 text-xs ${
+            className={`mt-4 rounded-2xl border p-3 text-xs ${
               request.status === 'rejected'
-                ? 'bg-red-50 text-red-700'
-                : 'bg-amber-50 text-amber-700'
+                ? 'border-rose-100 bg-rose-50 text-rose-700'
+                : request.status === 'cancelled'
+                  ? 'border-neutral-200 bg-neutral-50 text-neutral-700'
+                  : 'border-amber-100 bg-amber-50 text-amber-700'
             }`}
           >
             <p className="font-bold">
               {request.status === 'rejected'
                 ? 'Rejection Reason'
-                : 'Admin Note'}
+                : request.status === 'cancelled'
+                  ? 'Cancellation Note'
+                  : 'Admin Note'}
             </p>
             <p className="mt-1 leading-relaxed">{request.adminNotes}</p>
           </div>
+        )}
+
+        {needsHelp && (
+          <a
+            href="/support"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-2xl bg-orange-50 px-3 py-2 text-xs font-bold text-orange-700"
+          >
+            <HelpCircle size={14} />
+            Need help with this parcel?
+          </a>
         )}
 
         {(request.customerNotes || request.instructions) && (

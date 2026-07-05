@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
+  AlertTriangle,
   ArrowLeft,
   Calendar,
   Camera,
+  Clock,
   CheckCircle2,
   MapPin,
   Package,
@@ -13,6 +15,8 @@ import {
 import {
   createParcelRequest,
   fetchParcelTripById,
+  getParcelTripBookingClosedMessage,
+  isParcelTripBookable,
 } from '@/lib/parcels'
 import type { ParcelSize, ParcelTrip, ParcelType } from '@/types/parcel'
 
@@ -36,6 +40,25 @@ function formatDate(value?: string | null) {
     month: 'short',
     year: 'numeric',
   })
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return 'No cutoff set'
+
+  return `${new Date(value).toLocaleString('en-GB', {
+    timeZone: 'Asia/Thimphu',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })} BTT`
+}
+
+function tripDisplayTitle(trip?: ParcelTrip | null) {
+  const origin = trip?.origin || trip?.fromLocation || 'Thimphu'
+  const destination = trip?.destination || trip?.toLocation || 'Phuentsholing'
+
+  return `${origin} → ${destination}`
 }
 
 export default function ParcelBooking() {
@@ -102,6 +125,11 @@ export default function ParcelBooking() {
     }
   }, [tripId])
 
+  const bookingClosed = trip ? !isParcelTripBookable(trip) : false
+  const bookingClosedReason = trip
+    ? getParcelTripBookingClosedMessage(trip)
+    : 'Booking is not available for this trip.'
+
   function update(field: keyof typeof form, value: string | boolean) {
     setForm((prev) => ({ ...prev, [field]: value }))
     setErrors((prev) => ({ ...prev, [field]: '' }))
@@ -109,6 +137,11 @@ export default function ParcelBooking() {
 
   function validate() {
     const nextErrors: Record<string, string> = {}
+
+    if (bookingClosed) {
+      setError(bookingClosedReason)
+      return false
+    }
 
     if (!form.senderName.trim()) nextErrors.senderName = 'Required'
     if (!form.senderPhone.trim()) nextErrors.senderPhone = 'Required'
@@ -139,6 +172,11 @@ export default function ParcelBooking() {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
+
+    if (!trip || bookingClosed) {
+      setError(bookingClosedReason)
+      return
+    }
 
     if (!tripId || !validate() || !photoFile || !form.parcelType) return
 
@@ -198,7 +236,7 @@ export default function ParcelBooking() {
           <p className="mt-2 text-sm leading-relaxed text-neutral-500">
             Your parcel request for{' '}
             <span className="font-semibold">
-              {trip?.title || trip?.name || 'this trip'}
+              {tripDisplayTitle(trip)}
             </span>{' '}
             has been submitted. Admin will update the status once picked up.
           </p>
@@ -276,7 +314,7 @@ export default function ParcelBooking() {
 
               <div className="flex-1">
                 <h2 className="font-bold text-neutral-900">
-                  {trip.title || trip.name || 'Thimphu to Phuentsholing'}
+                  {tripDisplayTitle(trip)}
                 </h2>
 
                 <div className="mt-2 flex items-center gap-2 text-xs text-neutral-600">
@@ -286,13 +324,22 @@ export default function ParcelBooking() {
 
                 <div className="mt-1 flex items-center gap-2 text-xs text-neutral-600">
                   <MapPin size={14} />
-                  <span>
-                    {trip.origin || trip.fromLocation || 'Thimphu'} →{' '}
-                    {trip.destination || trip.toLocation || 'Phuentsholing'}
-                  </span>
+                  <span>{tripDisplayTitle(trip)}</span>
+                </div>
+
+                <div className="mt-1 flex items-center gap-2 text-xs text-neutral-600">
+                  <Clock size={14} />
+                  <span>Booking cutoff: {formatDateTime(trip.bookingCutoffAt)}</span>
                 </div>
               </div>
             </div>
+
+            {bookingClosed && (
+              <div className="mt-4 flex gap-2 rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs leading-relaxed text-amber-700">
+                <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                <span>{bookingClosedReason}</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -541,10 +588,14 @@ export default function ParcelBooking() {
 
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || bookingClosed}
           className="h-12 w-full rounded-2xl bg-orange-500 font-bold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
         >
-          {submitting ? 'Submitting...' : 'Confirm Parcel Request'}
+          {bookingClosed
+            ? 'Booking Closed'
+            : submitting
+              ? 'Submitting...'
+              : 'Confirm Parcel Request'}
         </button>
       </form>
     </div>

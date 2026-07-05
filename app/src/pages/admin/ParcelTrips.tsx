@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Calendar, ChevronDown, Loader2, Plus, RefreshCw, Truck } from 'lucide-react'
+import { Calendar, ChevronDown, Clock, Loader2, Plus, RefreshCw, Truck } from 'lucide-react'
 import {
   createParcelTrip,
   fetchAdminParcelTrips,
@@ -18,12 +18,39 @@ function formatDate(value?: string | null) {
   })
 }
 
+function formatDateTime(value?: string | null) {
+  if (!value) return 'No cutoff set'
+
+  return `${new Date(value).toLocaleString('en-GB', {
+    timeZone: 'Asia/Thimphu',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })} BTT`
+}
+
+function tripDisplayTitle(trip: ParcelTrip) {
+  const origin = trip.origin || trip.fromLocation || 'Thimphu'
+  const destination = trip.destination || trip.toLocation || 'Phuentsholing'
+
+  return `${origin} → ${destination}`
+}
+
+function statusHelp(status?: ParcelTripStatus) {
+  if (status === 'open') return 'Customers can book this trip.'
+  if (status === 'closed') return 'Booking is closed; existing requests remain.'
+  if (status === 'completed') return 'Trip completed and kept for records.'
+  if (status === 'cancelled') return 'Trip cancelled; customers cannot book.'
+  return 'Draft or inactive trip.'
+}
+
 function statusClass(status?: ParcelTripStatus) {
-  if (status === 'open') return 'bg-emerald-50 text-emerald-700'
-  if (status === 'closed') return 'bg-amber-50 text-amber-700'
-  if (status === 'completed') return 'bg-blue-50 text-blue-700'
-  if (status === 'cancelled') return 'bg-red-50 text-red-700'
-  return 'bg-neutral-100 text-neutral-600'
+  if (status === 'open') return 'border border-emerald-100 bg-emerald-50 text-emerald-700'
+  if (status === 'closed') return 'border border-amber-100 bg-amber-50 text-amber-700'
+  if (status === 'completed') return 'border border-blue-100 bg-blue-50 text-blue-700'
+  if (status === 'cancelled') return 'border border-red-100 bg-red-50 text-red-700'
+  return 'border border-neutral-200 bg-neutral-100 text-neutral-600'
 }
 
 function tripActions(status?: ParcelTripStatus) {
@@ -105,7 +132,7 @@ export default function ParcelTrips() {
       setError('')
 
       await createParcelTrip({
-        title: form.title,
+        title: form.title.trim() || undefined,
         goingDate: form.goingDate,
         bookingCutoffAt: form.bookingCutoffAt || null,
         status: 'open',
@@ -214,7 +241,7 @@ export default function ParcelTrips() {
                 onChange={(event) =>
                   setForm({ ...form, title: event.target.value })
                 }
-                placeholder="Thimphu to Phuentsholing"
+                placeholder="Thimphu → Phuentsholing"
                 className="mt-1.5 h-10 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20"
               />
             </div>
@@ -248,9 +275,8 @@ export default function ParcelTrips() {
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-3 text-xs text-blue-700">
-            Route is fixed for MVP: <b>Thimphu → Phuentsholing</b>. Customers
-            can only book the trip dates created here.
+          <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-3 text-xs leading-relaxed text-blue-700">
+            Route is fixed for MVP: <b>Thimphu → Phuentsholing</b>. Leave title blank to use the standard route name. Booking closes automatically after the cutoff time.
           </div>
 
           <div className="mt-4 flex justify-end gap-2">
@@ -291,7 +317,7 @@ export default function ParcelTrips() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px]">
+            <table className="w-full min-w-[840px]">
               <thead>
                 <tr className="border-b border-neutral-100 bg-neutral-50">
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-neutral-500">
@@ -328,24 +354,27 @@ export default function ParcelTrips() {
                     >
                       <td className="px-4 py-3 align-top">
                         <p className="text-sm font-bold text-neutral-900">
-                          {trip.title || trip.name || 'Parcel Trip'}
+                          {tripDisplayTitle(trip)}
                         </p>
                         <p className="text-xs text-neutral-500">
                           Admin fixed trip date
                         </p>
                       </td>
 
-                      <td className="px-4 py-3 align-top text-sm text-neutral-700">
-                        {formatDate(trip.goingDate)}
+                      <td className="px-4 py-3 align-top">
+                        <p className="text-sm font-semibold text-neutral-700">
+                          {formatDate(trip.goingDate)}
+                        </p>
+                        <p className="mt-1 inline-flex items-center gap-1 text-xs text-neutral-500">
+                          <Clock size={13} />
+                          Cutoff: {formatDateTime(trip.bookingCutoffAt)}
+                        </p>
                       </td>
 
                       <td className="px-4 py-3 align-top">
                         <div className="inline-flex items-center gap-2 text-sm text-neutral-700">
                           <Truck size={15} />
-                          {trip.origin || trip.fromLocation || 'Thimphu'} →{' '}
-                          {trip.destination ||
-                            trip.toLocation ||
-                            'Phuentsholing'}
+                          {tripDisplayTitle(trip)}
                         </div>
                       </td>
 
@@ -363,6 +392,9 @@ export default function ParcelTrips() {
                             ? parcelTripStatusLabels[trip.status]
                             : 'Draft'}
                         </span>
+                        <p className="mt-1 text-xs text-neutral-400">
+                          {statusHelp(trip.status)}
+                        </p>
                       </td>
 
                       <td className="px-4 py-3 align-top">

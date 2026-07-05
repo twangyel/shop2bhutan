@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Package, RefreshCw, Truck, XCircle } from 'lucide-react'
+import { Check, Package, RefreshCw, Truck, X, XCircle } from 'lucide-react'
 import {
   fetchAdminParcelRequests,
   updateParcelRequestStatus,
@@ -21,6 +21,11 @@ const tabs: { key: 'all' | ParcelRequestStatus; label: string }[] = [
   { key: 'rejected', label: 'Rejected' },
   { key: 'cancelled', label: 'Cancelled' },
 ]
+
+type ReasonModalState = {
+  request: ParcelRequest
+  status: ParcelRequestStatus
+}
 
 function formatDate(value?: string | null) {
   if (!value) return 'Not set'
@@ -106,12 +111,24 @@ function actionClass(status: ParcelRequestStatus) {
   return 'bg-red-500 hover:bg-red-600'
 }
 
+function isFinalStatus(status: ParcelRequestStatus) {
+  return status === 'delivered' || status === 'rejected' || status === 'cancelled'
+}
+
+function finalStatusText(status: ParcelRequestStatus) {
+  if (status === 'delivered') return 'Completed — no further action needed'
+  if (status === 'rejected') return 'Rejected — reason visible to customer'
+  if (status === 'cancelled') return 'Cancelled — customer has been notified'
+  return parcelStatusLabels[status] || status
+}
+
 export default function ParcelRequests() {
   const [requests, setRequests] = useState<ParcelRequest[]>([])
   const [filter, setFilter] = useState<'all' | ParcelRequestStatus>('all')
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState('')
   const [error, setError] = useState('')
+  const [reasonModal, setReasonModal] = useState<ReasonModalState | null>(null)
 
   async function loadRequests() {
     try {
@@ -147,39 +164,11 @@ export default function ParcelRequests() {
     )
   }, [requests])
 
-  async function changeStatus(
+  async function performStatusChange(
     request: ParcelRequest,
     status: ParcelRequestStatus,
+    adminNotes?: string,
   ) {
-    let adminNotes: string | undefined
-
-    if (status === 'rejected') {
-      const reason = window.prompt(
-        'Why is this parcel request rejected? This reason will be visible to the customer.',
-        request.adminNotes || '',
-      )
-
-      if (reason === null) return
-
-      if (!reason.trim()) {
-        setError('Rejection reason is required.')
-        return
-      }
-
-      adminNotes = reason.trim()
-    }
-
-    if (status === 'cancelled') {
-      const reason = window.prompt(
-        'Add cancellation note for the customer. Optional.',
-        request.adminNotes || '',
-      )
-
-      if (reason === null) return
-
-      adminNotes = reason.trim()
-    }
-
     try {
       setUpdatingId(request.id)
       setError('')
@@ -188,13 +177,39 @@ export default function ParcelRequests() {
       await loadRequests()
       window.dispatchEvent(new CustomEvent('shop2bhutan:admin-parcels-updated'))
       window.dispatchEvent(new CustomEvent('shop2bhutan:parcels-updated'))
+      return true
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to update parcel request.',
       )
+      return false
     } finally {
       setUpdatingId('')
     }
+  }
+
+  function changeStatus(
+    request: ParcelRequest,
+    status: ParcelRequestStatus,
+  ) {
+    if (status === 'rejected' || status === 'cancelled') {
+      setReasonModal({ request, status })
+      return
+    }
+
+    void performStatusChange(request, status)
+  }
+
+  async function confirmReasonModal(note: string) {
+    if (!reasonModal) return
+
+    const success = await performStatusChange(
+      reasonModal.request,
+      reasonModal.status,
+      note,
+    )
+
+    if (success) setReasonModal(null)
   }
 
   return (
@@ -270,6 +285,16 @@ export default function ParcelRequests() {
           ))}
         </div>
       )}
+
+      {reasonModal && (
+        <StatusReasonModal
+          request={reasonModal.request}
+          status={reasonModal.status}
+          updating={updatingId === reasonModal.request.id}
+          onClose={() => setReasonModal(null)}
+          onConfirm={confirmReasonModal}
+        />
+      )}
     </div>
   )
 }
@@ -286,9 +311,14 @@ function ParcelRequestCard({
   const actions = nextStatuses(request.status)
   const title =
     request.packageDescription || request.description || 'Parcel request'
+  const final = isFinalStatus(request.status)
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-sm">
+    <article
+      className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${
+        final ? 'border-neutral-200' : 'border-neutral-100'
+      }`}
+    >
       <div className="grid gap-4 p-4 lg:grid-cols-[160px_1fr]">
         <div>
           {request.parcelPhotoUrl ? (
@@ -395,6 +425,27 @@ function ParcelRequestCard({
             </p>
           )}
 
+          {request.adminNotes && (
+            <div
+              className={`mt-3 rounded-2xl border p-3 text-xs ${
+                request.status === 'rejected'
+                  ? 'border-rose-100 bg-rose-50 text-rose-700'
+                  : request.status === 'cancelled'
+                    ? 'border-neutral-200 bg-neutral-50 text-neutral-700'
+                    : 'border-amber-100 bg-amber-50 text-amber-700'
+              }`}
+            >
+              <p className="font-bold">
+                {request.status === 'rejected'
+                  ? 'Rejection reason'
+                  : request.status === 'cancelled'
+                    ? 'Cancellation note'
+                    : 'Admin note'}
+              </p>
+              <p className="mt-1 leading-relaxed">{request.adminNotes}</p>
+            </div>
+          )}
+
           <div className="mt-4 flex flex-wrap gap-2">
             {actions.length > 0 ? (
               actions.map((status) => (
@@ -421,18 +472,127 @@ function ParcelRequestCard({
               <span
                 className={`rounded-xl px-3 py-2 text-xs font-bold ${statusClass(request.status)}`}
               >
-                {request.status === 'delivered'
-                  ? 'Completed'
-                  : request.status === 'rejected'
-                    ? 'Rejected'
-                    : request.status === 'cancelled'
-                      ? 'Cancelled'
-                      : parcelStatusLabels[request.status] || request.status}
+                {finalStatusText(request.status)}
               </span>
             )}
           </div>
         </div>
       </div>
     </article>
+  )
+}
+
+function StatusReasonModal({
+  request,
+  status,
+  updating,
+  onClose,
+  onConfirm,
+}: {
+  request: ParcelRequest
+  status: ParcelRequestStatus
+  updating: boolean
+  onClose: () => void
+  onConfirm: (note: string) => Promise<void>
+}) {
+  const [note, setNote] = useState(request.adminNotes || '')
+  const [localError, setLocalError] = useState('')
+  const isReject = status === 'rejected'
+  const title = isReject ? 'Reject parcel request' : 'Cancel parcel request'
+  const description = isReject
+    ? 'Add a clear reason. This will be visible to the customer.'
+    : 'Add a short note for the customer. Optional, but recommended.'
+
+  async function submit() {
+    const cleaned = note.trim()
+
+    if (isReject && !cleaned) {
+      setLocalError('Rejection reason is required.')
+      return
+    }
+
+    setLocalError('')
+    await onConfirm(cleaned)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+      <div className="w-full max-w-md rounded-3xl bg-white p-4 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-lg font-bold text-neutral-900">{title}</p>
+            <p className="mt-1 text-sm leading-relaxed text-neutral-500">
+              {description}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={updating}
+            className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-50"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="mt-4 rounded-2xl bg-neutral-50 p-3">
+          <p className="text-xs font-bold text-neutral-400">
+            {request.parcelNo || 'Parcel Request'}
+          </p>
+          <p className="mt-1 text-sm font-bold text-neutral-900">
+            {request.packageDescription || request.description || 'Parcel'}
+          </p>
+          <p className="mt-1 text-xs text-neutral-500">
+            {request.senderName || 'Customer'} · {request.senderPhone || 'Phone'}
+          </p>
+        </div>
+
+        <label className="mt-4 block text-xs font-bold uppercase tracking-wider text-neutral-600">
+          {isReject ? 'Reason' : 'Note'}
+        </label>
+        <textarea
+          value={note}
+          onChange={(event) => {
+            setNote(event.target.value)
+            setLocalError('')
+          }}
+          placeholder={
+            isReject
+              ? 'Example: Parcel type is not allowed for this trip.'
+              : 'Example: Trip cancelled due to schedule change.'
+          }
+          className="mt-2 h-28 w-full resize-none rounded-2xl border border-neutral-200 p-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20"
+        />
+
+        {localError && (
+          <p className="mt-2 text-xs font-semibold text-red-600">
+            {localError}
+          </p>
+        )}
+
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={updating}
+            className="h-11 flex-1 rounded-2xl bg-neutral-100 text-sm font-bold text-neutral-700 disabled:opacity-50"
+          >
+            Keep Request
+          </button>
+
+          <button
+            type="button"
+            onClick={submit}
+            disabled={updating}
+            className={`h-11 flex-1 rounded-2xl text-sm font-bold text-white disabled:opacity-60 ${
+              isReject ? 'bg-rose-500' : 'bg-neutral-700'
+            }`}
+          >
+            {updating ? 'Updating...' : isReject ? 'Reject' : 'Cancel Request'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }

@@ -49,6 +49,39 @@ function todayDate() {
   return new Date().toISOString().slice(0, 10)
 }
 
+export function isParcelTripBookable(trip?: ParcelTrip | null) {
+  if (!trip) return false
+  if (trip.status !== 'open') return false
+
+  if (trip.goingDate && trip.goingDate < todayDate()) return false
+
+  if (trip.bookingCutoffAt) {
+    const cutoffTime = new Date(trip.bookingCutoffAt).getTime()
+    if (Number.isFinite(cutoffTime) && cutoffTime <= Date.now()) {
+      return false
+    }
+  }
+
+  return true
+}
+
+export function getParcelTripBookingClosedMessage(trip?: ParcelTrip | null) {
+  if (!trip) return 'This parcel trip is not available for booking.'
+  if (trip.status !== 'open') return 'Booking is closed for this parcel trip.'
+  if (trip.goingDate && trip.goingDate < todayDate()) {
+    return 'This parcel trip date has already passed.'
+  }
+
+  if (trip.bookingCutoffAt) {
+    const cutoffTime = new Date(trip.bookingCutoffAt).getTime()
+    if (Number.isFinite(cutoffTime) && cutoffTime <= Date.now()) {
+      return 'Booking cutoff has passed for this parcel trip.'
+    }
+  }
+
+  return 'Booking is not available for this parcel trip.'
+}
+
 function fallbackTrip(): ParcelTrip {
   return {
     id: '',
@@ -312,7 +345,7 @@ export async function fetchOpenParcelTrips() {
 
   if (error) throw error
 
-  return (data ?? []).map(mapTrip)
+  return (data ?? []).map(mapTrip).filter(isParcelTripBookable)
 }
 
 export async function fetchParcelTripById(tripId: string) {
@@ -330,6 +363,12 @@ export async function fetchParcelTripById(tripId: string) {
 
 export async function createParcelRequest(input: CreateParcelRequestInput) {
   const userId = await getUserId()
+  const trip = await fetchParcelTripById(input.tripId)
+
+  if (!isParcelTripBookable(trip)) {
+    throw new Error(getParcelTripBookingClosedMessage(trip))
+  }
+
   const photoPath = await uploadParcelPhoto(userId, input.parcelPhotoFile)
 
   const { data, error } = await supabase
@@ -487,8 +526,7 @@ export async function fetchAdminParcelTrips() {
 export async function createParcelTrip(input: CreateParcelTripInput) {
   const userId = await getUserId()
 
-  const title =
-    text(input.title) || `Thimphu to Phuentsholing - ${input.goingDate}`
+  const title = text(input.title) || 'Thimphu → Phuentsholing'
 
   const { data, error } = await supabase
     .from('parcel_trips')
@@ -629,15 +667,8 @@ export async function fetchCustomerParcelBadgeSummary(userId?: string) {
     activeCount = count ?? 0
   }
 
-  const { count: openTripCount, error: tripError } = await supabase
-    .from('parcel_trips')
-    .select('id', { count: 'exact', head: true })
-    .eq('status', 'open')
-    .gte('going_date', todayDate())
-
-  if (tripError) throw tripError
-
-  const hasOpenTrip = (openTripCount ?? 0) > 0
+  const openTrips = await fetchOpenParcelTrips()
+  const hasOpenTrip = openTrips.length > 0
 
   return {
     activeCount,
