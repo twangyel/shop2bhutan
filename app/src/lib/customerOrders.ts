@@ -79,6 +79,9 @@ export type AdminCustomerRecord = {
   joined: string
   lastOrderAt?: string
   isActive: boolean
+  accountStatus: 'active' | 'deactivated' | 'unknown'
+  deactivatedAt?: string
+  deactivationReason?: string
   accountType: 'phone_only' | 'email'
 }
 
@@ -2402,6 +2405,19 @@ export async function fetchAdminCustomers(): Promise<AdminCustomerRecord[]> {
     const dzongkhagId = firstString(profile, ['default_dzongkhag_id', 'dzongkhag_id'], '')
     const dzongkhagFromLookup = dzongkhagId ? dzongkhagNameById.get(dzongkhagId) || '' : ''
 
+    const profileIsActive = Boolean(firstValue(profile, ['is_active', 'active']) ?? true)
+    const rawAccountStatus = firstString(
+      profile,
+      ['account_status', 'accountStatus'],
+      profileIsActive ? 'active' : 'deactivated'
+    ).toLowerCase()
+    const accountStatus: AdminCustomerRecord['accountStatus'] =
+      rawAccountStatus === 'deactivated' || !profileIsActive
+        ? 'deactivated'
+        : rawAccountStatus === 'active'
+          ? 'active'
+          : 'unknown'
+
     customers.push({
       id,
       name:
@@ -2420,12 +2436,34 @@ export async function fetchAdminCustomers(): Promise<AdminCustomerRecord[]> {
       totalSpent,
       joined: firstString(profile, ['created_at'], ''),
       lastOrderAt,
-      isActive: Boolean(firstValue(profile, ['is_active', 'active']) ?? true),
+      isActive: accountStatus !== 'deactivated',
+      accountStatus,
+      deactivatedAt: firstString(profile, ['deactivated_at', 'deactivatedAt'], ''),
+      deactivationReason: firstString(profile, ['deactivation_reason', 'deactivationReason'], ''),
       accountType: getCustomerAccountType({ ...profile, email: rawEmail }),
     })
   }
 
   return customers
+}
+
+export async function reactivateCustomerAccount(customerId: string) {
+  const id = cleanText(customerId)
+  if (!id) throw new Error('Customer ID is required.')
+
+  const { error } = await supabase.rpc('reactivate_customer_account', {
+    p_user_id: id,
+  })
+
+  if (!error) return
+
+  const message = errorMessage(error, '')
+
+  if (isMissingColumnOrRelationError(error) || message.toLowerCase().includes('reactivate_customer_account')) {
+    throw new Error('Admin reactivation is not ready. Please run the Step 10B reactivation SQL in Supabase first.')
+  }
+
+  throw error
 }
 
 function findRequestBagForOrder(row: AnyRow, requestBags: AnyRow[]) {

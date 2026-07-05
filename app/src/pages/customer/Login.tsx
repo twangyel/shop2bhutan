@@ -32,6 +32,24 @@ function getSafeReturnTo(value: unknown) {
   return value;
 }
 
+async function isDeactivatedLoginUser(userId?: string | null) {
+  if (!userId) return false;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('account_status, is_active')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[Login] Deactivated account check skipped:', error.message);
+    return false;
+  }
+
+  const status = String(data?.account_status ?? '').trim().toLowerCase();
+  return status === 'deactivated' || data?.is_active === false;
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -110,19 +128,28 @@ export default function Login() {
       return;
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: loginEmail,
       password,
     });
 
-    setSubmitting(false);
-
     if (error) {
+      setSubmitting(false);
       setSubmitError('Invalid login details. Please check your email/phone and password.');
       return;
     }
 
+    const deactivated = await isDeactivatedLoginUser(data.user?.id);
+
+    if (deactivated) {
+      await supabase.auth.signOut();
+      setSubmitting(false);
+      setSubmitError('Your account is deactivated. Please contact Shop2Bhutan admin to reactivate it.');
+      return;
+    }
+
     await refreshContext();
+    setSubmitting(false);
     navigate(returnTo, { replace: true });
   };
 
