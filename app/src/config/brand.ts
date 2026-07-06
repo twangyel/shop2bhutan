@@ -1,10 +1,10 @@
 export const BRAND = {
   name: 'Shop2Bhutan',
   shortName: 'S2B',
-  tagline: 'Shopping From India to Bhutan',
+  tagline: 'Shopping India to Bhutan',
 
   logos: {
-    full: '/brand/logo-full.png',
+    full: '/brand/logo-full-ui.png?v=1',
     short: '/brand/logo-short.png',
     mark: '/brand/logo-mark.png',
   },
