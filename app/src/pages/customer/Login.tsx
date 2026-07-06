@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle, Loader2, Mail, Lock, Eye, EyeOff, User, Phone, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import BrandLogo from '@/components/BrandLogo';
 
 
 const AUTH_MESSAGE_STORAGE_KEY = 'shop2bhutan:auth-message';
@@ -282,10 +283,10 @@ export default function Login() {
     <div className="relative min-h-screen overflow-hidden bg-white flex flex-col">
       {/* Header Area */}
       <div className="flex flex-col items-center pt-12 pb-8 px-6">
-<img
-  src="/brand/shop2bhutan-full-white-ui-clean.png?v=1"
-  alt="Shop2Bhutan"
-  className="h-20 w-auto max-w-[250px] object-contain"
+<BrandLogo
+  variant="full"
+  className="justify-center"
+  imgClassName="h-24 w-auto"
 />
 
   <h1 className="text-2xl font-bold text-neutral-900 mt-5">
