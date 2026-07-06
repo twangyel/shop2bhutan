@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   Search,
   Truck,
   CreditCard,
@@ -48,6 +47,11 @@ export default function Support() {
   const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
   const [faqItems, setFaqItems] = useState<FAQItemRecord[]>([]);
   const [loadingFaqs, setLoadingFaqs] = useState(true);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    document.scrollingElement?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -105,21 +109,15 @@ export default function Support() {
   }, [faqItems, searchQuery]);
 
   return (
-    <div className="min-h-screen bg-white pb-8">
+    <div className="min-h-screen bg-white">
       <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="-ml-1 flex h-9 w-9 items-center justify-center rounded-full hover:bg-neutral-100"
-          >
-            <ArrowLeft size={22} />
-          </button>
+        <div className="px-4 py-3">
           <h1 className="text-lg font-bold text-neutral-900">Help Center</h1>
+          <p className="text-xs text-neutral-500">Search FAQs, policies, and contact support</p>
         </div>
       </div>
 
-      <div className="space-y-6 px-4 py-4">
+      <div className="space-y-6 px-4 pb-24 pt-4">
         <div className="relative">
           <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400">
             <Search size={18} />

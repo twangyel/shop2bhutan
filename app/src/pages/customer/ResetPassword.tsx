@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Eye, EyeOff, CheckCircle, ArrowLeft, KeyRound } from 'lucide-react';
+import { Lock, Eye, EyeOff, CheckCircle, KeyRound } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 export default function ResetPassword() {
@@ -107,15 +107,6 @@ export default function ResetPassword() {
   return (
     <div className="min-h-screen bg-white px-6 pt-8 pb-12">
       <div className="max-w-sm mx-auto">
-        {/* Top nav */}
-        <button
-          type="button"
-          onClick={() => navigate('/login')}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 mb-8"
-        >
-          <ArrowLeft size={18} />
-          Back to login
-        </button>
 
         {/* Brand icon */}
         <div className="flex items-center gap-3 mb-6">
