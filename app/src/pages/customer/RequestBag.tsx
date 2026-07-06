@@ -957,10 +957,10 @@ export default function RequestBag() {
         )}
       </div>
 
-      {/* ===== CLEANED CONFIRMATION DIALOG ===== */}
+      {/* ===== REDESIGNED CONFIRMATION DIALOG ===== */}
       {confirmOpen && (
         <div
-          className="fixed inset-0 z-[90] flex items-end justify-center bg-gray-950/50 px-4 pt-20"
+          className="fixed inset-0 z-[90] flex items-end justify-center bg-black/40 backdrop-blur-sm px-4 pt-20"
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-quotation-title"
@@ -972,107 +972,113 @@ export default function RequestBag() {
             aria-label="Close confirmation"
           />
 
-          <div className="relative flex max-h-[78vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[28px] border border-gray-100 bg-white shadow-2xl">
+          <div className="relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[32px] bg-white shadow-2xl">
+            {/* Drag handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="h-1.5 w-12 rounded-full bg-gray-200" />
+            </div>
+
             {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto p-5 pb-2">
-              <div className="mx-auto mb-5 h-1.5 w-10 rounded-full bg-gray-200" />
+            <div className="flex-1 overflow-y-auto px-5 pb-2">
+              {/* Hero Header */}
+              <div className="flex flex-col items-center text-center pt-4 pb-6">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-50 mb-3">
+                  <Package size={26} className="text-orange-500" strokeWidth={2} />
+                </div>
+                <h2 id="confirm-quotation-title" className="text-xl font-bold text-gray-900">
+                  Confirm Quotation Request
+                </h2>
+                <p className="mt-1.5 text-sm text-gray-500 max-w-[280px] leading-relaxed">
+                  You are sending <span className="font-semibold text-gray-700">{itemCount} item{itemCount === 1 ? '' : 's'}</span> to Shop2Bhutan for admin review
+                </p>
+              </div>
 
-              {/* Header */}
-              <div className="flex items-start gap-3.5">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
-                  <Package size={22} strokeWidth={2.2} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <h2 id="confirm-quotation-title" className="text-lg font-extrabold text-gray-900">
-                    Confirm quotation request?
-                  </h2>
-                  <p className="mt-1 text-sm leading-6 text-gray-500">
-                    You are sending <span className="font-semibold text-gray-700">{itemCount} item{itemCount === 1 ? '' : 's'}</span> to Shop2Bhutan for admin review. We will check price, availability, service charge, and fulfillment option before sending your quotation.
-                  </p>
+              {/* Unified Summary Card */}
+              <div className="rounded-2xl bg-gray-50/80 border border-gray-100 p-4 space-y-4">
+                {/* Top row: Items + Estimate */}
+                <div className="flex items-center">
+                  <div className="flex-1 flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white border border-gray-100 shadow-sm">
+                      <ShoppingBag size={16} className="text-gray-500" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Items</p>
+                      <p className="text-base font-bold text-gray-900">{itemCount} <span className="text-xs font-normal text-gray-500">({totalQuantity} qty)</span></p>
+                    </div>
+                  </div>
+                  <div className="w-px h-10 bg-gray-200 mx-3" />
+                  <div className="flex-1">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Site Estimate</p>
+                    <p className="text-base font-bold text-gray-900">
+                      {estimatedSiteTotal > 0 ? formatPrice(estimatedSiteTotal) : '—'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="h-px bg-gray-200/80" />
+
+                {/* Delivery Info */}
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-100">
+                    <CheckCircle size={16} className="text-emerald-600" strokeWidth={2.5} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-gray-900">{customer.name || 'Customer'}</p>
+                    {customer.phone && (
+                      <p className="text-xs text-gray-500 mt-0.5">{customer.phone}</p>
+                    )}
+                    <div className="mt-2 rounded-xl bg-white border border-gray-100 p-3">
+                      <p className="text-xs leading-5 text-gray-600">
+                        {isSelfPickup
+                          ? `Self Pickup — ${selectedPickupHub.name}. ${selectedPickupHub.pickupInstructions}`
+                          : customer.deliveryAddress}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Summary cards */}
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Items</p>
-                  <p className="mt-1 text-2xl font-extrabold text-gray-900">{itemCount}</p>
-                  <p className="mt-0.5 text-xs text-gray-500">{totalQuantity} total qty</p>
-                </div>
-
-                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Site estimate</p>
-                  <p className="mt-1 text-2xl font-extrabold text-gray-900">
-                    {estimatedSiteTotal > 0 ? formatPrice(estimatedSiteTotal) : '—'}
-                  </p>
-                  <p className="mt-0.5 text-xs text-gray-500">Final quote may change</p>
-                </div>
-              </div>
-
-              {/* Divider */}
-              <div className="my-5 h-px bg-gray-100" />
-
-              {/* Delivery info */}
-              <div className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                  <CheckCircle size={18} strokeWidth={2.5} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-gray-900">{customer.name || 'Customer'}</p>
-                  {customer.phone && (
-                    <p className="mt-0.5 text-xs font-medium text-gray-600">{customer.phone}</p>
-                  )}
-                  <p className="mt-1.5 text-xs leading-5 text-gray-500">
-                    {isSelfPickup
-                      ? `Pickup — ${selectedPickupHub.name}. ${selectedPickupHub.pickupInstructions}`
-                      : customer.deliveryAddress}
-                  </p>
-                </div>
-              </div>
-
-              {/* Warning banner — cleaner */}
-              <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
-                <span className="mt-0.5 text-amber-500">
+              {/* Warning */}
+              <div className="mt-4 flex items-start gap-3 rounded-xl bg-amber-50/60 border border-amber-100/80 px-4 py-3.5">
+                <span className="mt-0.5 text-amber-500 shrink-0">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                     <line x1="12" y1="9" x2="12" y2="13"/>
                     <line x1="12" y1="17" x2="12.01" y2="17"/>
                   </svg>
                 </span>
-                <p className="text-xs leading-5 text-amber-800">
+                <p className="text-xs leading-5 text-amber-700">
                   This is not a payment or final order. Admin will send a quotation for your approval first.
                 </p>
               </div>
             </div>
 
-            {/* Button area — extra bottom padding to prevent cutoff */}
+            {/* Button area */}
             <div className="shrink-0 border-t border-gray-100 bg-white p-5 pb-8">
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setConfirmOpen(false)}
-                  disabled={submitting}
-                  className="h-12 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 hover:bg-gray-50 active:scale-[0.98] disabled:opacity-60"
-                >
-                  Cancel
-                </button>
+              <button
+                type="button"
+                onClick={submitBag}
+                disabled={submitting}
+                className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-base font-bold text-white shadow-lg shadow-orange-500/20 hover:bg-orange-600 active:scale-[0.98] transition-all disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 size={20} className="animate-spin" />
+                    Sending Request...
+                  </>
+                ) : (
+                  'Send Request'
+                )}
+              </button>
 
-                <button
-                  type="button"
-                  onClick={submitBag}
-                  disabled={submitting}
-                  className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white shadow-sm hover:bg-orange-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 size={17} className="animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    'Send Request'
-                  )}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(false)}
+                disabled={submitting}
+                className="mt-3 h-12 w-full rounded-2xl text-sm font-semibold text-gray-500 hover:bg-gray-50 active:scale-[0.98] transition-all disabled:opacity-60"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
