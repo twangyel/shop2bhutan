@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   CheckCircle,
   Eye,
   EyeOff,
@@ -122,6 +121,17 @@ export default function ChangePassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const resetScroll = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    };
+
+    resetScroll();
+    const frame = window.requestAnimationFrame(resetScroll);
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   const clearMustChangePasswordFlag = async () => {
     if (!forcedSession || !user?.id) return;
@@ -300,16 +310,6 @@ export default function ChangePassword() {
       {/* Header */}
       <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white">
         <div className="flex items-center gap-3 px-4 py-3">
-          {!forced && (
-            <button
-              type="button"
-              onClick={() => navigate('/account')}
-              className="-ml-1 flex h-9 w-9 items-center justify-center rounded-full hover:bg-neutral-100"
-            >
-              <ArrowLeft size={22} />
-            </button>
-          )}
-
           <div>
             <h1 className="text-lg font-bold text-neutral-900">
               {forced ? 'Update Password' : 'Change Password'}

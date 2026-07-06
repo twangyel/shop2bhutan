@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
-  ArrowLeft,
   Bell,
   CheckCheck,
   ChevronRight,
@@ -226,6 +225,17 @@ export default function Notifications() {
 
   const unreadCount = useMemo(() => notifications.filter((item) => !item.isRead).length, [notifications]);
 
+  useEffect(() => {
+    const resetScroll = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    };
+
+    resetScroll();
+    const frame = window.requestAnimationFrame(resetScroll);
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
   const loadNotifications = useCallback(async (options?: { silent?: boolean }) => {
     if (!user || authLoading) {
       setNotifications([]);
@@ -303,9 +313,6 @@ export default function Notifications() {
       <div className="min-h-screen bg-white">
         <div className="sticky top-0 z-20 border-b border-gray-100 bg-white px-4 py-3">
           <div className="mx-auto flex max-w-lg items-center gap-3">
-            <button type="button" onClick={() => navigate(-1)} className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-700">
-              <ArrowLeft size={20} />
-            </button>
             <div>
               <h1 className="text-base font-bold text-gray-900">Notifications</h1>
               <p className="text-xs text-gray-500">Loading updates...</p>
@@ -326,14 +333,6 @@ export default function Notifications() {
       <div className="sticky top-0 z-20 border-b border-gray-100 bg-white px-4 py-3">
         <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-700 active:scale-95"
-              aria-label="Go back"
-            >
-              <ArrowLeft size={20} />
-            </button>
             <div className="min-w-0">
               <h1 className="truncate text-base font-bold text-gray-900">Notifications</h1>
               <p className="truncate text-xs text-gray-500">
