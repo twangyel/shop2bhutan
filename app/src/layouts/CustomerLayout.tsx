@@ -379,6 +379,13 @@ export default function CustomerLayout() {
                     : String(unreadNotificationCount)
               const showBadge =
                 showBagBadge || showParcelBadge || showNotificationBadge
+              const isCountBadge = showBagBadge || showNotificationBadge
+              const badgeClass = isCountBadge
+                ? 'bg-red-500 text-white'
+                : 'bg-emerald-500 text-white'
+              const badgeSizeClass = isCountBadge
+                ? 'h-3 min-w-3 px-0.5 text-[7px]'
+                : 'h-3.5 min-w-[1.45rem] px-1 text-[7px]'
 
               return (
                 <button
@@ -396,7 +403,9 @@ export default function CustomerLayout() {
                       }
                     />
                     {showBadge && (
-                      <span className="absolute -right-1 -top-1 flex h-3 min-w-3 items-center justify-center rounded-full bg-emerald-500 px-0.5 text-[7px] font-bold leading-none text-white shadow-sm ring-2 ring-white">
+                      <span
+                        className={`absolute -right-1 -top-1 flex items-center justify-center rounded-full font-bold leading-none shadow-sm ring-2 ring-white ${badgeClass} ${badgeSizeClass}`}
+                      >
                         {badgeLabel}
                       </span>
                     )}
