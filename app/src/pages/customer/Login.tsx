@@ -286,7 +286,6 @@ export default function Login() {
 <BrandLogo
   variant="full"
   className="justify-center"
-  imgClassName="h-24 w-auto"
 />
 
   <h1 className="text-2xl font-bold text-neutral-900 mt-5">

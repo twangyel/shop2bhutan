@@ -9,15 +9,9 @@ type BrandLogoProps = {
   showTagline?: boolean
 }
 
-function BagMark({ className = '' }: { className?: string }) {
+function BagMarkGraphic() {
   return (
-    <svg
-      viewBox="0 0 120 120"
-      className={className}
-      role="img"
-      aria-label="Shop2Bhutan mark"
-      xmlns="http://www.w3.org/2000/svg"
-    >
+    <>
       <path
         d="M39 42V31c0-14 10-24 21-24s21 10 21 24v11"
         fill="none"
@@ -25,14 +19,7 @@ function BagMark({ className = '' }: { className?: string }) {
         strokeWidth="10"
         strokeLinecap="round"
       />
-      <rect
-        x="22"
-        y="35"
-        width="76"
-        height="76"
-        rx="16"
-        fill="#ff7a00"
-      />
+      <rect x="22" y="35" width="76" height="76" rx="16" fill="#ff7a00" />
       <rect
         x="27"
         y="42"
@@ -53,6 +40,20 @@ function BagMark({ className = '' }: { className?: string }) {
       >
         2
       </text>
+    </>
+  )
+}
+
+function BagMark({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 120 120"
+      className={className}
+      role="img"
+      aria-label="Shop2Bhutan mark"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <BagMarkGraphic />
     </svg>
   )
 }
@@ -75,7 +76,7 @@ export default function BrandLogo({
     return (
       <div className={`flex items-center justify-center ${className}`}>
         <svg
-          viewBox="0 0 310 120"
+          viewBox="0 0 320 120"
           className={`h-12 w-auto ${imgClassName}`}
           role="img"
           aria-label="S2B"
@@ -83,8 +84,8 @@ export default function BrandLogo({
         >
           <text
             x="0"
-            y="85"
-            fontSize="86"
+            y="86"
+            fontSize="88"
             fontWeight="900"
             fontFamily="Arial, Helvetica, sans-serif"
             fill="#0039A6"
@@ -92,14 +93,14 @@ export default function BrandLogo({
             S
           </text>
 
-          <g transform="translate(110 5) scale(0.9)">
-            <BagMark />
+          <g transform="translate(105 2) scale(0.95)">
+            <BagMarkGraphic />
           </g>
 
           <text
-            x="210"
-            y="85"
-            fontSize="86"
+            x="225"
+            y="86"
+            fontSize="88"
             fontWeight="900"
             fontFamily="Arial, Helvetica, sans-serif"
             fill="#0039A6"
@@ -113,42 +114,22 @@ export default function BrandLogo({
 
   return (
     <div className={`flex flex-col items-center ${className}`}>
-      <svg
-        viewBox="0 0 520 230"
-        className={`h-24 w-auto ${imgClassName}`}
-        role="img"
-        aria-label={BRAND.name}
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <text
-          x="0"
-          y="90"
-          fontSize="88"
-          fontWeight="900"
-          fontFamily="Arial, Helvetica, sans-serif"
-          fill="#0039A6"
-        >
-          Shop
-        </text>
+      <div className={`inline-flex flex-col items-start leading-[0.82] ${imgClassName}`}>
+        <div className="flex items-start">
+          <span className="font-black tracking-[-0.06em] text-[#0039A6] text-[48px]">
+            Shop
+          </span>
 
-        <g transform="translate(335 10) scale(0.85)">
-          <BagMark />
-        </g>
+          <BagMark className="-ml-1 mt-[-7px] h-[58px] w-[58px]" />
+        </div>
 
-        <text
-          x="0"
-          y="188"
-          fontSize="88"
-          fontWeight="900"
-          fontFamily="Arial, Helvetica, sans-serif"
-          fill="#0039A6"
-        >
+        <span className="font-black tracking-[-0.06em] text-[#0039A6] text-[48px]">
           Bhutan
-        </text>
-      </svg>
+        </span>
+      </div>
 
       {showTagline && (
-        <p className="mt-1 text-xs font-medium text-slate-500">
+        <p className="mt-2 text-xs font-medium text-slate-500">
           {BRAND.tagline}
         </p>
       )}
