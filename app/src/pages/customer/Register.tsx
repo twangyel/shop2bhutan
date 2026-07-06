@@ -300,26 +300,15 @@ export default function Register() {
  {toast && <RegistrationToast toast={toast} onClose={() => setToast(null)} />}
 
  <div className="max-w-sm mx-auto">
- <div className="flex items-center gap-2 mb-4">
- <button type="button" onClick={() => navigate('/login')} className="text-sm text-gray-500">
- ← Back to Login
- </button>
+ <div className="mb-6 flex flex-col items-center text-center">
+ <BrandLogo
+ variant="full"
+ className="justify-center"
+ />
+
+ <h1 className="mt-5 text-2xl font-bold text-gray-900">Create Account</h1>
+ <p className="mt-1 text-sm text-gray-500">Join Shop2Bhutan to start shopping</p>
  </div>
-
-<div className="mb-6 flex flex-col items-center text-center">
-  <BrandLogo
-    variant="full"
-    className="justify-center"
-  />
-
-  <h1 className="mt-5 text-2xl font-bold text-gray-900">
-    Create Account
-  </h1>
-
-  <p className="mt-1 text-sm text-gray-500">
-    Join Shop2Bhutan to start shopping
-  </p>
-</div>
 
  {submitError && (
  <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
