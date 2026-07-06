@@ -254,7 +254,6 @@ export default function AdminLayout() {
 
   useEffect(() => {
     let mounted = true
-    const timers: number[] = []
 
     async function refreshPendingParcels() {
       try {
@@ -266,68 +265,22 @@ export default function AdminLayout() {
       }
     }
 
-    const refreshSoon = (delay = 0) => {
-      const timer = window.setTimeout(() => {
-        if (!mounted) return
-
-        void refreshPendingParcels()
-      }, delay)
-
-      timers.push(timer)
-    }
-
     void refreshPendingParcels()
 
     const handleRefresh = () => {
-      refreshSoon(0)
-      refreshSoon(800)
-    }
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden) handleRefresh()
+      void refreshPendingParcels()
     }
 
     window.addEventListener('focus', handleRefresh)
-    window.addEventListener('pageshow', handleRefresh)
     window.addEventListener('shop2bhutan:admin-parcels-updated', handleRefresh)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    const channel = supabase
-      .channel('admin-parcels-layout-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'parcel_requests' },
-        handleRefresh,
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'parcel_trips' },
-        handleRefresh,
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') refreshSoon(0)
-
-        if (
-          status === 'CHANNEL_ERROR' ||
-          status === 'TIMED_OUT' ||
-          status === 'CLOSED'
-        ) {
-          console.warn('[AdminLayout] Parcel realtime channel status:', status)
-          refreshSoon(1000)
-        }
-      })
 
     return () => {
       mounted = false
-      timers.forEach((timer) => window.clearTimeout(timer))
       window.removeEventListener('focus', handleRefresh)
-      window.removeEventListener('pageshow', handleRefresh)
       window.removeEventListener(
         'shop2bhutan:admin-parcels-updated',
         handleRefresh,
       )
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      void supabase.removeChannel(channel)
     }
   }, [location.pathname])
 
@@ -388,6 +341,17 @@ export default function AdminLayout() {
   useEffect(() => {
     if (!user) return undefined
 
+    let active = true
+    const timers = new Set<number>()
+
+    const refreshSoon = (delay = 0) => {
+      const timer = window.setTimeout(() => {
+        timers.delete(timer)
+        if (active) void loadAdminNotifications({ silent: true })
+      }, delay)
+      timers.add(timer)
+    }
+
     const channel = supabase
       .channel(`admin-notifications:${user.id}`)
       .on(
@@ -399,18 +363,87 @@ export default function AdminLayout() {
           filter: `user_id=eq.${user.id}`,
         },
         () => {
-          void loadAdminNotifications({ silent: true })
+          refreshSoon(0)
+          refreshSoon(800)
         },
       )
       .subscribe((status) => {
-        if (status === 'SUBSCRIBED')
-          void loadAdminNotifications({ silent: true })
+        if (status === 'SUBSCRIBED') {
+          refreshSoon(0)
+          return
+        }
+
+        if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT' ||
+          status === 'CLOSED'
+        ) {
+          console.warn('[AdminLayout] Notification realtime channel status:', status)
+          refreshSoon(1000)
+        }
       })
 
+    const interval = window.setInterval(() => {
+      if (!document.hidden) refreshSoon(0)
+    }, 15000)
+
     return () => {
+      active = false
+      timers.forEach((timer) => window.clearTimeout(timer))
+      window.clearInterval(interval)
       void supabase.removeChannel(channel)
     }
   }, [loadAdminNotifications, user])
+
+  useEffect(() => {
+    if (!user || !canAccessAdmin) return undefined
+
+    let active = true
+    const timers = new Set<number>()
+
+    const refreshSoon = (delay = 0) => {
+      const timer = window.setTimeout(() => {
+        timers.delete(timer)
+        if (active) void loadAdminNotifications({ silent: true })
+      }, delay)
+      timers.add(timer)
+    }
+
+    const channel = supabase
+      .channel(`admin-orders-notification-fallback:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'orders',
+        },
+        () => {
+          // Orders are inserted before order_items, and the admin notification
+          // trigger/client notification may arrive a moment later. Refresh twice.
+          refreshSoon(250)
+          refreshSoon(1500)
+        },
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') return
+
+        if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT' ||
+          status === 'CLOSED'
+        ) {
+          console.warn('[AdminLayout] Orders realtime channel status:', status)
+          refreshSoon(1000)
+        }
+      })
+
+    return () => {
+      active = false
+      timers.forEach((timer) => window.clearTimeout(timer))
+      void supabase.removeChannel(channel)
+    }
+  }, [canAccessAdmin, loadAdminNotifications, user])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
