@@ -467,7 +467,7 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="flex h-screen bg-neutral-50">
+    <div className="flex h-screen overflow-x-hidden bg-neutral-50">
       {loggingOut && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-white/80 px-6 backdrop-blur-sm">
           <div className="w-full max-w-xs rounded-3xl border border-amber-100 bg-white p-5 text-center shadow-2xl shadow-amber-500/10">
@@ -596,35 +596,39 @@ export default function AdminLayout() {
           ))}
         </nav>
 
-        {/* User Section — always at bottom */}
-        <div className="p-4 border-t border-neutral-200 shrink-0">
-          <div
-            className={`flex items-center gap-3 mb-3 overflow-hidden transition-all duration-300 ${sidebarCollapsed ? 'md:justify-center' : ''}`}
-          >
-            <div className="w-9 h-9 rounded-full bg-amber-500 flex items-center justify-center text-white font-semibold text-sm shrink-0">
-              {adminInitial}
+        {/* User Section — bottom profile stays visible only when sidebar is expanded */}
+        <div
+          className={`border-t border-neutral-200 shrink-0 ${
+            sidebarCollapsed ? 'p-3 md:px-3' : 'p-4'
+          }`}
+        >
+          {!sidebarCollapsed && (
+            <div className="mb-3 flex items-center gap-3 overflow-hidden transition-all duration-300">
+              <div className="w-9 h-9 rounded-full bg-amber-500 flex items-center justify-center text-white font-semibold text-sm shrink-0">
+                {adminInitial}
+              </div>
+              <div className="whitespace-nowrap overflow-hidden">
+                <p className="text-sm font-semibold text-gray-900">
+                  {adminDisplayName}
+                </p>
+                <p className="text-xs text-neutral-500">Administrator</p>
+              </div>
             </div>
-            <div
-              className={`whitespace-nowrap transition-all duration-300 overflow-hidden ${sidebarCollapsed ? 'md:opacity-0 md:w-0' : 'opacity-100 w-auto'}`}
-            >
-              <p className="text-sm font-semibold text-gray-900">
-                {adminDisplayName}
-              </p>
-              <p className="text-xs text-neutral-500">Administrator</p>
-            </div>
-          </div>
+          )}
           <button
             onClick={handleLogout}
             disabled={loggingOut}
-            className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-60 ${sidebarCollapsed ? 'md:justify-center' : ''}`}
+            className={`w-full flex items-center gap-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-60 ${
+              sidebarCollapsed ? 'h-10 justify-center px-0 py-0' : 'px-3 py-2'
+            }`}
             title={sidebarCollapsed ? 'Logout' : undefined}
           >
             {loggingOut ? <Loader2 size={18} className="shrink-0 animate-spin" /> : <LogOut size={18} className="shrink-0" />}
-            <span
-              className={`whitespace-nowrap transition-all duration-300 overflow-hidden ${sidebarCollapsed ? 'md:opacity-0 md:w-0' : 'opacity-100 w-auto'}`}
-            >
-              {loggingOut ? 'Signing out...' : 'Logout'}
-            </span>
+            {!sidebarCollapsed && (
+              <span className="whitespace-nowrap overflow-hidden">
+                {loggingOut ? 'Signing out...' : 'Logout'}
+              </span>
+            )}
           </button>
         </div>
       </aside>
@@ -632,9 +636,13 @@ export default function AdminLayout() {
       {/* ─── Main Content ─── */}
       <div
         className={`
-        flex-1 flex flex-col min-h-screen w-full
+        flex min-h-screen min-w-0 flex-col overflow-x-hidden
         transition-all duration-300
-        ${sidebarCollapsed ? 'md:ml-[72px]' : 'md:ml-[280px]'}
+        ${
+          sidebarCollapsed
+            ? 'w-full md:ml-[72px] md:w-[calc(100%-72px)]'
+            : 'w-full md:ml-[280px] md:w-[calc(100%-280px)]'
+        }
       `}
       >
         {/* ─── Header ─── */}
@@ -796,7 +804,7 @@ export default function AdminLayout() {
                 </div>
               )}
             </div>
-            <button className="hidden sm:flex items-center gap-2 hover:bg-neutral-100 rounded-lg px-2 py-1.5 transition-colors">
+            <button type="button" className="hidden sm:flex items-center gap-2 hover:bg-neutral-100 rounded-lg px-2 py-1.5 transition-colors" title={adminDisplayName}>
               <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white font-semibold text-sm">
                 {adminInitial}
               </div>
