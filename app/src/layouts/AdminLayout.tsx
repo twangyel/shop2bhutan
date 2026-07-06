@@ -491,12 +491,27 @@ export default function AdminLayout() {
       <aside
         className={`
           fixed top-0 left-0 z-40 h-full bg-white border-r border-neutral-200
-          flex flex-col overflow-hidden transition-all duration-300 ease-in-out
+          flex flex-col overflow-visible transition-all duration-300 ease-in-out
           w-[280px] -translate-x-full md:translate-x-0
           ${sidebarOpen ? 'translate-x-0' : ''}
           ${sidebarCollapsed ? 'md:w-[72px]' : 'md:w-[280px]'}
         `}
       >
+        {/* Desktop collapse toggle — floating so it stays clickable after collapse */}
+        <button
+          type="button"
+          onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+          className="absolute -right-3 top-5 z-50 hidden h-7 w-7 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 shadow-md transition hover:bg-neutral-50 hover:text-neutral-900 md:flex"
+          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {sidebarCollapsed ? (
+            <PanelLeft size={16} />
+          ) : (
+            <PanelLeftClose size={16} />
+          )}
+        </button>
+
         {/* Logo */}
         <div className="h-16 flex items-center gap-2 px-4 border-b border-neutral-100 shrink-0 overflow-hidden">
           <Logo size="sm" showText={false} />
@@ -516,18 +531,6 @@ export default function AdminLayout() {
             className="ml-auto p-1.5 rounded-lg hover:bg-neutral-100 md:hidden shrink-0"
           >
             <X size={20} className="text-neutral-600" />
-          </button>
-          {/* Desktop collapse toggle */}
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="hidden md:flex ml-auto p-1.5 rounded-lg hover:bg-neutral-100 shrink-0 transition-colors"
-            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {sidebarCollapsed ? (
-              <PanelLeft size={18} className="text-neutral-500" />
-            ) : (
-              <PanelLeftClose size={18} className="text-neutral-500" />
-            )}
           </button>
         </div>
 
