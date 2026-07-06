@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import Logo from '@/components/shared/Logo';
+import BrandLogo from '@/components/BrandLogo';
 
 type ToastState = {
  type: 'error' | 'success' | 'info';
@@ -306,13 +306,20 @@ export default function Register() {
  </button>
  </div>
 
- <div className="flex items-center gap-3 mb-6">
- <Logo size="lg" showText={false} />
- <div>
- <h1 className="text-2xl font-bold text-gray-900">Create Account</h1>
- <p className="text-sm text-gray-500">Join Shop2Bhutan to start shopping</p>
- </div>
- </div>
+<div className="mb-6 flex flex-col items-center text-center">
+  <BrandLogo
+    variant="full"
+    className="justify-center"
+  />
+
+  <h1 className="mt-5 text-2xl font-bold text-gray-900">
+    Create Account
+  </h1>
+
+  <p className="mt-1 text-sm text-gray-500">
+    Join Shop2Bhutan to start shopping
+  </p>
+</div>
 
  {submitError && (
  <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
