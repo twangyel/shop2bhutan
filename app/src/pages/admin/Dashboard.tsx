@@ -163,16 +163,14 @@ function formatChartDate(value: Date) {
 }
 
 function formatCurrency(value: number) {
-  return `Nu. ${Math.round(value || 0).toLocaleString()}`;
+  const amount = Math.round(numericAmount(value));
+  return `Nu. ${amount.toLocaleString("en-US")}`;
 }
 
 function formatCompactCurrency(value: number) {
-  const amount = numericAmount(value);
-
-  if (amount >= 100000) return `Nu. ${(amount / 100000).toFixed(1)}L`;
-  if (amount >= 1000) return `Nu. ${(amount / 1000).toFixed(1)}k`;
-
-  return formatCurrency(amount);
+  // Keep dashboard money values readable and accounting-friendly.
+  // Avoid lakh/k shorthand such as "Nu. 1.4L" because it looks wrong in admin KPIs.
+  return formatCurrency(value);
 }
 
 function formatPercentChange(current: number, previous: number) {
