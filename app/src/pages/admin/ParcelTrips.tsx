@@ -37,6 +37,35 @@ function tripDisplayTitle(trip: ParcelTrip) {
   return `${origin} → ${destination}`
 }
 
+type ParcelRouteKey = 'thimphu_to_phuentsholing' | 'phuentsholing_to_thimphu'
+
+const parcelRouteOptions: Array<{
+  key: ParcelRouteKey
+  origin: string
+  destination: string
+  label: string
+}> = [
+  {
+    key: 'thimphu_to_phuentsholing',
+    origin: 'Thimphu',
+    destination: 'Phuentsholing',
+    label: 'Thimphu → Phuentsholing',
+  },
+  {
+    key: 'phuentsholing_to_thimphu',
+    origin: 'Phuentsholing',
+    destination: 'Thimphu',
+    label: 'Phuentsholing → Thimphu',
+  },
+]
+
+function getRouteOption(key: ParcelRouteKey) {
+  return (
+    parcelRouteOptions.find((route) => route.key === key) ??
+    parcelRouteOptions[0]
+  )
+}
+
 function statusHelp(status?: ParcelTripStatus) {
   if (status === 'open') return 'Customers can book this trip.'
   if (status === 'closed') return 'Booking is closed; existing requests remain.'
@@ -95,14 +124,22 @@ export default function ParcelTrips() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    title: string
+    routeKey: ParcelRouteKey
+    goingDate: string
+    bookingCutoffAt: string
+  }>({
     title: '',
+    routeKey: 'thimphu_to_phuentsholing',
     goingDate: '',
     bookingCutoffAt: '',
   })
 
   const [updatingTripId, setUpdatingTripId] = useState<string | null>(null)
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
+
+  const selectedRoute = getRouteOption(form.routeKey)
 
   async function loadTrips() {
     try {
@@ -133,6 +170,8 @@ export default function ParcelTrips() {
 
       await createParcelTrip({
         title: form.title.trim() || undefined,
+        origin: selectedRoute.origin,
+        destination: selectedRoute.destination,
         goingDate: form.goingDate,
         bookingCutoffAt: form.bookingCutoffAt || null,
         status: 'open',
@@ -140,6 +179,7 @@ export default function ParcelTrips() {
 
       setForm({
         title: '',
+        routeKey: 'thimphu_to_phuentsholing',
         goingDate: '',
         bookingCutoffAt: '',
       })
@@ -200,7 +240,7 @@ export default function ParcelTrips() {
             Parcel Trips
           </h2>
           <p className="text-sm text-neutral-500">
-            Admin-fixed Thimphu to Phuentsholing parcel trip dates.
+            Admin-fixed Thimphu ⇄ Phuentsholing parcel trip dates.
           </p>
         </div>
 
@@ -231,17 +271,39 @@ export default function ParcelTrips() {
 
       {showForm && (
         <div className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-                Trip Title
+                Route Direction
+              </label>
+              <select
+                value={form.routeKey}
+                onChange={(event) =>
+                  setForm({
+                    ...form,
+                    routeKey: event.target.value as ParcelRouteKey,
+                  })
+                }
+                className="mt-1.5 h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20"
+              >
+                {parcelRouteOptions.map((route) => (
+                  <option key={route.key} value={route.key}>
+                    {route.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+                Trip Title <span className="font-medium normal-case text-neutral-400">(optional)</span>
               </label>
               <input
                 value={form.title}
                 onChange={(event) =>
                   setForm({ ...form, title: event.target.value })
                 }
-                placeholder="Thimphu → Phuentsholing"
+                placeholder={selectedRoute.label}
                 className="mt-1.5 h-10 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20"
               />
             </div>
@@ -276,7 +338,7 @@ export default function ParcelTrips() {
           </div>
 
           <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-3 text-xs leading-relaxed text-blue-700">
-            Route is fixed for MVP: <b>Thimphu → Phuentsholing</b>. Leave title blank to use the standard route name. Booking closes automatically after the cutoff time.
+            Route direction is now selectable for MVP: <b>Thimphu → Phuentsholing</b> for the Saturday trip and <b>Phuentsholing → Thimphu</b> for the Sunday return trip. Leave title blank to use the selected route name. Booking closes automatically after the cutoff time.
           </div>
 
           <div className="mt-4 flex justify-end gap-2">

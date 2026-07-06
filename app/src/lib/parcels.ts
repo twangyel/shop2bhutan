@@ -31,6 +31,8 @@ export type CreateParcelRequestInput = {
 
 export type CreateParcelTripInput = {
   title?: string
+  origin?: string
+  destination?: string
   goingDate: string
   bookingCutoffAt?: string | null
   status?: ParcelTripStatus
@@ -115,8 +117,8 @@ export function getParcelTripBookingClosedMessage(trip?: ParcelTrip | null) {
 function fallbackTrip(): ParcelTrip {
   return {
     id: '',
-    title: 'Thimphu to Phuentsholing',
-    name: 'Thimphu to Phuentsholing',
+    title: 'Thimphu → Phuentsholing',
+    name: 'Thimphu → Phuentsholing',
     origin: 'Thimphu',
     destination: 'Phuentsholing',
     fromLocation: 'Thimphu',
@@ -138,9 +140,9 @@ function fallbackTrip(): ParcelTrip {
 function mapTrip(row: Row | null | undefined): ParcelTrip {
   if (!row) return fallbackTrip()
 
-  const title = text(row.title) || 'Thimphu to Phuentsholing'
   const origin = text(row.origin) || 'Thimphu'
   const destination = text(row.destination) || 'Phuentsholing'
+  const title = text(row.title) || `${origin} → ${destination}`
 
   return {
     id: String(row.id ?? ''),
@@ -639,14 +641,16 @@ export async function fetchAdminParcelTrips() {
 export async function createParcelTrip(input: CreateParcelTripInput) {
   const userId = await getUserId()
 
-  const title = text(input.title) || 'Thimphu → Phuentsholing'
+  const origin = text(input.origin) || 'Thimphu'
+  const destination = text(input.destination) || 'Phuentsholing'
+  const title = text(input.title) || `${origin} → ${destination}`
 
   const { data, error } = await supabase
     .from('parcel_trips')
     .insert({
       title,
-      origin: 'Thimphu',
-      destination: 'Phuentsholing',
+      origin,
+      destination,
       going_date: input.goingDate,
       return_date: null,
       booking_cutoff_at: input.bookingCutoffAt

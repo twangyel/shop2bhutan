@@ -207,10 +207,10 @@ export default function Parcel() {
         <section>
           <div className="mb-3">
             <h2 className="text-base font-bold text-neutral-900">
-              Available Trip Dates
+              Available Routes & Dates
             </h2>
             <p className="text-xs text-neutral-500">
-              Select a date to book your parcel
+              Select the correct route and date to book your parcel
             </p>
           </div>
 
