@@ -28,6 +28,33 @@ type DzongkhagOption = {
  name: string;
 };
 
+type LegalModalType = 'terms' | 'privacy' | null;
+
+const legalContent = {
+ terms: {
+ title: 'Terms of Service',
+ subtitle: 'What you agree to when using Shop2Bhutan',
+ points: [
+ 'You can request quotations by sharing product links or screenshots from supported stores.',
+ 'Shop2Bhutan verifies product availability, price, service charge, and delivery cost before asking for payment.',
+ 'Prices may change until the quotation is approved and the order is placed with the seller.',
+ 'You are responsible for providing correct contact, delivery, and product information.',
+ 'Restricted, unsafe, illegal, very large, or unsupported items may be rejected.',
+ ],
+ },
+ privacy: {
+ title: 'Privacy Policy',
+ subtitle: 'How your information is used',
+ points: [
+ 'We collect your name, phone number, dzongkhag, optional email, order details, and uploaded screenshots to provide the service.',
+ 'Your information is used for account access, quotation, payment verification, delivery updates, and support.',
+ 'Uploaded screenshots and order details are used only to process your Shop2Bhutan request.',
+ 'We do not sell your personal information.',
+ 'You can contact Shop2Bhutan support if you need help updating your account information.',
+ ],
+ },
+} as const;
+
 const PHONE_ONLY_EMAIL_DOMAIN = 'phone.shop2bhutan.com';
 
 function makePhoneOnlyAuthEmail(phone8: string) {
@@ -124,6 +151,72 @@ function RegistrationToast({ toast, onClose }: { toast: ToastState; onClose: () 
  );
 }
 
+
+function LegalInfoModal({
+ type,
+ onClose,
+}: {
+ type: Exclude<LegalModalType, null>;
+ onClose: () => void;
+}) {
+ const content = legalContent[type];
+
+ return (
+ <div
+ className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-4 pt-20"
+ role="dialog"
+ aria-modal="true"
+ aria-labelledby="legal-modal-title"
+ onClick={onClose}
+>
+ <div
+ className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl"
+ onClick={(event) => event.stopPropagation()}
+>
+ <div className="flex items-start justify-between gap-3">
+ <div>
+ <p className="text-[11px] font-bold uppercase tracking-wider text-orange-500">
+ Shop2Bhutan
+ </p>
+ <h2 id="legal-modal-title" className="mt-1 text-xl font-extrabold text-gray-900">
+ {content.title}
+ </h2>
+ <p className="mt-1 text-sm leading-5 text-gray-500">{content.subtitle}</p>
+ </div>
+
+ <button
+ type="button"
+ onClick={onClose}
+ className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500 active:scale-95"
+ aria-label="Close"
+>
+ <X size={18} />
+ </button>
+ </div>
+
+ <div className="mt-5 space-y-3">
+ {content.points.map((point, index) => (
+ <div key={point} className="flex gap-3">
+ <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-50 text-xs font-bold text-orange-600">
+ {index + 1}
+ </span>
+ <p className="text-sm leading-6 text-gray-600">{point}</p>
+ </div>
+ ))}
+ </div>
+
+ <button
+ type="button"
+ onClick={onClose}
+ className="mt-6 h-12 w-full rounded-2xl bg-orange-500 text-sm font-bold text-white active:scale-[0.98]"
+>
+ I understand
+ </button>
+ </div>
+ </div>
+ );
+}
+
 export default function Register() {
  const navigate = useNavigate();
  const { refreshContext } = useAuth();
@@ -147,6 +240,7 @@ export default function Register() {
  const [submitting, setSubmitting] = useState(false);
  const [toast, setToast] = useState<ToastState | null>(null);
  const [isDzongkhagOpen, setIsDzongkhagOpen] = useState(false);
+ const [legalModal, setLegalModal] = useState<LegalModalType>(null);
  const dzongkhagRef = useRef<HTMLDivElement>(null);
 
  const normalizedPreviewPhone = useMemo(() => normalizeBhutanPhone(form.phone), [form.phone]);
@@ -171,6 +265,16 @@ export default function Register() {
  const timer = window.setTimeout(() => { setToast(null); }, 4500);
  return () => window.clearTimeout(timer);
  }, [toast]);
+
+ useEffect(() => {
+ if (!legalModal) return;
+ const previousOverflow = document.body.style.overflow;
+ document.body.style.overflow = 'hidden';
+
+ return () => {
+ document.body.style.overflow = previousOverflow;
+ };
+ }, [legalModal]);
 
  useEffect(() => {
  function handleClickOutside(event: MouseEvent) {
@@ -298,6 +402,12 @@ export default function Register() {
  return (
  <div className="min-h-screen bg-white py-8 px-6">
  {toast && <RegistrationToast toast={toast} onClose={() => setToast(null)} />}
+ {legalModal && (
+ <LegalInfoModal
+ type={legalModal}
+ onClose={() => setLegalModal(null)}
+ />
+ )}
 
  <div className="max-w-sm mx-auto">
  <div className="mb-6 flex flex-col items-center text-center">
@@ -430,8 +540,23 @@ export default function Register() {
  type="checkbox" checked={agreed} onChange={(e) => { setAgreed(e.target.checked); setErrors((prev) => ({ ...prev, agreed: '' })); }}
  className="w-4 h-4 mt-0.5 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
  />
- <span className="text-sm text-gray-600">
- I agree to the <button type="button" className="text-orange-500 font-medium">Terms of Service</button> and <button type="button" className="text-orange-500 font-medium">Privacy Policy</button>
+ <span className="text-sm leading-5 text-gray-600">
+ I agree to the{' '}
+ <button
+ type="button"
+ onClick={(event) => { event.preventDefault(); setLegalModal('terms'); }}
+ className="font-semibold text-orange-500 underline decoration-orange-200 underline-offset-2"
+>
+ Terms of Service
+ </button>{' '}
+ and{' '}
+ <button
+ type="button"
+ onClick={(event) => { event.preventDefault(); setLegalModal('privacy'); }}
+ className="font-semibold text-orange-500 underline decoration-orange-200 underline-offset-2"
+>
+ Privacy Policy
+ </button>
  </span>
  </label>
  {errors.agreed && <p className="text-xs text-red-500">{errors.agreed}</p>}
