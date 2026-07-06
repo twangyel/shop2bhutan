@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
   Bell,
+  CheckCircle,
   ChevronRight,
   ClipboardList,
   HeadphonesIcon,
@@ -143,6 +144,7 @@ export default function Account() {
   const [deactivationReason, setDeactivationReason] = useState('');
   const [deactivating, setDeactivating] = useState(false);
   const [deactivateError, setDeactivateError] = useState('');
+  const [accountDeactivated, setAccountDeactivated] = useState(false);
 
   const [dzongkhagOptions, setDzongkhagOptions] = useState<DzongkhagOption[]>([]);
 
@@ -254,8 +256,10 @@ export default function Account() {
 
       await deactivateMyAccount(deactivationReason);
       setUnreadCount(0);
+      setDeactivateOpen(false);
+      setDeactivationReason('');
+      setAccountDeactivated(true);
       await signOut();
-      navigate('/login', { replace: true });
     } catch (error) {
       setDeactivateError(
         error instanceof Error
@@ -272,6 +276,38 @@ export default function Account() {
     await signOut();
     navigate('/login');
   };
+
+  if (accountDeactivated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white px-6 py-10">
+        <div className="w-full max-w-sm text-center">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600">
+            <CheckCircle size={38} strokeWidth={2.4} />
+          </div>
+
+          <h1 className="mt-6 text-2xl font-extrabold text-gray-900">
+            Account deactivated
+          </h1>
+
+          <p className="mt-2 text-sm leading-6 text-gray-500">
+            Your Shop2Bhutan account has been deactivated successfully. You have been signed out, and your order, payment, and parcel records are kept safely for support and admin reference.
+          </p>
+
+          <div className="mt-5 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-700">
+            Contact Shop2Bhutan support if you want to reactivate this account later.
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/login', { replace: true })}
+            className="mt-7 h-12 w-full rounded-2xl bg-orange-500 text-sm font-bold text-white transition hover:bg-orange-600 active:scale-[0.98]"
+          >
+            Back to Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white pb-24">
