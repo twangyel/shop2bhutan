@@ -67,7 +67,7 @@ export default function BrandLogo({
   if (variant === 'mark') {
     return (
       <div className={`flex items-center justify-center ${className}`}>
-        <BagMark className={`h-10 w-10 ${imgClassName}`} />
+        <BagMark className={imgClassName || 'h-10 w-10'} />
       </div>
     )
   }

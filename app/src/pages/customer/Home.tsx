@@ -515,7 +515,7 @@ export default function Home() {
       <header className="sticky top-0 z-40 bg-white border-b border-gray-100">
         <div className="mx-auto max-w-3xl px-4 pb-3 pt-3">
           <div className="flex items-center justify-between">
-            <Logo size="sm" />
+            <Logo size="sm" className="min-w-0" />
             <button
               type="button"
               onClick={() => navigate('/notifications')}
