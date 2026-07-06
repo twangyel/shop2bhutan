@@ -251,6 +251,7 @@ async function fetchLatestActiveParcel(userId: string): Promise<ActiveUpdate | n
 function ContinueTrackingCard({
   update,
   loading,
+
   onNavigate,
 }: {
   update: ActiveUpdate | null;
@@ -566,7 +567,7 @@ export default function Home() {
           {/* Fallback bg color if image fails */}
           <div className="absolute inset-0 bg-gray-800 -z-10" />
 
-          <div className="relative z-10 p-6">
+          <div className="relative z-10 p-5">
             {/* Store pills */}
             <div className="flex flex-wrap gap-2">
               {visibleStores.map((store) => (
@@ -574,7 +575,7 @@ export default function Home() {
                   key={store.name}
                   type="button"
                   onClick={() => navigate('/paste-link', { state: { sourcePlatform: store.platform } })}
-                  className="rounded-full bg-white/20 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/30"
+                  className="rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/30"
                 >
                   {store.name}
                 </button>
@@ -582,18 +583,18 @@ export default function Home() {
             </div>
 
             {/* Label */}
-            <p className="mt-5 text-xs font-bold uppercase tracking-widest text-amber-400">
+            <p className="mt-4 text-[11px] font-bold uppercase tracking-widest text-amber-400">
               {appSettings.appName}
             </p>
 
             {/* Headline */}
-            <h2 className="mt-2 text-[1.6rem] font-extrabold text-white leading-tight sm:text-3xl">
+            <h2 className="mt-1.5 text-[1.45rem] font-extrabold text-white leading-tight sm:text-3xl">
               Shop from India,<br />
               <span className="text-amber-400">Delivered to Bhutan</span>
             </h2>
 
             {/* Subtext */}
-            <p className="mt-3 max-w-[280px] text-sm leading-relaxed text-white/80">
+            <p className="mt-2 max-w-[270px] text-xs leading-5 text-white/85">
               We shop from Amazon, Flipkart, Myntra, and Meesho. Large appliances excluded. We order and deliver to Thimphu, Paro and Chhukha.
             </p>
           </div>
