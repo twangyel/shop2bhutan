@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Activity,
   ArrowRight,
   Bell,
   Megaphone,
@@ -250,7 +251,6 @@ async function fetchLatestActiveParcel(userId: string): Promise<ActiveUpdate | n
 function ContinueTrackingCard({
   update,
   loading,
-  isGuest,
   onNavigate,
 }: {
   update: ActiveUpdate | null;
@@ -273,38 +273,29 @@ function ContinueTrackingCard({
     return (
       <section className="mt-5 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
         <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm ring-1 ring-orange-100">
-            <Package size={21} strokeWidth={2.2} />
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 shadow-sm ring-1 ring-blue-100">
+            <Activity size={21} strokeWidth={2.2} />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-bold uppercase tracking-wider text-orange-500">
               Your Active Updates
             </p>
             <h3 className="mt-1 text-base font-extrabold text-gray-900">
-              No active order or parcel yet
+              No active updates yet
             </h3>
             <p className="mt-1 text-xs leading-5 text-gray-500">
-              Start a quotation request or book a parcel trip when you are ready.
+              Your latest order or parcel status will appear here.
             </p>
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => onNavigate(isGuest ? '/login' : '/paste-link')}
-            className="h-11 rounded-2xl bg-orange-500 px-3 text-xs font-bold text-white transition active:scale-[0.98]"
-          >
-            {isGuest ? 'Sign in to order' : 'Request Quotation'}
-          </button>
-          <button
-            type="button"
-            onClick={() => onNavigate('/parcel')}
-            className="h-11 rounded-2xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 transition active:scale-[0.98]"
-          >
-            Book Parcel
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => onNavigate('/parcel')}
+          className="mt-4 h-11 w-full rounded-2xl border border-blue-100 bg-blue-50 px-3 text-xs font-bold text-blue-700 transition active:scale-[0.98]"
+        >
+          Book a Parcel Trip
+        </button>
       </section>
     );
   }
@@ -552,7 +543,7 @@ export default function Home() {
       </header>
 
       {/* ========== MAIN ========== */}
-      <main className="mx-auto max-w-3xl px-4 pb-10 pt-4">
+      <main className="mx-auto max-w-3xl px-4 pb-28 pt-4">
         {appSettings.homeAnnouncementEnabled && appSettings.homeAnnouncementText && (
           <section className="mb-4 flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-blue-800">
             <Megaphone size={18} className="mt-0.5 shrink-0" />
