@@ -95,6 +95,7 @@ export default function ParcelBooking() {
   const [error, setError] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState('')
 
   const [form, setForm] = useState({
     senderName: '',
@@ -148,15 +149,54 @@ export default function ParcelBooking() {
     }
   }, [tripId])
 
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoPreviewUrl('')
+      return
+    }
+
+    const nextPreviewUrl = URL.createObjectURL(photoFile)
+    setPhotoPreviewUrl(nextPreviewUrl)
+
+    return () => {
+      URL.revokeObjectURL(nextPreviewUrl)
+    }
+  }, [photoFile])
+
   const bookingClosed = trip ? !isParcelTripBookable(trip) : false
   const bookingClosedReason = trip
     ? getParcelTripBookingClosedMessage(trip)
     : 'Booking is not available for this trip.'
   const willBookAsGuest = !authLoading && (!user || isGuest)
+  const pickupLocation = trip?.origin || trip?.fromLocation || 'Thimphu'
+  const dropoffLocation = trip?.destination || trip?.toLocation || 'Phuentsholing'
 
   function update(field: keyof typeof form, value: string | boolean) {
     setForm((prev) => ({ ...prev, [field]: value }))
     setErrors((prev) => ({ ...prev, [field]: '' }))
+    setError('')
+  }
+
+  function handlePhotoChange(file: File | null) {
+    if (!file) {
+      setPhotoFile(null)
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setPhotoFile(null)
+      setErrors((prev) => ({ ...prev, photoFile: 'Please upload a valid image file' }))
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoFile(null)
+      setErrors((prev) => ({ ...prev, photoFile: 'Parcel photo must be below 5 MB' }))
+      return
+    }
+
+    setPhotoFile(file)
+    setErrors((prev) => ({ ...prev, photoFile: '' }))
     setError('')
   }
 
@@ -394,11 +434,11 @@ export default function ParcelBooking() {
                 <div className="flex-1 space-y-2">
                   <div>
                     <p className="text-[11px] font-semibold text-neutral-400">Pickup</p>
-                    <p className="text-sm font-bold text-neutral-900">{trip.origin || trip.fromLocation || 'Thimphu'}</p>
+                    <p className="text-sm font-bold text-neutral-900">{pickupLocation}</p>
                   </div>
                   <div>
                     <p className="text-[11px] font-semibold text-neutral-400">Drop-off</p>
-                    <p className="text-sm font-bold text-neutral-900">{trip.destination || trip.toLocation || 'Phuentsholing'}</p>
+                    <p className="text-sm font-bold text-neutral-900">{dropoffLocation}</p>
                   </div>
                 </div>
               </div>
@@ -420,7 +460,7 @@ export default function ParcelBooking() {
               <MapPin size={16} />
             </div>
             <div>
-              <p className="text-sm font-bold text-neutral-900">Pickup in Thimphu</p>
+              <p className="text-sm font-bold text-neutral-900">Pickup in {pickupLocation}</p>
               <p className="text-[11px] text-neutral-400">Sender details</p>
             </div>
           </div>
@@ -449,7 +489,7 @@ export default function ParcelBooking() {
               value={form.pickupAddress}
               error={errors.pickupAddress}
               onChange={(value) => update('pickupAddress', value)}
-              placeholder="Exact pickup address in Thimphu"
+              placeholder={`Exact pickup address in ${pickupLocation}`}
             />
           </div>
         </div>
@@ -461,7 +501,7 @@ export default function ParcelBooking() {
               <MapPinned size={16} />
             </div>
             <div>
-              <p className="text-sm font-bold text-neutral-900">Drop-off in Phuentsholing</p>
+              <p className="text-sm font-bold text-neutral-900">Drop-off in {dropoffLocation}</p>
               <p className="text-[11px] text-neutral-400">Receiver details</p>
             </div>
           </div>
@@ -490,7 +530,7 @@ export default function ParcelBooking() {
               value={form.dropoffAddress}
               error={errors.dropoffAddress}
               onChange={(value) => update('dropoffAddress', value)}
-              placeholder="Exact drop-off address in Phuentsholing"
+              placeholder={`Exact drop-off address in ${dropoffLocation}`}
             />
           </div>
         </div>
@@ -598,7 +638,7 @@ export default function ParcelBooking() {
               Parcel Photo
             </label>
             <label
-              className={`flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed p-5 text-center transition ${
+              className={`block cursor-pointer overflow-hidden rounded-3xl border-2 border-dashed transition ${
                 errors.photoFile
                   ? 'border-red-300 bg-red-50'
                   : photoFile
@@ -606,31 +646,52 @@ export default function ParcelBooking() {
                     : 'border-neutral-200 bg-neutral-50 hover:border-orange-300'
               }`}
             >
-              {photoFile ? (
-                <>
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-500 text-white">
-                    <Camera size={24} />
+              {photoFile && photoPreviewUrl ? (
+                <div className="p-2">
+                  <div className="relative overflow-hidden rounded-2xl bg-white">
+                    <img
+                      src={photoPreviewUrl}
+                      alt="Selected parcel preview"
+                      className="h-48 w-full object-contain"
+                    />
+                    <div className="absolute right-2 top-2 rounded-full bg-black/50 px-2.5 py-1 text-[10px] font-bold text-white">
+                      Tap to change
+                    </div>
                   </div>
-                  <p className="mt-2 text-sm font-bold text-neutral-900">{photoFile.name}</p>
-                  <p className="mt-1 text-xs text-neutral-400">Tap to change photo</p>
-                </>
+
+                  <div className="mt-2 flex items-center gap-2 px-1 pb-1 text-left">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500 text-white">
+                      <Camera size={18} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-neutral-900">
+                        {photoFile.name}
+                      </p>
+                      <p className="text-xs text-neutral-500">
+                        Preview added. Tap image to replace it.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               ) : (
-                <>
+                <div className="flex min-h-32 flex-col items-center justify-center p-5 text-center">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-100 text-neutral-400">
                     <Upload size={24} />
                   </div>
-                  <p className="mt-2 text-sm font-bold text-neutral-700">Upload clear parcel photo</p>
-                  <p className="mt-1 text-xs text-neutral-400">Required. Image should be below 5 MB.</p>
-                </>
+                  <p className="mt-2 text-sm font-bold text-neutral-700">
+                    Upload clear parcel photo
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-400">
+                    Required. Image should be below 5 MB.
+                  </p>
+                </div>
               )}
               <input
                 type="file"
                 accept="image/*"
                 className="hidden"
                 onChange={(event) => {
-                  const file = event.target.files?.[0] ?? null
-                  setPhotoFile(file)
-                  setErrors((prev) => ({ ...prev, photoFile: '' }))
+                  handlePhotoChange(event.target.files?.[0] ?? null)
                 }}
               />
             </label>
