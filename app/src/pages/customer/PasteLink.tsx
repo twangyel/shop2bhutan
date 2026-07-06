@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   Camera,
   CheckCircle,
   ClipboardList,
@@ -240,18 +239,9 @@ export default function PasteLink() {
         {/* ═══════════════ HEADER ═══════════════ */}
         <header className="sticky top-0 z-40 bg-white border-b border-gray-100">
           <div className="px-4 pb-3 pt-3">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => navigate(-1)}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
-              >
-                <ArrowLeft size={20} strokeWidth={2} />
-              </button>
-              <div>
-                <h1 className="text-lg font-bold text-black">Request Product</h1>
-                <p className="text-sm text-gray-500">Paste a link or upload a screenshot. We will verify and quote.</p>
-              </div>
+            <div>
+              <h1 className="text-lg font-bold text-black">Request Product</h1>
+              <p className="text-sm text-gray-500">Paste a link or upload a screenshot. We will verify and quote.</p>
             </div>
 
             <div className="mt-2.5 inline-flex items-center gap-2 rounded-full bg-orange-50 border border-orange-100 px-3 py-1">
@@ -369,7 +359,13 @@ export default function PasteLink() {
               </button>
             ) : (
               <div className="relative overflow-hidden rounded-2xl border-2 border-orange-200 bg-white shadow-sm">
-                <img src={screenshotPreview} alt="Preview" className="h-44 w-full object-cover" />
+                <div className="flex min-h-[220px] max-h-[360px] items-center justify-center bg-gray-50">
+                  <img
+                    src={screenshotPreview}
+                    alt="Preview"
+                    className="max-h-[360px] w-full object-contain"
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={clearScreenshot}
