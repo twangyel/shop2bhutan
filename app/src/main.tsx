@@ -11,6 +11,15 @@ import { AuthProvider } from './contexts/AuthContext'
 
 const isNativeApp = Capacitor.isNativePlatform()
 
+function applyNativeAppClass() {
+  if (!isNativeApp) return
+
+  document.documentElement.classList.add('capacitor-native')
+  document.body.classList.add('capacitor-native')
+}
+
+applyNativeAppClass()
+
 function registerServiceWorker() {
   // Service workers are useful for the web/PWA build, but they can cause stale
   // cached assets inside the native WebView. Keep them disabled in Capacitor.

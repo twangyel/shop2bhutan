@@ -118,3 +118,27 @@ button, a {
 img {
   background-color: #f3f4f6;
 }
+
+/* Native Android WebView tuning
+   Keep this scoped to Capacitor so the PWA/browser version stays unchanged. */
+html.capacitor-native {
+  font-size: 16.9px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html.capacitor-native body {
+  min-height: 100dvh;
+}
+
+@media (max-width: 390px) {
+  html.capacitor-native {
+    font-size: 16.6px;
+  }
+}
+
+@media (min-width: 430px) {
+  html.capacitor-native {
+    font-size: 17.1px;
+  }
+}
