@@ -270,19 +270,16 @@ const DEFAULT_PAYMENT_METHODS: PaymentMethod[] = [
 
 const DEFAULT_PICKUP_HUBS = [
   {
-    id: 'phuntsholing',
-    name: 'Phuntsholing Hub',
-    instructions: 'Collect from Shop2Bhutan Phuntsholing pickup point after admin marks the order ready.',
+    id: 'jaigaon_pickup_point',
+    name: 'Collect from Jaigaon',
+    instructions:
+      'Choose this only if the customer can personally collect the parcel from the Jaigaon pickup point. Shop2Bhutan coordinates the order, but Bhutan delivery is not included.',
   },
   {
-    id: 'thimphu',
-    name: 'Thimphu Hub',
-    instructions: 'Collect from Shop2Bhutan Thimphu pickup point after admin marks the order ready.',
-  },
-  {
-    id: 'paro',
-    name: 'Paro Hub',
-    instructions: 'Collect from Shop2Bhutan Paro pickup point after admin marks the order ready.',
+    id: 'shop2bhutan_handover',
+    name: 'Collect from Shop2Bhutan',
+    instructions:
+      'Shop2Bhutan receives the item and shares the pickup location and timing after it arrives. Delivery to the customer address is not included.',
   },
 ]
 
@@ -318,7 +315,7 @@ function makeFulfillmentNote(input: Pick<SubmitPasteLinkOrderInput, 'fulfillment
   if (mode !== 'self_pickup') return 'Fulfillment: Delivery to customer address.'
 
   const hub = resolvePickupHub(input)
-  return `Fulfillment: Self Pickup. Customer will collect from ${hub.name}. ${hub.instructions}`
+  return `Fulfillment: Self Pickup. ${hub.instructions}`
 }
 
 function fulfillmentSource(row: AnyRow) {
@@ -1155,6 +1152,7 @@ async function createAdminNotificationForAdmins(input: {
     console.warn('[customerOrders] admin notification skipped:', error)
   }
 }
+
 
 
 async function fetchCustomerNotificationTargetUserIds() {

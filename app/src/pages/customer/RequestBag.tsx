@@ -24,7 +24,6 @@ import {
   submitRequestBagAsOrder,
   updateRequestBagItem,
 } from '@/lib/customerOrders';
-import { SELF_PICKUP_HUBS, getPickupHubById } from '@/lib/fulfillment';
 import type { FulfillmentMode, RequestBag as RequestBagType, RequestBagItem } from '@/types';
 
 type AnyRow = Record<string, any>;
@@ -177,6 +176,37 @@ function platformStyles(platform?: string) {
   if (p === 'myntra') return { bg: 'bg-pink-100', text: 'text-pink-600', initial: 'M' };
   if (p === 'meesho') return { bg: 'bg-purple-100', text: 'text-purple-600', initial: 'M' };
   return { bg: 'bg-gray-100', text: 'text-gray-400', initial: null };
+}
+
+type SelfPickupOption = {
+  id: string;
+  name: string;
+  dzongkhag: string;
+  pickupInstructions: string;
+};
+
+const SELF_PICKUP_OPTIONS: SelfPickupOption[] = [
+  {
+    id: 'jaigaon_pickup_point',
+    name: 'Collect from Jaigaon',
+    dzongkhag: 'Jaigaon pickup point',
+    pickupInstructions:
+      'Choose this only if you can personally collect the parcel from the Jaigaon pickup point. Shop2Bhutan will coordinate the order, but Bhutan delivery is not included.',
+  },
+  {
+    id: 'shop2bhutan_handover',
+    name: 'Collect from Shop2Bhutan',
+    dzongkhag: 'Agreed pickup location',
+    pickupInstructions:
+      'Shop2Bhutan will receive the item and share the pickup location and timing after it arrives. Delivery to your address is not included.',
+  },
+];
+
+function getSelfPickupOptionById(id: string) {
+  return (
+    SELF_PICKUP_OPTIONS.find((option) => option.id === id) ??
+    SELF_PICKUP_OPTIONS[0]
+  );
 }
 
 
@@ -397,7 +427,7 @@ export default function RequestBag() {
   const [savedAddress, setSavedAddress] = useState<CustomerAddress | null>(null);
   const [dzongkhagOptions, setDzongkhagOptions] = useState<DzongkhagOption[]>([]);
   const [fulfillmentMode, setFulfillmentMode] = useState<FulfillmentMode>('delivery');
-  const [pickupHubId, setPickupHubId] = useState(SELF_PICKUP_HUBS[0].id);
+  const [pickupHubId, setPickupHubId] = useState(SELF_PICKUP_OPTIONS[0].id);
 
   const [customer, setCustomer] = useState({
     name: '',
@@ -407,7 +437,7 @@ export default function RequestBag() {
   });
 
   const hasItems = Boolean(bag?.items.length);
-  const selectedPickupHub = getPickupHubById(pickupHubId);
+  const selectedPickupHub = getSelfPickupOptionById(pickupHubId);
   const isSelfPickup = fulfillmentMode === 'self_pickup';
   const hasDeliveryAddress = isSelfPickup || Boolean(customer.deliveryAddress.trim());
   const showDeliveryFields = deliveryExpanded || !customer.name.trim() || !customer.phone.trim() || (!isSelfPickup && !customer.deliveryAddress.trim());
@@ -615,7 +645,7 @@ export default function RequestBag() {
     }
 
     if (isSelfPickup && !selectedPickupHub?.id) {
-      setError('Please select a pickup hub.');
+      setError('Please select a pickup option.');
       return false;
     }
 
@@ -647,7 +677,7 @@ export default function RequestBag() {
         email: user.email,
         customerName: customer.name.trim(),
         customerPhone: customer.phone.trim(),
-        deliveryAddress: isSelfPickup ? `Self Pickup — ${selectedPickupHub.name}` : customer.deliveryAddress.trim(),
+        deliveryAddress: isSelfPickup ? `Pickup — ${selectedPickupHub.name}` : customer.deliveryAddress.trim(),
         customerNotes: customer.notes.trim() || 'Request Bag quotation request submitted by customer.',
         fulfillmentMode,
         pickupHubId: isSelfPickup ? selectedPickupHub.id : null,
@@ -768,7 +798,7 @@ export default function RequestBag() {
                   <p className="text-xs text-gray-500">
                     {addressLoading
                       ? 'Loading your saved delivery address...'
-                      : 'Choose delivery or self pickup before requesting quotation.'}
+                      : 'Choose delivery or pickup option before requesting quotation.'}
                   </p>
                 </div>
                 {!isSelfPickup && hasDeliveryAddress && !showDeliveryFields && (
@@ -805,16 +835,16 @@ export default function RequestBag() {
                       : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
                   }`}
                 >
-                  <span className="block text-sm font-extrabold">I will pick up</span>
-                  <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Collect from S2B hub</span>
+                  <span className="block text-sm font-extrabold">I will collect</span>
+                  <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Choose pickup option</span>
                 </button>
               </div>
 
               {isSelfPickup && (
                 <div className="mt-3 space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Pickup hub</p>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {SELF_PICKUP_HUBS.map((hub) => (
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Pickup option</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {SELF_PICKUP_OPTIONS.map((hub) => (
                       <button
                         key={hub.id}
                         type="button"
@@ -868,7 +898,7 @@ export default function RequestBag() {
                       <MapPin size={18} strokeWidth={2.5} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-blue-950">Self Pickup</p>
+                      <p className="text-sm font-bold text-blue-950">Pickup Option</p>
                       <p className="mt-0.5 text-xs font-semibold text-blue-700">{selectedPickupHub.name}</p>
                       <p className="mt-1 text-xs leading-5 text-blue-800">{selectedPickupHub.pickupInstructions}</p>
                     </div>
@@ -994,7 +1024,7 @@ export default function RequestBag() {
                   )}
                   <p className="mt-1.5 text-xs leading-5 text-gray-500">
                     {isSelfPickup
-                      ? `Self Pickup — ${selectedPickupHub.name}. ${selectedPickupHub.pickupInstructions}`
+                      ? `Pickup — ${selectedPickupHub.name}. ${selectedPickupHub.pickupInstructions}`
                       : customer.deliveryAddress}
                   </p>
                 </div>
