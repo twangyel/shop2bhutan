@@ -23,6 +23,12 @@ import {
   markCustomerNotificationRead,
 } from '@/lib/customerOrders';
 import type { Notification as AppNotification, NotificationType } from '@/types';
+import {
+  getNativeNotificationPermission,
+  getNativeNotificationSettingsUrlHint,
+  isNativeNotificationsAvailable,
+  requestNativeNotificationPermission,
+} from '@/lib/nativeNotifications';
 
 const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
 const SWIPE_THRESHOLD = 80;
@@ -222,6 +228,8 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [nativePermission, setNativePermission] = useState('unknown');
+  const [nativePermissionBusy, setNativePermissionBusy] = useState(false);
 
   const unreadCount = useMemo(() => notifications.filter((item) => !item.isRead).length, [notifications]);
 
@@ -235,6 +243,38 @@ export default function Notifications() {
 
     return () => window.cancelAnimationFrame(frame);
   }, []);
+
+  const refreshNativePermission = useCallback(async () => {
+    if (!isNativeNotificationsAvailable()) {
+      setNativePermission('granted');
+      return;
+    }
+
+    const permission = await getNativeNotificationPermission();
+    setNativePermission(permission);
+  }, []);
+
+  useEffect(() => {
+    void refreshNativePermission();
+
+    const handleFocus = () => {
+      void refreshNativePermission();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [refreshNativePermission]);
+
+  const handleEnableNativeNotifications = async () => {
+    setNativePermissionBusy(true);
+
+    try {
+      const permission = await requestNativeNotificationPermission();
+      setNativePermission(permission);
+    } finally {
+      setNativePermissionBusy(false);
+    }
+  };
 
   const loadNotifications = useCallback(async (options?: { silent?: boolean }) => {
     if (!user || authLoading) {
@@ -367,6 +407,40 @@ export default function Notifications() {
       </div>
 
       <main className="mx-auto max-w-lg px-4 py-4">
+        {isNativeNotificationsAvailable() && nativePermission !== 'granted' && (
+          <div className="mb-4 rounded-2xl border border-orange-100 bg-orange-50 p-4">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm">
+                <Bell size={19} strokeWidth={2.4} />
+              </span>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-extrabold text-gray-900">
+                  Native app notifications
+                </p>
+                <p className="mt-1 text-xs leading-5 text-gray-600">
+                  Enable Android alerts for quotation, payment, order, and parcel updates.
+                </p>
+
+                {nativePermission === 'denied' && (
+                  <p className="mt-2 text-[11px] leading-4 text-amber-700">
+                    {getNativeNotificationSettingsUrlHint()}
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleEnableNativeNotifications}
+                  disabled={nativePermissionBusy}
+                  className="mt-3 h-9 rounded-2xl bg-orange-500 px-4 text-xs font-bold text-white transition active:scale-[0.98] disabled:opacity-60"
+                >
+                  {nativePermissionBusy ? 'Checking...' : 'Enable Notifications'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="mb-4 flex gap-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
             <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />

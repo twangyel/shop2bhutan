@@ -20,6 +20,9 @@ importers:
       '@capacitor/keyboard':
         specifier: ^8.0.5
         version: 8.0.5(@capacitor/core@8.4.1)
+      '@capacitor/local-notifications':
+        specifier: ^8.0.1
+        version: 8.2.0(@capacitor/core@8.4.1)
       '@capacitor/splash-screen':
         specifier: ^8.0.1
         version: 8.0.1(@capacitor/core@8.4.1)
@@ -834,6 +837,11 @@ packages:
 
   '@capacitor/keyboard@8.0.5':
     resolution: {integrity: sha512-oFXygC4eKYA5l2MdpTR06L2M/4x6e2SLD5yS1T9+UBDKTkzyvhWKEhbYLUaTIBPpLKqlfGudJw1X73S1H9eUzQ==}
+    peerDependencies:
+      '@capacitor/core': '>=8.0.0'
+
+  '@capacitor/local-notifications@8.2.0':
+    resolution: {integrity: sha512-fvLY0w2w4MiX+DD4+Wv4DOwOLdzKZsMDwAcRv/Juudd+QbKbn69s6cM3xVqPwAiDqfnqsY4/S8xtQD6M73wY2A==}
     peerDependencies:
       '@capacitor/core': '>=8.0.0'
 
@@ -4189,6 +4197,10 @@ snapshots:
       tslib: 2.8.1
 
   '@capacitor/keyboard@8.0.5(@capacitor/core@8.4.1)':
+    dependencies:
+      '@capacitor/core': 8.4.1
+
+  '@capacitor/local-notifications@8.2.0(@capacitor/core@8.4.1)':
     dependencies:
       '@capacitor/core': 8.4.1
 

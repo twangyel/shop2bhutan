@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
+  Bell,
   Home,
   ShoppingBag,
   Package,
   ClipboardList,
   User,
+  X,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -16,6 +18,14 @@ import {
 } from '@/lib/customerOrders'
 import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings'
 import { fetchCustomerParcelBadgeSummary } from '@/lib/parcels'
+import {
+  dismissNativeNotificationPrompt,
+  getNativeNotificationPermission,
+  isNativeNotificationPromptDismissed,
+  isNativeNotificationsAvailable,
+  requestNativeNotificationPermission,
+  showNativeNotificationFromRow,
+} from '@/lib/nativeNotifications'
 
 const tabs = [
   { path: '/', label: 'Home', icon: Home },
@@ -33,6 +43,56 @@ export default function CustomerLayout() {
   const [parcelBadgeLabel, setParcelBadgeLabel] = useState<string | null>(null)
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
   const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS)
+  const [nativeNotificationPermission, setNativeNotificationPermission] = useState('unknown')
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false)
+  const [requestingNotificationPermission, setRequestingNotificationPermission] = useState(false)
+
+  const refreshNativeNotificationPermission = useCallback(async () => {
+    if (!isNativeNotificationsAvailable()) {
+      setNativeNotificationPermission('granted')
+      setShowNotificationPrompt(false)
+      return
+    }
+
+    const permission = await getNativeNotificationPermission()
+    setNativeNotificationPermission(permission)
+
+    setShowNotificationPrompt(
+      Boolean(user) &&
+        permission !== 'granted' &&
+        !isNativeNotificationPromptDismissed(),
+    )
+  }, [user])
+
+  useEffect(() => {
+    void refreshNativeNotificationPermission()
+  }, [refreshNativeNotificationPermission])
+
+  const handleEnableNativeNotifications = async () => {
+    setRequestingNotificationPermission(true)
+
+    try {
+      const permission = await requestNativeNotificationPermission()
+      setNativeNotificationPermission(permission)
+      setShowNotificationPrompt(permission !== 'granted')
+
+      if (permission === 'granted') {
+        await showNativeNotificationFromRow({
+          id: 'shop2bhutan-notifications-enabled',
+          title: 'Notifications enabled',
+          message: 'You will receive Shop2Bhutan order, parcel, payment, and account updates.',
+          link: '/notifications',
+        })
+      }
+    } finally {
+      setRequestingNotificationPermission(false)
+    }
+  }
+
+  const handleDismissNotificationPrompt = () => {
+    dismissNativeNotificationPrompt()
+    setShowNotificationPrompt(false)
+  }
 
   const refreshBagCount = useCallback(async () => {
     if (authLoading) return
@@ -179,6 +239,10 @@ export default function CustomerLayout() {
 
       if (eventType === 'INSERT' && nextRow.is_read === false) {
         setUnreadNotificationCount((current) => current + 1)
+
+        if (location.pathname !== '/notifications') {
+          void showNativeNotificationFromRow(nextRow)
+        }
       }
 
       refreshSoon(250)
@@ -230,7 +294,7 @@ export default function CustomerLayout() {
       window.clearInterval(interval)
       void supabase.removeChannel(channel)
     }
-  }, [authLoading, refreshNotificationCount, user])
+  }, [authLoading, location.pathname, refreshNotificationCount, user])
 
   useEffect(() => {
     if (authLoading) return undefined
@@ -356,6 +420,60 @@ export default function CustomerLayout() {
         )}
         <Outlet />
       </main>
+
+      {showNotificationPrompt && !shouldHideTabBar && (
+        <div className="fixed bottom-20 left-0 right-0 z-[60] px-4">
+          <div className="mx-auto max-w-lg rounded-3xl border border-orange-100 bg-white p-4 shadow-2xl shadow-orange-500/10">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
+                <Bell size={19} strokeWidth={2.4} />
+              </span>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-extrabold text-gray-900">
+                  Enable notifications?
+                </p>
+                <p className="mt-0.5 text-xs leading-5 text-gray-500">
+                  Get native alerts for quotation, payment, order, and parcel updates.
+                </p>
+
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleEnableNativeNotifications}
+                    disabled={requestingNotificationPermission}
+                    className="h-9 rounded-2xl bg-orange-500 px-4 text-xs font-bold text-white transition active:scale-[0.98] disabled:opacity-60"
+                  >
+                    {requestingNotificationPermission ? 'Checking...' : 'Enable'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDismissNotificationPrompt}
+                    className="h-9 rounded-2xl border border-gray-200 bg-white px-4 text-xs font-bold text-gray-600 transition active:scale-[0.98]"
+                  >
+                    Later
+                  </button>
+                </div>
+
+                {nativeNotificationPermission === 'denied' && (
+                  <p className="mt-2 text-[11px] leading-4 text-amber-600">
+                    If Android says notifications are blocked, enable them from app settings.
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleDismissNotificationPrompt}
+                className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 active:bg-gray-100"
+                aria-label="Dismiss notification prompt"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {!shouldHideTabBar && (
         <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-neutral-200 bg-white transition-transform duration-200 ease-out">

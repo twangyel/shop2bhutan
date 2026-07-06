@@ -5,6 +5,7 @@ import { Capacitor } from '@capacitor/core'
 import { App as CapacitorApp } from '@capacitor/app'
 import { SplashScreen } from '@capacitor/splash-screen'
 import { StatusBar, Style } from '@capacitor/status-bar'
+import { LocalNotifications } from '@capacitor/local-notifications'
 import App from './App'
 import './index.css'
 import { AuthProvider } from './contexts/AuthContext'
@@ -55,7 +56,24 @@ function setupNativeAppShell() {
   })
 }
 
+
+function setupNativeNotificationActions() {
+  if (!isNativeApp) return
+
+  void LocalNotifications.addListener('localNotificationActionPerformed', (event) => {
+    const link = String(event.notification.extra?.link ?? '')
+
+    if (link.startsWith('/') && !link.startsWith('//')) {
+      window.history.pushState({}, '', link)
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    }
+  }).catch((error) => {
+    console.warn('[Shop2Bhutan] Notification action listener skipped:', error)
+  })
+}
+
 setupNativeAppShell()
+setupNativeNotificationActions()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
