@@ -4477,27 +4477,34 @@ Delivery address: ${deliveryAddress}`
     pickup_hub_id: fulfillmentMode === 'self_pickup' ? pickupHub.id : null,
     pickup_hub_name: fulfillmentMode === 'self_pickup' ? pickupHub.name : null,
     pickup_instructions: fulfillmentMode === 'self_pickup' ? pickupHub.instructions : null,
-    delivery_hub_id: fulfillmentMode === 'self_pickup' ? pickupHub.id : undefined,
-    delivery_hub_name: fulfillmentMode === 'self_pickup' ? pickupHub.name : undefined,
+  }
+
+  const compactBase: AnyRow = {
+    user_id: input.userId,
+    order_type: 'paste_link',
+    status: 'pending',
+    customer_name: cleanText(input.customerName) || 'Customer',
+    customer_phone: cleanText(input.customerPhone) || 'Not provided',
+    customer_email: cleanText(input.email) || null,
+    delivery_address: deliveryAddress || null,
+    customer_notes: notesWithAddress,
+    fulfillment_mode: fulfillmentMode,
+    pickup_hub_id: fulfillmentMode === 'self_pickup' ? pickupHub.id : null,
+    pickup_hub_name: fulfillmentMode === 'self_pickup' ? pickupHub.name : null,
+    pickup_instructions: fulfillmentMode === 'self_pickup' ? pickupHub.instructions : null,
+    notes: notesWithAddress,
   }
 
   return [
+    // Current production orders table shape. Keep this first to avoid falling through
+    // to older payloads that may be missing NOT NULL columns.
+    compactBase,
+    { ...base, order_type: 'paste_link' },
+    { ...base, order_type: 'paste_link', type: 'paste_link' },
     { ...base, shipping_address: shippingSnapshot, order_type: 'paste_link' },
     { ...base, delivery_address_json: shippingSnapshot, order_type: 'paste_link' },
-    { ...base, order_type: 'paste_link' },
-    { ...base, order_type: 'external_link' },
-    { ...base, order_type: 'paste_link', type: 'paste_link' },
-    {
-      user_id: input.userId,
-      order_type: 'paste_link',
-      notes: notesWithAddress,
-    },
-    {
-      user_id: input.userId,
-      order_type: 'paste_link',
-      type: 'paste_link',
-      notes: notesWithAddress,
-    },
+    { ...compactBase, order_type: 'external_link' },
+    { ...compactBase, type: 'paste_link' },
   ]
 }
 
@@ -4505,12 +4512,38 @@ async function insertPasteLinkOrderRow(input: SubmitPasteLinkOrderInput) {
   let lastError: unknown = null
 
   for (const rawPayload of makeOrderPayloadCandidates(input)) {
+    const fulfillmentMode = normalizeFulfillmentModeValue(input.fulfillmentMode)
+    const pickupHub = resolvePickupHub(input)
+    const deliveryAddress = makeFulfillmentAddress(input)
+    const fallbackNotes =
+      cleanText(input.customerNotes) ||
+      `Paste-link order submitted by customer. Name: ${cleanText(input.customerName) || 'Customer'}. Phone: ${cleanText(input.customerPhone) || 'Not provided'}.`
+
     const payload: AnyRow = {
       ...rawPayload,
-      // Final safety guard: orders.order_type is NOT NULL in production.
-      // Keep this after spreading rawPayload so no fallback can accidentally omit it.
-      order_type: 'paste_link',
+
+      // Final safety guard for the real orders table:
+      // these columns are NOT NULL in production and must be present even if
+      // an older fallback payload is used.
+      user_id: cleanText(rawPayload.user_id) || input.userId,
+      order_type: cleanText(rawPayload.order_type) || 'paste_link',
+      customer_name: cleanText(rawPayload.customer_name) || cleanText(input.customerName) || 'Customer',
+      customer_phone: cleanText(rawPayload.customer_phone) || cleanText(input.customerPhone) || 'Not provided',
+      customer_email: cleanText(rawPayload.customer_email) || cleanText(input.email) || null,
+      delivery_address: cleanText(rawPayload.delivery_address) || deliveryAddress || null,
+      customer_notes: cleanText(rawPayload.customer_notes || rawPayload.notes) || fallbackNotes,
+      fulfillment_mode: fulfillmentMode,
+      pickup_hub_id: fulfillmentMode === 'self_pickup' ? pickupHub.id : null,
+      pickup_hub_name: fulfillmentMode === 'self_pickup' ? pickupHub.name : null,
+      pickup_instructions: fulfillmentMode === 'self_pickup' ? pickupHub.instructions : null,
     }
+
+    // These are legacy / optional fields. Remove them when they do not match
+    // the current Supabase table shape to avoid unnecessary 400 fallback inserts.
+    if (payload.delivery_hub_id && !isUuidLike(cleanText(payload.delivery_hub_id))) {
+      delete payload.delivery_hub_id
+    }
+    delete payload.delivery_hub_name
 
     Object.keys(payload).forEach((key) => {
       if (payload[key] === undefined) delete payload[key]
