@@ -412,7 +412,7 @@ function BagItemCard({
 
 export default function RequestBag() {
   const navigate = useNavigate();
-  const { user, context, loading: authLoading } = useAuth();
+  const { user, context, loading: authLoading, isGuest } = useAuth();
   const profile = (context?.profile ?? null) as ProfileLike | null;
 
   const [bag, setBag] = useState<RequestBagType | null>(null);
@@ -446,7 +446,7 @@ export default function RequestBag() {
   const estimatedSiteTotal = bag?.items.reduce((sum, item) => sum + Math.max(0, item.priceShown || 0) * Math.max(1, item.quantity || 1), 0) ?? 0;
 
   const loadBag = useCallback(async () => {
-    if (!user) {
+    if (!user || isGuest) {
       setBag(null);
       setLoading(false);
       return;
@@ -482,7 +482,7 @@ export default function RequestBag() {
       setError(err instanceof Error ? err.message : 'Unable to load your Request Bag.');
       setLoading(false);
     }
-  }, [user]);
+  }, [user, isGuest]);
 
   useEffect(() => {
     let active = true;
@@ -508,7 +508,7 @@ export default function RequestBag() {
   }, [authLoading, loadBag]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || isGuest) return;
 
     const profileName =
       profile?.full_name?.trim() ||
@@ -522,10 +522,10 @@ export default function RequestBag() {
       deliveryAddress: prev.deliveryAddress || bag?.deliveryAddress || '',
       notes: prev.notes || bag?.customerNotes || '',
     }));
-  }, [user, profile, bag?.customerName, bag?.customerPhone, bag?.deliveryAddress, bag?.customerNotes]);
+  }, [user, isGuest, profile, bag?.customerName, bag?.customerPhone, bag?.deliveryAddress, bag?.customerNotes]);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || isGuest) {
       setSavedAddress(null);
       return;
     }
@@ -569,7 +569,7 @@ export default function RequestBag() {
     return () => {
       active = false;
     };
-  }, [user, profile, dzongkhagOptions]);
+  }, [user, isGuest, profile, dzongkhagOptions]);
 
   const patchItem = async (
     itemId: string,
@@ -626,6 +626,11 @@ export default function RequestBag() {
     setError('');
 
     if (!user || !bag) return false;
+
+    if (isGuest) {
+      setError('Please sign in or register to request shopping quotations. Guest mode is only for Parcel booking.');
+      return false;
+    }
 
     if (bag.items.length === 0) {
       setError('Your Request Bag is empty.');
@@ -696,14 +701,14 @@ export default function RequestBag() {
     }
   };
 
-  if (!authLoading && !user) {
+  if (!authLoading && (!user || isGuest)) {
     return (
       <div className="min-h-screen bg-white px-4 py-8">
         <div className="rounded-2xl bg-white border border-gray-100 p-6 text-center">
           <ShoppingBag size={42} className="mx-auto text-gray-300" />
-          <h1 className="mt-3 text-lg font-bold text-gray-900">Sign in to view Request Bag</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Save product links and request quotation after signing in.
+          <h1 className="mt-3 text-lg font-bold text-gray-900">Sign in to use Request Bag</h1>
+          <p className="mt-1 text-sm leading-6 text-gray-500">
+            Guest mode is only for Parcel booking. Please sign in or create an account to request shopping quotations.
           </p>
           <button
             type="button"
@@ -711,6 +716,20 @@ export default function RequestBag() {
             className="mt-4 h-11 rounded-xl bg-orange-500 px-5 text-sm font-semibold text-white hover:bg-orange-600"
           >
             Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/register', { state: { returnTo: '/request-bag' } })}
+            className="mt-2 h-11 rounded-xl px-5 text-sm font-semibold text-orange-600 hover:bg-orange-50"
+          >
+            Create Account
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/parcel')}
+            className="mt-1 h-10 rounded-xl px-5 text-xs font-semibold text-gray-500 hover:bg-gray-50"
+          >
+            Continue to Parcel
           </button>
         </div>
       </div>

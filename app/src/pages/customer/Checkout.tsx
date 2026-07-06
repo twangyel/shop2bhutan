@@ -3,20 +3,39 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Check, Package, Truck } from 'lucide-react';
 import { addresses, deliveryHubs } from '@/data/mockData';
 import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { SELF_PICKUP_HUBS, getPickupHubById } from '@/lib/fulfillment';
 import type { FulfillmentMode } from '@/types';
 
 export default function Checkout() {
   const navigate = useNavigate();
   const { cart } = useApp();
+  const { user, isGuest } = useAuth();
   const [selectedAddress, setSelectedAddress] = useState(addresses[0].id);
   const [fulfillmentMode, setFulfillmentMode] = useState<FulfillmentMode>('delivery');
   const [pickupHubId, setPickupHubId] = useState(SELF_PICKUP_HUBS[0].id);
   const [step] = useState(1);
+  const [error, setError] = useState('');
 
   const subtotal = cart.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const selectedPickupHub = getPickupHubById(pickupHubId);
   const isSelfPickup = fulfillmentMode === 'self_pickup';
+
+  const handlePlaceOrder = () => {
+    setError('');
+
+    if (!user) {
+      navigate('/login', { state: { from: '/checkout' } });
+      return;
+    }
+
+    if (isGuest) {
+      setError('Please sign in or register to place shopping orders. Guest mode is only for Parcel booking.');
+      return;
+    }
+
+    navigate('/orders');
+  };
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -52,6 +71,12 @@ export default function Checkout() {
       </div>
 
       <div className="px-4 py-4 space-y-4">
+        {error && (
+          <div className="rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm font-medium text-orange-700">
+            {error}
+          </div>
+        )}
+
         {/* Fulfillment Method */}
         <div className="rounded-xl bg-white p-4">
           <h3 className="text-base font-semibold text-gray-900 mb-3">Fulfillment Method</h3>
@@ -178,7 +203,7 @@ export default function Checkout() {
       {/* Place Order Button */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 p-4 z-40">
         <button
-          onClick={() => navigate('/orders')}
+          onClick={handlePlaceOrder}
           className="w-full h-12 bg-amber-500 text-white font-semibold rounded-xl hover:bg-amber-600 transition-colors"
         >
           Place Order — Nu. {subtotal.toLocaleString()}

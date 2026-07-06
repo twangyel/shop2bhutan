@@ -140,7 +140,7 @@ function buildProfileInsert(user: User) {
 }
 
 async function ensureProfileRow(user: User) {
-  // Anonymous guest sessions are only for temporary parcel/order tracking.
+  // Anonymous guest sessions are only for temporary parcel booking/tracking.
   // Do not create public.profiles rows for them, otherwise Admin Customers
   // gets filled with blank users named "Customer".
   if (isAnonymousAuthUser(user)) return;

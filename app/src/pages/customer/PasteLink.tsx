@@ -94,7 +94,7 @@ function isPreviewForUrl(preview: PreviewState, cleanUrl: string) {
 export default function PasteLink() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
 
   const locationState = location.state as { initialUrl?: string; sourcePlatform?: string } | null;
   const [url, setUrl] = useState(locationState?.initialUrl ?? '');
@@ -177,6 +177,10 @@ export default function PasteLink() {
     const hasScreenshot = Boolean(screenshotFile);
     if (!hasUrl && !hasScreenshot) { setError('Please paste a product link or upload a product screenshot.'); return; }
     if (!user) { navigate('/login', { state: { from: location.pathname, initialUrl: url } }); return; }
+    if (isGuest) {
+      setError('Please sign in or register to add shopping items. Guest mode is only for Parcel booking.');
+      return;
+    }
 
     if (appSettings.maintenanceEnabled) {
       setError(appSettings.maintenanceMessage || 'Shop2Bhutan is under maintenance. Please try again later.');
