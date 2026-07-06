@@ -86,13 +86,289 @@ function resolveDeliveryLabel({
   return firstValue;
 }
 
+
+type ActiveUpdate = {
+  kind: 'order' | 'parcel';
+  id: string;
+  title: string;
+  statusLabel: string;
+  description: string;
+  path: string;
+};
+
+type ActivityRow = Record<string, unknown> & {
+  id?: string | null;
+  order_id?: string | null;
+  status?: string | null;
+  created_at?: string | null;
+};
+
+const inactiveOrderStatuses = new Set([
+  'delivered',
+  'cancelled',
+  'canceled',
+  'completed',
+]);
+
+const inactiveParcelStatuses = new Set([
+  'delivered',
+  'completed',
+  'cancelled',
+  'canceled',
+  'rejected',
+]);
+
+function normalizeStatus(value: unknown) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function titleCaseStatus(value: unknown) {
+  const status = normalizeStatus(value);
+  if (!status) return 'In progress';
+
+  return status
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function orderStatusDescription(status: unknown) {
+  const cleanStatus = normalizeStatus(status);
+
+  if (cleanStatus === 'quotation_pending') return 'We are checking your product details and preparing your quotation.';
+  if (cleanStatus === 'quoted') return 'Your quotation is ready for review.';
+  if (cleanStatus === 'payment_pending') return 'Your payment step is pending or under review.';
+  if (cleanStatus === 'payment_verified') return 'Payment is verified. We will place your order with the seller.';
+  if (cleanStatus === 'order_placed') return 'Your order has been placed with the seller.';
+  if (cleanStatus === 'in_transit') return 'Your package is on the way to Bhutan.';
+  if (cleanStatus === 'arrived_at_hub') return 'Your order has reached the delivery hub.';
+  if (cleanStatus === 'out_for_delivery') return 'Your package is out for delivery.';
+
+  return 'Your shopping order is being processed.';
+}
+
+function parcelStatusDescription(status: unknown) {
+  const cleanStatus = normalizeStatus(status);
+
+  if (cleanStatus === 'pending' || cleanStatus === 'submitted') return 'Admin will review and update your parcel request.';
+  if (cleanStatus === 'accepted' || cleanStatus === 'approved') return 'Your parcel request has been accepted.';
+  if (cleanStatus === 'picked_up' || cleanStatus === 'collected') return 'Your parcel has been picked up.';
+  if (cleanStatus === 'in_transit') return 'Your parcel is moving on the selected trip.';
+  if (cleanStatus === 'ready_for_delivery') return 'Your parcel is ready for handover.';
+
+  return 'Your parcel request is active.';
+}
+
+function makeActivityId(row: ActivityRow) {
+  return cleanString(row.id) ?? '';
+}
+
+function isActiveOrderRow(row: ActivityRow) {
+  const status = normalizeStatus(row.status);
+  return Boolean(makeActivityId(row)) && !inactiveOrderStatuses.has(status);
+}
+
+function isActiveParcelRow(row: ActivityRow) {
+  const status = normalizeStatus(row.status);
+  return Boolean(makeActivityId(row)) && !inactiveParcelStatuses.has(status);
+}
+
+async function fetchOwnedRows(
+  table: string,
+  select: string,
+  userId: string,
+  ownerColumns: string[],
+) {
+  for (const column of ownerColumns) {
+    const { data, error } = await supabase
+      .from(table)
+      .select(select)
+      .eq(column, userId)
+      .order('created_at', { ascending: false })
+      .limit(8);
+
+    if (error) {
+      console.warn(`[Home] ${table}.${column} activity lookup skipped:`, error.message);
+      continue;
+    }
+
+    const rows = Array.isArray(data) ? (data as ActivityRow[]) : [];
+    if (rows.length > 0) return rows;
+  }
+
+  return [];
+}
+
+async function fetchLatestActiveOrder(userId: string): Promise<ActiveUpdate | null> {
+  const rows = await fetchOwnedRows(
+    'orders',
+    'id, order_id, status, created_at',
+    userId,
+    ['customer_id', 'user_id'],
+  );
+
+  const row = rows.find(isActiveOrderRow);
+  if (!row) return null;
+
+  const id = makeActivityId(row);
+  const orderNumber = cleanString(row.order_id) ?? id.slice(0, 8).toUpperCase();
+
+  return {
+    kind: 'order',
+    id,
+    title: `Order #${orderNumber}`,
+    statusLabel: titleCaseStatus(row.status),
+    description: orderStatusDescription(row.status),
+    path: `/orders/${id}`,
+  };
+}
+
+async function fetchLatestActiveParcel(userId: string): Promise<ActiveUpdate | null> {
+  const rows = await fetchOwnedRows(
+    'parcel_requests',
+    'id, status, created_at, trip_id',
+    userId,
+    ['customer_id', 'user_id'],
+  );
+
+  const row = rows.find(isActiveParcelRow);
+  if (!row) return null;
+
+  const id = makeActivityId(row);
+
+  return {
+    kind: 'parcel',
+    id,
+    title: 'Parcel request active',
+    statusLabel: titleCaseStatus(row.status),
+    description: parcelStatusDescription(row.status),
+    path: '/my-parcels',
+  };
+}
+
+function ContinueTrackingCard({
+  update,
+  loading,
+  isGuest,
+  onNavigate,
+}: {
+  update: ActiveUpdate | null;
+  loading: boolean;
+  isGuest: boolean;
+  onNavigate: (path: string) => void;
+}) {
+  if (loading) {
+    return (
+      <section className="mt-5 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div className="h-3 w-28 animate-pulse rounded-full bg-gray-100" />
+        <div className="mt-3 h-5 w-44 animate-pulse rounded-full bg-gray-100" />
+        <div className="mt-3 h-3 w-full animate-pulse rounded-full bg-gray-100" />
+        <div className="mt-2 h-3 w-2/3 animate-pulse rounded-full bg-gray-100" />
+      </section>
+    );
+  }
+
+  if (!update) {
+    return (
+      <section className="mt-5 rounded-3xl border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-blue-50 p-4 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm ring-1 ring-orange-100">
+            <Package size={21} strokeWidth={2.2} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-orange-500">
+              Your Active Updates
+            </p>
+            <h3 className="mt-1 text-base font-extrabold text-gray-900">
+              No active order or parcel yet
+            </h3>
+            <p className="mt-1 text-xs leading-5 text-gray-500">
+              Start a quotation request or book a parcel trip when you are ready.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => onNavigate(isGuest ? '/login' : '/paste-link')}
+            className="h-11 rounded-2xl bg-orange-500 px-3 text-xs font-bold text-white transition active:scale-[0.98]"
+          >
+            {isGuest ? 'Sign in to order' : 'Request Quotation'}
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate('/parcel')}
+            className="h-11 rounded-2xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 transition active:scale-[0.98]"
+          >
+            Book Parcel
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  const isOrder = update.kind === 'order';
+
+  return (
+    <section className="mt-5 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+            isOrder ? 'bg-orange-50 text-orange-500' : 'bg-emerald-50 text-emerald-600'
+          }`}
+        >
+          {isOrder ? <Package size={21} strokeWidth={2.2} /> : <Truck size={21} strokeWidth={2.2} />}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+              Continue Tracking
+            </p>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                isOrder ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'
+              }`}
+            >
+              {isOrder ? 'Order' : 'Parcel'}
+            </span>
+          </div>
+
+          <h3 className="mt-1 truncate text-base font-extrabold text-gray-900">
+            {update.title}
+          </h3>
+          <p className="mt-1 text-xs font-semibold text-gray-700">
+            {update.statusLabel}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-gray-500">
+            {update.description}
+          </p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onNavigate(update.path)}
+        className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-gray-900 text-xs font-bold text-white transition active:scale-[0.98]"
+      >
+        <span>{isOrder ? 'View Order' : 'View Parcel'}</span>
+        <ArrowRight size={15} strokeWidth={2.5} />
+      </button>
+    </section>
+  );
+}
+
 export default function Home() {
   const navigate = useNavigate();
-  const { user: authUser, loading: authLoading, context: authContext } = useAuth();
+  const { user: authUser, loading: authLoading, context: authContext, isGuest } = useAuth();
   const { user: appUser } = useApp();
   const [unreadCount, setUnreadCount] = useState(0);
   const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
   const [dzongkhags, setDzongkhags] = useState<DzongkhagOption[]>([]);
+  const [activeUpdate, setActiveUpdate] = useState<ActiveUpdate | null>(null);
+  const [activeUpdateLoading, setActiveUpdateLoading] = useState(false);
 
   const refreshUnreadCount = useCallback(async () => {
     if (!authUser || authLoading) {
@@ -126,6 +402,54 @@ export default function Home() {
       window.removeEventListener('focus', handler);
     };
   }, [refreshUnreadCount]);
+
+  const refreshActiveUpdate = useCallback(async () => {
+    if (authLoading) return;
+
+    if (!authUser) {
+      setActiveUpdate(null);
+      setActiveUpdateLoading(false);
+      return;
+    }
+
+    setActiveUpdateLoading(true);
+
+    try {
+      const [orderUpdate, parcelUpdate] = await Promise.all([
+        isGuest ? Promise.resolve(null) : fetchLatestActiveOrder(authUser.id),
+        fetchLatestActiveParcel(authUser.id),
+      ]);
+
+      setActiveUpdate(orderUpdate ?? parcelUpdate);
+    } catch (error) {
+      console.warn('[Home] Active update lookup skipped:', error);
+      setActiveUpdate(null);
+    } finally {
+      setActiveUpdateLoading(false);
+    }
+  }, [authLoading, authUser, isGuest]);
+
+  useEffect(() => {
+    void refreshActiveUpdate();
+  }, [refreshActiveUpdate]);
+
+  useEffect(() => {
+    const handler = () => {
+      void refreshActiveUpdate();
+    };
+
+    window.addEventListener('shop2bhutan:orders-updated', handler);
+    window.addEventListener('shop2bhutan:request-bag-updated', handler);
+    window.addEventListener('shop2bhutan:parcels-updated', handler);
+    window.addEventListener('focus', handler);
+
+    return () => {
+      window.removeEventListener('shop2bhutan:orders-updated', handler);
+      window.removeEventListener('shop2bhutan:request-bag-updated', handler);
+      window.removeEventListener('shop2bhutan:parcels-updated', handler);
+      window.removeEventListener('focus', handler);
+    };
+  }, [refreshActiveUpdate]);
 
   useEffect(() => {
     let active = true;
@@ -315,6 +639,14 @@ export default function Home() {
             })}
           </div>
         </section>
+
+        {/* ----- Active Order / Parcel Card ----- */}
+        <ContinueTrackingCard
+          update={activeUpdate}
+          loading={activeUpdateLoading}
+          isGuest={isGuest}
+          onNavigate={(path) => navigate(path)}
+        />
 
         {/* ----- Footer Note ----- */}
         <p className="mt-6 px-2 text-center text-[0.65rem] leading-relaxed text-gray-400">
