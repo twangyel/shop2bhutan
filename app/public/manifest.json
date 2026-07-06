@@ -2,15 +2,23 @@
   "id": "/",
   "name": "Shop2Bhutan",
   "short_name": "S2B",
-  "description": "Proxy shopping platform for Bhutan",
+  "description": "Proxy shopping and parcel service for Bhutan",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "window-controls-overlay", "browser"],
+  "display_override": [
+    "standalone",
+    "window-controls-overlay",
+    "browser"
+  ],
   "background_color": "#FFFFFF",
-  "theme_color": "#F59E0B",
+  "theme_color": "#ff7a00",
   "orientation": "portrait",
-  "categories": ["shopping", "business", "utilities"],
+  "categories": [
+    "shopping",
+    "business",
+    "utilities"
+  ],
   "prefer_related_applications": false,
   "icons": [
     {

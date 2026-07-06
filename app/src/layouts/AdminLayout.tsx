@@ -27,7 +27,7 @@ import {
 import { useApp } from '@/contexts/AppContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import Logo from '@/components/shared/Logo'
+import BrandLogo from '@/components/BrandLogo'
 import { supabase } from '@/lib/supabase'
 import {
   fetchAdminNotifications,
@@ -593,22 +593,35 @@ export default function AdminLayout() {
         </button>
 
         {/* Logo */}
-        <div className="h-16 flex items-center gap-2 px-4 border-b border-neutral-100 shrink-0 overflow-hidden">
-          <Logo size="sm" showText={false} />
-          <span
-            className={`font-bold text-gray-900 whitespace-nowrap transition-all duration-300 ${sidebarCollapsed ? 'md:opacity-0 md:w-0' : 'opacity-100'}`}
+        <div className="h-16 flex items-center gap-3 px-4 border-b border-neutral-100 shrink-0 overflow-hidden">
+          <div
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-50 ring-1 ring-orange-100 transition-all duration-300 ${
+              sidebarCollapsed ? 'md:mx-auto' : ''
+            }`}
+            title="Shop2Bhutan Admin"
           >
-            Shop2Bhutan
-          </span>
-          <span
-            className={`px-2 py-0.5 bg-gray-900 text-white text-[10px] font-medium rounded-full whitespace-nowrap transition-all duration-300 ${sidebarCollapsed ? 'md:opacity-0 md:w-0 md:px-0' : 'opacity-100'}`}
+            <BrandLogo variant="mark" imgClassName="h-8 w-8" />
+          </div>
+
+          <div
+            className={`min-w-0 flex-1 overflow-hidden transition-all duration-300 ${
+              sidebarCollapsed ? 'md:w-0 md:flex-none md:opacity-0' : 'opacity-100'
+            }`}
           >
-            Admin
-          </span>
+            <p className="truncate text-sm font-black tracking-tight text-[#0039A6]">
+              Shop2Bhutan
+            </p>
+            <p className="truncate text-[11px] font-semibold text-neutral-400">
+              Admin Panel
+            </p>
+          </div>
+
           {/* Mobile close */}
           <button
+            type="button"
             onClick={() => setSidebarOpen(false)}
             className="ml-auto p-1.5 rounded-lg hover:bg-neutral-100 md:hidden shrink-0"
+            aria-label="Close admin menu"
           >
             <X size={20} className="text-neutral-600" />
           </button>
