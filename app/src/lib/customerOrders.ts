@@ -4467,6 +4467,7 @@ Delivery address: ${deliveryAddress}`
 
   const base: AnyRow = {
     user_id: input.userId,
+    order_type: 'paste_link',
     customer_name: cleanText(input.customerName),
     customer_phone: cleanText(input.customerPhone),
     customer_email: cleanText(input.email),
@@ -4485,7 +4486,7 @@ Delivery address: ${deliveryAddress}`
     { ...base, delivery_address_json: shippingSnapshot, order_type: 'paste_link' },
     { ...base, order_type: 'paste_link' },
     { ...base, order_type: 'external_link' },
-    { ...base, type: 'paste_link' },
+    { ...base, order_type: 'paste_link', type: 'paste_link' },
     {
       user_id: input.userId,
       order_type: 'paste_link',
@@ -4493,6 +4494,7 @@ Delivery address: ${deliveryAddress}`
     },
     {
       user_id: input.userId,
+      order_type: 'paste_link',
       type: 'paste_link',
       notes: notesWithAddress,
     },
@@ -4502,8 +4504,23 @@ Delivery address: ${deliveryAddress}`
 async function insertPasteLinkOrderRow(input: SubmitPasteLinkOrderInput) {
   let lastError: unknown = null
 
-  for (const payload of makeOrderPayloadCandidates(input)) {
-    const { data, error } = await supabase.from('orders').insert(payload as any).select('id, order_no').single()
+  for (const rawPayload of makeOrderPayloadCandidates(input)) {
+    const payload: AnyRow = {
+      ...rawPayload,
+      // Final safety guard: orders.order_type is NOT NULL in production.
+      // Keep this after spreading rawPayload so no fallback can accidentally omit it.
+      order_type: 'paste_link',
+    }
+
+    Object.keys(payload).forEach((key) => {
+      if (payload[key] === undefined) delete payload[key]
+    })
+
+    const { data, error } = await supabase
+      .from('orders')
+      .insert(payload as any)
+      .select('id, order_no')
+      .single()
 
     if (!error && data) return data as { id: string; order_no: string | null }
 
