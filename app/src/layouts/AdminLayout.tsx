@@ -165,11 +165,31 @@ function profileDisplayName(profile: unknown, fallbackEmail?: string | null) {
   return 'Admin User'
 }
 
+function AdminGateScreen({
+  title,
+  message,
+}: {
+  title: string
+  message: string
+}) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-6">
+      <div className="w-full max-w-xs rounded-3xl border border-neutral-200 bg-white p-6 text-center shadow-xl shadow-neutral-900/5">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
+          <Loader2 size={26} className="animate-spin" />
+        </div>
+        <p className="mt-4 text-sm font-bold text-neutral-900">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-neutral-500">{message}</p>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const { logout } = useApp()
-  const { user, context, signOut } = useAuth()
+  const { loading: authLoading, user, context, signOut, isGuest } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -183,6 +203,10 @@ export default function AdminLayout() {
   const [pendingParcelCount, setPendingParcelCount] = useState(0)
   const [loggingOut, setLoggingOut] = useState(false)
   const notificationPanelRef = useRef<HTMLDivElement>(null)
+
+  const requestedAdminPath =
+    `${location.pathname}${location.search}${location.hash}` || '/admin'
+  const canAccessAdmin = Boolean(context?.is_admin || context?.is_super_admin)
 
   const adminDisplayName = profileDisplayName(
     context?.profile,
@@ -198,6 +222,30 @@ export default function AdminLayout() {
           i.path === location.pathname ||
           (i.path !== '/admin' && location.pathname.startsWith(i.path)),
       )?.label || 'Dashboard'
+
+  useEffect(() => {
+    if (authLoading) return
+
+    if (!user || isGuest) {
+      navigate('/login', {
+        replace: true,
+        state: { returnTo: requestedAdminPath },
+      })
+      return
+    }
+
+    if (context && !canAccessAdmin) {
+      navigate('/', { replace: true })
+    }
+  }, [
+    authLoading,
+    canAccessAdmin,
+    context,
+    isGuest,
+    navigate,
+    requestedAdminPath,
+    user,
+  ])
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -389,6 +437,33 @@ export default function AdminLayout() {
       console.warn('[AdminLayout] Logout skipped:', error)
       setLoggingOut(false)
     }
+  }
+
+  if (authLoading || (user && !context)) {
+    return (
+      <AdminGateScreen
+        title="Checking admin access..."
+        message="Preparing your Shop2Bhutan admin dashboard."
+      />
+    )
+  }
+
+  if (!user || isGuest) {
+    return (
+      <AdminGateScreen
+        title="Opening login..."
+        message="Sign in to continue to the admin panel."
+      />
+    )
+  }
+
+  if (!canAccessAdmin) {
+    return (
+      <AdminGateScreen
+        title="Admin access required"
+        message="Redirecting you back to Shop2Bhutan."
+      />
+    )
   }
 
   return (

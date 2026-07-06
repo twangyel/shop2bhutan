@@ -84,7 +84,9 @@ export default function Login() {
   const { refreshContext, ensureGuestSession } = useAuth();
 
   const routeState = location.state as LoginRouteState;
-  const returnTo = getSafeReturnTo(routeState?.returnTo);
+  const queryReturnTo = new URLSearchParams(location.search).get('returnTo');
+  const returnTo = getSafeReturnTo(routeState?.returnTo ?? queryReturnTo);
+  const isAdminLogin = returnTo.startsWith('/admin');
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -213,6 +215,14 @@ export default function Login() {
     navigate(returnTo, { replace: true });
   };
 
+  const handleAdminLoginShortcut = () => {
+    setSubmitError('');
+    navigate('/login?returnTo=/admin', {
+      replace: true,
+      state: { returnTo: '/admin' },
+    });
+  };
+
   const handleGuestContinue = async () => {
     setSubmitting(true);
     setTransitionMessage('Starting guest session...');
@@ -245,9 +255,13 @@ export default function Login() {
         <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-orange-500 shadow-lg shadow-orange-500/20">
           <Logo size="xl" />
         </div>
-        <h1 className="text-2xl font-bold text-neutral-900 mt-5">Welcome Back</h1>
+        <h1 className="text-2xl font-bold text-neutral-900 mt-5">
+          {isAdminLogin ? 'Admin Sign In' : 'Welcome Back'}
+        </h1>
         <p className="text-sm text-neutral-500 mt-1.5 text-center">
-          Sign in with email or Bhutan mobile number
+          {isAdminLogin
+            ? 'Sign in to open your admin dashboard directly'
+            : 'Sign in with email or Bhutan mobile number'}
         </p>
       </div>
 
@@ -258,6 +272,22 @@ export default function Login() {
             {submitError && (
               <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {submitError}
+              </div>
+            )}
+
+            {isAdminLogin && (
+              <div className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gray-900 text-white">
+                  <ShieldCheck size={18} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold text-gray-900">
+                    Admin dashboard access
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-5 text-gray-500">
+                    After signing in, you will go straight to orders, payments, notifications, and admin tools.
+                  </span>
+                </span>
               </div>
             )}
 
@@ -359,29 +389,48 @@ export default function Login() {
                   <Loader2 size={18} className="animate-spin" />
                   Signing in...
                 </>
+              ) : isAdminLogin ? (
+                'Sign In to Admin Panel'
               ) : (
                 'Sign In'
               )}
             </button>
+
+            {!isAdminLogin && (
+              <button
+                type="button"
+                onClick={handleAdminLoginShortcut}
+                disabled={submitting}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-900 font-bold text-white shadow-sm transition hover:bg-neutral-800 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
+              >
+                <ShieldCheck size={18} />
+                Admin Panel Sign In
+              </button>
+            )}
           </form>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-6">
-            <div className="h-px flex-1 bg-neutral-100" />
-            <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">or</span>
-            <div className="h-px flex-1 bg-neutral-100" />
-          </div>
+          {!isAdminLogin && (
+            <>
+                        {/* Divider */}
+                        <div className="flex items-center gap-3 my-6">
+                          <div className="h-px flex-1 bg-neutral-100" />
+                          <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">or</span>
+                          <div className="h-px flex-1 bg-neutral-100" />
+                        </div>
 
-          {/* Guest Button */}
-          <button
-            type="button"
-            onClick={handleGuestContinue}
-            disabled={submitting}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 font-semibold text-neutral-700 transition hover:bg-neutral-100 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
-          >
-            {submitting ? <Loader2 size={18} className="animate-spin" /> : <User size={18} />}
-            <span className="text-sm">Continue as Guest</span>
-          </button>
+                        {/* Guest Button */}
+                        <button
+                          type="button"
+                          onClick={handleGuestContinue}
+                          disabled={submitting}
+                          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 font-semibold text-neutral-700 transition hover:bg-neutral-100 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
+                        >
+                          {submitting ? <Loader2 size={18} className="animate-spin" /> : <User size={18} />}
+                          <span className="text-sm">Continue as Guest</span>
+                        </button>
+
+            </>
+          )}
 
           {/* Register Link */}
           <p className="mt-6 text-center text-sm text-neutral-500">
