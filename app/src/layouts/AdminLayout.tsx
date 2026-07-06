@@ -467,7 +467,7 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="flex h-screen overflow-x-hidden bg-neutral-50">
+    <div className="flex h-screen overflow-hidden bg-neutral-50">
       {loggingOut && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-white/80 px-6 backdrop-blur-sm">
           <div className="w-full max-w-xs rounded-3xl border border-amber-100 bg-white p-5 text-center shadow-2xl shadow-amber-500/10">
@@ -596,25 +596,12 @@ export default function AdminLayout() {
           ))}
         </nav>
 
-        {/* User Section — bottom profile stays visible only when sidebar is expanded */}
+        {/* Bottom action — keep logout here, keep the admin identity only in the top header */}
         <div
           className={`border-t border-neutral-200 shrink-0 ${
             sidebarCollapsed ? 'p-3 md:px-3' : 'p-4'
           }`}
         >
-          {!sidebarCollapsed && (
-            <div className="mb-3 flex items-center gap-3 overflow-hidden transition-all duration-300">
-              <div className="w-9 h-9 rounded-full bg-amber-500 flex items-center justify-center text-white font-semibold text-sm shrink-0">
-                {adminInitial}
-              </div>
-              <div className="whitespace-nowrap overflow-hidden">
-                <p className="text-sm font-semibold text-gray-900">
-                  {adminDisplayName}
-                </p>
-                <p className="text-xs text-neutral-500">Administrator</p>
-              </div>
-            </div>
-          )}
           <button
             onClick={handleLogout}
             disabled={loggingOut}
@@ -814,7 +801,7 @@ export default function AdminLayout() {
         </header>
 
         {/* ─── Page Content ─── */}
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
+        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-4 md:p-6">
           <Outlet />
         </main>
       </div>
