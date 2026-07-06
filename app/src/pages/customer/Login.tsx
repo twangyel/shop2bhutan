@@ -78,6 +78,37 @@ async function isDeactivatedLoginUser(userId?: string | null) {
   return status === 'deactivated' || data?.is_active === false;
 }
 
+async function getPostLoginDestination(returnTo: string) {
+  const { data, error } = await supabase.rpc('get_my_session_context');
+
+  if (error) {
+    console.warn('[Login] Post-login role check skipped:', error.message);
+    return returnTo;
+  }
+
+  const row = (data && typeof data === 'object' ? data : {}) as {
+    role?: string | null;
+    is_admin?: boolean | null;
+    is_super_admin?: boolean | null;
+  };
+
+  const isAdmin = Boolean(
+    row.is_admin ||
+      row.is_super_admin ||
+      row.role === 'admin' ||
+      row.role === 'super_admin',
+  );
+
+  if (returnTo.startsWith('/admin')) {
+    return isAdmin ? returnTo : '/';
+  }
+
+  // Admin accounts should land in the admin dashboard even from the normal login page.
+  if (isAdmin && returnTo === '/') return '/admin';
+
+  return returnTo;
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -204,15 +235,21 @@ export default function Login() {
     }
 
     setTransitionMessage('Preparing your account...');
+    let destination = returnTo;
+
     try {
       await refreshContext();
+      destination = await getPostLoginDestination(returnTo);
     } catch (contextError) {
       console.warn('[Login] Context refresh skipped:', contextError);
     }
-    setTransitionMessage('Welcome back');
+
+    setTransitionMessage(
+      destination.startsWith('/admin') ? 'Opening admin panel...' : 'Welcome back',
+    );
     await wait(180);
     setSubmitting(false);
-    navigate(returnTo, { replace: true });
+    navigate(destination, { replace: true });
   };
 
   const handleGuestContinue = async () => {
@@ -238,6 +275,7 @@ export default function Login() {
 
   const isSuccessState =
     transitionMessage === 'Welcome back' ||
+    transitionMessage === 'Opening admin panel...' ||
     transitionMessage === 'Opening Shop2Bhutan...';
 
   return (
@@ -451,6 +489,8 @@ export default function Login() {
             <p className="mt-2 text-sm text-neutral-400 leading-relaxed">
               {transitionMessage === 'Welcome back'
                 ? 'Good to see you again'
+                : transitionMessage === 'Opening admin panel...'
+                ? 'Taking you to your dashboard'
                 : transitionMessage === 'Opening Shop2Bhutan...'
                 ? "Let's get shopping"
                 : 'This will only take a moment'}

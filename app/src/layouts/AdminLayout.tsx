@@ -227,7 +227,7 @@ export default function AdminLayout() {
     if (authLoading) return
 
     if (!user || isGuest) {
-      navigate('/login', {
+      navigate(`/login?returnTo=${encodeURIComponent(requestedAdminPath)}`, {
         replace: true,
         state: { returnTo: requestedAdminPath },
       })
