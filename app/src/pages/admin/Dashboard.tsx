@@ -502,7 +502,7 @@ export default function Dashboard() {
         accent: "bg-orange-50 text-orange-600",
       },
       {
-        title: "Revenue (Nu.)",
+        title: "Verified Collections",
         value: formatCompactCurrency(metrics.revenue),
         change: formatPercentChange(
           metrics.revenueLast7,
@@ -631,7 +631,7 @@ export default function Dashboard() {
         <div className="rounded-xl bg-white p-4 shadow-card md:p-5 lg:col-span-2">
           <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <h3 className="text-base font-semibold text-gray-900">
-              Revenue (Nu.) Overview
+              Verified Collections Overview
             </h3>
             <div className="flex flex-wrap gap-1">
               {PERIODS.map((period) => (
@@ -677,7 +677,7 @@ export default function Dashboard() {
                 <Tooltip
                   formatter={(value: number | string) => [
                     formatCurrency(Number(value)),
-                    "Revenue (Nu.)",
+                    "Verified Collection",
                   ]}
                   contentStyle={{
                     borderRadius: "8px",
