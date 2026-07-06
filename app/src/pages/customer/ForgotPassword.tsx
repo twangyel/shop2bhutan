@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, HeadphonesIcon, KeyRound, Mail, Phone } from 'lucide-react';
+import { CheckCircle, HeadphonesIcon, KeyRound, Mail, Phone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 const PHONE_ONLY_EMAIL_SUFFIX = '@phone.shop2bhutan.com';
@@ -244,15 +244,9 @@ export default function ForgotPassword() {
   return (
     <div className="min-h-screen bg-white">
       <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <button
-            type="button"
-            onClick={() => navigate('/login')}
-            className="-ml-1 flex h-9 w-9 items-center justify-center rounded-full hover:bg-neutral-100"
-          >
-            <ArrowLeft size={22} />
-          </button>
+        <div className="flex flex-col px-4 py-3">
           <h1 className="text-lg font-bold text-neutral-900">Reset Password</h1>
+          <p className="text-xs text-neutral-500">Recover access to your account</p>
         </div>
       </div>
 
