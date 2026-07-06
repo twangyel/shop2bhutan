@@ -193,7 +193,7 @@ async function fetchOwnedRows(
       continue;
     }
 
-    const rows = Array.isArray(data) ? (data as ActivityRow[]) : [];
+    const rows = Array.isArray(data) ? (data as unknown as ActivityRow[]) : [];
     if (rows.length > 0) return rows;
   }
 
