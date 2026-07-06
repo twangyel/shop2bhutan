@@ -271,7 +271,7 @@ function ContinueTrackingCard({
 
   if (!update) {
     return (
-      <section className="mt-5 rounded-3xl border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-blue-50 p-4 shadow-sm">
+      <section className="mt-5 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm ring-1 ring-orange-100">
             <Package size={21} strokeWidth={2.2} />
