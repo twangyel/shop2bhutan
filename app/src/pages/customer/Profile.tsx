@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   Camera,
   CheckCircle,
   Loader2,
@@ -302,14 +301,8 @@ export default function Profile() {
     <div className="min-h-screen bg-white pb-24">
       {/* Header */}
       <div className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-3">
-        <div className="mx-auto max-w-md flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate('/account')}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100"
-          >
-            <ArrowLeft size={20} strokeWidth={2} />
-          </button>
+        <div className="mx-auto max-w-md flex items-center">
+          
           <div>
             <h1 className="text-lg font-bold text-gray-900">Edit Profile</h1>
             <p className="text-xs text-gray-500">Update your personal details</p>
@@ -325,10 +318,10 @@ export default function Profile() {
               <img
                 src={avatarUrl}
                 alt={fullName || 'Profile picture'}
-                className="h-24 w-24 rounded-3xl object-cover border border-gray-100 shadow-sm"
+                className="h-24 w-24 rounded-full object-cover border border-gray-100 shadow-sm"
               />
             ) : (
-              <div className="flex h-24 w-24 items-center justify-center rounded-3xl border border-gray-100 bg-gray-50 shadow-sm">
+              <div className="flex h-24 w-24 items-center justify-center rounded-full border border-gray-100 bg-gray-50 shadow-sm">
                 <span className="text-3xl font-extrabold text-gray-400">{initials}</span>
               </div>
             )}
