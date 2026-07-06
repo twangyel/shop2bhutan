@@ -160,6 +160,25 @@ function platformLabel(platform?: string) {
   return 'Link';
 }
 
+function extractDomain(url?: string) {
+  if (!url) return '';
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.replace(/^www\./, '');
+  } catch {
+    return url.length > 32 ? url.slice(0, 32) + '…' : url;
+  }
+}
+
+function platformStyles(platform?: string) {
+  const p = String(platform ?? '').toLowerCase();
+  if (p === 'amazon') return { bg: 'bg-orange-100', text: 'text-orange-600', initial: 'A' };
+  if (p === 'flipkart') return { bg: 'bg-blue-100', text: 'text-blue-600', initial: 'F' };
+  if (p === 'myntra') return { bg: 'bg-pink-100', text: 'text-pink-600', initial: 'M' };
+  if (p === 'meesho') return { bg: 'bg-purple-100', text: 'text-purple-600', initial: 'M' };
+  return { bg: 'bg-gray-100', text: 'text-gray-400', initial: null };
+}
+
 
 const REQUEST_BAG_CACHE_PREFIX = 'shop2bhutan:request-bag:';
 
@@ -230,6 +249,8 @@ function BagItemCard({
   onPatch: (itemId: string, patch: Partial<Pick<RequestBagItem, 'productName' | 'priceShown' | 'quantity' | 'notes'>>) => void;
   onRemove: (itemId: string) => void;
 }) {
+  const ps = platformStyles(item.sourcePlatform);
+
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
       <div className="flex gap-3">
@@ -240,8 +261,12 @@ function BagItemCard({
             className="h-20 w-20 flex-shrink-0 rounded-xl bg-gray-100 object-cover"
           />
         ) : (
-          <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl bg-gray-100">
-            <ImageIcon size={22} className="text-gray-400" />
+          <div className={`flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl ${ps.bg}`}>
+            {ps.initial ? (
+              <span className={`text-lg font-bold ${ps.text}`}>{ps.initial}</span>
+            ) : (
+              <ImageIcon size={22} className={ps.text} />
+            )}
           </div>
         )}
 
@@ -260,9 +285,9 @@ function BagItemCard({
               href={item.sourceUrl}
               target="_blank"
               rel="noreferrer"
-              className="mt-1 block truncate text-[11px] text-gray-400"
+              className="mt-1 block truncate text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
             >
-              {item.sourceUrl}
+              {extractDomain(item.sourceUrl)}
             </a>
           ) : (
             <span className="mt-1 inline-block rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-medium text-orange-600">
@@ -298,7 +323,7 @@ function BagItemCard({
         </button>
       </div>
 
-      <div className="mt-3 grid grid-cols-[1fr_auto] gap-3">
+      <div className="mt-3 grid grid-cols-[1fr_140px] gap-3">
         <div>
           <label className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
             Price shown on site
@@ -676,7 +701,7 @@ export default function RequestBag() {
             </p>
           </div>
           {hasItems && (
-            <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-700">
+            <span className="rounded-full bg-orange-50 border border-orange-100 px-2.5 py-1 text-xs font-bold text-orange-700">
               {bag?.items.length} item{bag?.items.length === 1 ? '' : 's'}
             </span>
           )}
@@ -730,7 +755,7 @@ export default function RequestBag() {
             <button
               type="button"
               onClick={() => navigate('/paste-link')}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-white text-sm font-bold text-gray-700 hover:bg-gray-50"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50/50 text-sm font-bold text-gray-700 hover:border-orange-300 hover:text-orange-600 hover:bg-orange-50/30 transition-colors"
             >
               <Plus size={17} />
               Add another product
@@ -829,8 +854,8 @@ export default function RequestBag() {
                       {savedAddress?.label && (
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">{savedAddress.label} address</p>
                       )}
-                      {customer.phone && <p className="text-xs text-emerald-700">{customer.phone}</p>}
-                      <p className="mt-1 text-xs leading-5 text-emerald-800">{customer.deliveryAddress}</p>
+                      {customer.phone && <p className="text-xs font-medium text-emerald-600/80">{customer.phone}</p>}
+                      <p className="mt-1 text-xs leading-5 font-medium text-emerald-900">{customer.deliveryAddress}</p>
                     </div>
                   </div>
                 </div>
