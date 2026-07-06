@@ -47,6 +47,7 @@ function formatBhutanDateTime(value?: string) {
 
 function getNotificationStyle(type: NotificationType, title: string) {
   const t = title.toLowerCase();
+  if (t.includes('parcel')) return { icon: Package, bg: 'bg-orange-50', text: 'text-orange-600' };
   if (type === 'order_update') {
     if (t.includes('delivered')) return { icon: Package, bg: 'bg-emerald-50', text: 'text-emerald-600' };
     if (t.includes('out for delivery')) return { icon: Truck, bg: 'bg-orange-50', text: 'text-orange-600' };

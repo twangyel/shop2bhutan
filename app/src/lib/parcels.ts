@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import {
   createAdminParcelSubmittedNotification,
   createCustomerParcelStatusNotification,
+  createCustomerParcelTripOpenNotifications,
 } from '@/lib/customerOrders'
 import type {
   ParcelRequest,
@@ -49,6 +50,14 @@ function nullableText(value: unknown) {
 
 function todayDate() {
   return new Date().toISOString().slice(0, 10)
+}
+
+function emitParcelTripUpdated() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('shop2bhutan:parcel-trips-updated'))
+    window.dispatchEvent(new CustomEvent('shop2bhutan:parcels-updated'))
+    window.dispatchEvent(new CustomEvent('shop2bhutan:notifications-updated'))
+  }
 }
 
 const DUPLICATE_PARCEL_WINDOW_MINUTES = 30
@@ -644,6 +653,7 @@ export async function createParcelTrip(input: CreateParcelTripInput) {
   const origin = text(input.origin) || 'Thimphu'
   const destination = text(input.destination) || 'Phuentsholing'
   const title = text(input.title) || `${origin} → ${destination}`
+  const status = input.status ?? 'open'
 
   const { data, error } = await supabase
     .from('parcel_trips')
@@ -657,7 +667,7 @@ export async function createParcelTrip(input: CreateParcelTripInput) {
         ? new Date(input.bookingCutoffAt).toISOString()
         : null,
       pickup_areas: [],
-      status: input.status ?? 'open',
+      status,
       created_by: userId,
     })
     .select('*')
@@ -665,13 +675,43 @@ export async function createParcelTrip(input: CreateParcelTripInput) {
 
   if (error) throw error
 
-  return mapTrip(data)
+  const trip = mapTrip(data)
+
+  if (trip.status === 'open') {
+    await createCustomerParcelTripOpenNotifications({
+      tripId: trip.id,
+      title: trip.title,
+      origin: trip.origin,
+      destination: trip.destination,
+      goingDate: trip.goingDate,
+      bookingCutoffAt: trip.bookingCutoffAt,
+      eventKey: `created:${trip.createdAt || new Date().toISOString()}`,
+    })
+  }
+
+  emitParcelTripUpdated()
+
+  return trip
 }
 
 export async function updateParcelTripStatus(
   tripId: string,
   status: ParcelTripStatus,
 ) {
+  let previousStatus: ParcelTripStatus | undefined
+
+  try {
+    const { data: existing } = await supabase
+      .from('parcel_trips')
+      .select('status')
+      .eq('id', tripId)
+      .maybeSingle()
+
+    previousStatus = existing?.status as ParcelTripStatus | undefined
+  } catch (error) {
+    console.warn('[updateParcelTripStatus] Previous status lookup skipped:', error)
+  }
+
   const { data, error } = await supabase
     .from('parcel_trips')
     .update({ status })
@@ -681,7 +721,23 @@ export async function updateParcelTripStatus(
 
   if (error) throw error
 
-  return mapTrip(data)
+  const trip = mapTrip(data)
+
+  if (trip.status === 'open' && previousStatus !== 'open') {
+    await createCustomerParcelTripOpenNotifications({
+      tripId: trip.id,
+      title: trip.title,
+      origin: trip.origin,
+      destination: trip.destination,
+      goingDate: trip.goingDate,
+      bookingCutoffAt: trip.bookingCutoffAt,
+      eventKey: `reopened:${new Date().toISOString()}`,
+    })
+  }
+
+  emitParcelTripUpdated()
+
+  return trip
 }
 
 export async function fetchAdminParcelRequests() {

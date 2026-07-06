@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, Package, RefreshCw, Truck, X, XCircle } from 'lucide-react'
 import {
   fetchAdminParcelRequests,
@@ -10,6 +10,7 @@ import {
   parcelTypeLabels,
 } from '@/types/parcel'
 import type { ParcelRequest, ParcelRequestStatus } from '@/types/parcel'
+import { supabase } from '@/lib/supabase'
 
 const tabs: { key: 'all' | ParcelRequestStatus; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -130,9 +131,11 @@ export default function ParcelRequests() {
   const [error, setError] = useState('')
   const [reasonModal, setReasonModal] = useState<ReasonModalState | null>(null)
 
-  async function loadRequests() {
+  const loadRequests = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent)
+
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       setError('')
 
       const rows = await fetchAdminParcelRequests()
@@ -140,13 +143,67 @@ export default function ParcelRequests() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load requests.')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    loadRequests()
-  }, [])
+    void loadRequests()
+  }, [loadRequests])
+
+  useEffect(() => {
+    let active = true
+    const timers: number[] = []
+
+    const refreshSoon = (delay = 0) => {
+      const timer = window.setTimeout(() => {
+        if (!active) return
+        void loadRequests({ silent: true })
+      }, delay)
+
+      timers.push(timer)
+    }
+
+    const handleRealtimeRefresh = () => {
+      refreshSoon(0)
+      refreshSoon(800)
+    }
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) handleRealtimeRefresh()
+    }
+
+    window.addEventListener('shop2bhutan:admin-parcels-updated', handleRealtimeRefresh)
+    window.addEventListener('focus', handleRealtimeRefresh)
+    window.addEventListener('pageshow', handleRealtimeRefresh)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    const channel = supabase
+      .channel('admin-parcel-requests-page-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'parcel_requests' },
+        handleRealtimeRefresh,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'parcel_trips' },
+        handleRealtimeRefresh,
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') refreshSoon(0)
+      })
+
+    return () => {
+      active = false
+      timers.forEach((timer) => window.clearTimeout(timer))
+      window.removeEventListener('shop2bhutan:admin-parcels-updated', handleRealtimeRefresh)
+      window.removeEventListener('focus', handleRealtimeRefresh)
+      window.removeEventListener('pageshow', handleRealtimeRefresh)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      void supabase.removeChannel(channel)
+    }
+  }, [loadRequests])
 
   const filtered = useMemo(() => {
     if (filter === 'all') return requests
@@ -174,7 +231,7 @@ export default function ParcelRequests() {
       setError('')
 
       await updateParcelRequestStatus(request.id, status, adminNotes)
-      await loadRequests()
+      await loadRequests({ silent: true })
       window.dispatchEvent(new CustomEvent('shop2bhutan:admin-parcels-updated'))
       window.dispatchEvent(new CustomEvent('shop2bhutan:parcels-updated'))
       return true
@@ -225,7 +282,7 @@ export default function ParcelRequests() {
         </div>
 
         <button
-          onClick={loadRequests}
+          onClick={() => loadRequests()}
           className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
         >
           <RefreshCw size={16} />

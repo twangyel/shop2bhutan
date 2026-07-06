@@ -254,6 +254,7 @@ export default function AdminLayout() {
 
   useEffect(() => {
     let mounted = true
+    const timers: number[] = []
 
     async function refreshPendingParcels() {
       try {
@@ -265,22 +266,68 @@ export default function AdminLayout() {
       }
     }
 
+    const refreshSoon = (delay = 0) => {
+      const timer = window.setTimeout(() => {
+        if (!mounted) return
+
+        void refreshPendingParcels()
+      }, delay)
+
+      timers.push(timer)
+    }
+
     void refreshPendingParcels()
 
     const handleRefresh = () => {
-      void refreshPendingParcels()
+      refreshSoon(0)
+      refreshSoon(800)
+    }
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) handleRefresh()
     }
 
     window.addEventListener('focus', handleRefresh)
+    window.addEventListener('pageshow', handleRefresh)
     window.addEventListener('shop2bhutan:admin-parcels-updated', handleRefresh)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    const channel = supabase
+      .channel('admin-parcels-layout-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'parcel_requests' },
+        handleRefresh,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'parcel_trips' },
+        handleRefresh,
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') refreshSoon(0)
+
+        if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT' ||
+          status === 'CLOSED'
+        ) {
+          console.warn('[AdminLayout] Parcel realtime channel status:', status)
+          refreshSoon(1000)
+        }
+      })
 
     return () => {
       mounted = false
+      timers.forEach((timer) => window.clearTimeout(timer))
       window.removeEventListener('focus', handleRefresh)
+      window.removeEventListener('pageshow', handleRefresh)
       window.removeEventListener(
         'shop2bhutan:admin-parcels-updated',
         handleRefresh,
       )
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      void supabase.removeChannel(channel)
     }
   }, [location.pathname])
 

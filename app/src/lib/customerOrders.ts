@@ -1157,6 +1157,141 @@ async function createAdminNotificationForAdmins(input: {
 }
 
 
+async function fetchCustomerNotificationTargetUserIds() {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.warn('[customerOrders] customer notification targets skipped:', error.message)
+    return [] as string[]
+  }
+
+  let adminIds = new Set<string>()
+
+  const { data: roleData, error: roleError } = await supabase
+    .from('user_roles')
+    .select('user_id, role')
+    .in('role', ['admin', 'super_admin'])
+
+  if (!roleError) {
+    adminIds = new Set(
+      ((roleData ?? []) as AnyRow[])
+        .map((row) => firstString(row, ['user_id', 'profile_id', 'id'], ''))
+        .filter(Boolean)
+    )
+  } else {
+    console.warn('[customerOrders] customer notification role filter skipped:', roleError.message)
+  }
+
+  return Array.from(
+    new Set(
+      ((data ?? []) as AnyRow[])
+        .filter((row) => {
+          const id = firstString(row, ['id', 'user_id', 'profile_id'], '')
+          if (!id || adminIds.has(id)) return false
+
+          const isGuestProfile = Boolean(
+            firstValue(row, [
+              'is_guest',
+              'is_anonymous',
+              'anonymous',
+              'isGuest',
+              'isAnonymous',
+            ])
+          )
+
+          return !isGuestProfile
+        })
+        .map((row) => firstString(row, ['id', 'user_id', 'profile_id'], ''))
+        .filter(Boolean)
+    )
+  )
+}
+
+function formatParcelTripNotificationDate(value?: string | null) {
+  if (!value) return 'the selected date'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'the selected date'
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Thimphu',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(date)
+}
+
+function formatParcelTripNotificationCutoff(value?: string | null) {
+  if (!value) return ''
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Thimphu',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
+export async function createCustomerParcelTripOpenNotifications(input: {
+  tripId: string
+  title?: string | null
+  origin?: string | null
+  destination?: string | null
+  goingDate?: string | null
+  bookingCutoffAt?: string | null
+  eventKey?: string | null
+}) {
+  try {
+    const tripId = cleanText(input.tripId)
+    if (!tripId) return
+
+    const origin = cleanText(input.origin) || 'Thimphu'
+    const destination = cleanText(input.destination) || 'Phuentsholing'
+    const route = cleanText(input.title) || `${origin} → ${destination}`
+    const dateText = formatParcelTripNotificationDate(input.goingDate)
+    const cutoffText = formatParcelTripNotificationCutoff(input.bookingCutoffAt)
+    const eventKey = cleanText(input.eventKey) || new Date().toISOString()
+
+    const customerIds = await fetchCustomerNotificationTargetUserIds()
+    if (customerIds.length === 0) return
+
+    const message = cutoffText
+      ? `${route} is open for ${dateText}. Book your parcel before ${cutoffText} BTT.`
+      : `${route} is open for ${dateText}. Book your parcel now.`
+
+    const results = await Promise.allSettled(
+      customerIds.map((userId) =>
+        createCustomerNotification({
+          userId,
+          type: 'system',
+          title: 'New Parcel Trip Open',
+          message,
+          link: '/parcel',
+          dedupeKey: `parcel-trip-open:${tripId}:${eventKey}:${userId}`,
+        })
+      )
+    )
+
+    const rejected = results.find((result) => result.status === 'rejected')
+    if (rejected && rejected.status === 'rejected') {
+      console.warn(
+        '[customerOrders] one or more parcel trip notifications were skipped:',
+        rejected.reason,
+      )
+    }
+  } catch (error) {
+    console.warn('[customerOrders] customer parcel trip notification skipped:', error)
+  }
+}
+
+
 export async function createAdminPasswordResetRequestedNotification(input: {
   identifier?: string | null
   loginEmail?: string | null

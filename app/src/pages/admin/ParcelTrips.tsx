@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Calendar, ChevronDown, Clock, Loader2, Plus, RefreshCw, Truck } from 'lucide-react'
 import {
   createParcelTrip,
@@ -7,6 +7,7 @@ import {
 } from '@/lib/parcels'
 import type { ParcelTrip, ParcelTripStatus } from '@/types/parcel'
 import { parcelTripStatusLabels } from '@/types/parcel'
+import { supabase } from '@/lib/supabase'
 
 function formatDate(value?: string | null) {
   if (!value) return 'Not set'
@@ -141,22 +142,80 @@ export default function ParcelTrips() {
 
   const selectedRoute = getRouteOption(form.routeKey)
 
-  async function loadTrips() {
+  const loadTrips = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent)
+
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       setError('')
       const rows = await fetchAdminParcelTrips()
       setTrips(rows)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load trips.')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    loadTrips()
-  }, [])
+    void loadTrips()
+  }, [loadTrips])
+
+  useEffect(() => {
+    let active = true
+    const timers: number[] = []
+
+    const refreshSoon = (delay = 0) => {
+      const timer = window.setTimeout(() => {
+        if (!active) return
+        void loadTrips({ silent: true })
+      }, delay)
+
+      timers.push(timer)
+    }
+
+    const handleRealtimeRefresh = () => {
+      refreshSoon(0)
+      refreshSoon(800)
+    }
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) handleRealtimeRefresh()
+    }
+
+    window.addEventListener('shop2bhutan:parcel-trips-updated', handleRealtimeRefresh)
+    window.addEventListener('shop2bhutan:admin-parcels-updated', handleRealtimeRefresh)
+    window.addEventListener('focus', handleRealtimeRefresh)
+    window.addEventListener('pageshow', handleRealtimeRefresh)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    const channel = supabase
+      .channel('admin-parcel-trips-page-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'parcel_trips' },
+        handleRealtimeRefresh,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'parcel_requests' },
+        handleRealtimeRefresh,
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') refreshSoon(0)
+      })
+
+    return () => {
+      active = false
+      timers.forEach((timer) => window.clearTimeout(timer))
+      window.removeEventListener('shop2bhutan:parcel-trips-updated', handleRealtimeRefresh)
+      window.removeEventListener('shop2bhutan:admin-parcels-updated', handleRealtimeRefresh)
+      window.removeEventListener('focus', handleRealtimeRefresh)
+      window.removeEventListener('pageshow', handleRealtimeRefresh)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      void supabase.removeChannel(channel)
+    }
+  }, [loadTrips])
 
   async function handleCreateTrip() {
     if (!form.goingDate) {
@@ -185,7 +244,7 @@ export default function ParcelTrips() {
       })
 
       setShowForm(false)
-      await loadTrips()
+      await loadTrips({ silent: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create trip.')
     } finally {
@@ -198,7 +257,7 @@ export default function ParcelTrips() {
       setUpdatingTripId(tripId)
       setError('')
       await updateParcelTripStatus(tripId, status)
-      await loadTrips()
+      await loadTrips({ silent: true })
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to update trip status.',
@@ -246,7 +305,7 @@ export default function ParcelTrips() {
 
         <div className="flex gap-2">
           <button
-            onClick={loadTrips}
+            onClick={() => loadTrips()}
             className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
           >
             <RefreshCw size={16} />

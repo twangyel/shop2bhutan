@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
@@ -29,6 +29,7 @@ import {
   isParcelTripBookable,
 } from '@/lib/parcels'
 import type { ParcelSize, ParcelTrip, ParcelType } from '@/types/parcel'
+import { supabase } from '@/lib/supabase'
 
 const allowedParcelTypes: { key: ParcelType; label: string }[] = [
   { key: 'documents', label: 'Documents' },
@@ -111,43 +112,94 @@ export default function ParcelBooking() {
     declarationConfirmed: false,
   })
 
-  useEffect(() => {
-    let alive = true
+  const loadTrip = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent)
 
-    async function loadTrip() {
-      if (!tripId) {
-        setError('Trip not found.')
-        setLoading(false)
-        return
-      }
-
-      try {
-        setLoading(true)
-        setError('')
-
-        const row = await fetchParcelTripById(tripId)
-
-        if (!alive) return
-
-        if (!row) {
-          setError('Trip not found or booking is not available.')
-        } else {
-          setTrip(row)
-        }
-      } catch (err) {
-        if (!alive) return
-        setError(err instanceof Error ? err.message : 'Failed to load trip.')
-      } finally {
-        if (alive) setLoading(false)
-      }
+    if (!tripId) {
+      setError('Trip not found.')
+      setLoading(false)
+      return
     }
 
-    loadTrip()
+    try {
+      if (!silent) setLoading(true)
+      setError('')
 
-    return () => {
-      alive = false
+      const row = await fetchParcelTripById(tripId)
+
+      if (!row) {
+        setError('Trip not found or booking is not available.')
+        setTrip(null)
+      } else {
+        setTrip(row)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load trip.')
+    } finally {
+      if (!silent) setLoading(false)
     }
   }, [tripId])
+
+  useEffect(() => {
+    void loadTrip()
+  }, [loadTrip])
+
+  useEffect(() => {
+    if (!tripId) return undefined
+
+    let active = true
+    const timers: number[] = []
+
+    const refreshSoon = (delay = 0) => {
+      const timer = window.setTimeout(() => {
+        if (active) void loadTrip({ silent: true })
+      }, delay)
+
+      timers.push(timer)
+    }
+
+    const handleRealtimeRefresh = () => {
+      refreshSoon(0)
+      refreshSoon(700)
+    }
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) handleRealtimeRefresh()
+    }
+
+    window.addEventListener('shop2bhutan:parcel-trips-updated', handleRealtimeRefresh)
+    window.addEventListener('shop2bhutan:parcels-updated', handleRealtimeRefresh)
+    window.addEventListener('focus', handleRealtimeRefresh)
+    window.addEventListener('pageshow', handleRealtimeRefresh)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    const channel = supabase
+      .channel(`customer-parcel-booking-trip:${tripId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'parcel_trips',
+          filter: `id=eq.${tripId}`,
+        },
+        handleRealtimeRefresh,
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') refreshSoon(0)
+      })
+
+    return () => {
+      active = false
+      timers.forEach((timer) => window.clearTimeout(timer))
+      window.removeEventListener('shop2bhutan:parcel-trips-updated', handleRealtimeRefresh)
+      window.removeEventListener('shop2bhutan:parcels-updated', handleRealtimeRefresh)
+      window.removeEventListener('focus', handleRealtimeRefresh)
+      window.removeEventListener('pageshow', handleRealtimeRefresh)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      void supabase.removeChannel(channel)
+    }
+  }, [loadTrip, tripId])
 
   useEffect(() => {
     if (!photoFile) {

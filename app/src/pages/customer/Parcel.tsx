@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -15,6 +15,7 @@ import {
 } from '@/lib/parcels'
 import type { ParcelRequest, ParcelTrip } from '@/types/parcel'
 import { parcelStatusLabels } from '@/types/parcel'
+import { supabase } from '@/lib/supabase'
 
 function formatDate(value?: string | null) {
   if (!value) return 'Date not fixed'
@@ -81,9 +82,11 @@ export default function Parcel() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  async function loadParcelHome() {
+  const loadParcelHome = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent)
+
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       setError('')
 
       const [tripRows, requestRows] = await Promise.all([
@@ -98,13 +101,68 @@ export default function Parcel() {
         err instanceof Error ? err.message : 'Failed to load parcel trips.',
       )
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    loadParcelHome()
-  }, [])
+    void loadParcelHome()
+  }, [loadParcelHome])
+
+  useEffect(() => {
+    let active = true
+    const timers: number[] = []
+
+    const refreshSoon = (delay = 0) => {
+      const timer = window.setTimeout(() => {
+        if (active) void loadParcelHome({ silent: true })
+      }, delay)
+
+      timers.push(timer)
+    }
+
+    const handleRealtimeRefresh = () => {
+      refreshSoon(0)
+      refreshSoon(700)
+    }
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) handleRealtimeRefresh()
+    }
+
+    window.addEventListener('shop2bhutan:parcel-trips-updated', handleRealtimeRefresh)
+    window.addEventListener('shop2bhutan:parcels-updated', handleRealtimeRefresh)
+    window.addEventListener('focus', handleRealtimeRefresh)
+    window.addEventListener('pageshow', handleRealtimeRefresh)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    const channel = supabase
+      .channel('customer-parcel-home-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'parcel_trips' },
+        handleRealtimeRefresh,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'parcel_requests' },
+        handleRealtimeRefresh,
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') refreshSoon(0)
+      })
+
+    return () => {
+      active = false
+      timers.forEach((timer) => window.clearTimeout(timer))
+      window.removeEventListener('shop2bhutan:parcel-trips-updated', handleRealtimeRefresh)
+      window.removeEventListener('shop2bhutan:parcels-updated', handleRealtimeRefresh)
+      window.removeEventListener('focus', handleRealtimeRefresh)
+      window.removeEventListener('pageshow', handleRealtimeRefresh)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      void supabase.removeChannel(channel)
+    }
+  }, [loadParcelHome])
 
   const activeRequests = requests.filter((request) =>
     activeParcelStatuses.has(request.status),

@@ -233,6 +233,69 @@ export default function CustomerLayout() {
   }, [authLoading, refreshNotificationCount, user])
 
   useEffect(() => {
+    if (authLoading) return undefined
+
+    let active = true
+    const timers: number[] = []
+
+    const refreshSoon = (delay = 0) => {
+      const timer = window.setTimeout(() => {
+        if (!active) return
+
+        void refreshParcelBadge()
+        window.dispatchEvent(new CustomEvent('shop2bhutan:parcels-updated'))
+      }, delay)
+
+      timers.push(timer)
+    }
+
+    const handleParcelChange = () => {
+      refreshSoon(0)
+      refreshSoon(800)
+    }
+
+    let channel = supabase
+      .channel(`customer-parcels-badge:${user?.id ?? 'guest'}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'parcel_trips' },
+        handleParcelChange,
+      )
+
+    if (user?.id) {
+      channel = channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'parcel_requests',
+          filter: `user_id=eq.${user.id}`,
+        },
+        handleParcelChange,
+      )
+    }
+
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') refreshSoon(0)
+
+      if (
+        status === 'CHANNEL_ERROR' ||
+        status === 'TIMED_OUT' ||
+        status === 'CLOSED'
+      ) {
+        console.warn('[CustomerLayout] Parcel realtime channel status:', status)
+        refreshSoon(1000)
+      }
+    })
+
+    return () => {
+      active = false
+      timers.forEach((timer) => window.clearTimeout(timer))
+      void supabase.removeChannel(channel)
+    }
+  }, [authLoading, refreshParcelBadge, user])
+
+  useEffect(() => {
     let active = true
 
     async function loadSettings() {
