@@ -957,7 +957,7 @@ export default function RequestBag() {
         )}
       </div>
 
-      {/* ===== COMPACT CONFIRMATION DIALOG ===== */}
+      {/* ===== REDESIGNED CONFIRMATION DIALOG ===== */}
       {confirmOpen && (
         <div
           className="fixed inset-0 z-[90] flex items-end justify-center bg-black/40 px-4 pb-4 pt-10 backdrop-blur-sm sm:items-center sm:p-4"
@@ -973,60 +973,71 @@ export default function RequestBag() {
           />
 
           <div className="relative w-full max-w-md overflow-hidden rounded-[28px] bg-white shadow-2xl">
-            <div className="max-h-[calc(100vh-2rem)] overflow-y-auto px-5 py-5">
-              <div className="text-center">
-                <h2 id="confirm-quotation-title" className="text-lg font-extrabold text-gray-900">
+            {/* Drag handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="h-1.5 w-12 rounded-full bg-gray-200" />
+            </div>
+
+            <div className="max-h-[calc(100vh-2rem)] overflow-y-auto px-5 py-4">
+              {/* Hero Header */}
+              <div className="flex flex-col items-center text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-50 mb-3">
+                  <Package size={26} className="text-orange-500" strokeWidth={2} />
+                </div>
+                <h2 id="confirm-quotation-title" className="text-xl font-extrabold text-gray-900">
                   Confirm Quotation Request
                 </h2>
-                <p className="mx-auto mt-1.5 max-w-[260px] text-sm leading-6 text-gray-500">
+                <p className="mx-auto mt-1.5 max-w-[260px] text-sm leading-relaxed text-gray-500">
                   You are sending <span className="font-semibold text-gray-700">{itemCount} item{itemCount === 1 ? '' : 's'}</span> to Shop2Bhutan for admin review.
                 </p>
               </div>
 
+              {/* Unified Summary Card */}
               <div className="mt-5 rounded-2xl border border-gray-100 bg-gray-50/80 p-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-2xl bg-white p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Items</p>
-                    <p className="mt-1 text-base font-extrabold text-gray-900">
-                      {itemCount} <span className="text-xs font-semibold text-gray-500">({totalQuantity} qty)</span>
-                    </p>
+                {/* Top row: Items + Estimate */}
+                <div className="flex items-center">
+                  <div className="flex-1 flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white border border-gray-100 shadow-sm">
+                      <ShoppingBag size={16} className="text-gray-500" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Items</p>
+                      <p className="text-base font-bold text-gray-900">{itemCount} <span className="text-xs font-normal text-gray-500">({totalQuantity} qty)</span></p>
+                    </div>
                   </div>
-
-                  <div className="rounded-2xl bg-white p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Site estimate</p>
-                    <p className="mt-1 text-base font-extrabold text-gray-900">
-                      {estimatedSiteTotal > 0 ? formatPrice(estimatedSiteTotal) : 'Not provided'}
+                  <div className="w-px h-10 bg-gray-200 mx-3" />
+                  <div className="flex-1">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Site Estimate</p>
+                    <p className="text-base font-bold text-gray-900">
+                      {estimatedSiteTotal > 0 ? formatPrice(estimatedSiteTotal) : <span className="text-gray-400 font-medium">—</span>}
                     </p>
                   </div>
                 </div>
 
                 <div className="my-4 h-px bg-gray-200/80" />
 
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Contact</p>
-                    <p className="mt-1 text-sm font-bold text-gray-900">{customer.name || 'Customer'}</p>
-                    {customer.phone && (
-                      <p className="mt-0.5 text-xs font-medium text-gray-500">{customer.phone}</p>
-                    )}
+                {/* Delivery Info */}
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-100">
+                    <CheckCircle size={16} className="text-emerald-600" strokeWidth={2.5} />
                   </div>
-
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Fulfillment</p>
-                    <p className="mt-1 text-sm font-bold text-gray-900">
-                      {isSelfPickup ? selectedPickupHub.name : 'Deliver to me'}
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-gray-500">
-                      {isSelfPickup
-                        ? selectedPickupHub.id === 'jaigaon_pickup_point'
-                          ? 'You will personally collect from Jaigaon. Bhutan delivery is not included.'
-                          : 'Pickup location and timing will be shared after arrival.'
-                        : customer.deliveryAddress}
-                    </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-gray-900">{customer.name || 'Customer'}</p>
+                    {customer.phone && (
+                      <p className="text-xs text-gray-500 mt-0.5">{customer.phone}</p>
+                    )}
+                    <div className="mt-2 rounded-xl bg-white border border-gray-100 p-3">
+                      <p className="text-xs leading-5 text-gray-600">
+                        {isSelfPickup
+                          ? `Self Pickup — ${selectedPickupHub.name}. ${selectedPickupHub.pickupInstructions}`
+                          : customer.deliveryAddress}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
 
+              {/* Warning */}
               <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-amber-100 bg-amber-50 px-3.5 py-3">
                 <span className="mt-0.5 shrink-0 text-amber-500">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1040,15 +1051,16 @@ export default function RequestBag() {
                 </p>
               </div>
 
+              {/* Buttons */}
               <button
                 type="button"
                 onClick={submitBag}
                 disabled={submitting}
-                className="mt-5 flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-base font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting ? (
                   <>
-                    <Loader2 size={18} className="animate-spin" />
+                    <Loader2 size={20} className="animate-spin" />
                     Sending Request...
                   </>
                 ) : (
@@ -1060,17 +1072,14 @@ export default function RequestBag() {
                 type="button"
                 onClick={() => setConfirmOpen(false)}
                 disabled={submitting}
-                className="mt-3 h-10 w-full rounded-2xl text-sm font-semibold text-gray-500 transition-all hover:bg-gray-50 active:scale-[0.98] disabled:opacity-60"
+                className="mt-3 h-12 w-full rounded-2xl text-sm font-semibold text-gray-500 transition-all hover:bg-gray-50 active:scale-[0.98] disabled:opacity-60"
               >
                 Cancel
               </button>
             </div>
           </div>
         </div>
-      )}
-
-
-      {hasItems && (
+      )}{hasItems && (
         <div className="fixed bottom-16 left-0 right-0 z-40 border-t border-gray-200 bg-white px-4 py-3">
           <div className="mx-auto max-w-lg">
             <button
