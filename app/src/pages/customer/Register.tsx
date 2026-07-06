@@ -288,6 +288,10 @@ export default function Register() {
     dzongkhagOptions.find((item) => item.id === form.dzongkhag) || null;
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, []);
+
+  useEffect(() => {
     let active = true;
     async function loadDzongkhags() {
       setLoadingDzongkhags(true);
@@ -574,7 +578,7 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-white py-8 px-6">
+    <div className="min-h-screen bg-white px-6 pb-8 pt-5">
       {toast && (
         <RegistrationToast toast={toast} onClose={() => setToast(null)} />
       )}
@@ -588,10 +592,12 @@ export default function Register() {
       )}
 
       <div className="max-w-sm mx-auto">
-        <div className="mb-6 flex flex-col items-center text-center">
-          <BrandLogo variant="full" className="justify-center" />
+        <div className="mb-4 flex flex-col items-center text-center">
+          <div className="-mb-3 origin-center scale-[0.76]">
+            <BrandLogo variant="full" className="justify-center" />
+          </div>
 
-          <h1 className="mt-5 text-2xl font-bold text-gray-900">
+          <h1 className="mt-2 text-[1.45rem] font-extrabold leading-tight text-gray-900">
             Create Account
           </h1>
           <p className="mt-1 text-sm text-gray-500">
@@ -618,9 +624,9 @@ export default function Register() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+            <label className="mb-1 block text-sm font-semibold text-gray-700">
               Full name
             </label>
             <div className="relative">
@@ -633,16 +639,16 @@ export default function Register() {
                 value={form.name}
                 onChange={(e) => update("name", e.target.value)}
                 placeholder="Your full name"
-                className={`w-full h-12 pl-10 pr-4 border rounded-2xl text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.name ? "border-red-400" : "border-gray-300"}`}
+                className={`h-11 w-full rounded-2xl border pl-10 pr-4 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.name ? "border-red-400" : "border-gray-300"}`}
               />
             </div>
             {errors.name && (
-              <p className="text-xs text-red-500 mt-1">{errors.name}</p>
+              <p className="text-xs text-red-500 mt-0.5">{errors.name}</p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+            <label className="mb-1 block text-sm font-semibold text-gray-700">
               Email address (optional)
             </label>
             <div className="relative">
@@ -655,13 +661,13 @@ export default function Register() {
                 value={form.email}
                 onChange={(e) => update("email", e.target.value)}
                 placeholder="your@email.com (optional)"
-                className={`w-full h-12 pl-10 pr-4 border rounded-2xl text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.email ? "border-red-400" : "border-gray-300"}`}
+                className={`h-11 w-full rounded-2xl border pl-10 pr-4 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.email ? "border-red-400" : "border-gray-300"}`}
               />
             </div>
             {errors.email ? (
-              <p className="text-xs text-red-500 mt-1">{errors.email}</p>
+              <p className="text-xs text-red-500 mt-0.5">{errors.email}</p>
             ) : (
-              <p className="text-[11px] text-gray-400 mt-1">
+              <p className="text-[11px] text-gray-400 mt-0.5">
                 Optional, but recommended for password recovery and order
                 updates.
               </p>
@@ -669,7 +675,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+            <label className="mb-1 block text-sm font-semibold text-gray-700">
               Bhutan mobile number
             </label>
             <div className="relative">
@@ -682,24 +688,24 @@ export default function Register() {
                 value={form.phone}
                 onChange={(e) => update("phone", e.target.value)}
                 placeholder="17123456 or +97517123456"
-                className={`w-full h-12 pl-10 pr-4 border rounded-2xl text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.phone ? "border-red-400" : "border-gray-300"}`}
+                className={`h-11 w-full rounded-2xl border pl-10 pr-4 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.phone ? "border-red-400" : "border-gray-300"}`}
               />
             </div>
             {errors.phone ? (
-              <p className="text-xs text-red-500 mt-1">{errors.phone}</p>
+              <p className="text-xs text-red-500 mt-0.5">{errors.phone}</p>
             ) : normalizedPreviewPhone ? (
-              <p className="text-[11px] text-emerald-600 mt-1">
+              <p className="text-[11px] text-emerald-600 mt-0.5">
                 Will save as {normalizedPreviewPhone}
               </p>
             ) : (
-              <p className="text-[11px] text-gray-400 mt-1">
+              <p className="text-[11px] text-gray-400 mt-0.5">
                 Must be 8 digits and start with 17 or 77.
               </p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+            <label className="mb-1 block text-sm font-semibold text-gray-700">
               Dzongkhag
             </label>
             <div className="relative" ref={dzongkhagRef}>
@@ -711,7 +717,7 @@ export default function Register() {
                 type="button"
                 onClick={() => setIsDzongkhagOpen(!isDzongkhagOpen)}
                 disabled={loadingDzongkhags}
-                className={`w-full h-12 pl-10 pr-10 border rounded-2xl text-sm outline-none transition flex items-center justify-between bg-white disabled:bg-gray-50 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.dzongkhag ? "border-red-400" : "border-gray-300"}`}
+                className={`h-11 w-full rounded-2xl border pl-10 pr-10 text-sm outline-none transition flex items-center justify-between bg-white disabled:bg-gray-50 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.dzongkhag ? "border-red-400" : "border-gray-300"}`}
               >
                 <span
                   className={form.dzongkhag ? "text-gray-900" : "text-gray-400"}
@@ -746,9 +752,9 @@ export default function Register() {
               )}
             </div>
             {errors.dzongkhag ? (
-              <p className="text-xs text-red-500 mt-1">{errors.dzongkhag}</p>
+              <p className="text-xs text-red-500 mt-0.5">{errors.dzongkhag}</p>
             ) : (
-              <p className="text-[11px] text-gray-400 mt-1">
+              <p className="text-[11px] text-gray-400 mt-0.5">
                 This records where your order request is from. Delivery is
                 currently available in Thimphu, Paro, and Chhukha.
               </p>
@@ -756,7 +762,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+            <label className="mb-1 block text-sm font-semibold text-gray-700">
               Password
             </label>
             <div className="relative">
@@ -769,7 +775,7 @@ export default function Register() {
                 value={form.password}
                 onChange={(e) => update("password", e.target.value)}
                 placeholder="Min 6 characters"
-                className={`w-full h-12 pl-10 pr-10 border rounded-2xl text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.password ? "border-red-400" : "border-gray-300"}`}
+                className={`h-11 w-full rounded-2xl border pl-10 pr-10 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.password ? "border-red-400" : "border-gray-300"}`}
               />
               <button
                 type="button"
@@ -780,12 +786,12 @@ export default function Register() {
               </button>
             </div>
             {errors.password && (
-              <p className="text-xs text-red-500 mt-1">{errors.password}</p>
+              <p className="text-xs text-red-500 mt-0.5">{errors.password}</p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+            <label className="mb-1 block text-sm font-semibold text-gray-700">
               Confirm password
             </label>
             <div className="relative">
@@ -798,11 +804,11 @@ export default function Register() {
                 value={form.confirmPassword}
                 onChange={(e) => update("confirmPassword", e.target.value)}
                 placeholder="Confirm password"
-                className={`w-full h-12 pl-10 pr-4 border rounded-2xl text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.confirmPassword ? "border-red-400" : "border-gray-300"}`}
+                className={`h-11 w-full rounded-2xl border pl-10 pr-4 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.confirmPassword ? "border-red-400" : "border-gray-300"}`}
               />
             </div>
             {errors.confirmPassword && (
-              <p className="text-xs text-red-500 mt-1">
+              <p className="text-xs text-red-500 mt-0.5">
                 {errors.confirmPassword}
               </p>
             )}
@@ -816,7 +822,7 @@ export default function Register() {
                 setAgreed(e.target.checked);
                 setErrors((prev) => ({ ...prev, agreed: "" }));
               }}
-              className="w-4 h-4 mt-0.5 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-orange-500 accent-orange-500 focus:ring-orange-500"
             />
             <span className="text-sm text-gray-600">
               I agree to the{" "}
@@ -852,13 +858,13 @@ export default function Register() {
           <button
             type="submit"
             disabled={submitting || loadingDzongkhags}
-            className="w-full h-12 bg-orange-500 text-white font-semibold rounded-2xl hover:bg-orange-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="h-12 w-full rounded-2xl bg-orange-500 font-bold text-white transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? "Creating account..." : "Create Account"}
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="mt-5 text-center text-sm text-gray-500">
           Already have an account?{" "}
           <button
             type="button"

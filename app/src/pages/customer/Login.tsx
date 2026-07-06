@@ -130,6 +130,10 @@ export default function Login() {
   const [transitionMessage, setTransitionMessage] = useState('');
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, []);
+
+  useEffect(() => {
     const storedMessage = window.sessionStorage.getItem(AUTH_MESSAGE_STORAGE_KEY);
 
     if (!storedMessage) return;
@@ -280,18 +284,20 @@ export default function Login() {
     transitionMessage === 'Opening Shop2Bhutan...';
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-white flex flex-col">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-white">
       {/* Header Area */}
-      <div className="flex flex-col items-center pt-12 pb-8 px-6">
-<BrandLogo
-  variant="full"
-  className="justify-center"
-/>
+      <div className="flex flex-col items-center px-6 pb-5 pt-8">
+        <div className="-mb-2 origin-center scale-[0.84]">
+          <BrandLogo
+            variant="full"
+            className="justify-center"
+          />
+        </div>
 
-  <h1 className="text-2xl font-bold text-neutral-900 mt-5">
-    {isAdminLogin ? 'Admin Sign In' : 'Welcome Back'}
-  </h1>
-        <p className="text-sm text-neutral-500 mt-1.5 text-center">
+        <h1 className="mt-3 text-[1.45rem] font-extrabold leading-tight text-neutral-900">
+          {isAdminLogin ? 'Admin Sign In' : 'Welcome Back'}
+        </h1>
+        <p className="mt-1 text-center text-sm text-neutral-500">
           {isAdminLogin
             ? 'Sign in to continue to the admin panel'
             : 'Sign in with email or Bhutan mobile number'}
@@ -299,9 +305,9 @@ export default function Login() {
       </div>
 
       {/* Form Area */}
-      <div className="flex-1 px-6 pb-8">
+      <div className="flex-1 px-6 pb-6">
         <div className="mx-auto w-full max-w-sm">
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {submitError && (
               <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {submitError}
@@ -310,7 +316,7 @@ export default function Login() {
 
             {/* Email/Phone Input */}
             <div>
-              <label className="mb-2 block text-sm font-semibold text-neutral-700">
+              <label className="mb-1.5 block text-sm font-semibold text-neutral-700">
                 Email or phone number
               </label>
               <div className="relative">
@@ -342,7 +348,7 @@ export default function Login() {
 
             {/* Password Input */}
             <div>
-              <label className="mb-2 block text-sm font-semibold text-neutral-700">
+              <label className="mb-1.5 block text-sm font-semibold text-neutral-700">
                 Password
               </label>
               <div className="relative">
@@ -382,7 +388,7 @@ export default function Login() {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-5 w-5 rounded border-neutral-300 text-orange-500 focus:ring-orange-500"
+                  className="h-4 w-4 rounded border-neutral-300 text-orange-500 accent-orange-500 focus:ring-orange-500"
                 />
                 <span className="text-sm text-neutral-600">Remember me</span>
               </label>
@@ -417,7 +423,7 @@ export default function Login() {
           {!isAdminLogin && (
             <>
               {/* Divider */}
-              <div className="flex items-center gap-3 my-6">
+              <div className="my-5 flex items-center gap-3">
                 <div className="h-px flex-1 bg-neutral-100" />
                 <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">or</span>
                 <div className="h-px flex-1 bg-neutral-100" />
@@ -435,7 +441,7 @@ export default function Login() {
               </button>
 
               {/* Register Link */}
-              <p className="mt-6 text-center text-sm text-neutral-500">
+              <p className="mt-5 text-center text-sm text-neutral-500">
                 Don&apos;t have an account?{' '}
                 <button
                   type="button"
@@ -449,7 +455,7 @@ export default function Login() {
           )}
 
           {/* Trust Signal */}
-          <div className="mt-8 flex items-center justify-center gap-1.5 text-[11px] text-neutral-400">
+          <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-neutral-400">
             <ShieldCheck size={13} />
             <span>Secure login with encrypted connection</span>
           </div>
