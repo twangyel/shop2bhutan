@@ -421,59 +421,62 @@ export default function CustomerLayout() {
         <Outlet />
       </main>
 
-      {showNotificationPrompt && !shouldHideTabBar && (
-        <div className="fixed left-0 right-0 top-3 z-[70] px-4 pt-[env(safe-area-inset-top)]">
-          <div className="mx-auto max-w-lg rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-900/10">
-            <div className="flex items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                <Bell size={19} strokeWidth={2.4} />
-              </span>
+     {showNotificationPrompt && !shouldHideTabBar && (
+  <div className="fixed left-0 right-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[90] px-4">
+    <div className="relative mx-auto max-w-lg overflow-hidden rounded-3xl bg-slate-950 p-4 text-white shadow-2xl shadow-slate-900/30 ring-1 ring-white/10">
+      <div className="absolute inset-x-0 top-0 h-1 bg-blue-500" />
 
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-extrabold text-gray-900">
-                  Turn on app notifications
-                </p>
-                <p className="mt-0.5 text-xs leading-5 text-gray-500">
-                  Get alerts for quotations, payments, orders, and parcels.
-                </p>
+      <div className="flex items-start gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-blue-300 ring-1 ring-white/10">
+          <Bell size={20} strokeWidth={2.4} />
+        </span>
 
-                <div className="mt-3 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={handleEnableNativeNotifications}
-                    disabled={requestingNotificationPermission}
-                    className="h-9 rounded-2xl bg-blue-600 px-4 text-xs font-bold text-white transition active:scale-[0.98] disabled:opacity-60"
-                  >
-                    {requestingNotificationPermission ? 'Checking...' : 'Enable'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDismissNotificationPrompt}
-                    className="h-9 rounded-2xl border border-gray-200 bg-white px-4 text-xs font-bold text-gray-600 transition active:scale-[0.98]"
-                  >
-                    Later
-                  </button>
-                </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-extrabold text-white">
+            Turn on app notifications
+          </p>
+          <p className="mt-1 text-xs leading-5 text-slate-300">
+            Get instant alerts for quotations, payments, orders, and parcels.
+          </p>
 
-                {nativeNotificationPermission === 'denied' && (
-                  <p className="mt-2 text-[11px] leading-4 text-blue-700">
-                    If Android says notifications are blocked, enable them from app settings.
-                  </p>
-                )}
-              </div>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={handleEnableNativeNotifications}
+              disabled={requestingNotificationPermission}
+              className="h-9 rounded-2xl bg-white px-4 text-xs font-extrabold text-blue-700 transition active:scale-[0.98] disabled:opacity-60"
+            >
+              {requestingNotificationPermission ? 'Checking...' : 'Enable'}
+            </button>
 
-              <button
-                type="button"
-                onClick={handleDismissNotificationPrompt}
-                className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 active:bg-gray-100"
-                aria-label="Dismiss notification prompt"
-              >
-                <X size={16} />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleDismissNotificationPrompt}
+              className="h-9 rounded-2xl border border-white/15 bg-white/10 px-4 text-xs font-bold text-white transition active:scale-[0.98]"
+            >
+              Later
+            </button>
           </div>
+
+          {nativeNotificationPermission === 'denied' && (
+            <p className="mt-2 text-[11px] leading-4 text-blue-200">
+              If Android says notifications are blocked, enable them from app settings.
+            </p>
+          )}
         </div>
-      )}
+
+        <button
+          type="button"
+          onClick={handleDismissNotificationPrompt}
+          className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-300 active:bg-white/10"
+          aria-label="Dismiss notification prompt"
+        >
+          <X size={16} />
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {!shouldHideTabBar && (
         <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-neutral-200 bg-white transition-transform duration-200 ease-out">

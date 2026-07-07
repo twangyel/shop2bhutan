@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type PointerEvent,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
@@ -31,7 +39,9 @@ import {
 } from '@/lib/nativeNotifications';
 
 const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
-const SWIPE_THRESHOLD = 80;
+const SWIPE_REVEAL_WIDTH = 92;
+const SWIPE_OPEN_THRESHOLD = 38;
+const TAP_MOVE_TOLERANCE = 6;
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -84,15 +94,17 @@ function SwipeableNotification({
 }: {
   notification: AppNotification;
   onClick: () => void;
-  onDelete: () => void;
+  onDelete: () => Promise<boolean> | boolean;
 }) {
   const [offset, setOffset] = useState(0);
   const [deleting, setDeleting] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+
   const startX = useRef(0);
-  const currentX = useRef(0);
-  const isDragging = useRef(false);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const startY = useRef(0);
+  const startOffset = useRef(0);
+  const dragAxis = useRef<'none' | 'x' | 'y'>('none');
+  const moved = useRef(false);
 
   const style = getNotificationStyle(notification.type, notification.title);
   const Icon = style.icon;
@@ -100,85 +112,155 @@ function SwipeableNotification({
   const hasLink = Boolean(notification.link);
   const isRead = notification.isRead;
 
-  const handlePointerDown = (e: React.PointerEvent) => {
-    isDragging.current = true;
-    startX.current = e.clientX;
-    currentX.current = offset;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  const closeSwipe = () => {
+    setOffset(0);
+    setIsOpen(false);
   };
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging.current) return;
-    const delta = e.clientX - startX.current;
-    if (delta > 10) return;
-    const newOffset = Math.max(-SWIPE_THRESHOLD, Math.min(0, currentX.current + delta));
-    setOffset(newOffset);
+  const openSwipe = () => {
+    setOffset(-SWIPE_REVEAL_WIDTH);
+    setIsOpen(true);
+  };
+
+  const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (deleting) return;
+
+    startX.current = e.clientX;
+    startY.current = e.clientY;
+    startOffset.current = offset;
+    dragAxis.current = 'none';
+    moved.current = false;
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Ignore unsupported pointer capture cases.
+    }
+  };
+
+  const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (deleting) return;
+
+    const deltaX = e.clientX - startX.current;
+    const deltaY = e.clientY - startY.current;
+
+    if (dragAxis.current === 'none') {
+      if (
+        Math.abs(deltaX) < TAP_MOVE_TOLERANCE &&
+        Math.abs(deltaY) < TAP_MOVE_TOLERANCE
+      ) {
+        return;
+      }
+
+      dragAxis.current = Math.abs(deltaX) > Math.abs(deltaY) ? 'x' : 'y';
+    }
+
+    if (dragAxis.current !== 'x') return;
+
+    e.preventDefault();
+    moved.current = Math.abs(deltaX) > TAP_MOVE_TOLERANCE;
+
+    const rawOffset = startOffset.current + deltaX;
+    const limitedOffset = Math.max(
+      -SWIPE_REVEAL_WIDTH - 24,
+      Math.min(0, rawOffset),
+    );
+
+    const rubberBandOffset =
+      limitedOffset < -SWIPE_REVEAL_WIDTH
+        ? -SWIPE_REVEAL_WIDTH +
+          (limitedOffset + SWIPE_REVEAL_WIDTH) * 0.25
+        : limitedOffset;
+
+    setOffset(rubberBandOffset);
   };
 
   const handlePointerUp = () => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-    if (offset <= -SWIPE_THRESHOLD * 0.5) {
-      setOffset(-SWIPE_THRESHOLD);
-      setIsOpen(true);
-    } else {
-      setOffset(0);
-      setIsOpen(false);
+    if (deleting) return;
+
+    if (dragAxis.current === 'x') {
+      const shouldOpen =
+        offset <= -SWIPE_OPEN_THRESHOLD || (isOpen && offset < -12);
+
+      if (shouldOpen) openSwipe();
+      else closeSwipe();
     }
+
+    dragAxis.current = 'none';
   };
 
-  const handleDelete = () => {
+  const handleDelete = async (e: MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+
+    if (deleting) return;
+
     setDeleting(true);
-    setTimeout(() => onDelete(), 200);
+
+    const deleted = await Promise.resolve(onDelete());
+
+    if (!deleted) {
+      setDeleting(false);
+      closeSwipe();
+    }
   };
 
   const handleCardClick = () => {
-    if (isOpen) {
-      setOffset(0);
-      setIsOpen(false);
-    } else {
-      onClick();
+    if (moved.current) {
+      moved.current = false;
+      return;
     }
+
+    if (isOpen) {
+      closeSwipe();
+      return;
+    }
+
+    onClick();
   };
 
-  if (deleting) {
-    return <div className="h-0 overflow-hidden transition-all duration-200" />;
-  }
-
   return (
-    <div className="relative overflow-hidden rounded-2xl select-none">
-      {/* Red delete background */}
-      <div className="absolute inset-0 flex items-center justify-end rounded-2xl bg-red-500 px-5">
+    <div
+      className={`relative overflow-hidden rounded-2xl select-none transition-all duration-200 ${
+        deleting ? 'h-0 opacity-0' : 'opacity-100'
+      }`}
+    >
+      <div className="absolute inset-0 flex items-center justify-end rounded-2xl bg-red-500 px-4">
         <button
           type="button"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={handleDelete}
-          className="flex flex-col items-center gap-1 text-white"
+          disabled={deleting}
+          className="flex h-full w-[84px] flex-col items-center justify-center gap-1 text-white transition active:scale-95 disabled:opacity-60"
         >
-          <Trash2 size={20} strokeWidth={2} />
+          <Trash2 size={21} strokeWidth={2.2} />
           <span className="text-[10px] font-bold">Delete</span>
         </button>
       </div>
 
-      {/* White card */}
       <div
-        ref={cardRef}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         style={{
-          transform: `translateX(${offset}px)`,
-          transition: isDragging.current ? 'none' : 'transform 0.2s ease-out',
+          transform: `translate3d(${offset}px, 0, 0)`,
+          transition:
+            dragAxis.current === 'x'
+              ? 'none'
+              : 'transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1)',
           touchAction: 'pan-y',
+          willChange: 'transform',
         }}
         className="relative z-10 cursor-pointer"
       >
         <div
           onClick={handleCardClick}
-          className="w-full rounded-2xl bg-white p-4"
+          className="w-full rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100"
         >
           <div className="flex gap-3">
-            <div className={`mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl ${style.bg} ${style.text}`}>
+            <div
+              className={`mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl ${style.bg} ${style.text}`}
+            >
               <Icon size={20} strokeWidth={2} />
             </div>
 
@@ -186,22 +268,39 @@ function SwipeableNotification({
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className={`text-sm font-bold ${isRead ? 'text-gray-500' : 'text-gray-900'}`}>
+                    <p
+                      className={`text-sm font-bold ${
+                        isRead ? 'text-gray-500' : 'text-gray-900'
+                      }`}
+                    >
                       {notification.title}
                     </p>
                     {!isRead && (
-                      <span className="h-2 w-2 rounded-full bg-orange-500" aria-label="Unread" />
+                      <span
+                        className="h-2 w-2 rounded-full bg-orange-500"
+                        aria-label="Unread"
+                      />
                     )}
                   </div>
                   <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                     {notificationTypeLabel(notification.type)}
                   </p>
                 </div>
-                {hasLink && <ChevronRight size={18} className="mt-1 flex-shrink-0 text-gray-300" />}
+
+                {hasLink && (
+                  <ChevronRight
+                    size={18}
+                    className="mt-1 flex-shrink-0 text-gray-300"
+                  />
+                )}
               </div>
 
               {notification.message && (
-                <p className={`mt-2 text-sm leading-5 ${isRead ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p
+                  className={`mt-2 text-sm leading-5 ${
+                    isRead ? 'text-gray-400' : 'text-gray-600'
+                  }`}
+                >
                   {notification.message}
                 </p>
               )}
@@ -321,17 +420,37 @@ export default function Notifications() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!user) return;
-    try {
-      const { error: deleteError } = await supabase.from('notifications').delete().eq('id', id).eq('user_id', user.id);
-      if (deleteError) throw deleteError;
-      setNotifications((current) => current.filter((item) => item.id !== id));
-      window.dispatchEvent(new CustomEvent('shop2bhutan:notifications-updated'));
-    } catch (err) {
-      console.error('Failed to delete notification:', err);
-      setError(err instanceof Error ? err.message : 'Unable to delete notification.');
+  if (!user) return false;
+
+  setError('');
+
+  try {
+    const { error: deleteError, count } = await supabase
+      .from('notifications')
+      .delete({ count: 'exact' })
+      .eq('id', id)
+      .eq('user_id', user.id);
+
+    if (deleteError) throw deleteError;
+
+    if (count === 0) {
+      throw new Error(
+        'Notification was not deleted. Please check the Supabase delete policy for notifications.',
+      );
     }
-  };
+
+    setNotifications((current) => current.filter((item) => item.id !== id));
+    window.dispatchEvent(new CustomEvent('shop2bhutan:notifications-updated'));
+
+    return true;
+  } catch (err) {
+    console.error('Failed to delete notification:', err);
+    setError(
+      err instanceof Error ? err.message : 'Unable to delete notification.',
+    );
+    return false;
+  }
+};
 
   const handleMarkAllRead = async () => {
     if (!user || unreadCount <= 0) return;
