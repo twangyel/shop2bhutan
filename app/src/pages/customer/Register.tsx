@@ -627,7 +627,7 @@ export default function Register() {
         <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
             <label className="mb-1 block text-sm font-semibold text-gray-700">
-              Full name
+              Full Name
             </label>
             <div className="relative">
               <User
@@ -638,7 +638,7 @@ export default function Register() {
                 type="text"
                 value={form.name}
                 onChange={(e) => update("name", e.target.value)}
-                placeholder="Your full name"
+                placeholder="Your Full Name"
                 className={`h-11 w-full rounded-2xl border pl-10 pr-4 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.name ? "border-red-400" : "border-gray-300"}`}
               />
             </div>
@@ -649,7 +649,7 @@ export default function Register() {
 
           <div>
             <label className="mb-1 block text-sm font-semibold text-gray-700">
-              Email address (optional)
+              Email Address (optional)
             </label>
             <div className="relative">
               <Mail
@@ -676,7 +676,7 @@ export default function Register() {
 
           <div>
             <label className="mb-1 block text-sm font-semibold text-gray-700">
-              Bhutan mobile number
+              Phone Number
             </label>
             <div className="relative">
               <Phone
@@ -687,7 +687,7 @@ export default function Register() {
                 type="tel"
                 value={form.phone}
                 onChange={(e) => update("phone", e.target.value)}
-                placeholder="17123456 or +97517123456"
+                placeholder="17****** or 77******"
                 className={`h-11 w-full rounded-2xl border pl-10 pr-4 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.phone ? "border-red-400" : "border-gray-300"}`}
               />
             </div>
@@ -792,7 +792,7 @@ export default function Register() {
 
           <div>
             <label className="mb-1 block text-sm font-semibold text-gray-700">
-              Confirm password
+              Confirm Password
             </label>
             <div className="relative">
               <Lock

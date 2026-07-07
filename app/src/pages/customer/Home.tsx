@@ -665,13 +665,13 @@ export default function Home() {
 
       {locationSheetOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end bg-black/30 px-3 pb-3"
+          className="fixed inset-0 z-[80] flex items-end bg-black/35 px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-6"
           role="dialog"
           aria-modal="true"
           onClick={() => setLocationSheetOpen(false)}
         >
           <div
-            className="mx-auto w-full max-w-3xl rounded-t-3xl rounded-b-2xl bg-white p-4 shadow-2xl"
+            className="mx-auto max-h-[calc(100vh-8rem)] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-4 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
