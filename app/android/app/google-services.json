@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "157442607466",
+    "project_id": "shop2bhutan",
+    "storage_bucket": "shop2bhutan.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:157442607466:android:27ae250bdb9083b6c2fd13",
+        "android_client_info": {
+          "package_name": "com.shop2bhutan.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyArb3F2_ji3TA-fIQSZoHj4AMBbB_Q3GNw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

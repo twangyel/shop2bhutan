@@ -422,19 +422,19 @@ export default function CustomerLayout() {
       </main>
 
       {showNotificationPrompt && !shouldHideTabBar && (
-        <div className="fixed bottom-20 left-0 right-0 z-[60] px-4">
-          <div className="mx-auto max-w-lg rounded-3xl border border-orange-100 bg-white p-4 shadow-2xl shadow-orange-500/10">
+        <div className="fixed left-0 right-0 top-3 z-[70] px-4 pt-[env(safe-area-inset-top)]">
+          <div className="mx-auto max-w-lg rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-900/10">
             <div className="flex items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                 <Bell size={19} strokeWidth={2.4} />
               </span>
 
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-extrabold text-gray-900">
-                  Enable notifications?
+                  Turn on app notifications
                 </p>
                 <p className="mt-0.5 text-xs leading-5 text-gray-500">
-                  Get native alerts for quotation, payment, order, and parcel updates.
+                  Get alerts for quotations, payments, orders, and parcels.
                 </p>
 
                 <div className="mt-3 flex gap-2">
@@ -442,7 +442,7 @@ export default function CustomerLayout() {
                     type="button"
                     onClick={handleEnableNativeNotifications}
                     disabled={requestingNotificationPermission}
-                    className="h-9 rounded-2xl bg-orange-500 px-4 text-xs font-bold text-white transition active:scale-[0.98] disabled:opacity-60"
+                    className="h-9 rounded-2xl bg-blue-600 px-4 text-xs font-bold text-white transition active:scale-[0.98] disabled:opacity-60"
                   >
                     {requestingNotificationPermission ? 'Checking...' : 'Enable'}
                   </button>
@@ -456,7 +456,7 @@ export default function CustomerLayout() {
                 </div>
 
                 {nativeNotificationPermission === 'denied' && (
-                  <p className="mt-2 text-[11px] leading-4 text-amber-600">
+                  <p className="mt-2 text-[11px] leading-4 text-blue-700">
                     If Android says notifications are blocked, enable them from app settings.
                   </p>
                 )}

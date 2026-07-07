@@ -408,9 +408,9 @@ export default function Notifications() {
 
       <main className="mx-auto max-w-lg px-4 py-4">
         {isNativeNotificationsAvailable() && nativePermission !== 'granted' && (
-          <div className="mb-4 rounded-2xl border border-orange-100 bg-orange-50 p-4">
+          <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                 <Bell size={19} strokeWidth={2.4} />
               </span>
 
@@ -423,7 +423,7 @@ export default function Notifications() {
                 </p>
 
                 {nativePermission === 'denied' && (
-                  <p className="mt-2 text-[11px] leading-4 text-amber-700">
+                  <p className="mt-2 text-[11px] leading-4 text-blue-700">
                     {getNativeNotificationSettingsUrlHint()}
                   </p>
                 )}
@@ -432,7 +432,7 @@ export default function Notifications() {
                   type="button"
                   onClick={handleEnableNativeNotifications}
                   disabled={nativePermissionBusy}
-                  className="mt-3 h-9 rounded-2xl bg-orange-500 px-4 text-xs font-bold text-white transition active:scale-[0.98] disabled:opacity-60"
+                  className="mt-3 h-9 rounded-2xl bg-blue-600 px-4 text-xs font-bold text-white transition active:scale-[0.98] disabled:opacity-60"
                 >
                   {nativePermissionBusy ? 'Checking...' : 'Enable Notifications'}
                 </button>
