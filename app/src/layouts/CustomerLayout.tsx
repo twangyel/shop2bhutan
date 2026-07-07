@@ -498,7 +498,7 @@ export default function CustomerLayout() {
 
       {!shouldHideTabBar && (
         <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-neutral-200 bg-white transition-transform duration-200 ease-out">
-          <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
+          <div className="mx-auto flex h-[68px] max-w-lg items-center justify-around px-1">
             {tabs.map((tab) => {
               const isActive = location.pathname === tab.path
               const Icon = tab.icon
@@ -523,34 +523,34 @@ export default function CustomerLayout() {
                 ? 'bg-red-500 text-white'
                 : 'bg-emerald-500 text-white'
               const badgeSizeClass = isCountBadge
-                ? 'h-3 min-w-3 px-0.5 text-[7px]'
-                : 'h-3.5 min-w-[1.45rem] px-1 text-[7px]'
+                ? 'h-4 min-w-4 px-1 text-[8px]'
+                : 'h-4 min-w-[1.75rem] px-1.5 text-[8px]'
 
               return (
                 <button
                   key={tab.path}
                   type="button"
                   onClick={() => navigate(tab.path)}
-                  className="flex flex-col items-center justify-center gap-0.5 w-14 h-full relative"
+                  className="relative flex h-full flex-1 flex-col items-center justify-center gap-1 text-center"
                 >
-                  <span className="relative inline-flex">
+                  <span className="relative flex h-7 w-7 items-center justify-center">
                     <Icon
-                      size={21}
-                      strokeWidth={isActive ? 2.5 : 1.5}
+                      size={24}
+                      strokeWidth={isActive ? 2.5 : 1.8}
                       className={
                         isActive ? 'text-amber-500' : 'text-neutral-400'
                       }
                     />
                     {showBadge && (
                       <span
-                        className={`absolute -right-1 -top-1 flex items-center justify-center rounded-full font-bold leading-none shadow-sm ring-2 ring-white ${badgeClass} ${badgeSizeClass}`}
+                        className={`absolute -right-1.5 -top-1.5 flex items-center justify-center rounded-full font-bold leading-none shadow-sm ring-2 ring-white ${badgeClass} ${badgeSizeClass}`}
                       >
                         {badgeLabel}
                       </span>
                     )}
                   </span>
                   <span
-                    className={`text-[10px] ${isActive ? 'font-semibold text-amber-500' : 'text-neutral-400'}`}
+                    className={`block text-[11px] leading-none ${isActive ? 'font-semibold text-amber-500' : 'font-medium text-neutral-400'}`}
                   >
                     {tab.label}
                   </span>

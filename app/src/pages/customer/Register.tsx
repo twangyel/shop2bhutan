@@ -600,7 +600,7 @@ export default function Register() {
           <h1 className="text-[22px] font-extrabold tracking-tight text-gray-900">
             Create Account
           </h1>
-          <p className="mt-1 text-[12px] font-medium text-gray-500">
+          <p className="mt-1 text-[13px] font-medium text-gray-500">
             Join Shop2Bhutan to start shopping
           </p>
         </div>
@@ -638,7 +638,7 @@ export default function Register() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-[13px] font-semibold text-gray-800">
+            <label className="mb-1 block text-[14px] font-semibold text-gray-800">
               Full Name
             </label>
             <div className="relative">
@@ -650,7 +650,7 @@ export default function Register() {
                 value={form.name}
                 onChange={(e) => update("name", e.target.value)}
                 placeholder="Your Full Name"
-                className={`h-[50px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[14px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.name ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
+                className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[15px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.name ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
               />
             </div>
             {errors.name && (
@@ -663,7 +663,7 @@ export default function Register() {
 
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <label className="block text-[13px] font-semibold text-gray-800">
+              <label className="block text-[14px] font-semibold text-gray-800">
                 Email Address
               </label>
               <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-bold text-gray-500">
@@ -679,7 +679,7 @@ export default function Register() {
                 value={form.email}
                 onChange={(e) => update("email", e.target.value)}
                 placeholder="your@email.com"
-                className={`h-[50px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[14px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.email ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
+                className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[15px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.email ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
               />
             </div>
             {errors.email ? (
@@ -688,14 +688,14 @@ export default function Register() {
                 {errors.email}
               </p>
             ) : (
-              <p className="mt-1 text-[12px] font-medium leading-5 text-gray-400">
+              <p className="mt-1 text-[13px] font-medium leading-5 text-gray-400">
                 Recommended for password recovery and order updates.
               </p>
             )}
           </div>
 
           <div>
-            <label className="mb-1 block text-[13px] font-semibold text-gray-800">
+            <label className="mb-1 block text-[14px] font-semibold text-gray-800">
               Phone Number
             </label>
             <div className="relative">
@@ -707,7 +707,7 @@ export default function Register() {
                 value={form.phone}
                 onChange={(e) => update("phone", e.target.value)}
                 placeholder="17xxxxxx or 77xxxxxx"
-                className={`h-[50px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[14px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.phone ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
+                className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[15px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.phone ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
               />
             </div>
             {errors.phone ? (
@@ -716,19 +716,19 @@ export default function Register() {
                 {errors.phone}
               </p>
             ) : normalizedPreviewPhone ? (
-              <p className="mt-1 flex items-center gap-1 text-[12px] font-semibold text-emerald-600">
+              <p className="mt-1 flex items-center gap-1 text-[13px] font-semibold text-emerald-600">
                 <CheckCircle size={12} strokeWidth={2.5} />
                 Will save as {normalizedPreviewPhone}
               </p>
             ) : (
-              <p className="mt-1 text-[12px] font-medium text-gray-400">
+              <p className="mt-1 text-[13px] font-medium text-gray-400">
                 Must be 8 digits and start with 17 or 77.
               </p>
             )}
           </div>
 
           <div>
-            <label className="mb-1 block text-[13px] font-semibold text-gray-800">
+            <label className="mb-1 block text-[14px] font-semibold text-gray-800">
               Dzongkhag
             </label>
             <div className="relative" ref={dzongkhagRef}>
@@ -739,7 +739,7 @@ export default function Register() {
                 type="button"
                 onClick={() => setIsDzongkhagOpen(!isDzongkhagOpen)}
                 disabled={loadingDzongkhags}
-                className={`flex h-[50px] w-full items-center justify-between rounded-[14px] border bg-white pl-11 pr-4 text-[14px] outline-none transition-all focus:border-orange-500 focus:ring-[3px] focus:ring-orange-500/10 disabled:bg-gray-50 ${errors.dzongkhag ? "border-red-400 bg-red-50/50" : "border-gray-200"}`}
+                className={`flex h-[52px] w-full items-center justify-between rounded-[14px] border bg-white pl-11 pr-4 text-[15px] outline-none transition-all focus:border-orange-500 focus:ring-[3px] focus:ring-orange-500/10 disabled:bg-gray-50 ${errors.dzongkhag ? "border-red-400 bg-red-50/50" : "border-gray-200"}`}
               >
                 <span className={form.dzongkhag ? "font-medium text-gray-900" : "text-gray-400"}>
                   {form.dzongkhag
@@ -765,7 +765,7 @@ export default function Register() {
                           update("dzongkhag", d.id);
                           setIsDzongkhagOpen(false);
                         }}
-                        className={`flex w-full items-center px-4 py-2.5 text-left text-[14px] transition-colors hover:bg-orange-50 ${form.dzongkhag === d.id ? "font-semibold text-orange-600 bg-orange-50" : "text-gray-700"}`}
+                        className={`flex w-full items-center px-4 py-2.5 text-left text-[15px] transition-colors hover:bg-orange-50 ${form.dzongkhag === d.id ? "font-semibold text-orange-600 bg-orange-50" : "text-gray-700"}`}
                       >
                         {form.dzongkhag === d.id && (
                           <CheckCircle size={16} strokeWidth={2.5} className="mr-2.5 shrink-0 text-orange-500" />
@@ -783,14 +783,14 @@ export default function Register() {
                 {errors.dzongkhag}
               </p>
             ) : (
-              <p className="mt-1 text-[12px] font-medium leading-5 text-gray-400">
+              <p className="mt-1 text-[13px] font-medium leading-5 text-gray-400">
                 Select your dzongkhag for order records. Delivery/pickup is currently available in Thimphu, Paro, and Chhukha.
               </p>
             )}
           </div>
 
           <div>
-            <label className="mb-1 block text-[13px] font-semibold text-gray-800">
+            <label className="mb-1 block text-[14px] font-semibold text-gray-800">
               Password
             </label>
             <div className="relative">
@@ -802,7 +802,7 @@ export default function Register() {
                 value={form.password}
                 onChange={(e) => update("password", e.target.value)}
                 placeholder="Min 6 characters"
-                className={`h-[50px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-11 text-[14px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.password ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
+                className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-11 text-[15px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.password ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
               />
               <button
                 type="button"
@@ -821,7 +821,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="mb-1 block text-[13px] font-semibold text-gray-800">
+            <label className="mb-1 block text-[14px] font-semibold text-gray-800">
               Confirm Password
             </label>
             <div className="relative">
@@ -833,7 +833,7 @@ export default function Register() {
                 value={form.confirmPassword}
                 onChange={(e) => update("confirmPassword", e.target.value)}
                 placeholder="Confirm password"
-                className={`h-[50px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[14px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.confirmPassword ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
+                className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[15px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.confirmPassword ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
               />
             </div>
             {errors.confirmPassword && (
@@ -870,7 +870,7 @@ export default function Register() {
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               </div>
-              <span className="text-[13px] font-medium leading-relaxed text-gray-600">
+              <span className="text-[14px] font-medium leading-relaxed text-gray-600">
                 I agree to the{" "}
                 <button
                   type="button"
@@ -908,7 +908,7 @@ export default function Register() {
           <button
             type="submit"
             disabled={submitting || loadingDzongkhags}
-            className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[14px] bg-orange-500 text-[15px] font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 hover:shadow-orange-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
+            className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[14px] bg-orange-500 text-[16px] font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 hover:shadow-orange-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
           >
             {submitting ? (
               <>
@@ -921,7 +921,7 @@ export default function Register() {
           </button>
         </form>
 
-        <p className="mt-5 text-center text-[13px] font-medium text-gray-500">
+        <p className="mt-5 text-center text-[14px] font-medium text-gray-500">
           Already have an account?{" "}
           <button
             type="button"

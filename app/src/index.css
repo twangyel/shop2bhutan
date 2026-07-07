@@ -122,9 +122,10 @@ img {
 /* Native Android WebView tuning
    Keep this scoped to Capacitor so the PWA/browser version stays unchanged. */
 html.capacitor-native {
-  font-size: 16.9px;
+  font-size: 17.3px;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  line-height: 1.5;
 }
 
 html.capacitor-native body {
@@ -133,12 +134,12 @@ html.capacitor-native body {
 
 @media (max-width: 390px) {
   html.capacitor-native {
-    font-size: 16.6px;
+    font-size: 17px;
   }
 }
 
 @media (min-width: 430px) {
   html.capacitor-native {
-    font-size: 17.1px;
+    font-size: 17.5px;
   }
 }
