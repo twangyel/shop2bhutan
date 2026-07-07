@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react';
-import { Navigate, Routes, Route, useLocation } from 'react-router-dom';
+import { useEffect, type ReactNode } from 'react';
+import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { AppProvider } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { registerPushDeviceForUser } from '@/lib/pushNotifications';
 
 // Layouts
 import CustomerLayout from '@/layouts/CustomerLayout';
@@ -65,6 +66,44 @@ function mustChangePassword(profile: unknown) {
   return Boolean(row.must_change_password ?? row.mustChangePassword ?? false);
 }
 
+
+function NativePushBridge() {
+  const navigate = useNavigate();
+  const { loading, user, isGuest } = useAuth();
+
+  useEffect(() => {
+    if (loading || isGuest || !user?.id) return;
+
+    void registerPushDeviceForUser(user.id);
+  }, [loading, isGuest, user?.id]);
+
+  useEffect(() => {
+    const handlePushNotificationOpened = (event: Event) => {
+      const link = String(
+        (event as CustomEvent<{ link?: string }>).detail?.link ?? '',
+      );
+
+      if (link.startsWith('/') && !link.startsWith('//')) {
+        navigate(link);
+      }
+    };
+
+    window.addEventListener(
+      'shop2bhutan:push-notification-opened',
+      handlePushNotificationOpened,
+    );
+
+    return () => {
+      window.removeEventListener(
+        'shop2bhutan:push-notification-opened',
+        handlePushNotificationOpened,
+      );
+    };
+  }, [navigate]);
+
+  return null;
+}
+
 function PasswordChangeGate({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { loading, context, isGuest } = useAuth();
@@ -91,6 +130,7 @@ function PasswordChangeGate({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <AppProvider>
+      <NativePushBridge />
       <Routes>
         {/* Auth Routes - No Layout */}
         <Route path="/login" element={<Login />} />

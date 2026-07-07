@@ -7,6 +7,7 @@ const APP_ID = 'com.shop2bhutan.app'
 
 let listenersReady = false
 let currentUserId = ''
+let lastToken = ''
 let registering = false
 
 function isNativePushAvailable() {
@@ -38,13 +39,36 @@ async function savePushToken(token: string) {
 
   if (!cleanToken || !userId) return false
 
+  const deviceId = getDeviceId()
+  const platform = Capacitor.getPlatform()
+
+  // Preferred path: security-definer RPC. This handles same-phone
+  // customer/admin account switching where the same FCM token may already
+  // belong to a different user row and normal RLS upsert can be blocked.
+  const { error: rpcError } = await supabase.rpc('register_push_device_token', {
+    p_token: cleanToken,
+    p_device_id: deviceId,
+    p_platform: platform,
+    p_app_id: APP_ID,
+  })
+
+  if (!rpcError) {
+    console.info('[pushNotifications] FCM token saved via RPC.')
+    return true
+  }
+
+  console.warn(
+    '[pushNotifications] RPC token save failed, trying direct upsert:',
+    rpcError.message,
+  )
+
   const now = new Date().toISOString()
 
   const payload = {
     user_id: userId,
     token: cleanToken,
-    device_id: getDeviceId(),
-    platform: Capacitor.getPlatform(),
+    device_id: deviceId,
+    platform,
     app_id: APP_ID,
     is_active: true,
     last_seen_at: now,
@@ -60,7 +84,7 @@ async function savePushToken(token: string) {
     return false
   }
 
-  console.info('[pushNotifications] FCM token saved.')
+  console.info('[pushNotifications] FCM token saved via direct upsert.')
   return true
 }
 
@@ -68,8 +92,9 @@ async function ensurePushListeners() {
   if (listenersReady || !isNativePushAvailable()) return
 
   await PushNotifications.addListener('registration', async (token) => {
-    console.info('[pushNotifications] FCM token received:', token.value)
-    await savePushToken(token.value)
+    lastToken = String(token.value || '').trim()
+    console.info('[pushNotifications] FCM token received:', lastToken)
+    await savePushToken(lastToken)
   })
 
   await PushNotifications.addListener('registrationError', (error) => {
@@ -122,6 +147,13 @@ export async function registerPushDeviceForUser(userId: string) {
     if (receivePermission !== 'granted') {
       console.warn('[pushNotifications] Push permission not granted.')
       return false
+    }
+
+    // If this app process already received a token earlier, save it again for
+    // the currently logged-in user. This keeps admin/customer account switches
+    // and deleted token rows from getting stuck until Firebase re-emits a token.
+    if (lastToken) {
+      await savePushToken(lastToken)
     }
 
     await PushNotifications.register()

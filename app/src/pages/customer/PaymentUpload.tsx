@@ -763,8 +763,15 @@ export default function PaymentUpload() {
  />
  </label>
  ) : (
- <div className="relative rounded-2xl overflow-hidden">
- <img src={screenshotPreview} alt="Payment screenshot" className="w-full h-48 object-cover" />
+ <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-gray-50">
+ <img
+ src={screenshotPreview}
+ alt="Payment screenshot"
+ className="h-auto max-h-[65vh] min-h-48 w-full object-contain p-2"
+ />
+ <div className="absolute bottom-2 left-2 rounded-xl bg-black/60 px-2.5 py-1 text-[10px] font-semibold text-white">
+ Full screenshot preview
+ </div>
  <button
  type="button"
  onClick={clearScreenshot}
