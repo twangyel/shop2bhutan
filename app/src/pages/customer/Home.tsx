@@ -9,13 +9,11 @@ import {
   Headphones,
   Link2,
   LogIn,
-  Map,
   MapPin,
   Megaphone,
   Package,
   Truck,
   UserPlus,
-  X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Logo from '@/components/shared/Logo';
@@ -697,13 +695,13 @@ export default function Home() {
 
       {locationSheetOpen && (
         <div
-          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/25 backdrop-blur-[2px]"
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/25 px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-6 backdrop-blur-[2px]"
           role="dialog"
           aria-modal="true"
           onClick={() => setLocationSheetOpen(false)}
         >
           <div
-            className="mx-auto w-full max-w-md rounded-t-[28px] bg-white shadow-[0_-8px_40px_rgba(0,0,0,0.08)]"
+            className="mx-auto w-full max-w-md rounded-[28px] border border-white/70 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.18)]"
             style={{
               animation: isDragging ? undefined : 'slideUp 0.35s ease-out',
               transform: sheetDragY > 0 ? `translateY(${sheetDragY}px)` : undefined,
@@ -720,7 +718,7 @@ export default function Home() {
             </div>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-5 pt-2 pb-4">
+            <div className="flex items-center px-5 pt-2 pb-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-orange-200 bg-orange-50 text-orange-500">
                   <MapPin size={18} strokeWidth={1.8} />
@@ -734,22 +732,13 @@ export default function Home() {
                   </h3>
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setLocationSheetOpen(false)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-gray-200 active:bg-gray-300"
-                aria-label="Close location selector"
-              >
-                <X size={17} strokeWidth={2} />
-              </button>
             </div>
 
             {/* Divider */}
             <div className="h-px bg-gray-100 mx-5" />
 
             {/* Content */}
-            <div className="px-5 pt-4 pb-5 max-h-[calc(100vh-12rem)] overflow-y-auto">
+            <div className="max-h-[calc(100dvh-15rem)] overflow-y-auto px-5 pb-5 pt-4">
               {deliveryLabel ? (
                 <div className="rounded-2xl border border-orange-100 bg-orange-50 p-4">
                   <div className="flex items-center gap-3">
@@ -767,15 +756,15 @@ export default function Home() {
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-2">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-amber-200 bg-amber-50">
-                    <Map size={26} strokeWidth={1.5} className="text-amber-600" />
+                <div className="py-1.5 text-center">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-orange-200 bg-orange-50 text-orange-500">
+                    <MapPin size={23} strokeWidth={1.8} />
                   </div>
                   <p className="mt-3 text-[15px] font-bold text-gray-900">
                     No location selected yet
                   </p>
                   <p className="mt-1 text-[13px] leading-5 text-gray-500">
-                    Select your dzongkhag during registration<br />or update it from your profile.
+                    Select your dzongkhag during registration or update it from your profile.
                   </p>
                 </div>
               )}
@@ -853,7 +842,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setLocationSheetOpen(false)}
-                  className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-gray-300 bg-transparent text-sm font-medium text-gray-400 transition hover:border-gray-400 hover:text-gray-500"
+                  className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-500 transition active:bg-gray-50"
                 >
                   <ChevronRight size={14} strokeWidth={2.5} />
                   <span>Continue browsing</span>
