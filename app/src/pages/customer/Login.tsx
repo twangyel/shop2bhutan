@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, CheckCircle, Loader2, Mail, Lock, Eye, EyeOff, User, Phone, ShieldCheck } from 'lucide-react';
+import { AlertCircle, Loader2, Mail, Lock, Eye, EyeOff, User, Phone, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import BrandLogo from '@/components/BrandLogo';
@@ -278,10 +278,7 @@ export default function Login() {
     }
   };
 
-  const isSuccessState =
-    transitionMessage === 'Welcome back' ||
-    transitionMessage === 'Opening admin panel...' ||
-    transitionMessage === 'Opening Shop2Bhutan...';
+
 
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden bg-white">
@@ -489,49 +486,31 @@ export default function Login() {
         </div>
       </div>
 
-      {/* ===== REDESIGNED LOADING OVERLAY ===== */}
+      {/* ===== LOADING OVERLAY ===== */}
       {submitting && transitionMessage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/95 backdrop-blur-xl">
-          <div className="w-full max-w-[300px] rounded-[2rem] bg-white p-8 text-center shadow-[0_24px_80px_-20px_rgba(0,0,0,0.08)] ring-1 ring-neutral-900/5">
-            {/* Icon with ambient pulse */}
-            <div className="relative mx-auto flex h-[72px] w-[72px] items-center justify-center">
-              {!isSuccessState && (
-                <>
-                  <div
-                    className="absolute inset-0 rounded-[1.25rem] bg-orange-500/5 animate-ping"
-                    style={{ animationDuration: '2s' }}
-                  />
-                  <div
-                    className="absolute inset-[-6px] rounded-[1.5rem] bg-orange-500/[0.03] animate-pulse"
-                    style={{ animationDuration: '3s' }}
-                  />
-                </>
-              )}
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-orange-50 text-orange-500 transition-all duration-300">
-                {isSuccessState ? (
-                  <CheckCircle size={32} />
-                ) : (
-                  <Loader2 size={32} className="animate-spin" />
-                )}
-              </div>
-            </div>
-
-            {/* Title */}
-            <h3 className="mt-6 text-lg font-bold text-neutral-900 tracking-tight">
-              {transitionMessage}
-            </h3>
-
-            {/* Dynamic subtitle */}
-            <p className="mt-2 text-sm text-neutral-400 leading-relaxed">
-              {transitionMessage === 'Welcome back'
-                ? 'Good to see you again'
-                : transitionMessage === 'Opening admin panel...'
-                ? 'Taking you to your dashboard'
-                : transitionMessage === 'Opening Shop2Bhutan...'
-                ? "Let's get shopping"
-                : 'This will only take a moment'}
-            </p>
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white">
+          {/* Spinner with soft pulse ring */}
+          <div className="relative flex h-12 w-12 items-center justify-center">
+            <div className="absolute inset-[-10px] rounded-full bg-orange-500/10 animate-pulse" style={{ animationDuration: '2s' }} />
+            <div className="absolute inset-[-4px] rounded-full bg-orange-500/5 animate-ping" style={{ animationDuration: '3s' }} />
+            <Loader2 size={28} strokeWidth={2} className="animate-spin text-orange-500" />
           </div>
+
+          {/* Title */}
+          <h3 className="mt-5 text-base font-bold text-gray-900">
+            {transitionMessage}
+          </h3>
+
+          {/* Subtitle */}
+          <p className="mt-1 text-[13px] font-medium text-gray-400">
+            {transitionMessage === 'Welcome back'
+              ? 'Good to see you again'
+              : transitionMessage === 'Opening admin panel...'
+              ? 'Taking you to your dashboard'
+              : transitionMessage === 'Opening Shop2Bhutan...'
+              ? "Let's get shopping"
+              : 'This will only take a moment'}
+          </p>
         </div>
       )}
     </div>
