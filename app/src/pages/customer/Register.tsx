@@ -578,7 +578,7 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-white px-6 pb-8 pt-5">
+    <div className="min-h-screen bg-white">
       {toast && (
         <RegistrationToast toast={toast} onClose={() => setToast(null)} />
       )}
@@ -591,137 +591,157 @@ export default function Register() {
         />
       )}
 
-      <div className="max-w-sm mx-auto">
-        <div className="mb-4 flex flex-col items-center text-center">
-          <div className="-mb-3 origin-center scale-[0.76]">
+      <div className="mx-auto max-w-sm px-6 pb-10 pt-6">
+        {/* Header */}
+        <div className="mb-8 flex flex-col items-center text-center">
+          <div className="mb-3 scale-[0.85] origin-center">
             <BrandLogo variant="full" className="justify-center" />
           </div>
-
-          <h1 className="mt-2 text-[1.45rem] font-extrabold leading-tight text-gray-900">
+          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
             Create Account
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1.5 text-[13px] font-medium text-gray-500">
             Join Shop2Bhutan to start shopping
           </p>
         </div>
 
         {submitError && (
-          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-            {submitError}
+          <div className="mb-5 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+              <AlertCircle size={16} strokeWidth={2.5} />
+            </div>
+            <p className="text-sm font-medium leading-relaxed text-red-700">
+              {submitError}
+            </p>
           </div>
         )}
 
         {successMessage && (
-          <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-            {successMessage}
-            <button
-              type="button"
-              onClick={() => navigate("/login")}
-              className="ml-1 font-semibold underline"
-            >
-              Go to sign in
-            </button>
+          <div className="mb-5 flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+              <CheckCircle size={16} strokeWidth={2.5} />
+            </div>
+            <div>
+              <p className="text-sm font-medium leading-relaxed text-emerald-700">
+                {successMessage}
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate("/login")}
+                className="mt-1 text-sm font-bold text-emerald-700 underline decoration-emerald-400 underline-offset-2"
+              >
+                Go to sign in
+              </button>
+            </div>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-3.5">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="mb-1 block text-sm font-semibold text-gray-700">
+            <label className="mb-1.5 block text-[13px] font-semibold text-gray-800">
               Full Name
             </label>
             <div className="relative">
-              <User
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
+              <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                <User size={18} strokeWidth={1.8} />
+              </div>
               <input
                 type="text"
                 value={form.name}
                 onChange={(e) => update("name", e.target.value)}
                 placeholder="Your Full Name"
-                className={`h-11 w-full rounded-2xl border pl-10 pr-4 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.name ? "border-red-400" : "border-gray-300"}`}
+                className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[14px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.name ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
               />
             </div>
             {errors.name && (
-              <p className="text-xs text-red-500 mt-0.5">{errors.name}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-semibold text-gray-700">
-              Email Address (optional)
-            </label>
-            <div className="relative">
-              <Mail
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => update("email", e.target.value)}
-                placeholder="your@email.com (optional)"
-                className={`h-11 w-full rounded-2xl border pl-10 pr-4 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.email ? "border-red-400" : "border-gray-300"}`}
-              />
-            </div>
-            {errors.email ? (
-              <p className="text-xs text-red-500 mt-0.5">{errors.email}</p>
-            ) : (
-              <p className="text-[11px] text-gray-400 mt-0.5">
-                Optional, but recommended for password recovery and order
-                updates.
+              <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-500">
+                <AlertCircle size={12} strokeWidth={2.5} />
+                {errors.name}
               </p>
             )}
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-semibold text-gray-700">
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="block text-[13px] font-semibold text-gray-800">
+                Email Address
+              </label>
+              <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500">
+                optional
+              </span>
+            </div>
+            <div className="relative">
+              <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                <Mail size={18} strokeWidth={1.8} />
+              </div>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => update("email", e.target.value)}
+                placeholder="your@email.com"
+                className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[14px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.email ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
+              />
+            </div>
+            {errors.email ? (
+              <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-500">
+                <AlertCircle size={12} strokeWidth={2.5} />
+                {errors.email}
+              </p>
+            ) : (
+              <p className="mt-1.5 text-[12px] font-medium leading-relaxed text-gray-400">
+                Recommended for password recovery and order updates.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[13px] font-semibold text-gray-800">
               Phone Number
             </label>
             <div className="relative">
-              <Phone
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
+              <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                <Phone size={18} strokeWidth={1.8} />
+              </div>
               <input
                 type="tel"
                 value={form.phone}
                 onChange={(e) => update("phone", e.target.value)}
                 placeholder="17****** or 77******"
-                className={`h-11 w-full rounded-2xl border pl-10 pr-4 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.phone ? "border-red-400" : "border-gray-300"}`}
+                className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[14px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.phone ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
               />
             </div>
             {errors.phone ? (
-              <p className="text-xs text-red-500 mt-0.5">{errors.phone}</p>
+              <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-500">
+                <AlertCircle size={12} strokeWidth={2.5} />
+                {errors.phone}
+              </p>
             ) : normalizedPreviewPhone ? (
-              <p className="text-[11px] text-emerald-600 mt-0.5">
+              <p className="mt-1.5 flex items-center gap-1 text-[12px] font-semibold text-emerald-600">
+                <CheckCircle size={12} strokeWidth={2.5} />
                 Will save as {normalizedPreviewPhone}
               </p>
             ) : (
-              <p className="text-[11px] text-gray-400 mt-0.5">
+              <p className="mt-1.5 text-[12px] font-medium text-gray-400">
                 Must be 8 digits and start with 17 or 77.
               </p>
             )}
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-semibold text-gray-700">
+            <label className="mb-1.5 block text-[13px] font-semibold text-gray-800">
               Dzongkhag
             </label>
             <div className="relative" ref={dzongkhagRef}>
-              <MapPin
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10"
-              />
+              <div className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-gray-400">
+                <MapPin size={18} strokeWidth={1.8} />
+              </div>
               <button
                 type="button"
                 onClick={() => setIsDzongkhagOpen(!isDzongkhagOpen)}
                 disabled={loadingDzongkhags}
-                className={`h-11 w-full rounded-2xl border pl-10 pr-10 text-sm outline-none transition flex items-center justify-between bg-white disabled:bg-gray-50 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.dzongkhag ? "border-red-400" : "border-gray-300"}`}
+                className={`flex h-[52px] w-full items-center justify-between rounded-[14px] border bg-white pl-11 pr-4 text-[14px] outline-none transition-all focus:border-orange-500 focus:ring-[3px] focus:ring-orange-500/10 disabled:bg-gray-50 ${errors.dzongkhag ? "border-red-400 bg-red-50/50" : "border-gray-200"}`}
               >
-                <span
-                  className={form.dzongkhag ? "text-gray-900" : "text-gray-400"}
-                >
+                <span className={form.dzongkhag ? "font-medium text-gray-900" : "text-gray-400"}>
                   {form.dzongkhag
                     ? selectedDzongkhag?.name
                     : loadingDzongkhags
@@ -730,146 +750,183 @@ export default function Register() {
                 </span>
                 <ChevronDown
                   size={18}
-                  className={`text-gray-400 transition-transform ${isDzongkhagOpen ? "rotate-180" : ""}`}
+                  strokeWidth={2}
+                  className={`shrink-0 text-gray-400 transition-transform duration-200 ${isDzongkhagOpen ? "rotate-180" : ""}`}
                 />
               </button>
               {isDzongkhagOpen && (
-                <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-2xl shadow-lg max-h-60 overflow-auto">
-                  {dzongkhagOptions.map((d) => (
-                    <button
-                      key={d.id}
-                      type="button"
-                      onClick={() => {
-                        update("dzongkhag", d.id);
-                        setIsDzongkhagOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-orange-50 transition-colors first:rounded-t-2xl last:rounded-b-2xl ${form.dzongkhag === d.id ? "text-orange-600 font-semibold bg-orange-50" : "text-gray-700"}`}
-                    >
-                      {d.name}
-                    </button>
-                  ))}
+                <div className="absolute z-20 mt-1.5 w-full overflow-hidden rounded-[14px] border border-gray-200 bg-white shadow-xl shadow-black/5">
+                  <div className="max-h-60 overflow-y-auto py-1">
+                    {dzongkhagOptions.map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => {
+                          update("dzongkhag", d.id);
+                          setIsDzongkhagOpen(false);
+                        }}
+                        className={`flex w-full items-center px-4 py-3 text-left text-[14px] transition-colors hover:bg-orange-50 ${form.dzongkhag === d.id ? "font-semibold text-orange-600 bg-orange-50" : "text-gray-700"}`}
+                      >
+                        {form.dzongkhag === d.id && (
+                          <CheckCircle size={16} strokeWidth={2.5} className="mr-2.5 shrink-0 text-orange-500" />
+                        )}
+                        <span className={form.dzongkhag === d.id ? "ml-0" : "ml-[26px]"}>{d.name}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
             {errors.dzongkhag ? (
-              <p className="text-xs text-red-500 mt-0.5">{errors.dzongkhag}</p>
+              <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-500">
+                <AlertCircle size={12} strokeWidth={2.5} />
+                {errors.dzongkhag}
+              </p>
             ) : (
-              <p className="text-[11px] text-gray-400 mt-0.5">
-                This records where your order request is from. Delivery is
-                currently available in Thimphu, Paro, and Chhukha.
+              <p className="mt-1.5 text-[12px] font-medium leading-relaxed text-gray-400">
+                This records where your order request is from. Delivery is currently available in Thimphu, Paro, and Chhukha.
               </p>
             )}
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-semibold text-gray-700">
+            <label className="mb-1.5 block text-[13px] font-semibold text-gray-800">
               Password
             </label>
             <div className="relative">
-              <Lock
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
+              <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                <Lock size={18} strokeWidth={1.8} />
+              </div>
               <input
                 type={showPassword ? "text" : "password"}
                 value={form.password}
                 onChange={(e) => update("password", e.target.value)}
                 placeholder="Min 6 characters"
-                className={`h-11 w-full rounded-2xl border pl-10 pr-10 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.password ? "border-red-400" : "border-gray-300"}`}
+                className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-11 text-[14px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.password ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
               >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                {showPassword ? <EyeOff size={18} strokeWidth={1.8} /> : <Eye size={18} strokeWidth={1.8} />}
               </button>
             </div>
             {errors.password && (
-              <p className="text-xs text-red-500 mt-0.5">{errors.password}</p>
+              <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-500">
+                <AlertCircle size={12} strokeWidth={2.5} />
+                {errors.password}
+              </p>
             )}
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-semibold text-gray-700">
+            <label className="mb-1.5 block text-[13px] font-semibold text-gray-800">
               Confirm Password
             </label>
             <div className="relative">
-              <Lock
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
+              <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                <Lock size={18} strokeWidth={1.8} />
+              </div>
               <input
                 type={showPassword ? "text" : "password"}
                 value={form.confirmPassword}
                 onChange={(e) => update("confirmPassword", e.target.value)}
                 placeholder="Confirm password"
-                className={`h-11 w-full rounded-2xl border pl-10 pr-4 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 ${errors.confirmPassword ? "border-red-400" : "border-gray-300"}`}
+                className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[14px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.confirmPassword ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
               />
             </div>
             {errors.confirmPassword && (
-              <p className="text-xs text-red-500 mt-0.5">
+              <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-500">
+                <AlertCircle size={12} strokeWidth={2.5} />
                 {errors.confirmPassword}
               </p>
             )}
           </div>
 
-          <label className="flex items-start gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={agreed}
-              onChange={(e) => {
-                setAgreed(e.target.checked);
-                setErrors((prev) => ({ ...prev, agreed: "" }));
-              }}
-              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-orange-500 accent-orange-500 focus:ring-orange-500"
-            />
-            <span className="text-sm text-gray-600">
-              I agree to the{" "}
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  setPolicyModalSlug("terms");
-                }}
-                className="font-semibold text-orange-500 underline decoration-orange-300 underline-offset-2"
-              >
-                Terms of Service
-              </button>{" "}
-              and{" "}
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  setPolicyModalSlug("privacy");
-                }}
-                className="font-semibold text-orange-500 underline decoration-orange-300 underline-offset-2"
-              >
-                Privacy Policy
-              </button>
-            </span>
-          </label>
-          {errors.agreed && (
-            <p className="text-xs text-red-500">{errors.agreed}</p>
-          )}
+          <div className="flex flex-col gap-1">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <div className="relative mt-0.5 flex shrink-0">
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => {
+                    setAgreed(e.target.checked);
+                    setErrors((prev) => ({ ...prev, agreed: "" }));
+                  }}
+                  className="peer h-5 w-5 cursor-pointer appearance-none rounded-[6px] border-[1.5px] border-gray-300 bg-gray-50 transition-all checked:border-orange-500 checked:bg-orange-500 focus:outline-none focus:ring-[3px] focus:ring-orange-500/20"
+                />
+                <svg
+                  className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 transition-opacity peer-checked:opacity-100"
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <span className="text-[13px] font-medium leading-relaxed text-gray-600">
+                I agree to the{" "}
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setPolicyModalSlug("terms");
+                  }}
+                  className="font-semibold text-orange-500 underline decoration-orange-300 underline-offset-2 hover:text-orange-600"
+                >
+                  Terms of Service
+                </button>{" "}
+                and{" "}
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setPolicyModalSlug("privacy");
+                  }}
+                  className="font-semibold text-orange-500 underline decoration-orange-300 underline-offset-2 hover:text-orange-600"
+                >
+                  Privacy Policy
+                </button>
+              </span>
+            </label>
+            {errors.agreed && (
+              <p className="ml-8 flex items-center gap-1 text-xs font-medium text-red-500">
+                <AlertCircle size={12} strokeWidth={2.5} />
+                {errors.agreed}
+              </p>
+            )}
+          </div>
 
           <button
             type="submit"
             disabled={submitting || loadingDzongkhags}
-            className="h-12 w-full rounded-2xl bg-orange-500 font-bold text-white transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[14px] bg-orange-500 text-[15px] font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 hover:shadow-orange-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
           >
-            {submitting ? "Creating account..." : "Create Account"}
+            {submitting ? (
+              <>
+                <Loader2 size={18} strokeWidth={2.5} className="animate-spin" />
+                Creating account...
+              </>
+            ) : (
+              "Create Account"
+            )}
           </button>
         </form>
 
-        <p className="mt-5 text-center text-sm text-gray-500">
+        <p className="mt-6 text-center text-[13px] font-medium text-gray-500">
           Already have an account?{" "}
           <button
             type="button"
             onClick={() => navigate("/login")}
-            className="text-orange-500 font-semibold"
+            className="font-bold text-orange-500 transition-colors hover:text-orange-600"
           >
             Sign In
           </button>
