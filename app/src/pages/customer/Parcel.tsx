@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft,
   Calendar,
   MapPin,
   Package,
@@ -173,13 +172,6 @@ export default function Parcel() {
       {/* Header */}
       <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white">
         <div className="flex items-center gap-3 px-4 py-3">
-          <button
-            onClick={() => navigate('/')}
-            className="-ml-1 flex h-9 w-9 items-center justify-center rounded-full hover:bg-neutral-100"
-          >
-            <ArrowLeft size={22} />
-          </button>
-
           <div>
             <h1 className="text-lg font-bold text-neutral-900">
               Parcel Pickup and Drop

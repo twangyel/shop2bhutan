@@ -4,13 +4,17 @@ import {
   Activity,
   ArrowRight,
   Bell,
-  Megaphone,
   ChevronDown,
+  ChevronRight,
   Headphones,
   Link2,
+  LogIn,
+  Map,
   MapPin,
+  Megaphone,
   Package,
   Truck,
+  UserPlus,
   X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -666,140 +670,170 @@ export default function Home() {
 
       {locationSheetOpen && (
         <div
-          className="fixed inset-0 z-[80] flex items-end bg-black/35 px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-6"
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/25 backdrop-blur-[2px]"
           role="dialog"
           aria-modal="true"
           onClick={() => setLocationSheetOpen(false)}
         >
           <div
-            className="mx-auto max-h-[calc(100vh-8rem)] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-4 shadow-2xl"
+            className="mx-auto w-full max-w-md rounded-t-[28px] bg-white shadow-[0_-8px_40px_rgba(0,0,0,0.08)]" style={{ animation: "slideUp 0.35s ease-out" }}
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-orange-500">
-                  Delivery Location
-                </p>
-                <h3 className="mt-1 text-lg font-extrabold text-gray-900">
-                  {deliveryLabel ? 'Your current location' : 'Choose your location'}
-                </h3>
+            {/* Drag handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="h-[5px] w-10 rounded-full bg-gray-200" />
+            </div>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pt-2 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-orange-200 bg-orange-50 text-orange-500">
+                  <MapPin size={18} strokeWidth={1.8} />
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-orange-500">
+                    Delivery Location
+                  </p>
+                  <h3 className="mt-0.5 text-[15px] font-extrabold text-gray-900">
+                    {deliveryLabel ? 'Your current location' : 'Choose your location'}
+                  </h3>
+                </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setLocationSheetOpen(false)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-50 text-gray-500 active:bg-gray-100"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-gray-200 active:bg-gray-300"
                 aria-label="Close location selector"
               >
-                <X size={17} />
+                <X size={17} strokeWidth={2} />
               </button>
             </div>
 
-            {deliveryLabel ? (
-              <div className="mt-4 rounded-2xl border border-orange-100 bg-orange-50 p-4">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm">
-                    <MapPin size={18} />
-                  </span>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">
-                      Delivering to {deliveryLabel}
-                    </p>
-                    <p className="mt-0.5 text-xs leading-5 text-gray-600">
-                      This comes from your registered dzongkhag or saved profile details.
-                    </p>
+            {/* Divider */}
+            <div className="h-px bg-gray-100 mx-5" />
+
+            {/* Content */}
+            <div className="px-5 pt-4 pb-5 max-h-[calc(100vh-12rem)] overflow-y-auto">
+              {deliveryLabel ? (
+                <div className="rounded-2xl border border-orange-100 bg-orange-50 p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm ring-1 ring-orange-100">
+                      <MapPin size={18} strokeWidth={1.8} />
+                    </span>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">
+                        Delivering to {deliveryLabel}
+                      </p>
+                      <p className="mt-0.5 text-xs leading-5 text-gray-600">
+                        This comes from your registered dzongkhag or saved profile details.
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm">
-                    <MapPin size={18} />
-                  </span>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">
-                      No location selected yet
-                    </p>
-                    <p className="mt-0.5 text-xs leading-5 text-gray-600">
-                      Select your dzongkhag during registration or update it from your profile.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4">
-              <p className="text-xs font-bold text-blue-900">
-                Orders accepted from all 20 dzongkhags.
-              </p>
-              <p className="mt-1 text-xs leading-5 text-blue-700">
-                Delivery/pickup is currently available in Thimphu, Paro, and Phuentsholing/Chhukha.
-              </p>
-            </div>
-
-            <div className="mt-4 grid gap-2">
-              {isRealCustomer ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLocationSheetOpen(false);
-                      navigate('/profile');
-                    }}
-                    className="h-12 rounded-2xl bg-orange-500 px-4 text-sm font-bold text-white active:scale-[0.98]"
-                  >
-                    Change registered dzongkhag
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLocationSheetOpen(false);
-                      navigate('/addresses');
-                    }}
-                    className="h-12 rounded-2xl border border-gray-100 bg-white px-4 text-sm font-bold text-gray-800 active:bg-gray-50"
-                  >
-                    Manage saved addresses
-                  </button>
-                </>
               ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLocationSheetOpen(false);
-                      navigate('/register');
-                    }}
-                    className="h-12 rounded-2xl bg-orange-500 px-4 text-sm font-bold text-white active:scale-[0.98]"
-                  >
-                    Register and select dzongkhag
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLocationSheetOpen(false);
-                      navigate('/login');
-                    }}
-                    className="h-12 rounded-2xl border border-gray-100 bg-white px-4 text-sm font-bold text-gray-800 active:bg-gray-50"
-                  >
-                    I already have an account
-                  </button>
-                </>
+                <div className="text-center py-2">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-amber-200 bg-amber-50">
+                    <Map size={26} strokeWidth={1.5} className="text-amber-600" />
+                  </div>
+                  <p className="mt-3 text-[15px] font-bold text-gray-900">
+                    No location selected yet
+                  </p>
+                  <p className="mt-1 text-[13px] leading-5 text-gray-500">
+                    Select your dzongkhag during registration<br />or update it from your profile.
+                  </p>
+                </div>
               )}
 
-              <button
-                type="button"
-                onClick={() => setLocationSheetOpen(false)}
-                className="h-11 rounded-2xl bg-gray-50 px-4 text-sm font-semibold text-gray-500 active:bg-gray-100"
-              >
-                Continue browsing
-              </button>
+              {/* Info banner */}
+              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                  <Truck size={18} strokeWidth={1.8} />
+                </div>
+                <div>
+                  <p className="text-[13px] font-semibold text-blue-900">
+                    Orders accepted from all 20 dzongkhags
+                  </p>
+                  <p className="mt-0.5 text-xs leading-5 text-blue-700">
+                    Delivery/pickup is currently available in{' '}
+                    <span className="font-bold text-blue-900">Thimphu, Paro, and Phuentsholing/Chhukha</span>.
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="mt-4 flex flex-col gap-2.5">
+                {isRealCustomer ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocationSheetOpen(false);
+                        navigate('/profile');
+                      }}
+                      className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white shadow-md shadow-orange-500/20 transition active:scale-[0.98]"
+                    >
+                      <span>Change registered dzongkhag</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocationSheetOpen(false);
+                        navigate('/addresses');
+                      }}
+                      className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gray-100 text-sm font-semibold text-gray-700 transition hover:bg-gray-200 active:bg-gray-300"
+                    >
+                      <span>Manage saved addresses</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocationSheetOpen(false);
+                        navigate('/register');
+                      }}
+                      className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white shadow-md shadow-orange-500/20 transition active:scale-[0.98]"
+                    >
+                      <UserPlus size={16} strokeWidth={2} />
+                      <span>Register and select dzongkhag</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocationSheetOpen(false);
+                        navigate('/login');
+                      }}
+                      className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gray-100 text-sm font-semibold text-gray-700 transition hover:bg-gray-200 active:bg-gray-300"
+                    >
+                      <LogIn size={16} strokeWidth={2} />
+                      <span>I already have an account</span>
+                    </button>
+                  </>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setLocationSheetOpen(false)}
+                  className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-gray-300 bg-transparent text-sm font-medium text-gray-400 transition hover:border-gray-400 hover:text-gray-500"
+                >
+                  <ChevronRight size={14} strokeWidth={2.5} />
+                  <span>Continue browsing</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
+      <style>{`
+        @keyframes slideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
