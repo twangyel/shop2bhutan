@@ -20,11 +20,11 @@ import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings'
 import { supabase } from '@/lib/supabase';
 
 const stores = [
-  { name: 'Amazon', platform: 'amazon' },
-  { name: 'Flipkart', platform: 'flipkart' },
-  { name: 'Myntra', platform: 'myntra' },
-  { name: 'Meesho', platform: 'meesho' },
-];
+  { name: 'Amazon', platform: 'amazon', url: 'https://www.amazon.in/' },
+  { name: 'Flipkart', platform: 'flipkart', url: 'https://www.flipkart.com/' },
+  { name: 'Myntra', platform: 'myntra', url: 'https://www.myntra.com/' },
+  { name: 'Meesho', platform: 'meesho', url: 'https://www.meesho.com/' },
+] as const;
 
 const quickActions = [
   { icon: Link2, label: 'Paste Link', path: '/paste-link' },
@@ -591,8 +591,9 @@ export default function Home() {
                 <button
                   key={store.name}
                   type="button"
-                  onClick={() => navigate('/paste-link', { state: { sourcePlatform: store.platform } })}
+                  onClick={() => window.open(store.url, '_blank', 'noopener,noreferrer')}
                   className="rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/30"
+                  aria-label={`Open ${store.name} website`}
                 >
                   {store.name}
                 </button>

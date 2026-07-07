@@ -5,8 +5,8 @@ import {
   Bell,
   Home,
   ShoppingBag,
+  Store,
   Package,
-  ClipboardList,
   User,
   X,
 } from 'lucide-react'
@@ -30,9 +30,9 @@ import { registerPushDeviceForUser } from '@/lib/pushNotifications'
 
 const tabs = [
   { path: '/', label: 'Home', icon: Home },
-  { path: '/shop', label: 'Shop', icon: ShoppingBag },
+  { path: '/shop', label: 'Shop', icon: Store },
   { path: '/parcel', label: 'Parcel', icon: Package },
-  { path: '/request-bag', label: 'Bag', icon: ClipboardList, showBadge: true },
+  { path: '/request-bag', label: 'Bag', icon: ShoppingBag, showBadge: true },
   { path: '/account', label: 'Account', icon: User },
 ]
 
