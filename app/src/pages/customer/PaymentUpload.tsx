@@ -354,9 +354,9 @@ export default function PaymentUpload() {
 
  const renderBlockedState = (title: string, description: string, buttonLabel: string, path: string) => (
  <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 text-center">
- <div className="w-full max-w-md rounded-2xl bg-white border border-gray-200 p-6 ">
- <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
- <CheckCircle size={28} className="text-orange-600" />
+ <div className="w-full max-w-md rounded-2xl bg-white border border-gray-100 p-6 ">
+ <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+ <CheckCircle size={28} className="text-gray-600" />
  </div>
  <h1 className="text-xl font-bold text-gray-900 mb-2">{title}</h1>
  <p className="text-sm text-gray-500 mb-6">{description}</p>
@@ -373,7 +373,7 @@ export default function PaymentUpload() {
 
  if (!authLoading && !user) {
  return (
- <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
+ <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 text-center">
  <p className="text-gray-500 mb-4">Please sign in to upload payment.</p>
  <button
  type="button"
@@ -388,18 +388,18 @@ export default function PaymentUpload() {
 
  if (loading) {
  return (
- <div className="min-h-screen bg-white pb-32">
- <div className="bg-white border-b border-gray-200 px-4 py-3">
+ <div className="min-h-screen bg-white pb-24">
+ <div className="bg-white border-b border-gray-100 px-4 py-3">
  <div className="max-w-2xl mx-auto flex items-center gap-3">
  <button type="button" onClick={() => navigate(-1)} className="p-1">
- <ArrowLeft size={22} className="text-gray-700" />
+ <ArrowLeft size={22} className="text-gray-900" />
  </button>
  <h1 className="text-lg font-semibold text-gray-900">Upload Payment</h1>
  </div>
  </div>
- <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
+ <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
  {[1, 2, 3].map((item) => (
- <div key={item} className="h-32 rounded-2xl bg-white animate-pulse" />
+ <div key={item} className="h-32 rounded-2xl bg-gray-100 animate-pulse" />
  ))}
  </div>
  </div>
@@ -408,7 +408,7 @@ export default function PaymentUpload() {
 
  if (!order) {
  return (
- <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
+ <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 text-center">
  <p className="text-gray-500 mb-4">{error || 'Order not found'}</p>
  <button
  type="button"
@@ -424,7 +424,7 @@ export default function PaymentUpload() {
  if (submitted) {
  return (
  <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6">
- <div className="w-full max-w-md rounded-2xl bg-white border border-gray-200 p-6 text-center ">
+ <div className="w-full max-w-md rounded-2xl bg-white border border-gray-100 p-6 text-center ">
  <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
  <CheckCircle size={32} className="text-emerald-600" />
  </div>
@@ -474,69 +474,69 @@ export default function PaymentUpload() {
  }
 
  return (
- <div className="min-h-screen bg-white pb-32">
- <div className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-30">
+ <div className="min-h-screen bg-white pb-24">
+ <div className="bg-white border-b border-gray-100 px-4 py-3 sticky top-0 z-30">
  <div className="max-w-2xl mx-auto flex items-center gap-3">
  <button type="button" onClick={() => navigate(-1)} className="p-1">
- <ArrowLeft size={22} className="text-gray-700" />
+ <ArrowLeft size={22} className="text-gray-900" />
  </button>
  <h1 className="text-lg font-semibold text-gray-900">Upload Payment</h1>
  </div>
  </div>
 
- <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
+ <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
  {error && (
  <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
  {error}
  </div>
  )}
 
- <div className="bg-white rounded-2xl p-5 border border-orange-100 ">
+ <div className="bg-white rounded-2xl p-4 border border-gray-100 ">
  <div className="flex items-start justify-between gap-3 mb-4">
  <div className="min-w-0 flex-1">
- <p className="text-xs font-medium text-orange-600 tracking-wider">Upload Payment Proof</p>
+ <p className="text-xs font-medium text-gray-500 tracking-wider uppercase">Upload Payment Proof</p>
  <div className="mt-1">
- <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Order ID</p>
- <p className="mt-0.5 inline-flex max-w-full rounded-xl bg-gray-50 px-2.5 py-1 font-mono text-[13px] font-extrabold leading-5 text-gray-900 ring-1 ring-gray-100 sm:text-sm">
+ <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Order ID</p>
+ <p className="mt-0.5 inline-flex max-w-full rounded-xl bg-gray-50 px-2.5 py-1 font-mono text-[13px] font-extrabold leading-5 text-gray-900 ring-1 ring-gray-200 sm:text-sm">
  <span className="truncate">#{order.orderNumber}</span>
  </p>
  </div>
  </div>
- <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${paymentSummary.isPartiallyPaid ? 'bg-blue-50 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+ <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${paymentSummary.isPartiallyPaid ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
  {paymentSummary.isPartiallyPaid ? 'Balance Due' : 'Payment Pending'}
  </span>
  </div>
 
- <div className="rounded-2xl bg-orange-50 p-4 mb-4">
- <p className="text-xs text-orange-700 font-medium">Total Payable</p>
- <p className="text-3xl font-bold text-orange-700 mt-1">{formatCurrency(quotationTotal)}</p>
+ <div className="rounded-2xl bg-white border border-gray-100 p-4 mb-4">
+ <p className="text-xs text-gray-500 font-medium">Total Payable</p>
+ <p className="text-3xl font-extrabold text-gray-900 mt-1">{formatCurrency(quotationTotal)}</p>
  <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
- <div className="rounded-2xl bg-white p-3">
- <p className="text-xs text-orange-700">Verified Paid</p>
+ <div className="rounded-2xl bg-gray-50 p-3">
+ <p className="text-xs text-gray-400">Verified Paid</p>
  <p className="font-bold text-gray-900 mt-1">{formatCurrency(paymentSummary.verifiedPaid)}</p>
  </div>
- <div className="rounded-2xl bg-white p-3">
- <p className="text-xs text-orange-700">Balance After This</p>
+ <div className="rounded-2xl bg-gray-50 p-3">
+ <p className="text-xs text-gray-400">Balance After This</p>
  <p className="font-bold text-gray-900 mt-1">{formatCurrency(balanceAfterSelectedPayment)}</p>
  </div>
  </div>
  {paymentSummary.isPartiallyPaid && (
- <p className="text-xs text-blue-700 mt-3">Partial payment verified. You can upload the remaining balance when ready.</p>
+ <p className="text-xs text-gray-500 mt-3">Partial payment verified. You can upload the remaining balance when ready.</p>
  )}
  <div className="mt-4 grid grid-cols-2 gap-2">
  <button
  type="button"
  onClick={() => selectPaymentAmount(paymentSummary.isPartiallyPaid ? 'remaining' : 'full')}
  aria-pressed={paymentSelection === 'full' || paymentSelection === 'remaining'}
- className={`rounded-2xl bg-white px-3 py-2 text-left text-xs font-semibold ring-1 transition active:scale-[0.98] ${
+ className={`rounded-2xl bg-white px-3 py-3 text-left text-xs font-semibold ring-1 transition active:scale-[0.98] ${
  (paymentSelection === 'full' || paymentSelection === 'remaining')
- ? 'text-orange-700 ring-orange-400 bg-orange-50'
- : 'text-orange-700 ring-orange-100'
+ ? 'text-orange-600 ring-orange-400 bg-white'
+ : 'text-gray-700 ring-orange-100'
  }`}
 >
  {paymentSummary.isPartiallyPaid ? 'Pay remaining balance' : 'Pay full balance'}
- <span className="mt-0.5 block text-[11px] font-bold text-gray-950">{formatCurrency(fullPaymentAmount)}</span>
- <span className="mt-0.5 block text-[10px] font-medium text-gray-500">
+ <span className="mt-0.5 block text-sm font-bold text-gray-900">{formatCurrency(fullPaymentAmount)}</span>
+ <span className="mt-0.5 block text-[10px] font-medium text-gray-400">
  {paymentSelection === 'full' || paymentSelection === 'remaining' ? 'Selected' : 'Tap to select'}
  </span>
  </button>
@@ -545,15 +545,15 @@ export default function PaymentUpload() {
  type="button"
  onClick={() => selectPaymentAmount('advance')}
  aria-pressed={paymentSelection === 'advance'}
- className={`rounded-2xl bg-white px-3 py-2 text-left text-xs font-semibold ring-1 transition active:scale-[0.98] ${
+ className={`rounded-2xl bg-white px-3 py-3 text-left text-xs font-semibold ring-1 transition active:scale-[0.98] ${
  paymentSelection === 'advance'
- ? 'text-blue-700 ring-blue-400 bg-blue-50'
+ ? 'text-blue-600 ring-blue-400 bg-white'
  : 'text-blue-700 ring-blue-100'
  }`}
 >
  Pay {minimumAdvancePercent}% advance
- <span className="mt-0.5 block text-[11px] font-bold text-gray-950">{formatCurrency(advancePaymentAmount)}</span>
- <span className="mt-0.5 block text-[10px] font-medium text-gray-500">
+ <span className="mt-0.5 block text-sm font-bold text-gray-900">{formatCurrency(advancePaymentAmount)}</span>
+ <span className="mt-0.5 block text-[10px] font-medium text-gray-400">
  {paymentSelection === 'advance' ? 'Selected' : 'Tap to select'}
  </span>
  </button>
@@ -562,20 +562,20 @@ export default function PaymentUpload() {
  </div>
 
  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
- <div className="rounded-2xl bg-gray-50 p-3">
- <p className="text-xs text-gray-500">Item Count</p>
+ <div className="rounded-2xl bg-white border border-gray-100 p-3">
+ <p className="text-xs text-gray-400">Item Count</p>
  <p className="font-semibold text-gray-900 mt-1">{getItemCount(order)} item(s)</p>
  </div>
- <div className="rounded-2xl bg-gray-50 p-3">
- <p className="text-xs text-gray-500">Delivery Hub / Address</p>
+ <div className="rounded-2xl bg-white border border-gray-100 p-3">
+ <p className="text-xs text-gray-400">Delivery Hub / Address</p>
  <p className="font-semibold text-gray-900 mt-1">{getDeliverySummary(order)}</p>
  </div>
  </div>
  </div>
 
- <div className="bg-white rounded-2xl p-5 border border-gray-200 ">
- <h3 className="text-base font-semibold text-gray-900 mb-3">Payment Instructions</h3>
- <div className="space-y-2 text-sm text-gray-600">
+ <div className="bg-white rounded-2xl p-4 border border-gray-100 ">
+ <h3 className="text-sm font-semibold text-gray-900 mb-3">Payment Instructions</h3>
+ <div className="space-y-2 text-sm text-gray-500">
  <p>You can pay the full balance or start with the configured {minimumAdvancePercent}% advance payment.</p>
  <p>Upload your payment screenshot after payment. Each upload stays in the payment ledger.</p>
  <p>We can start fulfillment after a verified advance, but the remaining balance will stay visible until paid.</p>
@@ -583,14 +583,14 @@ export default function PaymentUpload() {
  </div>
 
  <div>
- <h3 className="text-base font-semibold text-gray-900 mb-3">Select Payment Method</h3>
+ <h3 className="text-sm font-semibold text-gray-900 mb-3">Select Payment Method</h3>
  <div className="space-y-2">
  {paymentMethodsLoading ? (
  [1, 2].map((item) => (
- <div key={item} className="h-24 rounded-2xl bg-white border border-gray-200 animate-pulse" />
+ <div key={item} className="h-24 rounded-2xl bg-gray-100 border border-gray-100 animate-pulse" />
  ))
  ) : paymentMethods.length === 0 ? (
- <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
+ <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-700">
  No active payment methods are available. Please contact Shop2Bhutan support.
  </div>
  ) : (
@@ -599,9 +599,9 @@ export default function PaymentUpload() {
  key={paymentMethod.id}
  type="button"
  onClick={() => setSelectedMethod(paymentMethod.id)}
- className={`w-full text-left p-4 rounded-2xl border-2 transition-colors ${
+ className={`w-full text-left p-4 rounded-2xl border transition-colors ${
  selectedMethod === paymentMethod.id
- ? 'border-orange-500 bg-orange-50'
+ ? 'border-orange-500 bg-white'
  : 'border-gray-200 bg-white'
  }`}
 >
@@ -625,11 +625,11 @@ export default function PaymentUpload() {
  </div>
  <div className="flex-1 min-w-0">
  <p className="text-sm font-semibold text-gray-900">{paymentMethod.name}</p>
- <p className="text-xs text-gray-500">{paymentMethodTypeLabel(paymentMethod.type)}</p>
+ <p className="text-xs text-gray-400">{paymentMethodTypeLabel(paymentMethod.type)}</p>
  </div>
  <div
  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
- selectedMethod === paymentMethod.id ? 'border-orange-500' : 'border-gray-300'
+ selectedMethod === paymentMethod.id ? 'border-orange-500' : 'border-gray-200'
  }`}
 >
  {selectedMethod === paymentMethod.id && <div className="w-2.5 h-2.5 bg-orange-500 rounded-full" />}
@@ -637,17 +637,17 @@ export default function PaymentUpload() {
  </div>
 
  {selectedMethod === paymentMethod.id && (
- <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+ <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
  <div className="flex items-center justify-between gap-4">
- <span className="text-xs text-gray-500">Type</span>
+ <span className="text-xs text-gray-400">Type</span>
  <span className="text-sm font-medium text-right">{paymentMethodTypeLabel(paymentMethod.type)}</span>
  </div>
  <div className="flex items-center justify-between gap-4">
- <span className="text-xs text-gray-500">Account Name</span>
+ <span className="text-xs text-gray-400">Account Name</span>
  <span className="text-sm font-medium text-right">{paymentMethod.accountName || '-'}</span>
  </div>
  <div className="flex items-center justify-between gap-4">
- <span className="text-xs text-gray-500">Account Number / Code</span>
+ <span className="text-xs text-gray-400">Account Number / Code</span>
  <div className="flex items-center gap-2 min-w-0">
  <span className="text-sm font-mono font-medium text-right truncate">
  {paymentMethod.accountNumber || '-'}
@@ -659,7 +659,7 @@ export default function PaymentUpload() {
  event.stopPropagation();
  copyToClipboard(paymentMethod.accountNumber, `acc-${paymentMethod.id}`);
  }}
- className="p-1 text-gray-400 hover:text-orange-600"
+ className="p-1 text-gray-400 hover:text-gray-600"
  aria-label="Copy account number or code"
 >
  {copiedField === `acc-${paymentMethod.id}` ? (
@@ -673,18 +673,18 @@ export default function PaymentUpload() {
  </div>
  {paymentMethod.bankName && (
  <div className="flex items-center justify-between gap-4">
- <span className="text-xs text-gray-500">Bank</span>
+ <span className="text-xs text-gray-400">Bank</span>
  <span className="text-sm text-right">{paymentMethod.bankName}</span>
  </div>
  )}
  {paymentMethod.branch && (
  <div className="flex items-center justify-between gap-4">
- <span className="text-xs text-gray-500">Branch</span>
+ <span className="text-xs text-gray-400">Branch</span>
  <span className="text-sm text-right">{paymentMethod.branch}</span>
  </div>
  )}
  {paymentMethod.instructions && (
- <p className="text-xs text-gray-500 bg-gray-50 p-2 rounded-2xl mt-2">
+ <p className="text-xs text-gray-400 bg-gray-50 p-2 rounded-2xl mt-2">
  {paymentMethod.instructions}
  </p>
  )}
@@ -696,27 +696,27 @@ export default function PaymentUpload() {
  </div>
  </div>
 
- <div className="bg-white rounded-2xl p-5 border border-gray-200 space-y-4">
+ <div className="bg-white rounded-2xl p-4 border border-gray-100 space-y-4">
  <div>
- <label className="text-sm font-medium text-gray-900">Selected Payment Amount</label>
- <div className="mt-1.5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+ <label className="text-sm font-semibold text-gray-900">Selected Payment Amount</label>
+ <div className="mt-1.5 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
  <div className="flex items-center justify-between gap-3">
  <div>
- <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+ <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
  {paymentSelection === 'advance' ? 'Advance payment' : paymentSelection === 'remaining' ? 'Remaining balance' : 'Full payment'}
  </p>
- <p className="mt-1 text-xl font-extrabold text-gray-900">{formatCurrency(amountPaidNumber)}</p>
+ <p className="mt-1 text-2xl font-bold text-gray-900">{formatCurrency(amountPaidNumber)}</p>
  </div>
- <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-gray-500 ring-1 ring-gray-200">
+ <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-gray-400 ring-1 ring-gray-200">
  Locked
  </span>
  </div>
  </div>
- <p className="text-xs text-gray-400 mt-1">
+ <p className="text-xs text-gray-400 mt-2">
  Amount is locked based on the payment type selected above. Balance after this payment: {formatCurrency(balanceAfterSelectedPayment)}.
  </p>
  {minimumInitialPayment > 0 && (
- <p className="mt-1 text-xs text-blue-600">Minimum first payment: {formatCurrency(minimumInitialPayment)} ({minimumAdvancePercent}% advance).</p>
+ <p className="mt-1 text-xs text-gray-500">Minimum first payment: {formatCurrency(minimumInitialPayment)} ({minimumAdvancePercent}% advance).</p>
  )}
  {amountAboveBalance && (
  <p className="mt-1 text-xs font-medium text-red-600">Amount cannot exceed the remaining balance.</p>
@@ -727,34 +727,34 @@ export default function PaymentUpload() {
  </div>
 
  <div>
- <label className="text-sm font-medium text-gray-900">Transaction / Reference Number</label>
+ <label className="text-sm font-semibold text-gray-900">Transaction / Reference Number</label>
  <input
  type="text"
  value={transactionId}
  onChange={(event) => setTransactionId(event.target.value)}
  placeholder="Optional"
- className="w-full h-12 mt-1.5 px-4 border border-gray-300 rounded-2xl text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
+ className="w-full h-12 mt-1.5 px-4 border border-gray-200 rounded-2xl text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10"
  />
  </div>
 
  <div>
- <label className="text-sm font-medium text-gray-900">Note</label>
+ <label className="text-sm font-semibold text-gray-900">Note</label>
  <textarea
  value={note}
  onChange={(event) => setNote(event.target.value)}
  placeholder="Optional note for Shop2Bhutan"
  rows={3}
- className="w-full mt-1.5 px-4 py-3 border border-gray-300 rounded-2xl text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 resize-none"
+ className="w-full mt-1.5 px-4 py-3 border border-gray-200 rounded-2xl text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 resize-none"
  />
  </div>
 
  <div>
- <h3 className="text-base font-semibold text-gray-900 mb-3">Payment Screenshot</h3>
+ <h3 className="text-sm font-semibold text-gray-900 mb-3">Payment Screenshot</h3>
  {!screenshotPreview ? (
- <label className="w-full h-48 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-orange-500 transition-colors bg-gray-50">
- <Upload size={40} className="text-gray-400" />
- <p className="text-sm text-gray-500 mt-2">Tap to upload screenshot</p>
- <p className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP up to 5MB</p>
+ <label className="w-full h-48 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-orange-500 transition-colors bg-gray-50">
+ <Upload size={32} className="text-gray-300" />
+ <p className="text-sm text-gray-400 mt-2">Tap to upload screenshot</p>
+ <p className="text-xs text-gray-300 mt-1">JPG, PNG, WEBP up to 5MB</p>
  <input
  type="file"
  accept="image/jpeg,image/png,image/webp"
@@ -768,7 +768,7 @@ export default function PaymentUpload() {
  <button
  type="button"
  onClick={clearScreenshot}
- className="absolute top-2 right-2 px-3 py-1 bg-white rounded-2xl text-xs font-medium shadow-md"
+ className="absolute top-2 right-2 px-3 py-1 bg-white rounded-xl text-xs font-medium shadow-sm border border-gray-100"
 >
  Change
  </button>
@@ -778,7 +778,7 @@ export default function PaymentUpload() {
  </div>
  </div>
 
- <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-40">
+ <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 z-40">
  <div className="max-w-2xl mx-auto">
  <button
  type="button"
