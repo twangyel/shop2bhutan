@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   CheckCircle,
   Edit3,
   ImageIcon,
@@ -270,145 +269,186 @@ async function fetchSavedDefaultAddress(userId: string, options: DzongkhagOption
 
 function BagItemCard({
   item,
+  index,
   saving,
+  removing,
   onPatch,
   onRemove,
 }: {
   item: RequestBagItem;
+  index: number;
   saving: boolean;
+  removing: boolean;
   onPatch: (itemId: string, patch: Partial<Pick<RequestBagItem, 'productName' | 'priceShown' | 'quantity' | 'notes'>>) => void;
   onRemove: (itemId: string) => void;
 }) {
   const ps = platformStyles(item.sourcePlatform);
+  const hasSourceUrl = Boolean(item.sourceUrl);
+  const hasScreenshot = Boolean(item.screenshotUrl);
+  const itemTypeLabel = hasSourceUrl ? 'Product link' : 'Screenshot request';
+  const domain = extractDomain(item.sourceUrl);
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
-      <div className="flex gap-3">
-        {item.productImage ? (
-          <img
-            src={item.productImage}
-            alt=""
-            className="h-20 w-20 flex-shrink-0 rounded-xl bg-gray-100 object-cover"
-          />
-        ) : (
-          <div className={`flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl ${ps.bg}`}>
-            {ps.initial ? (
-              <span className={`text-lg font-bold ${ps.text}`}>{ps.initial}</span>
-            ) : (
-              <ImageIcon size={22} className={ps.text} />
-            )}
-          </div>
-        )}
-
-        <div className="min-w-0 flex-1">
-          <input
-            type="text"
-            value={item.productName}
-            onChange={(e) => onPatch(item.id, { productName: e.target.value })}
-            onBlur={() => onPatch(item.id, { productName: item.productName })}
-            className="w-full border-0 p-0 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-0"
-            placeholder="Product name"
-          />
-
-          {item.sourceUrl ? (
-            <a
-              href={item.sourceUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-1 block truncate text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              {extractDomain(item.sourceUrl)}
-            </a>
-          ) : (
-            <span className="mt-1 inline-block rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-medium text-orange-600">
-              Screenshot request
-            </span>
-          )}
-
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium uppercase text-gray-600">
-              {platformLabel(item.sourcePlatform)}
-            </span>
-            {item.screenshotUrl && (
-              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
-                Screenshot saved
-              </span>
-            )}
-            {saving && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-gray-400">
-                <Loader2 size={10} className="animate-spin" />
-                Saving
-              </span>
-            )}
-          </div>
+    <article
+      className={`overflow-hidden rounded-3xl border bg-white shadow-sm transition-all duration-200 ${
+        removing
+          ? 'pointer-events-none translate-x-2 scale-[0.98] opacity-0'
+          : 'translate-x-0 scale-100 border-gray-200 opacity-100'
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/60 px-3.5 py-2.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-gray-500 ring-1 ring-gray-200">
+            Item {index + 1}
+          </span>
+          <span className="truncate text-[12px] font-semibold text-gray-500">
+            {itemTypeLabel}
+          </span>
         </div>
 
         <button
           type="button"
           onClick={() => onRemove(item.id)}
-          className="self-start p-1 text-red-400"
+          disabled={removing}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-red-50 hover:text-red-500 active:scale-95 disabled:pointer-events-none disabled:opacity-50"
           aria-label="Remove item"
         >
-          <Trash2 size={17} />
+          {removing ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
         </button>
       </div>
 
-      <div className="mt-3 grid grid-cols-[1fr_140px] gap-3">
-        <div>
-          <label className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
-            Price shown on site
-          </label>
-          <input
-            type="number"
-            value={item.priceShown || ''}
-            onChange={(e) => onPatch(item.id, { priceShown: Number(e.target.value) || 0 })}
-            onBlur={() => onPatch(item.id, { priceShown: item.priceShown })}
-            placeholder="Optional"
-            className="mt-1 h-10 w-full rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-          />
-        </div>
+      <div className="p-3.5">
+        <div className="flex gap-3">
+          {item.productImage ? (
+            <img
+              src={item.productImage}
+              alt=""
+              className="h-[82px] w-[82px] flex-shrink-0 rounded-2xl bg-gray-100 object-cover ring-1 ring-gray-100"
+            />
+          ) : (
+            <div className={`flex h-[82px] w-[82px] flex-shrink-0 items-center justify-center rounded-2xl ring-1 ring-gray-100 ${ps.bg}`}>
+              {ps.initial ? (
+                <span className={`text-lg font-bold ${ps.text}`}>{ps.initial}</span>
+              ) : (
+                <ImageIcon size={23} className={ps.text} />
+              )}
+            </div>
+          )}
 
-        <div>
-          <label className="block text-center text-[10px] font-medium uppercase tracking-wider text-gray-400">
-            Qty
-          </label>
-          <div className="mt-1 flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => onPatch(item.id, { quantity: Math.max(1, item.quantity - 1) })}
-              className="flex h-10 w-9 items-center justify-center rounded-xl bg-gray-100"
-            >
-              <Minus size={14} />
-            </button>
-            <span className="w-8 text-center text-sm font-semibold">{item.quantity}</span>
-            <button
-              type="button"
-              onClick={() => onPatch(item.id, { quantity: item.quantity + 1 })}
-              className="flex h-10 w-9 items-center justify-center rounded-xl bg-gray-100"
-            >
-              <Plus size={14} />
-            </button>
+          <div className="min-w-0 flex-1">
+            <input
+              type="text"
+              value={item.productName}
+              onChange={(e) => onPatch(item.id, { productName: e.target.value })}
+              onBlur={() => onPatch(item.id, { productName: item.productName })}
+              className="w-full border-0 bg-transparent p-0 text-[15px] font-extrabold leading-5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-0"
+              placeholder="Product name"
+            />
+
+            {hasSourceUrl ? (
+              <a
+                href={item.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 block truncate text-[12px] font-medium text-gray-500 transition-colors hover:text-orange-600"
+              >
+                {domain || 'Open product link'}
+              </a>
+            ) : (
+              <p className="mt-1 text-[12px] font-medium text-gray-500">
+                Product details from screenshot
+              </p>
+            )}
+
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-gray-600">
+                {platformLabel(item.sourcePlatform)}
+              </span>
+
+              {!hasSourceUrl && (
+                <span className="rounded-full bg-orange-50 px-2.5 py-1 text-[10px] font-bold text-orange-600">
+                  Screenshot request
+                </span>
+              )}
+
+              {hasScreenshot && (
+                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-600">
+                  Screenshot saved
+                </span>
+              )}
+
+              {saving && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2.5 py-1 text-[10px] font-semibold text-gray-400">
+                  <Loader2 size={10} className="animate-spin" />
+                  Saving
+                </span>
+              )}
+            </div>
           </div>
         </div>
+
+        <div className="mt-4 grid grid-cols-[minmax(0,1fr)_104px] items-end gap-3">
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              Price shown on site
+            </label>
+            <input
+              type="number"
+              value={item.priceShown || ''}
+              onChange={(e) => onPatch(item.id, { priceShown: Number(e.target.value) || 0 })}
+              onBlur={() => onPatch(item.id, { priceShown: item.priceShown })}
+              placeholder="Price if known"
+              className="mt-1.5 h-11 w-full rounded-2xl border border-gray-200 bg-white px-3 text-[14px] font-semibold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+            />
+          </div>
+
+          <div className="flex flex-col items-center">
+            <label className="block text-center text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              Qty
+            </label>
+            <div className="mt-1.5 flex h-11 items-center justify-center rounded-2xl border border-gray-200 bg-white px-1 shadow-xs">
+              <button
+                type="button"
+                onClick={() => onPatch(item.id, { quantity: Math.max(1, item.quantity - 1) })}
+                className="flex h-9 w-8 items-center justify-center rounded-xl bg-gray-50 text-gray-700 transition active:scale-95 active:bg-gray-100"
+                aria-label="Decrease quantity"
+              >
+                <Minus size={14} />
+              </button>
+              <span className="w-8 text-center text-[15px] font-extrabold text-gray-900">
+                {item.quantity}
+              </span>
+              <button
+                type="button"
+                onClick={() => onPatch(item.id, { quantity: item.quantity + 1 })}
+                className="flex h-9 w-8 items-center justify-center rounded-xl bg-gray-50 text-gray-700 transition active:scale-95 active:bg-gray-100"
+                aria-label="Increase quantity"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {item.priceShown > 0 && (
+          <p className="mt-2 text-[12px] font-bold text-orange-600">
+            Site price estimate: {formatPrice(item.priceShown * item.quantity)}
+          </p>
+        )}
+
+        <textarea
+          value={item.notes || ''}
+          onChange={(e) => onPatch(item.id, { notes: e.target.value })}
+          onBlur={() => onPatch(item.id, { notes: item.notes || '' })}
+          placeholder="Size, color, variant, or instruction for this item..."
+          rows={2}
+          className="mt-3 w-full resize-none rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-[14px] leading-5 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+        />
       </div>
-
-      {item.priceShown > 0 && (
-        <p className="mt-2 text-xs font-semibold text-orange-600">
-          Site price estimate: {formatPrice(item.priceShown * item.quantity)}
-        </p>
-      )}
-
-      <textarea
-        value={item.notes || ''}
-        onChange={(e) => onPatch(item.id, { notes: e.target.value })}
-        onBlur={() => onPatch(item.id, { notes: item.notes || '' })}
-        placeholder="Size, color, variant, or instruction for this item..."
-        rows={2}
-        className="mt-3 w-full resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-      />
-    </div>
+    </article>
   );
 }
+
 
 export default function RequestBag() {
   const navigate = useNavigate();
@@ -600,23 +640,31 @@ export default function RequestBag() {
   };
 
   const removeItem = async (itemId: string) => {
-    if (!user || !bag) return;
+    if (!user || !bag || removingItemId) return;
 
+    const previousBag = bag;
     setRemovingItemId(itemId);
     setError('');
 
+    await new Promise((resolve) => window.setTimeout(resolve, 180));
+
+    const nextBag = {
+      ...previousBag,
+      items: previousBag.items.filter((item) => item.id !== itemId),
+    };
+
+    setBag(nextBag);
+    writeCachedRequestBag(user.id, nextBag);
+    window.dispatchEvent(new Event('shop2bhutan:request-bag-updated'));
+
     try {
       await removeRequestBagItem(user.id, itemId);
-      const nextBag = {
-        ...bag,
-        items: bag.items.filter((item) => item.id !== itemId),
-      };
-      setBag(nextBag);
-      writeCachedRequestBag(user.id, nextBag);
-      window.dispatchEvent(new Event('shop2bhutan:request-bag-updated'));
     } catch (err) {
       console.error('Failed to remove Request Bag item:', err);
       setError(err instanceof Error ? err.message : 'Unable to remove item.');
+      setBag(previousBag);
+      writeCachedRequestBag(user.id, previousBag);
+      window.dispatchEvent(new Event('shop2bhutan:request-bag-updated'));
     } finally {
       setRemovingItemId('');
     }
@@ -740,13 +788,10 @@ export default function RequestBag() {
     <div className="min-h-screen bg-white pb-36">
       <div className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-3">
         <div className="flex items-center gap-3">
-          <button type="button" onClick={() => navigate(-1)} className="p-1">
-            <ArrowLeft size={22} className="text-gray-700" />
-          </button>
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-bold text-gray-900">Request Bag</h1>
-            <p className="text-xs text-gray-500">
-              Review items and request one quotation when ready.
+            <p className="text-[12px] leading-5 text-gray-500">
+              Review your items before requesting one quotation.
             </p>
           </div>
           {hasItems && (
@@ -789,15 +834,16 @@ export default function RequestBag() {
         ) : (
           <>
             <div className="space-y-3">
-              {bag?.items.map((item) => (
-                <div key={item.id} className={removingItemId === item.id ? 'opacity-50 pointer-events-none' : ''}>
-                  <BagItemCard
-                    item={item}
-                    saving={savingItemId === item.id}
-                    onPatch={patchItem}
-                    onRemove={removeItem}
-                  />
-                </div>
+              {bag?.items.map((item, index) => (
+                <BagItemCard
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  saving={savingItemId === item.id}
+                  removing={removingItemId === item.id}
+                  onPatch={patchItem}
+                  onRemove={removeItem}
+                />
               ))}
             </div>
 
