@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Activity,
@@ -378,6 +378,11 @@ export default function Home() {
   const [activeUpdateLoading, setActiveUpdateLoading] = useState(false);
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
 
+  // Swipe-to-dismiss state
+  const [sheetDragY, setSheetDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const sheetStartYRef = React.useRef(0);
+
   const refreshUnreadCount = useCallback(async () => {
     if (!authUser || authLoading) {
       setUnreadCount(0);
@@ -530,6 +535,28 @@ export default function Home() {
     ? `Delivering to ${deliveryLabel}`
     : 'Choose location';
 
+  // Swipe-to-dismiss handlers
+  const handleSheetTouchStart = (e: React.TouchEvent) => {
+    sheetStartYRef.current = e.touches[0].clientY;
+    setIsDragging(true);
+  };
+
+  const handleSheetTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const delta = e.touches[0].clientY - sheetStartYRef.current;
+    if (delta > 0) {
+      setSheetDragY(delta);
+    }
+  };
+
+  const handleSheetTouchEnd = () => {
+    setIsDragging(false);
+    if (sheetDragY > 120) {
+      setLocationSheetOpen(false);
+    }
+    setSheetDragY(0);
+  };
+
   return (
     <div className="min-h-screen bg-white">
       {/* ========== HEADER ========== */}
@@ -676,8 +703,16 @@ export default function Home() {
           onClick={() => setLocationSheetOpen(false)}
         >
           <div
-            className="mx-auto w-full max-w-md rounded-t-[28px] bg-white shadow-[0_-8px_40px_rgba(0,0,0,0.08)]" style={{ animation: "slideUp 0.35s ease-out" }}
+            className="mx-auto w-full max-w-md rounded-t-[28px] bg-white shadow-[0_-8px_40px_rgba(0,0,0,0.08)]"
+            style={{
+              animation: isDragging ? undefined : 'slideUp 0.35s ease-out',
+              transform: sheetDragY > 0 ? `translateY(${sheetDragY}px)` : undefined,
+              transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
+            }}
             onClick={(event) => event.stopPropagation()}
+            onTouchStart={handleSheetTouchStart}
+            onTouchMove={handleSheetTouchMove}
+            onTouchEnd={handleSheetTouchEnd}
           >
             {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-1">
