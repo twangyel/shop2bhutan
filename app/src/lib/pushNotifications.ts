@@ -124,7 +124,14 @@ async function ensurePushListeners() {
   listenersReady = true
 }
 
-export async function registerPushDeviceForUser(userId: string) {
+export type RegisterPushDeviceOptions = {
+  requestPermission?: boolean
+}
+
+export async function registerPushDeviceForUser(
+  userId: string,
+  options: RegisterPushDeviceOptions = {},
+) {
   if (!isNativePushAvailable()) return false
 
   const cleanUserId = String(userId || '').trim()
@@ -139,7 +146,16 @@ export async function registerPushDeviceForUser(userId: string) {
     const currentPermission = await PushNotifications.checkPermissions()
     let receivePermission = currentPermission.receive
 
+    // Important UX rule:
+    // Do not show the Android system permission dialog automatically on login.
+    // The app should first show its own explanation card/banner, and only ask
+    // Android permission after the user taps "Enable".
     if (receivePermission !== 'granted') {
+      if (!options.requestPermission) {
+        console.info('[pushNotifications] Push permission not granted yet; waiting for user action.')
+        return false
+      }
+
       const requestedPermission = await PushNotifications.requestPermissions()
       receivePermission = requestedPermission.receive
     }

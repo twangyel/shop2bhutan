@@ -26,6 +26,7 @@ import {
   requestNativeNotificationPermission,
   showNativeNotificationFromRow,
 } from '@/lib/nativeNotifications'
+import { registerPushDeviceForUser } from '@/lib/pushNotifications'
 
 const tabs = [
   { path: '/', label: 'Home', icon: Home },
@@ -74,16 +75,33 @@ export default function CustomerLayout() {
     try {
       const permission = await requestNativeNotificationPermission()
       setNativeNotificationPermission(permission)
-      setShowNotificationPrompt(permission !== 'granted')
 
       if (permission === 'granted') {
+        setShowNotificationPrompt(false)
+
+        if (user?.id) {
+          await registerPushDeviceForUser(user.id, { requestPermission: true })
+        }
+
         await showNativeNotificationFromRow({
           id: 'shop2bhutan-notifications-enabled',
           title: 'Notifications enabled',
           message: 'You will receive Shop2Bhutan order, parcel, payment, and account updates.',
           link: '/notifications',
         })
+        return
       }
+
+      // If Android permission is denied, hide our custom prompt for now so the
+      // user does not see two repeated prompts. They can enable it later from
+      // Android app settings or the Notifications screen.
+      if (permission === 'denied') {
+        dismissNativeNotificationPrompt()
+        setShowNotificationPrompt(false)
+        return
+      }
+
+      setShowNotificationPrompt(true)
     } finally {
       setRequestingNotificationPermission(false)
     }
