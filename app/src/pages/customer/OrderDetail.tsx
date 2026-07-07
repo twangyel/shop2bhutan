@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   CheckCircle,
   ChevronDown,
   ChevronRight,
@@ -211,15 +210,60 @@ function statusMessage(order: Order, status = getEffectiveOrderStatus(order)) {
   return 'We are processing your order.';
 }
 
+function compactUniqueText(parts: unknown[]) {
+  const seen = new Set<string>();
+
+  return parts
+    .map((part) => String(part ?? '').trim())
+    .filter(Boolean)
+    .filter((part) => {
+      const key = part.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function firstAddressText(row: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = String(row[key] ?? '').trim();
+    if (value) return value;
+  }
+
+  return '';
+}
+
 function safeAddress(order: Order) {
   if (isSelfPickupOrder(order)) {
     const display = getFulfillmentDisplay(order);
-    return `${display.title}. ${display.details}`;
+    return compactUniqueText([display.title, display.details]).join('. ');
   }
 
-  return [order.shippingAddress.village, order.shippingAddress.gewog, order.shippingAddress.dzongkhag]
-    .filter(Boolean)
-    .join(', ') || 'Delivery address pending';
+  const source = order.shippingAddress as unknown as Record<string, unknown>;
+  const fullAddress = firstAddressText(source, [
+    'formatted_address',
+    'formattedAddress',
+    'full_address',
+    'fullAddress',
+    'delivery_address',
+    'deliveryAddress',
+    'address_line',
+    'addressLine',
+    'address',
+  ]);
+
+  if (fullAddress) return fullAddress;
+
+  return compactUniqueText([
+    order.shippingAddress.village,
+    order.shippingAddress.gewog,
+    order.shippingAddress.dzongkhag,
+  ]).join(', ') || 'Delivery address pending';
+}
+
+function isGenericDeliveryHubName(value?: string | null) {
+  const clean = String(value ?? '').trim().toLowerCase();
+  return !clean || ['selected hub', 'delivery hub', 'bhutan hub', 'hub', 'selected delivery hub'].includes(clean);
 }
 
 function getPaymentSummary(order: Order) {
@@ -474,10 +518,7 @@ export default function OrderDetail() {
     return (
       <div className="min-h-screen bg-white">
         <div className="border-b border-gray-100 bg-white px-4 py-3">
-          <div className="mx-auto flex max-w-2xl items-center gap-3">
-            <button type="button" onClick={() => navigate('/orders')} className="p-1">
-              <ArrowLeft size={22} className="text-gray-700" />
-            </button>
+          <div className="mx-auto max-w-2xl">
             <h1 className="text-lg font-semibold text-gray-900">Order Details</h1>
           </div>
         </div>
@@ -518,18 +559,25 @@ export default function OrderDetail() {
       effectiveStatus &&
       paymentUploadStatuses.includes(effectiveStatus)
   );
+  const fulfillmentDisplay = getFulfillmentDisplay(order);
+  const isSelfPickup = isSelfPickupOrder(order);
+  const deliveryHubName = String(order.deliveryHub?.name ?? '').trim();
+  const hasSpecificDeliveryHub = !isGenericDeliveryHubName(deliveryHubName);
+  const fulfillmentMethodTitle = isSelfPickup
+    ? fulfillmentDisplay.title
+    : hasSpecificDeliveryHub
+      ? deliveryHubName
+      : 'Delivery coverage';
+  const fulfillmentMethodDescription = isSelfPickup
+    ? fulfillmentDisplay.subtitle
+    : `${appSettings.orderCoverage.label}. Delivery/pickup currently available in ${appSettings.deliveryHubs.hubNamesJoined}.`;
 
   return (
     <div className="min-h-screen bg-white pb-8">
       <div className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-3">
-        <div className="mx-auto flex max-w-2xl items-center gap-3">
-          <button type="button" onClick={() => navigate('/orders')} className="rounded-full p-1.5 hover:bg-gray-100">
-            <ArrowLeft size={22} className="text-gray-700" />
-          </button>
-          <div className="min-w-0">
-            <h1 className="text-lg font-bold text-gray-900">Order Details</h1>
-            <p className="truncate text-xs text-gray-500">#{order.orderNumber}</p>
-          </div>
+        <div className="mx-auto max-w-2xl">
+          <h1 className="text-lg font-bold text-gray-900">Order Details</h1>
+          <p className="truncate text-xs text-gray-500">#{order.orderNumber}</p>
         </div>
       </div>
 
@@ -687,35 +735,53 @@ export default function OrderDetail() {
           </div>
         </section>
 
-        <section className="rounded-2xl bg-white p-4 border border-gray-100">
-          <h3 className="mb-3 text-base font-bold text-gray-900">Fulfillment details</h3>
-          <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
-                <MapPin size={18} strokeWidth={2.5} />
-              </div>
-              <div className="min-w-0">
-                <div className="mb-1 flex flex-wrap items-center gap-2">
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${getFulfillmentDisplay(order).badgeClass}`}>
-                    {getFulfillmentDisplay(order).label}
-                  </span>
+        <section className="rounded-3xl bg-white p-4 border border-gray-100 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h3 className="text-base font-bold text-gray-900">Fulfillment details</h3>
+            <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${fulfillmentDisplay.badgeClass}`}>
+              {fulfillmentDisplay.label}
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-orange-100 bg-orange-50/40 p-3">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm ring-1 ring-orange-100">
+                  <MapPin size={18} strokeWidth={2.4} />
                 </div>
-                <p className="text-sm font-bold text-gray-900">{order.shippingAddress.recipientName}</p>
-                {order.shippingAddress.phone && <p className="text-xs text-gray-500">{order.shippingAddress.phone}</p>}
-                <p className="mt-1 text-xs leading-relaxed text-gray-600">{safeAddress(order)}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-orange-600">
+                    {isSelfPickup ? 'Pickup contact' : 'Delivery address'}
+                  </p>
+                  <p className="mt-1 text-sm font-extrabold text-gray-900">
+                    {order.shippingAddress.recipientName || 'Customer'}
+                  </p>
+                  {order.shippingAddress.phone && (
+                    <p className="mt-0.5 text-xs font-semibold text-gray-500">
+                      {order.shippingAddress.phone}
+                    </p>
+                  )}
+                  <p className="mt-1.5 text-xs leading-5 text-gray-600">{safeAddress(order)}</p>
+                </div>
               </div>
             </div>
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-                <Truck size={18} strokeWidth={2.5} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-gray-900">{isSelfPickupOrder(order) ? getFulfillmentDisplay(order).title : order.deliveryHub.name}</p>
-                <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                  {isSelfPickupOrder(order)
-                    ? getFulfillmentDisplay(order).subtitle
-                    : `${appSettings.orderCoverage.label}. Delivery currently available in ${appSettings.deliveryHubs.hubNamesJoined}.`}
-                </p>
+
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-3">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-600 shadow-sm ring-1 ring-emerald-100">
+                  <Truck size={18} strokeWidth={2.4} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">
+                    {isSelfPickup ? 'Pickup option' : 'Delivery arrangement'}
+                  </p>
+                  <p className="mt-1 text-sm font-extrabold text-gray-900">
+                    {fulfillmentMethodTitle}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-gray-600">
+                    {fulfillmentMethodDescription}
+                  </p>
+                </div>
               </div>
             </div>
           </div>

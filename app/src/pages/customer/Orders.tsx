@@ -184,7 +184,7 @@ function CustomerOrderCard({ order }: { order: Order }) {
           </div>
 
           <p className="text-xs font-semibold text-gray-500">Estimated total</p>
-          <p className="text-lg font-bold leading-tight tracking-tight text-gray-900">
+          <p className={`leading-tight tracking-tight ${hasTotal ? 'text-lg font-bold text-gray-900' : 'text-sm font-medium italic text-gray-400'}`}>
             {hasTotal ? money(total) : 'To be quoted'}
           </p>
         </div>
@@ -296,7 +296,7 @@ export default function Orders() {
             </div>
           </div>
 
-          <div className="mt-4 flex gap-2 overflow-x-auto pb-1 pr-2 scrollbar-hide">
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 pr-2 scrollbar-hide">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.key;
               const Icon = tab.icon;
@@ -306,7 +306,7 @@ export default function Orders() {
                   key={tab.key}
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
-                  className={`flex flex-shrink-0 items-center gap-2 rounded-2xl px-3.5 py-2.5 text-xs font-bold transition-all ${
+                  className={`flex flex-shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-bold transition-all ${
                     isActive
                       ? 'bg-orange-500 text-white shadow-sm'
                       : tab.key === 'quoted' && count > 0
@@ -314,10 +314,10 @@ export default function Orders() {
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
-                  <Icon size={15} strokeWidth={isActive ? 2.4 : 1.9} />
+                  <Icon size={13} strokeWidth={isActive ? 2.4 : 1.9} />
                   <span>{tab.shortLabel}</span>
                   <span
-                    className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold ${
+                    className={`flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${
                       isActive ? 'bg-white/20 text-white' : 'bg-white/90 text-gray-500'
                     }`}
                   >
