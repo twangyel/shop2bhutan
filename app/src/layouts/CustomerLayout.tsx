@@ -26,6 +26,7 @@ import {
   requestNativeNotificationPermission,
   showNativeNotificationFromRow,
 } from '@/lib/nativeNotifications'
+import { registerPushDeviceForUser } from '@/lib/pushNotifications'
 
 const tabs = [
   { path: '/', label: 'Home', icon: Home },
@@ -67,6 +68,36 @@ export default function CustomerLayout() {
   useEffect(() => {
     void refreshNativeNotificationPermission()
   }, [refreshNativeNotificationPermission])
+
+  useEffect(() => {
+    if (authLoading || !user?.id) return
+
+    void registerPushDeviceForUser(user.id)
+  }, [authLoading, user?.id])
+
+  useEffect(() => {
+    const handlePushNotificationOpened = (event: Event) => {
+      const link = String(
+        (event as CustomEvent<{ link?: string }>).detail?.link ?? '',
+      )
+
+      if (link.startsWith('/') && !link.startsWith('//')) {
+        navigate(link)
+      }
+    }
+
+    window.addEventListener(
+      'shop2bhutan:push-notification-opened',
+      handlePushNotificationOpened,
+    )
+
+    return () => {
+      window.removeEventListener(
+        'shop2bhutan:push-notification-opened',
+        handlePushNotificationOpened,
+      )
+    }
+  }, [navigate])
 
   const handleEnableNativeNotifications = async () => {
     setRequestingNotificationPermission(true)
