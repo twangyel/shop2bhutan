@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle, Loader2, Mail, Lock, Eye, EyeOff, User, Phone, ShieldCheck } from 'lucide-react';
+import { AlertCircle, CheckCircle, Loader2, Mail, Lock, Eye, EyeOff, User, Phone, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import BrandLogo from '@/components/BrandLogo';
@@ -286,18 +286,15 @@ export default function Login() {
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden bg-white">
       {/* Header Area */}
-      <div className="flex flex-col items-center px-6 pb-5 pt-8">
-        <div className="-mb-2 origin-center scale-[0.84]">
-          <BrandLogo
-            variant="full"
-            className="justify-center"
-          />
+      <div className="flex flex-col items-center px-6 pb-6 pt-6">
+        <div className="mb-3 origin-center scale-[0.85]">
+          <BrandLogo variant="full" className="justify-center" />
         </div>
 
-        <h1 className="mt-3 text-[1.45rem] font-extrabold leading-tight text-neutral-900">
+        <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
           {isAdminLogin ? 'Admin Sign In' : 'Welcome Back'}
         </h1>
-        <p className="mt-1 text-center text-sm text-neutral-500">
+        <p className="mt-1.5 text-center text-[13px] font-medium text-gray-500">
           {isAdminLogin
             ? 'Sign in to continue to the admin panel'
             : 'Sign in with email or Bhutan mobile number'}
@@ -306,25 +303,30 @@ export default function Login() {
 
       {/* Form Area */}
       <div className="flex-1 px-6 pb-6">
-        <div className="mx-auto w-full max-w-sm">
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="mx-auto w-full max-w-sm px-6 pb-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {submitError && (
-              <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {submitError}
+              <div className="flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                  <AlertCircle size={16} strokeWidth={2.5} />
+                </div>
+                <p className="text-sm font-medium leading-relaxed text-red-700">
+                  {submitError}
+                </p>
               </div>
             )}
 
             {/* Email/Phone Input */}
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-neutral-700">
+              <label className="mb-1.5 block text-[13px] font-semibold text-gray-800">
                 Email or phone number
               </label>
               <div className="relative">
-                <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400">
+                <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
                   {identifier.includes('@') ? (
-                    <Mail size={18} />
+                    <Mail size={18} strokeWidth={1.8} />
                   ) : (
-                    <Phone size={18} />
+                    <Phone size={18} strokeWidth={1.8} />
                   )}
                 </div>
                 <input
@@ -336,24 +338,27 @@ export default function Login() {
                     setSubmitError('');
                   }}
                   placeholder="your@email.com or 17123456"
-                  className={`h-12 w-full rounded-2xl border bg-neutral-50 pl-11 pr-4 text-sm outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/10 ${
-                    errors.identifier ? 'border-red-400' : 'border-neutral-200'
+                  className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[14px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${
+                    errors.identifier ? 'border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10' : 'border-gray-200'
                   }`}
                 />
               </div>
               {errors.identifier && (
-                <p className="mt-1.5 text-xs text-red-500">{errors.identifier}</p>
+                <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-500">
+                  <AlertCircle size={12} strokeWidth={2.5} />
+                  {errors.identifier}
+                </p>
               )}
             </div>
 
             {/* Password Input */}
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-neutral-700">
+              <label className="mb-1.5 block text-[13px] font-semibold text-gray-800">
                 Password
               </label>
               <div className="relative">
-                <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400">
-                  <Lock size={18} />
+                <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Lock size={18} strokeWidth={1.8} />
                 </div>
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -364,38 +369,56 @@ export default function Login() {
                     setSubmitError('');
                   }}
                   placeholder="Enter your password"
-                  className={`h-12 w-full rounded-2xl border bg-neutral-50 pl-11 pr-11 text-sm outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/10 ${
-                    errors.password ? 'border-red-400' : 'border-neutral-200'
+                  className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-11 text-[14px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${
+                    errors.password ? 'border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10' : 'border-gray-200'
                   }`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showPassword ? <EyeOff size={18} strokeWidth={1.8} /> : <Eye size={18} strokeWidth={1.8} />}
                 </button>
               </div>
               {errors.password && (
-                <p className="mt-1.5 text-xs text-red-500">{errors.password}</p>
+                <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-500">
+                  <AlertCircle size={12} strokeWidth={2.5} />
+                  {errors.password}
+                </p>
               )}
             </div>
 
             {/* Remember Me / Forgot Password */}
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-4 w-4 rounded border-neutral-300 text-orange-500 accent-orange-500 focus:ring-orange-500"
-                />
-                <span className="text-sm text-neutral-600">Remember me</span>
+              <label className="flex cursor-pointer items-center gap-2.5">
+                <div className="relative flex shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="peer h-5 w-5 cursor-pointer appearance-none rounded-[6px] border-[1.5px] border-gray-300 bg-gray-50 transition-all checked:border-orange-500 checked:bg-orange-500 focus:outline-none focus:ring-[3px] focus:ring-orange-500/20"
+                  />
+                  <svg
+                    className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 transition-opacity peer-checked:opacity-100"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+                <span className="text-[13px] font-medium text-gray-600">Remember me</span>
               </label>
               <button
                 type="button"
                 onClick={() => navigate('/forgot-password')}
-                className="text-sm font-semibold text-neutral-500 hover:text-orange-600 transition"
+                className="text-[13px] font-semibold text-gray-500 transition-colors hover:text-orange-600"
               >
                 Forgot Password?
               </button>
@@ -405,11 +428,11 @@ export default function Login() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
+              className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[14px] bg-orange-500 text-[15px] font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 hover:shadow-orange-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
             >
               {submitting ? (
                 <>
-                  <Loader2 size={18} className="animate-spin" />
+                  <Loader2 size={18} strokeWidth={2.5} className="animate-spin" />
                   Signing in...
                 </>
               ) : isAdminLogin ? (
@@ -423,10 +446,10 @@ export default function Login() {
           {!isAdminLogin && (
             <>
               {/* Divider */}
-              <div className="my-5 flex items-center gap-3">
-                <div className="h-px flex-1 bg-neutral-100" />
-                <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">or</span>
-                <div className="h-px flex-1 bg-neutral-100" />
+              <div className="my-6 flex items-center gap-3">
+                <div className="h-px flex-1 bg-gray-200" />
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">or</span>
+                <div className="h-px flex-1 bg-gray-200" />
               </div>
 
               {/* Guest Button */}
@@ -434,19 +457,23 @@ export default function Login() {
                 type="button"
                 onClick={handleGuestContinue}
                 disabled={submitting}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 font-semibold text-neutral-700 transition hover:bg-neutral-100 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
+                className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[14px] border border-gray-200 bg-white font-semibold text-gray-700 transition-all hover:bg-gray-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {submitting ? <Loader2 size={18} className="animate-spin" /> : <User size={18} />}
-                <span className="text-sm">Continue as Guest</span>
+                {submitting ? (
+                  <Loader2 size={18} strokeWidth={2.5} className="animate-spin text-gray-400" />
+                ) : (
+                  <User size={18} strokeWidth={1.8} className="text-gray-500" />
+                )}
+                <span className="text-[14px]">Continue as Guest</span>
               </button>
 
               {/* Register Link */}
-              <p className="mt-5 text-center text-sm text-neutral-500">
+              <p className="mt-6 text-center text-[13px] font-medium text-gray-500">
                 Don&apos;t have an account?{' '}
                 <button
                   type="button"
                   onClick={() => navigate('/register', { state: { returnTo } })}
-                  className="font-bold text-orange-500 hover:text-orange-600 transition"
+                  className="font-bold text-orange-500 transition-colors hover:text-orange-600"
                 >
                   Register
                 </button>
@@ -455,8 +482,8 @@ export default function Login() {
           )}
 
           {/* Trust Signal */}
-          <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-neutral-400">
-            <ShieldCheck size={13} />
+          <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] font-medium text-gray-400">
+            <ShieldCheck size={13} strokeWidth={2} className="text-gray-400" />
             <span>Secure login with encrypted connection</span>
           </div>
         </div>
