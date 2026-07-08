@@ -38,7 +38,6 @@ import {
   markAllAdminNotificationsRead,
   deleteAllAdminNotifications,
 } from '@/lib/customerOrders'
-import { fetchPendingParcelRequestCount } from '@/lib/parcels'
 import type { Notification as AppNotification, NotificationType } from '@/types'
 
 const navGroups = [
@@ -205,7 +204,6 @@ export default function AdminLayout() {
     AppNotification[]
   >([])
   const [adminUnreadCount, setAdminUnreadCount] = useState(0)
-  const [pendingParcelCount, setPendingParcelCount] = useState(0)
   const [loggingOut, setLoggingOut] = useState(false)
   const notificationPanelRef = useRef<HTMLDivElement>(null)
 
@@ -255,38 +253,6 @@ export default function AdminLayout() {
   // Close sidebar on route change (mobile)
   useEffect(() => {
     setSidebarOpen(false)
-  }, [location.pathname])
-
-  useEffect(() => {
-    let mounted = true
-
-    async function refreshPendingParcels() {
-      try {
-        const count = await fetchPendingParcelRequestCount()
-        if (mounted) setPendingParcelCount(count)
-      } catch (error) {
-        console.warn('[AdminLayout] Pending parcel count skipped:', error)
-        if (mounted) setPendingParcelCount(0)
-      }
-    }
-
-    void refreshPendingParcels()
-
-    const handleRefresh = () => {
-      void refreshPendingParcels()
-    }
-
-    window.addEventListener('focus', handleRefresh)
-    window.addEventListener('shop2bhutan:admin-parcels-updated', handleRefresh)
-
-    return () => {
-      mounted = false
-      window.removeEventListener('focus', handleRefresh)
-      window.removeEventListener(
-        'shop2bhutan:admin-parcels-updated',
-        handleRefresh,
-      )
-    }
   }, [location.pathname])
 
   // Prevent body scroll when mobile sidebar is open
@@ -728,10 +694,6 @@ export default function AdminLayout() {
                   (item.path !== '/admin' &&
                     location.pathname.startsWith(item.path))
                 const Icon = item.icon
-                const badgeCount =
-                  item.path === '/admin/parcel-requests'
-                    ? pendingParcelCount
-                    : 0
                 return (
                   <button
                     key={item.path}
@@ -745,11 +707,6 @@ export default function AdminLayout() {
                   >
                     <span className="relative shrink-0">
                       <Icon size={20} className="shrink-0" />
-                      {badgeCount > 0 && (
-                        <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black leading-none text-white ring-2 ring-white">
-                          {badgeCount > 9 ? '9+' : badgeCount}
-                        </span>
-                      )}
                     </span>
                     {/* Tooltip on hover when collapsed (desktop) */}
                     {sidebarCollapsed && (
@@ -763,11 +720,6 @@ export default function AdminLayout() {
                     >
                       {item.label}
                     </span>
-                    {!sidebarCollapsed && badgeCount > 0 && (
-                      <span className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-black text-white">
-                        {badgeCount > 99 ? '99+' : badgeCount}
-                      </span>
-                    )}
                   </button>
                 )
               })}

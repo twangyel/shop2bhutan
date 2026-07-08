@@ -7,7 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
   Headphones,
-  Link2,
+  ShoppingBag,
   LogIn,
   MapPin,
   Megaphone,
@@ -29,9 +29,9 @@ const stores = [
 ] as const;
 
 const quickActions = [
-  { icon: Link2, label: 'Paste Link', path: '/paste-link' },
-  { icon: Package, label: 'My Orders', path: '/orders' },
-  { icon: Truck, label: 'Track Order', path: '/orders' },
+  { icon: ShoppingBag, label: 'Request Bag', path: '/request-bag' },
+  { icon: Package, label: 'Orders', path: '/orders' },
+  { icon: Truck, label: 'Parcel', path: '/parcel' },
   { icon: Headphones, label: 'Support', path: '/support' },
 ];
 
@@ -235,7 +235,7 @@ async function fetchLatestActiveOrder(userId: string): Promise<ActiveUpdate | nu
     title: `Order #${orderNumber}`,
     statusLabel: titleCaseStatus(row.status),
     description: orderStatusDescription(row.status),
-    path: `/orders/${id}`,
+    path: `/order/${id}`, // customer route is /order/:id
   };
 }
 
@@ -265,12 +265,10 @@ async function fetchLatestActiveParcel(userId: string): Promise<ActiveUpdate | n
 function ContinueTrackingCard({
   update,
   loading,
-
   onNavigate,
 }: {
   update: ActiveUpdate | null;
   loading: boolean;
-  isGuest: boolean;
   onNavigate: (path: string) => void;
 }) {
   if (loading) {
@@ -558,8 +556,8 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       {/* ========== HEADER ========== */}
-      <header className="sticky top-0 z-40 bg-white border-b border-gray-100">
-        <div className="mx-auto max-w-3xl px-4 pb-3 pt-3">
+      <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/95 backdrop-blur-xl">
+        <div className="mx-auto max-w-3xl px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
           <div className="flex items-center justify-between">
             <Logo size="sm" className="min-w-0" />
             <button
@@ -580,17 +578,26 @@ export default function Home() {
           <button
             type="button"
             onClick={() => setLocationSheetOpen(true)}
-            className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-gray-100 bg-white px-3 py-1.5 text-left text-xs font-medium text-gray-700 shadow-sm transition-colors active:bg-gray-50"
+            className="mt-3 flex max-w-full items-center gap-2 rounded-2xl border border-orange-100 bg-orange-50/80 px-3 py-2.5 text-left shadow-sm transition active:scale-[0.99] active:bg-orange-50"
           >
-            <MapPin size={13} className="text-orange-500" />
-            <span>{locationChipText}</span>
-            <ChevronDown size={12} className="ml-0.5 text-gray-400" />
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-orange-500 shadow-sm ring-1 ring-orange-100">
+              <MapPin size={16} strokeWidth={2.2} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[10px] font-bold uppercase tracking-wide text-orange-500">
+                Delivery location
+              </span>
+              <span className="block truncate text-xs font-extrabold text-gray-900">
+                {locationChipText}
+              </span>
+            </span>
+            <ChevronDown size={15} className="shrink-0 text-orange-500" />
           </button>
         </div>
       </header>
 
       {/* ========== MAIN ========== */}
-      <main className="mx-auto max-w-3xl px-4 pb-28 pt-4">
+      <main className="mx-auto max-w-3xl px-4 pb-8 pt-4">
         {appSettings.homeAnnouncementEnabled && appSettings.homeAnnouncementText && (
           <section className="mb-4 flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-blue-800">
             <Megaphone size={18} className="mt-0.5 shrink-0" />
@@ -621,7 +628,7 @@ export default function Home() {
                   key={store.name}
                   type="button"
                   onClick={() => window.open(store.url, '_blank', 'noopener,noreferrer')}
-                  className="rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/30"
+                  className="rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm transition hover:bg-white/30 active:scale-[0.97]"
                   aria-label={`Open ${store.name} website`}
                 >
                   {store.name}
@@ -653,12 +660,12 @@ export default function Home() {
           onClick={() => navigate('/paste-link')}
           className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-base font-bold text-white transition-colors hover:bg-orange-600 active:scale-[0.98]"
         >
-          <span>Request Quotation</span>
+          <span>Paste Product Link</span>
           <ArrowRight size={18} strokeWidth={2.5} />
         </button>
 
         {/* ----- Quick Actions ----- */}
-        <section className="mt-5 bg-white border border-gray-100 rounded-2xl p-3">
+        <section className="mt-5 rounded-3xl border border-gray-100 bg-white p-3 shadow-sm">
           <div className="grid grid-cols-4 gap-1">
             {quickActions.map((action) => {
               const Icon = action.icon;
@@ -667,9 +674,9 @@ export default function Home() {
                   key={action.label}
                   type="button"
                   onClick={() => navigate(action.path)}
-                  className="group flex flex-col items-center justify-center gap-2 rounded-xl px-1.5 py-3 text-center transition-colors hover:bg-gray-50 active:bg-gray-100"
+                  className="group flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-2xl px-1.5 py-3 text-center transition active:scale-[0.98] active:bg-gray-50"
                 >
-                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-500 ring-1 ring-orange-100">
                     <Icon size={20} strokeWidth={2} />
                   </span>
                   <span className="text-[11px] font-semibold text-gray-700">{action.label}</span>
@@ -683,7 +690,6 @@ export default function Home() {
         <ContinueTrackingCard
           update={activeUpdate}
           loading={activeUpdateLoading}
-          isGuest={isGuest}
           onNavigate={(path) => navigate(path)}
         />
 
@@ -695,7 +701,7 @@ export default function Home() {
 
       {locationSheetOpen && (
         <div
-          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/25 px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-6 backdrop-blur-[2px]"
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/25 px-4 pb-[calc(6.75rem+env(safe-area-inset-bottom))] pt-6 backdrop-blur-[2px]"
           role="dialog"
           aria-modal="true"
           onClick={() => setLocationSheetOpen(false)}

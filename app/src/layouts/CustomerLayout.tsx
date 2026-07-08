@@ -36,6 +36,36 @@ const tabs = [
   { path: '/account', label: 'Account', icon: User },
 ]
 
+function isTabActive(pathname: string, tabPath: string) {
+  if (tabPath === '/') return pathname === '/'
+
+  if (tabPath === '/shop') {
+    return pathname === '/shop' || pathname === '/catalog'
+  }
+
+  if (tabPath === '/parcel') {
+    return pathname === '/parcel' || pathname === '/my-parcels'
+  }
+
+  if (tabPath === '/request-bag') {
+    return pathname === '/request-bag' || pathname === '/cart'
+  }
+
+  if (tabPath === '/account') {
+    return (
+      pathname === '/account' ||
+      pathname === '/orders' ||
+      pathname.startsWith('/order/') ||
+      pathname === '/profile' ||
+      pathname === '/addresses' ||
+      pathname === '/notifications' ||
+      pathname === '/support'
+    )
+  }
+
+  return pathname === tabPath
+}
+
 export default function CustomerLayout() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -423,9 +453,24 @@ export default function CustomerLayout() {
     location.pathname.startsWith('/product/') ||
     location.pathname === '/checkout'
 
+  const handleTabPress = (path: string) => {
+    if (location.pathname === path) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
+      return
+    }
+
+    navigate(path)
+  }
+
   return (
-    <div className="min-h-screen bg-white">
-      <main className="pb-20 transition-opacity duration-200 ease-out">
+    <div className="min-h-screen bg-white text-slate-900">
+      <main
+        className={
+          shouldHideTabBar
+            ? 'transition-opacity duration-200 ease-out'
+            : 'pb-[calc(7.5rem+env(safe-area-inset-bottom))] transition-opacity duration-200 ease-out'
+        }
+      >
         {appSettings.maintenanceEnabled && (
           <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
             <div className="mx-auto flex max-w-3xl items-start gap-2 text-sm">
@@ -437,68 +482,68 @@ export default function CustomerLayout() {
         <Outlet />
       </main>
 
-     {showNotificationPrompt && !shouldHideTabBar && (
-  <div className="fixed left-0 right-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[90] px-4">
-    <div className="relative mx-auto max-w-lg overflow-hidden rounded-3xl bg-slate-950 p-4 text-white shadow-2xl shadow-slate-900/30 ring-1 ring-white/10">
-      <div className="absolute inset-x-0 top-0 h-1 bg-blue-500" />
+      {showNotificationPrompt && !shouldHideTabBar && (
+        <div className="fixed left-0 right-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[90] px-4">
+          <div className="relative mx-auto max-w-lg overflow-hidden rounded-3xl bg-slate-950 p-4 text-white shadow-2xl shadow-slate-900/30 ring-1 ring-white/10">
+            <div className="absolute inset-x-0 top-0 h-1 bg-blue-500" />
 
-      <div className="flex items-start gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-blue-300 ring-1 ring-white/10">
-          <Bell size={20} strokeWidth={2.4} />
-        </span>
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-blue-300 ring-1 ring-white/10">
+                <Bell size={20} strokeWidth={2.4} />
+              </span>
 
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-extrabold text-white">
-            Turn on app notifications
-          </p>
-          <p className="mt-1 text-xs leading-5 text-slate-300">
-            Get instant alerts for quotations, payments, orders, and parcels.
-          </p>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-extrabold text-white">
+                  Turn on app notifications
+                </p>
+                <p className="mt-1 text-xs leading-5 text-slate-300">
+                  Get instant alerts for quotations, payments, orders, and parcels.
+                </p>
 
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              onClick={handleEnableNativeNotifications}
-              disabled={requestingNotificationPermission}
-              className="h-9 rounded-2xl bg-white px-4 text-xs font-extrabold text-blue-700 transition active:scale-[0.98] disabled:opacity-60"
-            >
-              {requestingNotificationPermission ? 'Checking...' : 'Enable'}
-            </button>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleEnableNativeNotifications}
+                    disabled={requestingNotificationPermission}
+                    className="h-9 rounded-2xl bg-white px-4 text-xs font-extrabold text-blue-700 transition active:scale-[0.98] disabled:opacity-60"
+                  >
+                    {requestingNotificationPermission ? 'Checking...' : 'Enable'}
+                  </button>
 
-            <button
-              type="button"
-              onClick={handleDismissNotificationPrompt}
-              className="h-9 rounded-2xl border border-white/15 bg-white/10 px-4 text-xs font-bold text-white transition active:scale-[0.98]"
-            >
-              Later
-            </button>
+                  <button
+                    type="button"
+                    onClick={handleDismissNotificationPrompt}
+                    className="h-9 rounded-2xl border border-white/15 bg-white/10 px-4 text-xs font-bold text-white transition active:scale-[0.98]"
+                  >
+                    Later
+                  </button>
+                </div>
+
+                {nativeNotificationPermission === 'denied' && (
+                  <p className="mt-2 text-[11px] leading-4 text-blue-200">
+                    If Android says notifications are blocked, enable them from app settings.
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleDismissNotificationPrompt}
+                className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-300 active:bg-white/10"
+                aria-label="Dismiss notification prompt"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </div>
-
-          {nativeNotificationPermission === 'denied' && (
-            <p className="mt-2 text-[11px] leading-4 text-blue-200">
-              If Android says notifications are blocked, enable them from app settings.
-            </p>
-          )}
         </div>
-
-        <button
-          type="button"
-          onClick={handleDismissNotificationPrompt}
-          className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-300 active:bg-white/10"
-          aria-label="Dismiss notification prompt"
-        >
-          <X size={16} />
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
       {!shouldHideTabBar && (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-neutral-200 bg-white transition-transform duration-200 ease-out">
-          <div className="mx-auto flex h-[68px] max-w-lg items-center justify-around px-1">
+        <nav className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-0 right-0 z-50 px-3 transition-transform duration-200 ease-out">
+          <div className="pointer-events-auto mx-auto flex h-[76px] max-w-lg items-center justify-around rounded-[2rem] border border-neutral-200/80 bg-white/95 px-1.5 shadow-[0_18px_42px_rgba(15,23,42,0.16)] backdrop-blur-xl">
             {tabs.map((tab) => {
-              const isActive = location.pathname === tab.path
+              const isActive = isTabActive(location.pathname, tab.path)
               const Icon = tab.icon
               const showBagBadge = tab.showBadge && bagCount > 0
               const showParcelBadge =
@@ -528,16 +573,19 @@ export default function CustomerLayout() {
                 <button
                   key={tab.path}
                   type="button"
-                  onClick={() => navigate(tab.path)}
-                  className="relative flex h-full flex-1 flex-col items-center justify-center gap-1 text-center"
+                  onClick={() => handleTabPress(tab.path)}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`relative flex h-[64px] flex-1 flex-col items-center justify-center gap-1.5 rounded-3xl text-center transition active:scale-[0.98] ${
+                    isActive
+                      ? 'bg-amber-50 text-amber-600 shadow-sm ring-1 ring-amber-100'
+                      : 'text-neutral-400 active:bg-neutral-50'
+                  }`}
                 >
-                  <span className="relative flex h-7 w-7 items-center justify-center">
+                  <span className="relative flex h-8 w-8 items-center justify-center">
                     <Icon
-                      size={24}
-                      strokeWidth={isActive ? 2.5 : 1.8}
-                      className={
-                        isActive ? 'text-amber-500' : 'text-neutral-400'
-                      }
+                      size={isActive ? 27 : 25}
+                      strokeWidth={isActive ? 2.55 : 1.9}
+                      className="transition-colors"
                     />
                     {showBadge && (
                       <span
@@ -548,7 +596,7 @@ export default function CustomerLayout() {
                     )}
                   </span>
                   <span
-                    className={`block text-[11px] leading-none ${isActive ? 'font-semibold text-amber-500' : 'font-medium text-neutral-400'}`}
+                    className={`block text-[11px] leading-none ${isActive ? 'font-extrabold text-amber-700' : 'font-semibold text-neutral-400'}`}
                   >
                     {tab.label}
                   </span>

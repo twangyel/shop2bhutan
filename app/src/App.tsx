@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, type ReactNode } from 'react';
 import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { AppProvider } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -69,6 +69,7 @@ function mustChangePassword(profile: unknown) {
 
 function NativePushBridge() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { loading, user, isGuest } = useAuth();
 
   useEffect(() => {
@@ -83,8 +84,14 @@ function NativePushBridge() {
         (event as CustomEvent<{ link?: string }>).detail?.link ?? '',
       );
 
-      if (link.startsWith('/') && !link.startsWith('//')) {
-        navigate(link);
+      const currentPath = `${location.pathname}${location.search}`;
+
+      if (
+        link.startsWith('/') &&
+        !link.startsWith('//') &&
+        link !== currentPath
+      ) {
+        navigate(link, { replace: location.pathname === '/' });
       }
     };
 
@@ -99,7 +106,19 @@ function NativePushBridge() {
         handlePushNotificationOpened,
       );
     };
-  }, [navigate]);
+  }, [location.pathname, location.search, navigate]);
+
+  return null;
+}
+
+function RouteScrollToTop() {
+  const { pathname, search } = useLocation();
+
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [pathname, search]);
 
   return null;
 }
@@ -131,6 +150,7 @@ export default function App() {
   return (
     <AppProvider>
       <NativePushBridge />
+      <RouteScrollToTop />
       <Routes>
         {/* Auth Routes - No Layout */}
         <Route path="/login" element={<Login />} />
