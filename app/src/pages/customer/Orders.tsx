@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ElementType } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ElementType } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   CheckCircle2,
@@ -210,6 +210,9 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
+  const [pillStyle, setPillStyle] = useState({ left: 0, width: 0 });
+  const tabBarRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const loadOrders = useCallback(async () => {
     if (!user) {
@@ -245,6 +248,18 @@ export default function Orders() {
       void loadOrders();
     }
   }, [authLoading, loadOrders]);
+
+  useEffect(() => {
+    const activeBtn = tabRefs.current[activeTab];
+    if (activeBtn && tabBarRef.current) {
+      const containerRect = tabBarRef.current.getBoundingClientRect();
+      const btnRect = activeBtn.getBoundingClientRect();
+      setPillStyle({
+        left: btnRect.left - containerRect.left,
+        width: btnRect.width,
+      });
+    }
+  }, [activeTab]);
 
   const counts = useMemo(() => {
     return tabs.reduce(
@@ -296,7 +311,18 @@ export default function Orders() {
             </div>
           </div>
 
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 pr-2 scrollbar-hide">
+          <div
+            ref={tabBarRef}
+            className="relative mt-3 flex gap-1 overflow-x-auto rounded-2xl bg-gray-100 p-1 scrollbar-hide"
+          >
+            {/* Sliding pill background */}
+            <div
+              className="absolute top-1 h-[calc(100%-8px)] rounded-xl bg-orange-500 shadow-sm transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
+              style={{
+                left: pillStyle.left,
+                width: pillStyle.width,
+              }}
+            />
             {tabs.map((tab) => {
               const isActive = activeTab === tab.key;
               const Icon = tab.icon;
@@ -304,21 +330,18 @@ export default function Orders() {
               return (
                 <button
                   key={tab.key}
+                  ref={(el) => { tabRefs.current[tab.key] = el; }}
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
-                  className={`flex flex-shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-bold transition-all ${
-                    isActive
-                      ? 'bg-orange-500 text-white shadow-sm'
-                      : tab.key === 'quoted' && count > 0
-                        ? 'bg-orange-50 text-orange-700 border border-orange-100 hover:bg-orange-100'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  className={`relative z-10 flex flex-shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-bold transition-colors duration-200 ${
+                    isActive ? 'text-white' : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
                   <Icon size={13} strokeWidth={isActive ? 2.4 : 1.9} />
                   <span>{tab.shortLabel}</span>
                   <span
-                    className={`flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-white/90 text-gray-500'
+                    className={`flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors duration-200 ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-gray-200/80 text-gray-500'
                     }`}
                   >
                     {count > 99 ? '99+' : count}
