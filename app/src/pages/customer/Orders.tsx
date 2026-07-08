@@ -252,11 +252,9 @@ export default function Orders() {
   useEffect(() => {
     const activeBtn = tabRefs.current[activeTab];
     if (activeBtn && tabBarRef.current) {
-      const containerRect = tabBarRef.current.getBoundingClientRect();
-      const btnRect = activeBtn.getBoundingClientRect();
       setPillStyle({
-        left: btnRect.left - containerRect.left,
-        width: btnRect.width,
+        left: activeBtn.offsetLeft,
+        width: activeBtn.offsetWidth,
       });
     }
   }, [activeTab]);
