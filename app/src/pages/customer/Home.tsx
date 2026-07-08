@@ -557,7 +557,7 @@ export default function Home() {
     <div className="min-h-screen bg-white">
       {/* ========== HEADER ========== */}
       <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/95 backdrop-blur-xl">
-        <div className="mx-auto max-w-3xl px-4 pb-2.5 pt-[calc(env(safe-area-inset-top)+0.65rem)]">
+        <div className="mx-auto max-w-3xl px-4 pb-2 pt-[calc(env(safe-area-inset-top)+0.6rem)]">
           <div className="flex items-center justify-between">
             <Logo size="sm" className="min-w-0" />
             <button
@@ -578,10 +578,10 @@ export default function Home() {
           <button
             type="button"
             onClick={() => setLocationSheetOpen(true)}
-            className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-orange-100 bg-orange-50/80 px-2.5 py-1.5 text-left shadow-sm transition active:scale-[0.99] active:bg-orange-50"
+            className="mt-1.5 inline-flex max-w-full items-center gap-1.5 rounded-full border border-orange-100 bg-orange-50/80 px-2.5 py-1 text-left shadow-sm transition active:scale-[0.99] active:bg-orange-50"
           >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-orange-500 shadow-sm ring-1 ring-orange-100">
-              <MapPin size={14} strokeWidth={2.2} />
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-orange-500 shadow-sm ring-1 ring-orange-100">
+              <MapPin size={13} strokeWidth={2.2} />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-[9px] font-bold uppercase tracking-wide text-orange-500">
@@ -597,7 +597,7 @@ export default function Home() {
       </header>
 
       {/* ========== MAIN ========== */}
-      <main className="mx-auto max-w-3xl px-4 pb-12 pt-3.5">
+      <main className="mx-auto max-w-3xl px-4 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-3.5">
         {appSettings.homeAnnouncementEnabled && appSettings.homeAnnouncementText && (
           <section className="mb-4 flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-blue-800">
             <Megaphone size={18} className="mt-0.5 shrink-0" />
@@ -701,7 +701,7 @@ export default function Home() {
 
       {locationSheetOpen && (
         <div
-          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/25 px-4 pb-[calc(5.95rem+env(safe-area-inset-bottom))] pt-6 backdrop-blur-[2px]"
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/25 px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-6 backdrop-blur-[2px]"
           role="dialog"
           aria-modal="true"
           onClick={() => setLocationSheetOpen(false)}

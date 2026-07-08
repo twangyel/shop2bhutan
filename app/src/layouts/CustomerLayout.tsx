@@ -468,7 +468,7 @@ export default function CustomerLayout() {
         className={
           shouldHideTabBar
             ? 'transition-opacity duration-200 ease-out'
-            : 'pb-[calc(6.5rem+env(safe-area-inset-bottom))] transition-opacity duration-200 ease-out'
+            : 'pb-[calc(7.5rem+env(safe-area-inset-bottom))] transition-opacity duration-200 ease-out'
         }
       >
         {appSettings.maintenanceEnabled && (
@@ -540,8 +540,8 @@ export default function CustomerLayout() {
       )}
 
       {!shouldHideTabBar && (
-        <nav className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+0.45rem)] left-0 right-0 z-50 px-3 transition-transform duration-200 ease-out">
-          <div className="pointer-events-auto mx-auto flex h-[68px] max-w-lg items-center justify-around rounded-[1.8rem] border border-neutral-200/80 bg-white/95 px-1.5 shadow-[0_14px_34px_rgba(15,23,42,0.14)] backdrop-blur-xl">
+        <nav className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+0.12rem)] left-0 right-0 z-50 px-3 transition-transform duration-200 ease-out">
+          <div className="pointer-events-auto mx-auto flex h-[64px] max-w-lg items-center justify-around rounded-[1.75rem] border border-neutral-200/80 bg-white/95 px-1.5 shadow-[0_14px_34px_rgba(15,23,42,0.14)] backdrop-blur-xl">
             {tabs.map((tab) => {
               const isActive = isTabActive(location.pathname, tab.path)
               const Icon = tab.icon
@@ -575,7 +575,7 @@ export default function CustomerLayout() {
                   type="button"
                   onClick={() => handleTabPress(tab.path)}
                   aria-current={isActive ? 'page' : undefined}
-                  className={`relative flex h-[56px] flex-1 flex-col items-center justify-center gap-1 rounded-[1.35rem] text-center transition active:scale-[0.98] ${
+                  className={`relative flex h-[52px] flex-1 flex-col items-center justify-center gap-1 rounded-[1.25rem] text-center transition active:scale-[0.98] ${
                     isActive
                       ? 'bg-amber-50 text-amber-600 shadow-sm ring-1 ring-amber-100'
                       : 'text-neutral-400 active:bg-neutral-50'
@@ -583,8 +583,8 @@ export default function CustomerLayout() {
                 >
                   <span className="relative flex h-7 w-7 items-center justify-center">
                     <Icon
-                      size={isActive ? 25 : 23}
-                      strokeWidth={isActive ? 2.55 : 1.9}
+                      size={isActive ? 24 : 22}
+                      strokeWidth={isActive ? 2.45 : 1.85}
                       className="transition-colors"
                     />
                     {showBadge && (
