@@ -316,7 +316,7 @@ export default function Login() {
             {/* Email/Phone Input */}
             <div>
               <label className="mb-1.5 block text-[13px] font-semibold text-gray-800">
-                Email or phone number
+                Email or Phone Number
               </label>
               <div className="relative">
                 <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
@@ -334,7 +334,7 @@ export default function Login() {
                     setErrors((p) => ({ ...p, identifier: '' }));
                     setSubmitError('');
                   }}
-                  placeholder="your@email.com or 17123456"
+                  placeholder="Login using registered email or phone number"
                   className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[14px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${
                     errors.identifier ? 'border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10' : 'border-gray-200'
                   }`}

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
  AlertTriangle,
- ArrowLeft,
  Check,
  Clock,
  CreditCard,
@@ -36,8 +35,8 @@ function readableDate(value?: string) {
 function quotationDisplay(quotation: Quotation) {
  if (quotation.status === 'approved') {
  return {
- card: 'border-emerald-200 bg-emerald-50',
- accent: 'text-emerald-700',
+ card: 'border-gray-100 bg-white shadow-sm',
+ accent: 'text-emerald-600',
  iconBg: 'bg-emerald-500',
  icon: <Check size={19} className="text-white" />,
  eyebrow: 'Verified quotation accepted',
@@ -48,8 +47,8 @@ function quotationDisplay(quotation: Quotation) {
 
  if (quotation.status === 'rejected') {
  return {
- card: 'border-red-200 bg-red-50',
- accent: 'text-red-700',
+ card: 'border-gray-100 bg-white shadow-sm',
+ accent: 'text-red-600',
  iconBg: 'bg-red-500',
  icon: <X size={19} className="text-white" />,
  eyebrow: 'Quotation response recorded',
@@ -60,8 +59,8 @@ function quotationDisplay(quotation: Quotation) {
 
  if (quotation.status === 'expired') {
  return {
- card: 'border-red-200 bg-red-50',
- accent: 'text-red-700',
+ card: 'border-gray-100 bg-white shadow-sm',
+ accent: 'text-red-600',
  iconBg: 'bg-red-500',
  icon: <X size={19} className="text-white" />,
  eyebrow: 'Quotation expired',
@@ -71,8 +70,8 @@ function quotationDisplay(quotation: Quotation) {
  }
 
  return {
- card: 'border-orange-200 bg-orange-50',
- accent: 'text-orange-700',
+ card: 'border-gray-100 bg-white shadow-sm',
+ accent: 'text-orange-600',
  iconBg: 'bg-orange-500',
  icon: <Clock size={19} className="text-white" />,
  eyebrow: 'Reviewed by Shop2Bhutan',
@@ -182,7 +181,7 @@ export default function QuotationReview() {
 
  if (!authLoading && !user) {
  return (
- <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+ <div className="flex min-h-screen flex-col items-center justify-center bg-white px-6 text-center">
  <p className="mb-4 text-gray-500">Please sign in to view your quotation.</p>
  <button
  type="button"
@@ -198,17 +197,14 @@ export default function QuotationReview() {
  if (loading) {
  return (
  <div className="min-h-screen bg-white pb-24">
- <div className="border-b border-gray-200 bg-white px-4 py-3">
+ <div className="border-b border-gray-100 bg-white px-4 py-3">
  <div className="mx-auto flex max-w-2xl items-center gap-3">
- <button type="button" onClick={() => navigate(-1)} className="p-1">
- <ArrowLeft size={22} className="text-gray-700" />
- </button>
  <h1 className="text-lg font-semibold text-gray-900">Quotation</h1>
  </div>
  </div>
  <div className="mx-auto max-w-2xl space-y-4 px-4 py-4">
  {[1, 2, 3].map((item) => (
- <div key={item} className="h-32 rounded-2xl bg-white animate-pulse" />
+ <div key={item} className="h-32 rounded-2xl bg-gray-100 animate-pulse" />
  ))}
  </div>
  </div>
@@ -217,7 +213,7 @@ export default function QuotationReview() {
 
  if (!order || !quotation || !display) {
  return (
- <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+ <div className="flex min-h-screen flex-col items-center justify-center bg-white px-6 text-center">
  <p className="mb-4 text-gray-500">{error || 'Quotation not found'}</p>
  <button
  type="button"
@@ -234,11 +230,8 @@ export default function QuotationReview() {
 
  return (
  <div className="min-h-screen bg-white pb-28">
- <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-3 ">
+ <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-3">
  <div className="mx-auto flex max-w-2xl items-center gap-3">
- <button type="button" onClick={() => navigate(-1)} className="rounded-full p-1.5 hover:bg-gray-100">
- <ArrowLeft size={22} className="text-gray-700" />
- </button>
  <div className="min-w-0">
  <h1 className="text-lg font-semibold text-gray-900">Quotation</h1>
  <p className="truncate text-xs text-gray-500">#{order.orderNumber}</p>
@@ -276,7 +269,7 @@ export default function QuotationReview() {
  </div>
  </section>
 
- <section className="mt-4 rounded-2xl bg-white p-4 ring-1 ring-gray-100">
+ <section className="mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
  <div className="mb-4 flex items-center justify-between">
  <h3 className="text-base font-semibold text-gray-900">Quoted items</h3>
  <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-600">
@@ -290,7 +283,7 @@ export default function QuotationReview() {
  const hasSourceLink = canShowSourceLink(source.sourceUrl);
 
  return (
- <div key={item.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-3">
+ <div key={item.id} className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
  <div className="flex gap-3">
  <img
  src={item.productImage}
@@ -325,7 +318,7 @@ export default function QuotationReview() {
  href={source.sourceUrl}
  target="_blank"
  rel="noopener noreferrer"
- className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-100"
+ className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200 transition-colors hover:bg-gray-50"
  onClick={(event) => event.stopPropagation()}
 >
  <ExternalLink size={13} /> View product source
@@ -344,7 +337,7 @@ export default function QuotationReview() {
  </div>
  </section>
 
- <section className="mt-4 rounded-2xl bg-white p-4 ring-1 ring-gray-100">
+ <section className="mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
  <div className="mb-4 flex items-center gap-2">
  <FileText size={18} className="text-orange-500" />
  <h3 className="text-base font-semibold text-gray-900">Price breakdown</h3>
@@ -378,62 +371,62 @@ export default function QuotationReview() {
  </div>
 
  <div className="my-4 border-t border-dashed border-gray-200" />
- <div className="rounded-2xl bg-orange-50 p-3 ring-1 ring-orange-100">
+ <div className="rounded-2xl bg-gray-50 p-3 ring-1 ring-gray-100">
  <div className="flex items-center justify-between gap-4">
  <div className="min-w-0">
  <p className="text-sm font-bold text-gray-950">Total payable</p>
  <p className="mt-1 text-xs leading-relaxed text-gray-500">Final payable amount. No hidden charges.</p>
  </div>
- <p className="shrink-0 whitespace-nowrap text-xl font-black tracking-tight text-orange-600 sm:text-2xl">
+ <p className="shrink-0 whitespace-nowrap text-xl font-black tracking-tight text-gray-950 sm:text-2xl">
  {money(quotation.totalAmount)}
  </p>
  </div>
  </div>
  </section>
 
- <section className="mt-4 rounded-2xl bg-white p-4 ring-1 ring-gray-100">
+ <section className="mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
  <div className="mb-3 flex items-center gap-2">
- <CreditCard size={18} className="text-blue-500" />
+ <CreditCard size={18} className="text-gray-500" />
  <h3 className="text-base font-semibold text-gray-900">Payment options</h3>
  </div>
  <div className="grid gap-3 sm:grid-cols-2">
- <div className="rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-100">
- <p className="text-xs font-semibold text-emerald-700">Full payment</p>
- <p className="mt-1 text-lg font-black text-emerald-800">{money(quotation.totalAmount)}</p>
- <p className="mt-1 text-xs leading-5 text-emerald-700">Pay full quotation amount now and keep the balance clear.</p>
+ <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+ <p className="text-xs font-semibold text-gray-600">Full payment</p>
+ <p className="mt-1 text-lg font-black text-gray-950">{money(quotation.totalAmount)}</p>
+ <p className="mt-1 text-xs leading-5 text-gray-500">Pay full quotation amount now and keep the balance clear.</p>
  </div>
- <div className="rounded-2xl bg-blue-50 p-3 ring-1 ring-blue-100">
- <p className="text-xs font-semibold text-blue-700">50% advance accepted</p>
- <p className="mt-1 text-lg font-black text-blue-800">{money(Math.ceil(quotation.totalAmount * 0.5))}</p>
- <p className="mt-1 text-xs leading-5 text-blue-700">We can start fulfillment after verified advance. Remaining balance stays visible until paid.</p>
+ <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+ <p className="text-xs font-semibold text-gray-600">50% advance accepted</p>
+ <p className="mt-1 text-lg font-black text-gray-950">{money(Math.ceil(quotation.totalAmount * 0.5))}</p>
+ <p className="mt-1 text-xs leading-5 text-gray-500">We can start fulfillment after verified advance. Remaining balance stays visible until paid.</p>
  </div>
  </div>
  </section>
 
  <section className="mt-4 grid gap-3 sm:grid-cols-2">
- <div className="rounded-2xl bg-orange-50 p-4 ring-1 ring-orange-100">
- <div className="mb-2 flex items-center gap-2 text-orange-700">
+ <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+ <div className="mb-2 flex items-center gap-2 text-gray-700">
  <ShieldCheck size={18} />
  <p className="text-sm font-semibold">Service charge</p>
  </div>
- <p className="text-xs leading-relaxed text-orange-800">
+ <p className="text-xs leading-relaxed text-gray-500">
  Covers product verification, sourcing, coordination, order support, and customer updates.
  </p>
  </div>
- <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-100">
- <div className="mb-2 flex items-center gap-2 text-emerald-700">
+ <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+ <div className="mb-2 flex items-center gap-2 text-gray-700">
  <Truck size={18} />
  <p className="text-sm font-semibold">Delivery fee</p>
  </div>
- <p className="text-xs leading-relaxed text-emerald-800">
+ <p className="text-xs leading-relaxed text-gray-500">
  Charged once per quotation/request bag, not once per item.
  </p>
  </div>
  </section>
 
- <section className="mt-4 rounded-2xl bg-white p-4 ring-1 ring-gray-100">
+ <section className="mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
  <div className="mb-3 flex items-center gap-2">
- <PackageCheck size={18} className="text-emerald-500" />
+ <PackageCheck size={18} className="text-gray-500" />
  <h3 className="text-base font-semibold text-gray-900">What happens next?</h3>
  </div>
  <div className="grid gap-2 text-sm text-gray-600">
