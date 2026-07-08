@@ -23,6 +23,8 @@ import {
   PanelLeft,
   CheckCheck,
   Loader2,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react'
 import { useApp } from '@/contexts/AppContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -34,6 +36,7 @@ import {
   getUnreadAdminNotificationCount,
   markAdminNotificationRead,
   markAllAdminNotificationsRead,
+  deleteAllAdminNotifications,
 } from '@/lib/customerOrders'
 import { fetchPendingParcelRequestCount } from '@/lib/parcels'
 import type { Notification as AppNotification, NotificationType } from '@/types'
@@ -196,6 +199,8 @@ export default function AdminLayout() {
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [notificationLoading, setNotificationLoading] = useState(false)
   const [notificationError, setNotificationError] = useState('')
+  const [deleteNotificationsOpen, setDeleteNotificationsOpen] = useState(false)
+  const [deletingNotifications, setDeletingNotifications] = useState(false)
   const [adminNotifications, setAdminNotifications] = useState<
     AppNotification[]
   >([])
@@ -502,6 +507,36 @@ export default function AdminLayout() {
     }
   }
 
+  const handleDeleteAllNotifications = async () => {
+    if (!user || deletingNotifications) return
+
+    const previousNotifications = adminNotifications
+    const previousUnreadCount = adminUnreadCount
+
+    setDeletingNotifications(true)
+    setNotificationError('')
+    setAdminNotifications([])
+    setAdminUnreadCount(0)
+
+    try {
+      await deleteAllAdminNotifications(user.id)
+      setDeleteNotificationsOpen(false)
+      setNotificationOpen(false)
+    } catch (error) {
+      console.warn('[AdminLayout] Delete all notifications skipped:', error)
+      setAdminNotifications(previousNotifications)
+      setAdminUnreadCount(previousUnreadCount)
+      setNotificationError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to delete notifications.',
+      )
+      void loadAdminNotifications({ silent: true })
+    } finally {
+      setDeletingNotifications(false)
+    }
+  }
+
   const handleLogout = async () => {
     if (loggingOut) return
 
@@ -556,6 +591,57 @@ export default function AdminLayout() {
             </div>
             <p className="mt-4 text-sm font-bold text-neutral-900">Signing out...</p>
             <p className="mt-1 text-xs leading-5 text-neutral-500">Closing your admin session safely.</p>
+          </div>
+        </div>
+      )}
+      {deleteNotificationsOpen && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl border border-red-100 bg-white p-5 shadow-2xl shadow-red-500/10">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+                <AlertTriangle size={22} strokeWidth={2.4} />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base font-black text-neutral-950">
+                  Delete all notifications?
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-neutral-500">
+                  This will remove notifications from your admin account only.
+                  It will not delete notifications for other admins.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteNotificationsOpen(false)}
+                disabled={deletingNotifications}
+                className="h-11 rounded-2xl border border-neutral-200 bg-white text-sm font-bold text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteAllNotifications}
+                disabled={deletingNotifications}
+                className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-red-500 text-sm font-bold text-white transition hover:bg-red-600 disabled:opacity-60"
+              >
+                {deletingNotifications ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    Delete all
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -775,27 +861,43 @@ export default function AdminLayout() {
 
               {notificationOpen && (
                 <div className="absolute right-0 top-12 z-50 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl">
-                  <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
-                    <div>
-                      <p className="text-sm font-bold text-gray-900">
-                        Admin Notifications
-                      </p>
-                      <p className="text-xs text-neutral-500">
-                        {adminUnreadCount > 0
-                          ? `${adminUnreadCount} unread update${adminUnreadCount === 1 ? '' : 's'}`
-                          : 'All caught up'}
-                      </p>
+                  <div className="border-b border-neutral-100 px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-gray-900">
+                          Admin Notifications
+                        </p>
+                        <p className="text-xs text-neutral-500">
+                          {adminUnreadCount > 0
+                            ? `${adminUnreadCount} unread update${adminUnreadCount === 1 ? '' : 's'}`
+                            : 'All caught up'}
+                        </p>
+                      </div>
+
+                      {adminNotifications.length > 0 && (
+                        <div className="flex shrink-0 items-center gap-2">
+                          {adminUnreadCount > 0 && (
+                            <button
+                              type="button"
+                              onClick={handleMarkAllNotificationsRead}
+                              className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
+                            >
+                              <CheckCheck size={14} />
+                              Read
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => setDeleteNotificationsOpen(true)}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100"
+                          >
+                            <Trash2 size={14} />
+                            Delete all
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    {adminUnreadCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleMarkAllNotificationsRead}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100"
-                      >
-                        <CheckCheck size={14} />
-                        Mark read
-                      </button>
-                    )}
                   </div>
 
                   <div className="max-h-[420px] overflow-y-auto p-2">

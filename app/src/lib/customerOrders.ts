@@ -1100,6 +1100,25 @@ export async function markAllAdminNotificationsRead(adminId: string) {
   return markAllCustomerNotificationsRead(adminId)
 }
 
+export async function deleteAllCustomerNotifications(userId: string) {
+  if (!userId) return
+
+  const result = await supabase
+    .from('notifications')
+    .delete()
+    .eq('user_id', userId)
+
+  if (result.error && !isMissingColumnOrRelationError(result.error)) {
+    throw result.error
+  }
+
+  emitNotificationUpdated()
+}
+
+export async function deleteAllAdminNotifications(adminId: string) {
+  return deleteAllCustomerNotifications(adminId)
+}
+
 async function fetchAdminNotificationTargetUserIds() {
   const { data, error } = await supabase
     .from('user_roles')
