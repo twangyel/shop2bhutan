@@ -138,7 +138,7 @@ export default function CustomersPanel() {
         customer.deactivationReason,
         customer.mustChangePassword ? 'temporary password must change password reset' : '',
         getVerificationBadgeLabel(customer.verificationBadge),
-        customer.verificationBadge === 'gold' ? 'trusted customer gold badge' : '',
+        customer.verificationBadge === 'gold' ? 'trusted customer gold badge bhutan flag 🇧🇹' : '',
         customer.verificationBadge === 'blue' ? 'verified contact blue badge' : '',
         customer.accountType === 'email' ? 'email account' : 'phone-only',
         deactivated ? 'deactivated inactive disabled' : 'active enabled',
@@ -532,11 +532,11 @@ export default function CustomersPanel() {
                                 event.target.value as VerificationBadgeType,
                               )
                             }
-                            className="h-8 w-full min-w-[150px] rounded-lg border border-neutral-200 bg-white px-2 text-xs font-semibold text-neutral-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 disabled:opacity-60"
+                            className="h-8 w-full min-w-[170px] rounded-lg border border-neutral-200 bg-white px-2 text-xs font-semibold text-neutral-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 disabled:opacity-60"
                           >
                             <option value="none">No badge</option>
                             <option value="blue">Verified Contact</option>
-                            <option value="gold">Trusted Customer</option>
+                            <option value="gold">Trusted Customer 🇧🇹</option>
                           </select>
                         </div>
                       </td>

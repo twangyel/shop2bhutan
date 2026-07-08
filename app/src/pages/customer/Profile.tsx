@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import VerificationBadge, { getVerificationBadgeLabel, normalizeVerificationBadge } from '@/components/shared/VerificationBadge';
+import VerificationBadge, { getVerificationBadgeLabel, getVerificationBadgeToneClass, normalizeVerificationBadge } from '@/components/shared/VerificationBadge';
 
 type ProfileLike = {
   id?: string | null;
@@ -356,7 +356,7 @@ export default function Profile() {
             <VerificationBadge badge={verificationBadge} size="sm" />
           </div>
           {verificationBadge !== 'none' && (
-            <p className="mt-0.5 text-xs font-bold text-amber-600">
+            <p className={`mt-0.5 text-xs font-bold ${getVerificationBadgeToneClass(verificationBadge)}`}>
               {getVerificationBadgeLabel(verificationBadge)}
             </p>
           )}

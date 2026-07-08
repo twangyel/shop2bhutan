@@ -1,5 +1,3 @@
-import { useId } from 'react';
-
 export type VerificationBadgeKind = 'none' | 'blue' | 'gold';
 
 type VerificationBadgeProps = {
@@ -15,20 +13,23 @@ const BADGE_COPY: Record<Exclude<VerificationBadgeKind, 'none'>, {
   title: string;
   shellClass: string;
   textClass: string;
+  iconClass: string;
 }> = {
   blue: {
     label: 'Verified Contact',
     shortLabel: 'Verified',
     title: 'Verified Contact',
-    shellClass: 'from-sky-500 via-blue-500 to-indigo-500 shadow-blue-500/25 ring-blue-100',
+    shellClass: 'from-sky-400 via-blue-500 to-indigo-600 shadow-blue-500/20 ring-blue-100',
     textClass: 'text-blue-700 bg-blue-50 border-blue-100',
+    iconClass: 'text-blue-600',
   },
   gold: {
-    label: 'Trusted Customer',
-    shortLabel: 'Trusted',
+    label: 'Trusted Customer 🇧🇹',
+    shortLabel: 'Trusted 🇧🇹',
     title: 'Trusted Customer',
-    shellClass: 'from-amber-300 via-yellow-500 to-orange-500 shadow-amber-500/30 ring-amber-100',
+    shellClass: 'from-amber-300 via-yellow-500 to-orange-500 shadow-amber-500/25 ring-amber-100',
     textClass: 'text-amber-800 bg-amber-50 border-amber-100',
+    iconClass: 'text-amber-700',
   },
 };
 
@@ -56,6 +57,13 @@ export function getVerificationBadgeLabel(value?: string | null) {
   return BADGE_COPY[badge].label;
 }
 
+export function getVerificationBadgeToneClass(value?: string | null) {
+  const badge = normalizeVerificationBadge(value);
+  if (badge === 'blue') return BADGE_COPY.blue.iconClass;
+  if (badge === 'gold') return BADGE_COPY.gold.iconClass;
+  return 'text-gray-500';
+}
+
 export default function VerificationBadge({
   badge: rawBadge,
   size = 'sm',
@@ -63,7 +71,6 @@ export default function VerificationBadge({
   className = '',
 }: VerificationBadgeProps) {
   const badge = normalizeVerificationBadge(rawBadge);
-  const gradientId = useId().replace(/:/g, '');
 
   if (badge === 'none') return null;
 
@@ -73,30 +80,20 @@ export default function VerificationBadge({
     <span
       title={copy.title}
       aria-label={copy.title}
-      className={`relative inline-flex shrink-0 items-center justify-center rounded-[0.55rem] bg-gradient-to-br ${copy.shellClass} ${SIZE_CLASS[size]} shadow-sm ring-2 ring-offset-1 ring-offset-white ${className}`}
+      className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br ${copy.shellClass} ${SIZE_CLASS[size]} shadow-sm ring-2 ring-offset-1 ring-offset-white ${className}`}
     >
-      <svg viewBox="0 0 32 32" className="h-full w-full drop-shadow-sm" aria-hidden="true">
-        <defs>
-          <linearGradient id={`${gradientId}-shine`} x1="7" y1="3" x2="25" y2="29" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="white" stopOpacity="0.72" />
-            <stop offset="0.38" stopColor="white" stopOpacity="0.16" />
-            <stop offset="1" stopColor="white" stopOpacity="0" />
-          </linearGradient>
-        </defs>
+      <span className="absolute inset-[2px] rounded-full bg-white/15" />
+      <span className="absolute left-[18%] top-[14%] h-[28%] w-[28%] rounded-full bg-white/45 blur-[1px]" />
+      <svg
+        viewBox="0 0 32 32"
+        className="relative h-[78%] w-[78%] drop-shadow-[0_1px_1px_rgba(0,0,0,0.22)]"
+        aria-hidden="true"
+      >
         <path
-          d="M16 2.9 21.1 5l5.5 1.2 1.2 5.5L30 16l-2.2 4.3-1.2 5.5-5.5 1.2L16 29.1 10.9 27l-5.5-1.2-1.2-5.5L2 16l2.2-4.3 1.2-5.5L10.9 5 16 2.9Z"
-          fill="currentColor"
-          className={badge === 'gold' ? 'text-amber-500' : 'text-blue-500'}
-        />
-        <path
-          d="M16 4.3 20.6 6.2l4.9 1.1 1.1 4.9 1.9 3.8-1.9 3.8-1.1 4.9-4.9 1.1-4.6 1.9-4.6-1.9-4.9-1.1-1.1-4.9L3.5 16l1.9-3.8 1.1-4.9 4.9-1.1L16 4.3Z"
-          fill={`url(#${gradientId}-shine)`}
-        />
-        <path
-          d="m12.3 16.3 2.3 2.35 5.35-6.1"
+          d="M9.2 16.7 13.5 21l9.3-10.1"
           fill="none"
           stroke="white"
-          strokeWidth="3.2"
+          strokeWidth="4.4"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -107,7 +104,10 @@ export default function VerificationBadge({
   if (!showLabel) return icon;
 
   return (
-    <span className={`inline-flex items-center rounded-full border font-bold ${copy.textClass} ${LABEL_SIZE_CLASS[size]}`} title={copy.title}>
+    <span
+      className={`inline-flex items-center rounded-full border font-bold ${copy.textClass} ${LABEL_SIZE_CLASS[size]}`}
+      title={copy.title}
+    >
       {icon}
       <span>{size === 'xs' ? copy.shortLabel : copy.label}</span>
     </span>

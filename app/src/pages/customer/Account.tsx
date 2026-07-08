@@ -22,7 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { getUnreadNotificationCount } from '@/lib/customerOrders';
 import { deactivateMyAccount } from '@/lib/account';
-import VerificationBadge, { getVerificationBadgeLabel, normalizeVerificationBadge } from '@/components/shared/VerificationBadge';
+import VerificationBadge, { getVerificationBadgeLabel, getVerificationBadgeToneClass, normalizeVerificationBadge } from '@/components/shared/VerificationBadge';
 
 const PHONE_ONLY_EMAIL_SUFFIX = '@phone.shop2bhutan.com';
 
@@ -346,7 +346,7 @@ export default function Account() {
               <VerificationBadge badge={verificationBadge} size="sm" />
             </div>
             {verificationBadge !== 'none' && (
-              <p className="mt-0.5 text-xs font-bold text-amber-600">
+              <p className={`mt-0.5 text-xs font-bold ${getVerificationBadgeToneClass(verificationBadge)}`}>
                 {getVerificationBadgeLabel(verificationBadge)}
               </p>
             )}
