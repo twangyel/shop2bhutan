@@ -419,7 +419,6 @@ export default function CustomerLayout() {
   const shouldHideTabBar =
     hideTabBarPaths.some((p) => location.pathname === p) ||
     location.pathname.startsWith('/payment/') ||
-    location.pathname.startsWith('/quotation/') ||
     location.pathname.startsWith('/parcel-booking/') ||
     location.pathname.startsWith('/product/') ||
     location.pathname === '/checkout'

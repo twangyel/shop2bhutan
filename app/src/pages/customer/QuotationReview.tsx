@@ -96,6 +96,16 @@ function canShowSourceLink(url?: string) {
  return Boolean(url && /^https?:\/\//i.test(url));
 }
 
+function canShowImageUrl(url?: string) {
+ return Boolean(url && /^(https?:|data:|blob:)/i.test(url));
+}
+
+const QUOTATION_IMAGE_FALLBACK =
+ 'data:image/svg+xml;utf8,' +
+ encodeURIComponent(
+ `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" rx="22" fill="#f9fafb"/><rect x="32" y="36" width="96" height="88" rx="18" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/><path d="M56 94l18-20 14 15 9-10 18 21" fill="none" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="61" cy="59" r="7" fill="#fdba74"/><text x="80" y="139" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#94a3b8">S2B</text></svg>`
+ );
+
 export default function QuotationReview() {
  const { orderId } = useParams<{ orderId: string }>();
  const navigate = useNavigate();
@@ -244,7 +254,7 @@ export default function QuotationReview() {
  ];
 
  return (
- <div className="min-h-screen bg-white pb-28">
+ <div className="min-h-screen bg-white pb-48">
  <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-3">
  <div className="mx-auto flex max-w-2xl items-center gap-3">
  <div className="min-w-0">
@@ -296,15 +306,23 @@ export default function QuotationReview() {
  {quotation.items.map((item) => {
  const source = sourceForItem(order, item);
  const hasSourceLink = canShowSourceLink(source.sourceUrl);
+ const displayImageUrl =
+ [item.productImage, source.screenshotUrl].find((url) => canShowImageUrl(url)) || QUOTATION_IMAGE_FALLBACK;
 
  return (
  <div key={item.id} className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
  <div className="flex gap-3">
  <img
- src={item.productImage}
- alt=""
- className="h-20 w-20 flex-shrink-0 rounded-2xl bg-white object-cover ring-1 ring-gray-200"
+ src={displayImageUrl}
+ alt={item.productName || 'Quoted product'}
+ className="h-20 w-20 flex-shrink-0 rounded-2xl bg-gray-50 object-cover ring-1 ring-gray-200"
  loading="lazy"
+ onError={(event) => {
+ const image = event.currentTarget;
+ if (image.src !== QUOTATION_IMAGE_FALLBACK) {
+ image.src = QUOTATION_IMAGE_FALLBACK;
+ }
+ }}
  />
  <div className="min-w-0 flex-1">
  <div className="flex flex-wrap items-center gap-2">
@@ -469,7 +487,7 @@ export default function QuotationReview() {
  </main>
 
  {canRespond && (
- <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white p-4 ">
+ <div className="fixed bottom-[68px] left-0 right-0 z-40 border-t border-gray-200 bg-white p-4 shadow-[0_-12px_30px_rgba(15,23,42,0.06)] ">
  <div className="mx-auto flex max-w-2xl gap-3">
  <button
  type="button"
