@@ -4,7 +4,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type MouseEvent,
   type PointerEvent,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -20,7 +19,6 @@ import {
   Package,
   RefreshCw,
   ShieldCheck,
-  Trash2,
   Truck,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,9 +37,11 @@ import {
 } from '@/lib/nativeNotifications';
 
 const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
-const SWIPE_REVEAL_WIDTH = 92;
-const SWIPE_OPEN_THRESHOLD = 38;
 const TAP_MOVE_TOLERANCE = 6;
+const SWIPE_MAX_DRAG_RATIO = 0.72;
+const SWIPE_DELETE_THRESHOLD_RATIO = 0.56;
+const SWIPE_DELETE_THRESHOLD_MIN = 150;
+const SWIPE_DELETE_THRESHOLD_MAX = 230;
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -98,8 +98,8 @@ function SwipeableNotification({
 }) {
   const [offset, setOffset] = useState(0);
   const [deleting, setDeleting] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
 
+  const cardRef = useRef<HTMLDivElement>(null);
   const startX = useRef(0);
   const startY = useRef(0);
   const startOffset = useRef(0);
@@ -112,14 +112,38 @@ function SwipeableNotification({
   const hasLink = Boolean(notification.link);
   const isRead = notification.isRead;
 
-  const closeSwipe = () => {
-    setOffset(0);
-    setIsOpen(false);
+  const getCardWidth = () => cardRef.current?.offsetWidth || window.innerWidth || 360;
+
+  const getDeleteThreshold = () => {
+    const width = getCardWidth();
+    return Math.min(
+      SWIPE_DELETE_THRESHOLD_MAX,
+      Math.max(SWIPE_DELETE_THRESHOLD_MIN, width * SWIPE_DELETE_THRESHOLD_RATIO),
+    );
   };
 
-  const openSwipe = () => {
-    setOffset(-SWIPE_REVEAL_WIDTH);
-    setIsOpen(true);
+  const getMaxDrag = () => Math.min(getCardWidth() * SWIPE_MAX_DRAG_RATIO, 280);
+
+  const resetSwipe = () => {
+    setOffset(0);
+  };
+
+  const commitDelete = async () => {
+    if (deleting) return;
+
+    const width = getCardWidth();
+    setDeleting(true);
+    setOffset(-(width + 56));
+
+    // Let the swipe-out animation complete before removing from the list.
+    await new Promise((resolve) => window.setTimeout(resolve, 180));
+
+    const deleted = await Promise.resolve(onDelete());
+
+    if (!deleted) {
+      setDeleting(false);
+      setOffset(0);
+    }
   };
 
   const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
@@ -161,15 +185,12 @@ function SwipeableNotification({
     moved.current = Math.abs(deltaX) > TAP_MOVE_TOLERANCE;
 
     const rawOffset = startOffset.current + deltaX;
-    const limitedOffset = Math.max(
-      -SWIPE_REVEAL_WIDTH - 24,
-      Math.min(0, rawOffset),
-    );
+    const maxDrag = getMaxDrag();
+    const limitedOffset = Math.max(-maxDrag - 44, Math.min(0, rawOffset));
 
     const rubberBandOffset =
-      limitedOffset < -SWIPE_REVEAL_WIDTH
-        ? -SWIPE_REVEAL_WIDTH +
-          (limitedOffset + SWIPE_REVEAL_WIDTH) * 0.25
+      limitedOffset < -maxDrag
+        ? -maxDrag + (limitedOffset + maxDrag) * 0.22
         : limitedOffset;
 
     setOffset(rubberBandOffset);
@@ -179,29 +200,16 @@ function SwipeableNotification({
     if (deleting) return;
 
     if (dragAxis.current === 'x') {
-      const shouldOpen =
-        offset <= -SWIPE_OPEN_THRESHOLD || (isOpen && offset < -12);
+      const shouldDelete = offset <= -getDeleteThreshold();
 
-      if (shouldOpen) openSwipe();
-      else closeSwipe();
+      if (shouldDelete) {
+        void commitDelete();
+      } else {
+        resetSwipe();
+      }
     }
 
     dragAxis.current = 'none';
-  };
-
-  const handleDelete = async (e: MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-
-    if (deleting) return;
-
-    setDeleting(true);
-
-    const deleted = await Promise.resolve(onDelete());
-
-    if (!deleted) {
-      setDeleting(false);
-      closeSwipe();
-    }
   };
 
   const handleCardClick = () => {
@@ -210,34 +218,42 @@ function SwipeableNotification({
       return;
     }
 
-    if (isOpen) {
-      closeSwipe();
+    if (offset < 0) {
+      resetSwipe();
       return;
     }
 
     onClick();
   };
 
+  const threshold = getDeleteThreshold();
+  const swipeDistance = Math.abs(offset);
+  const swipeProgress = Math.min(1, swipeDistance / threshold);
+  const deleteReady = offset <= -threshold;
+
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl select-none transition-all duration-200 ${
-        deleting ? 'h-0 opacity-0' : 'opacity-100'
+      className={`relative overflow-hidden rounded-2xl select-none transition-[max-height,opacity,margin,transform] duration-300 ease-out ${
+        deleting ? 'max-h-0 -translate-x-2 opacity-0' : 'max-h-72 opacity-100'
       }`}
     >
-      <div className="absolute inset-0 flex items-center justify-end rounded-2xl bg-red-500 px-4">
-        <button
-          type="button"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={handleDelete}
-          disabled={deleting}
-          className="flex h-full w-[84px] flex-col items-center justify-center gap-1 text-white transition active:scale-95 disabled:opacity-60"
-        >
-          <Trash2 size={21} strokeWidth={2.2} />
-          <span className="text-[10px] font-bold">Delete</span>
-        </button>
+      <div
+        className="absolute inset-0 flex items-center justify-end rounded-2xl bg-gradient-to-l from-red-500 via-red-500 to-red-400 px-5"
+        style={{ opacity: Math.max(0, Math.min(1, swipeProgress)) }}
+        aria-hidden="true"
+      >
+        <div className="text-right text-white">
+          <p className="text-xs font-extrabold tracking-tight">
+            {deleteReady ? 'Release to delete' : 'Swipe left'}
+          </p>
+          <p className="mt-0.5 text-[10px] font-medium text-white/80">
+            {deleteReady ? 'Notification will be removed' : 'Keep swiping to delete'}
+          </p>
+        </div>
       </div>
 
       <div
+        ref={cardRef}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -245,9 +261,9 @@ function SwipeableNotification({
         style={{
           transform: `translate3d(${offset}px, 0, 0)`,
           transition:
-            dragAxis.current === 'x'
+            dragAxis.current === 'x' && !deleting
               ? 'none'
-              : 'transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+              : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)',
           touchAction: 'pan-y',
           willChange: 'transform',
         }}
@@ -255,7 +271,7 @@ function SwipeableNotification({
       >
         <div
           onClick={handleCardClick}
-          className="w-full rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100"
+          className="w-full rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition-shadow duration-200 active:shadow-md"
         >
           <div className="flex gap-3">
             <div
