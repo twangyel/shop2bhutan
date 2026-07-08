@@ -84,6 +84,24 @@ function tripDisplayTitle(trip?: ParcelTrip | null) {
   return `${origin} → ${destination}`
 }
 
+function normalizeBhutanMobile(value: string) {
+  const digits = value.replace(/\D/g, '')
+
+  if (digits.startsWith('975') && digits.length > 8) {
+    return digits.slice(3, 11)
+  }
+
+  return digits.slice(0, 8)
+}
+
+function isValidBhutanMobile(value: string) {
+  return /^(17|77)\d{6}$/.test(normalizeBhutanMobile(value))
+}
+
+function bhutanMobileError(label: string) {
+  return `${label} must be a valid 8-digit Bhutan mobile number starting with 17 or 77.`
+}
+
 export default function ParcelBooking() {
   const { tripId } = useParams<{ tripId: string }>()
   const navigate = useNavigate()
@@ -229,6 +247,10 @@ export default function ParcelBooking() {
     setError('')
   }
 
+  function updatePhone(field: 'senderPhone' | 'receiverPhone', value: string) {
+    update(field, normalizeBhutanMobile(value))
+  }
+
   function handlePhotoChange(file: File | null) {
     if (!file) {
       setPhotoFile(null)
@@ -261,11 +283,19 @@ export default function ParcelBooking() {
     }
 
     if (!form.senderName.trim()) nextErrors.senderName = 'Required'
-    if (!form.senderPhone.trim()) nextErrors.senderPhone = 'Required'
+    if (!form.senderPhone.trim()) {
+      nextErrors.senderPhone = 'Required'
+    } else if (!isValidBhutanMobile(form.senderPhone)) {
+      nextErrors.senderPhone = bhutanMobileError('Pickup contact phone')
+    }
     if (!form.pickupAddress.trim()) nextErrors.pickupAddress = 'Required'
 
     if (!form.receiverName.trim()) nextErrors.receiverName = 'Required'
-    if (!form.receiverPhone.trim()) nextErrors.receiverPhone = 'Required'
+    if (!form.receiverPhone.trim()) {
+      nextErrors.receiverPhone = 'Required'
+    } else if (!isValidBhutanMobile(form.receiverPhone)) {
+      nextErrors.receiverPhone = bhutanMobileError('Receiver phone')
+    }
     if (!form.dropoffAddress.trim()) nextErrors.dropoffAddress = 'Required'
 
     if (!form.parcelType) nextErrors.parcelType = 'Required'
@@ -304,10 +334,10 @@ export default function ParcelBooking() {
       await createParcelRequest({
         tripId,
         senderName: form.senderName,
-        senderPhone: form.senderPhone,
+        senderPhone: normalizeBhutanMobile(form.senderPhone),
         pickupAddress: form.pickupAddress,
         receiverName: form.receiverName,
-        receiverPhone: form.receiverPhone,
+        receiverPhone: normalizeBhutanMobile(form.receiverPhone),
         dropoffAddress: form.dropoffAddress,
         packageDescription: form.packageDescription,
         parcelType: form.parcelType,
@@ -531,9 +561,11 @@ export default function ParcelBooking() {
               label="Pickup Contact Phone"
               value={form.senderPhone}
               error={errors.senderPhone}
-              onChange={(value) => update('senderPhone', value)}
-              placeholder="+975 XXXXXXXX"
+              onChange={(value) => updatePhone('senderPhone', value)}
+              placeholder="17xxxxxx or 77xxxxxx"
               type="tel"
+              inputMode="numeric"
+              maxLength={8}
             />
             <IconTextArea
               icon={Home}
@@ -572,9 +604,11 @@ export default function ParcelBooking() {
               label="Receiver Phone"
               value={form.receiverPhone}
               error={errors.receiverPhone}
-              onChange={(value) => update('receiverPhone', value)}
-              placeholder="+975 XXXXXXXX"
+              onChange={(value) => updatePhone('receiverPhone', value)}
+              placeholder="17xxxxxx or 77xxxxxx"
               type="tel"
+              inputMode="numeric"
+              maxLength={8}
             />
             <IconTextArea
               icon={Home}
@@ -832,6 +866,8 @@ function IconField({
   placeholder,
   error,
   type = 'text',
+  inputMode,
+  maxLength,
 }: {
   icon: React.ElementType
   label: string
@@ -840,6 +876,8 @@ function IconField({
   placeholder?: string
   error?: string
   type?: string
+  inputMode?: 'none' | 'text' | 'tel' | 'url' | 'email' | 'numeric' | 'decimal' | 'search'
+  maxLength?: number
 }) {
   return (
     <div>
@@ -855,6 +893,8 @@ function IconField({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
+          inputMode={inputMode}
+          maxLength={maxLength}
           className={`h-12 w-full rounded-2xl border bg-white pl-10 pr-3 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10 ${
             error ? 'border-red-400' : 'border-neutral-200'
           }`}

@@ -422,7 +422,6 @@ export default function CustomerLayout() {
     location.pathname.startsWith('/quotation/') ||
     location.pathname.startsWith('/parcel-booking/') ||
     location.pathname.startsWith('/product/') ||
-    location.pathname.startsWith('/order/') ||
     location.pathname === '/checkout'
 
   return (

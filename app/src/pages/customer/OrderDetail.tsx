@@ -573,7 +573,7 @@ export default function OrderDetail() {
     : `${appSettings.orderCoverage.label}. Delivery/pickup currently available in ${appSettings.deliveryHubs.hubNamesJoined}.`;
 
   return (
-    <div className="min-h-screen bg-white pb-8">
+    <div className="min-h-screen bg-white pb-28">
       <div className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-3">
         <div className="mx-auto max-w-2xl">
           <h1 className="text-lg font-bold text-gray-900">Order Details</h1>
