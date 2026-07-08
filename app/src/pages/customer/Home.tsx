@@ -557,7 +557,7 @@ export default function Home() {
     <div className="min-h-screen bg-white">
       {/* ========== HEADER ========== */}
       <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/95 backdrop-blur-xl">
-        <div className="mx-auto max-w-3xl px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+        <div className="mx-auto max-w-3xl px-4 pb-2.5 pt-[calc(env(safe-area-inset-top)+0.65rem)]">
           <div className="flex items-center justify-between">
             <Logo size="sm" className="min-w-0" />
             <button
@@ -578,26 +578,26 @@ export default function Home() {
           <button
             type="button"
             onClick={() => setLocationSheetOpen(true)}
-            className="mt-3 flex max-w-full items-center gap-2 rounded-2xl border border-orange-100 bg-orange-50/80 px-3 py-2.5 text-left shadow-sm transition active:scale-[0.99] active:bg-orange-50"
+            className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-orange-100 bg-orange-50/80 px-2.5 py-1.5 text-left shadow-sm transition active:scale-[0.99] active:bg-orange-50"
           >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-orange-500 shadow-sm ring-1 ring-orange-100">
-              <MapPin size={16} strokeWidth={2.2} />
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-orange-500 shadow-sm ring-1 ring-orange-100">
+              <MapPin size={14} strokeWidth={2.2} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[10px] font-bold uppercase tracking-wide text-orange-500">
+              <span className="block text-[9px] font-bold uppercase tracking-wide text-orange-500">
                 Delivery location
               </span>
-              <span className="block truncate text-xs font-extrabold text-gray-900">
+              <span className="block truncate text-[11px] font-extrabold text-gray-900">
                 {locationChipText}
               </span>
             </span>
-            <ChevronDown size={15} className="shrink-0 text-orange-500" />
+            <ChevronDown size={13} className="shrink-0 text-orange-500" />
           </button>
         </div>
       </header>
 
       {/* ========== MAIN ========== */}
-      <main className="mx-auto max-w-3xl px-4 pb-8 pt-4">
+      <main className="mx-auto max-w-3xl px-4 pb-12 pt-3.5">
         {appSettings.homeAnnouncementEnabled && appSettings.homeAnnouncementText && (
           <section className="mb-4 flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-blue-800">
             <Megaphone size={18} className="mt-0.5 shrink-0" />
@@ -658,14 +658,14 @@ export default function Home() {
         <button
           type="button"
           onClick={() => navigate('/paste-link')}
-          className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-base font-bold text-white transition-colors hover:bg-orange-600 active:scale-[0.98]"
+          className="mt-4 flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-[15px] font-bold text-white transition-colors hover:bg-orange-600 active:scale-[0.98]"
         >
           <span>Paste Product Link</span>
           <ArrowRight size={18} strokeWidth={2.5} />
         </button>
 
         {/* ----- Quick Actions ----- */}
-        <section className="mt-5 rounded-3xl border border-gray-100 bg-white p-3 shadow-sm">
+        <section className="mt-4 rounded-[1.6rem] border border-gray-100 bg-white p-2.5 shadow-sm">
           <div className="grid grid-cols-4 gap-1">
             {quickActions.map((action) => {
               const Icon = action.icon;
@@ -674,12 +674,12 @@ export default function Home() {
                   key={action.label}
                   type="button"
                   onClick={() => navigate(action.path)}
-                  className="group flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-2xl px-1.5 py-3 text-center transition active:scale-[0.98] active:bg-gray-50"
+                  className="group flex min-h-[74px] flex-col items-center justify-center gap-1.5 rounded-2xl px-1 py-2.5 text-center transition active:scale-[0.98] active:bg-gray-50"
                 >
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-500 ring-1 ring-orange-100">
-                    <Icon size={20} strokeWidth={2} />
+                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-50 text-orange-500 ring-1 ring-orange-100">
+                    <Icon size={18} strokeWidth={2} />
                   </span>
-                  <span className="text-[11px] font-semibold text-gray-700">{action.label}</span>
+                  <span className="text-[10.5px] font-semibold text-gray-700">{action.label}</span>
                 </button>
               );
             })}
@@ -701,7 +701,7 @@ export default function Home() {
 
       {locationSheetOpen && (
         <div
-          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/25 px-4 pb-[calc(6.75rem+env(safe-area-inset-bottom))] pt-6 backdrop-blur-[2px]"
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/25 px-4 pb-[calc(5.95rem+env(safe-area-inset-bottom))] pt-6 backdrop-blur-[2px]"
           role="dialog"
           aria-modal="true"
           onClick={() => setLocationSheetOpen(false)}

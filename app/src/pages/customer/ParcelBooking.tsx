@@ -4,7 +4,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   AlertTriangle,
-  ArrowLeft,
   Calendar,
   Camera,
   Clock,
@@ -415,12 +414,10 @@ export default function ParcelBooking() {
   if (error && !trip) {
     return (
       <div className="min-h-screen bg-white px-4 py-6">
-        <button
-          onClick={() => navigate(-1)}
-          className="-ml-1 rounded-full p-1 hover:bg-neutral-100"
-        >
-          <ArrowLeft size={22} />
-        </button>
+        <div className="pt-[env(safe-area-inset-top)]">
+          <h1 className="text-lg font-bold text-neutral-900">Book Parcel</h1>
+          <p className="mt-1 text-xs text-neutral-500">Pickup and drop-off details</p>
+        </div>
 
         <div className="mt-10 rounded-3xl border border-red-100 bg-red-50 p-4 text-center">
           <p className="text-sm font-semibold text-red-700">{error}</p>
@@ -433,18 +430,9 @@ export default function ParcelBooking() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="-ml-1 flex h-9 w-9 items-center justify-center rounded-full hover:bg-neutral-100"
-          >
-            <ArrowLeft size={22} />
-          </button>
-
-          <div>
-            <h1 className="text-lg font-bold text-neutral-900">Book Parcel</h1>
-            <p className="text-xs text-neutral-500">Pickup and drop-off details</p>
-          </div>
+        <div className="px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+          <h1 className="text-lg font-bold text-neutral-900">Book Parcel</h1>
+          <p className="text-xs text-neutral-500">Pickup and drop-off details</p>
         </div>
       </div>
 
