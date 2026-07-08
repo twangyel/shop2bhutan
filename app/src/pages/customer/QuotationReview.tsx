@@ -19,6 +19,7 @@ import {
  fetchCustomerOrderById,
  updateQuotationStatus,
 } from '@/lib/customerOrders';
+import { isJaigaonPickupOrder } from '@/lib/fulfillment';
 import type { Order, Quotation, QuotationItem } from '@/types';
 
 function money(value?: number) {
@@ -227,6 +228,20 @@ export default function QuotationReview() {
  }
 
  const canRespond = ['pending', 'sent'].includes(quotation.status);
+ const isJaigaonPickup = isJaigaonPickupOrder(order);
+ const nextSteps = isJaigaonPickup
+ ? [
+ 'Accept this quotation',
+ 'Pay Shop2Bhutan charges in full',
+ 'Coordinate product pickup at Jaigaon',
+ 'Track your order from your account',
+ ]
+ : [
+ 'Accept this quotation',
+ 'Upload payment screenshot',
+ 'We place your order with the seller',
+ 'Track your order from your account',
+ ];
 
  return (
  <div className="min-h-screen bg-white pb-28">
@@ -259,12 +274,12 @@ export default function QuotationReview() {
  </div>
  </div>
  <div className="flex-shrink-0 rounded-2xl bg-white px-3 py-2 text-right ring-1 ring-gray-200">
- <p className="text-[10px] font-bold tracking-wide text-gray-400">Total payable</p>
+ <p className="text-[10px] font-bold tracking-wide text-gray-400">{isJaigaonPickup ? 'Payable to S2B' : 'Total payable'}</p>
  <p className="whitespace-nowrap text-base font-black text-gray-950">{money(quotation.totalAmount)}</p>
  </div>
  </div>
  <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-4 py-2 text-[11px] text-gray-500">
- <span>Clear quotation before payment</span>
+ <span>{isJaigaonPickup ? 'Product value is reference only' : 'Clear quotation before payment'}</span>
  <span className={`font-semibold ${display.accent}`}>No hidden charges</span>
  </div>
  </section>
@@ -344,9 +359,14 @@ export default function QuotationReview() {
  </div>
 
  <div className="space-y-3">
+ <div>
  <div className="flex justify-between gap-4 text-sm">
- <span className="text-gray-600">Product total</span>
+ <span className="text-gray-600">{isJaigaonPickup ? 'Product value (reference)' : 'Product total'}</span>
  <span className="font-semibold text-gray-900">{money(quotation.productTotal)}</span>
+ </div>
+ {isJaigaonPickup && (
+ <p className="mt-1 text-[11px] leading-5 text-gray-400">This product value is not included in the amount payable to Shop2Bhutan.</p>
+ )}
  </div>
  <div className="flex justify-between gap-4 text-sm">
  <span className="text-gray-600">Service charge</span>
@@ -374,8 +394,8 @@ export default function QuotationReview() {
  <div className="rounded-2xl bg-gray-50 p-3 ring-1 ring-gray-100">
  <div className="flex items-center justify-between gap-4">
  <div className="min-w-0">
- <p className="text-sm font-bold text-gray-950">Total payable</p>
- <p className="mt-1 text-xs leading-relaxed text-gray-500">Final payable amount. No hidden charges.</p>
+ <p className="text-sm font-bold text-gray-950">{isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total payable'}</p>
+ <p className="mt-1 text-xs leading-relaxed text-gray-500">{isJaigaonPickup ? 'Pay only Shop2Bhutan charges for Jaigaon pickup. No Bhutan delivery fee.' : 'Final payable amount. No hidden charges.'}</p>
  </div>
  <p className="shrink-0 whitespace-nowrap text-xl font-black tracking-tight text-gray-950 sm:text-2xl">
  {money(quotation.totalAmount)}
@@ -389,17 +409,23 @@ export default function QuotationReview() {
  <CreditCard size={18} className="text-gray-500" />
  <h3 className="text-base font-semibold text-gray-900">Payment options</h3>
  </div>
- <div className="grid gap-3 sm:grid-cols-2">
+ <div className={`grid gap-3 ${isJaigaonPickup ? 'sm:grid-cols-1' : 'sm:grid-cols-2'}`}>
  <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
- <p className="text-xs font-semibold text-gray-600">Full payment</p>
+ <p className="text-xs font-semibold text-gray-600">{isJaigaonPickup ? 'Full charges payment' : 'Full payment'}</p>
  <p className="mt-1 text-lg font-black text-gray-950">{money(quotation.totalAmount)}</p>
- <p className="mt-1 text-xs leading-5 text-gray-500">Pay full quotation amount now and keep the balance clear.</p>
+ <p className="mt-1 text-xs leading-5 text-gray-500">
+ {isJaigaonPickup
+ ? '50% advance is not available for Jaigaon pickup. Pay Shop2Bhutan charges in full.'
+ : 'Pay full quotation amount now and keep the balance clear.'}
+ </p>
  </div>
+ {!isJaigaonPickup && (
  <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
  <p className="text-xs font-semibold text-gray-600">50% advance accepted</p>
  <p className="mt-1 text-lg font-black text-gray-950">{money(Math.ceil(quotation.totalAmount * 0.5))}</p>
  <p className="mt-1 text-xs leading-5 text-gray-500">We can start fulfillment after verified advance. Remaining balance stays visible until paid.</p>
  </div>
+ )}
  </div>
  </section>
 
@@ -419,7 +445,7 @@ export default function QuotationReview() {
  <p className="text-sm font-semibold">Delivery fee</p>
  </div>
  <p className="text-xs leading-relaxed text-gray-500">
- Charged once per quotation/request bag, not once per item.
+ {isJaigaonPickup ? 'No Bhutan delivery fee is charged because you selected direct Jaigaon pickup.' : 'Charged once per quotation/request bag, not once per item.'}
  </p>
  </div>
  </section>
@@ -430,12 +456,7 @@ export default function QuotationReview() {
  <h3 className="text-base font-semibold text-gray-900">What happens next?</h3>
  </div>
  <div className="grid gap-2 text-sm text-gray-600">
- {[
- 'Accept this quotation',
- 'Upload payment screenshot',
- 'We place your order with the seller',
- 'Track your order from your account',
- ].map((step, index) => (
+ {nextSteps.map((step, index) => (
  <div key={step} className="flex items-center gap-3">
  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700">
  {index + 1}

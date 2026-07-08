@@ -229,7 +229,9 @@ export default function QuotationBuilder() {
   const serviceCharge = settingsAmounts.serviceCharge;
   const deliveryFee = settingsAmounts.deliveryFee;
   const safeAdditionalCharge = numberValue(additionalChargeAmount);
-  const totalAmount = productTotal + serviceCharge + deliveryFee + safeAdditionalCharge;
+  const isJaigaonPickup = order ? isJaigaonPickupOrder(order) : false;
+  const payableProductTotal = isJaigaonPickup ? 0 : productTotal;
+  const totalAmount = payableProductTotal + serviceCharge + deliveryFee + safeAdditionalCharge;
   const deliveryAddressText = order ? fullDeliveryAddress(order) : '';
   const fulfillmentDisplay = order ? getFulfillmentDisplay(order) : null;
   const deliveryFeeLabel = order && isSelfPickupOrder(order) && !isJaigaonPickupOrder(order)
@@ -289,6 +291,7 @@ export default function QuotationBuilder() {
         taxAmount: 0,
         additionalChargeLabel: additionalChargeLabel.trim(),
         additionalChargeAmount: safeAdditionalCharge,
+        payableProductTotal,
         notes: notes.trim(),
         validUntil: validUntilFromHours(validHours),
       });
@@ -615,9 +618,16 @@ export default function QuotationBuilder() {
             <h3 className="text-sm font-semibold text-gray-900 mb-4">Quotation Summary</h3>
 
             <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-neutral-600">Product Total</span>
-                <span className="font-semibold">{formatAmount(productTotal)}</span>
+              <div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-neutral-600">{isJaigaonPickup ? 'Product Value (Reference)' : 'Product Total'}</span>
+                  <span className="font-semibold">{formatAmount(productTotal)}</span>
+                </div>
+                {isJaigaonPickup && (
+                  <p className="mt-1 text-[11px] leading-relaxed text-neutral-400">
+                    Product value is shown to the customer for reference only. It is not included in the amount payable to Shop2Bhutan.
+                  </p>
+                )}
               </div>
               <div>
                 <div className="flex justify-between text-sm">
@@ -649,9 +659,14 @@ export default function QuotationBuilder() {
             <hr className="my-4 border-neutral-200" />
 
             <div className="flex justify-between items-center">
-              <span className="text-base font-semibold text-gray-900">Grand Total</span>
+              <span className="text-base font-semibold text-gray-900">{isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Grand Total'}</span>
               <span className="text-2xl font-bold text-amber-600">{formatAmount(totalAmount)}</span>
             </div>
+            {isJaigaonPickup && (
+              <p className="mt-2 rounded-lg bg-neutral-50 px-3 py-2 text-[11px] leading-relaxed text-neutral-500">
+                Jaigaon pickup is charges-only. Customer pays service/additional charges here; product value is only a reference.
+              </p>
+            )}
 
             <div className="mt-4">
               <label className="text-xs font-semibold text-neutral-500 uppercase">Valid For</label>
@@ -695,13 +710,18 @@ export default function QuotationBuilder() {
                     </span>
                   </div>
                 ))}
+                {isJaigaonPickup && (
+                  <p className="rounded-lg bg-white/70 px-2.5 py-2 text-[11px] leading-relaxed text-violet-700">
+                    Product value is reference only for Jaigaon pickup and is not included in the payable amount.
+                  </p>
+                )}
                 <hr className="border-violet-200 my-2" />
                 <div className="flex justify-between text-sm">
                   <span className="text-violet-700">Service Charge</span>
                   <span className="font-semibold text-violet-900">{formatAmount(serviceCharge)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-violet-700">Delivery Fee</span>
+                  <span className="text-violet-700">{deliveryFeeLabel}</span>
                   <span className="font-semibold text-violet-900">{formatAmount(deliveryFee)}</span>
                 </div>
                 {safeAdditionalCharge > 0 && (
@@ -711,7 +731,7 @@ export default function QuotationBuilder() {
                   </div>
                 )}
                 <div className="flex justify-between text-sm pt-2 border-t border-violet-200">
-                  <span className="font-semibold text-violet-800">Grand Total</span>
+                  <span className="font-semibold text-violet-800">{isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Grand Total'}</span>
                   <span className="font-bold text-violet-900">{formatAmount(totalAmount)}</span>
                 </div>
               </div>

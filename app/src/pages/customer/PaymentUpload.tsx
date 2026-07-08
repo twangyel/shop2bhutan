@@ -17,6 +17,7 @@ import {
   submitCustomerPaymentProof,
 } from '@/lib/customerOrders';
 import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings';
+import { getFulfillmentDisplay, isJaigaonPickupOrder, isSelfPickupOrder } from '@/lib/fulfillment';
 import type { Order, PaymentMethod } from '@/types';
 
 const ALLOWED_SCREENSHOT_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -38,6 +39,11 @@ function getItemCount(order: Order) {
 }
 
 function getDeliverySummary(order: Order) {
+  if (isSelfPickupOrder(order)) {
+    const display = getFulfillmentDisplay(order);
+    return [display.title, display.details].filter(Boolean).join(' • ') || 'Pickup point will be confirmed.';
+  }
+
   const addressParts = [
     order.shippingAddress?.village,
     order.shippingAddress?.gewog,
@@ -203,10 +209,14 @@ export default function PaymentUpload() {
   );
 
   const paymentSummary = getPaymentSummary(order);
+  const isJaigaonPickup = order ? isJaigaonPickupOrder(order) : false;
+  const productReferenceTotal = order?.quotation?.productTotal ?? 0;
   const quotationTotal = paymentSummary.totalPayable;
-  const minimumAdvancePercent = appSettings.partialPaymentEnabled
-    ? Math.min(100, Math.max(1, Math.round(Number(appSettings.minimumAdvancePaymentPercent) || 50)))
-    : 100;
+  const minimumAdvancePercent = isJaigaonPickup
+    ? 100
+    : appSettings.partialPaymentEnabled
+      ? Math.min(100, Math.max(1, Math.round(Number(appSettings.minimumAdvancePaymentPercent) || 50)))
+      : 100;
   const minimumInitialPayment = quotationTotal > 0 && paymentSummary.verifiedPaid <= 0
     ? Math.ceil(quotationTotal * (minimumAdvancePercent / 100))
     : 0;
@@ -262,12 +272,13 @@ export default function PaymentUpload() {
       setPaymentSelection('full');
       return;
     }
-    if ((!appSettings.partialPaymentEnabled || minimumAdvancePercent >= 100) && paymentSelection === 'advance') {
+    if ((isJaigaonPickup || !appSettings.partialPaymentEnabled || minimumAdvancePercent >= 100) && paymentSelection === 'advance') {
       setPaymentSelection('full');
     }
   }, [
     order,
     appSettings.partialPaymentEnabled,
+    isJaigaonPickup,
     minimumAdvancePercent,
     paymentSelection,
     paymentSummary.isPartiallyPaid,
@@ -342,7 +353,11 @@ export default function PaymentUpload() {
     }
 
     if (firstPaymentBelowMinimum) {
-      setError(`Minimum first payment is ${minimumAdvancePercent}% of the quotation: ${formatCurrency(minimumInitialPayment)}.`);
+      setError(
+        isJaigaonPickup
+          ? `Jaigaon pickup requires full Shop2Bhutan charges: ${formatCurrency(minimumInitialPayment)}.`
+          : `Minimum first payment is ${minimumAdvancePercent}% of the quotation: ${formatCurrency(minimumInitialPayment)}.`,
+      );
       return;
     }
 
@@ -512,14 +527,16 @@ export default function PaymentUpload() {
           <div className="border-l-4 border-orange-500 p-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Amount to pay</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">{isJaigaonPickup ? 'Shop2Bhutan charges to pay' : 'Amount to pay'}</p>
                 <p className="mt-1 text-3xl font-black tracking-tight text-gray-950">{formatCurrency(amountPaidNumber)}</p>
                 <p className="mt-1 text-xs leading-5 text-gray-500">
-                  {paymentSelection === 'advance'
-                    ? `${minimumAdvancePercent}% advance selected. Remaining balance stays visible until paid.`
-                    : paymentSummary.isPartiallyPaid
-                      ? 'Remaining balance selected for this payment.'
-                      : 'Full payment selected for this order.'}
+                  {isJaigaonPickup
+                    ? 'Jaigaon pickup selected. Product value is reference only; pay Shop2Bhutan charges in full.'
+                    : paymentSelection === 'advance'
+                      ? `${minimumAdvancePercent}% advance selected. Remaining balance stays visible until paid.`
+                      : paymentSummary.isPartiallyPaid
+                        ? 'Remaining balance selected for this payment.'
+                        : 'Full payment selected for this order.'}
                 </p>
               </div>
               <span className="shrink-0 rounded-full border border-gray-100 bg-gray-50 px-3 py-1 text-xs font-bold text-gray-600">
@@ -527,7 +544,7 @@ export default function PaymentUpload() {
               </span>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className={`mt-4 grid gap-2 ${isJaigaonPickup ? 'grid-cols-1' : 'grid-cols-2'}`}>
               <div className="rounded-2xl bg-gray-50 p-3">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Verified paid</p>
                 <p className="mt-1 text-sm font-black text-gray-900">{formatCurrency(paymentSummary.verifiedPaid)}</p>
@@ -552,7 +569,7 @@ export default function PaymentUpload() {
             <h2 className="text-sm font-extrabold text-gray-900">Select payment amount</h2>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className={`grid gap-2 ${isJaigaonPickup ? 'grid-cols-1' : 'grid-cols-2'}`}>
             <button
               type="button"
               onClick={() => selectPaymentAmount(paymentSummary.isPartiallyPaid ? 'remaining' : 'full')}
@@ -564,7 +581,7 @@ export default function PaymentUpload() {
               }`}
             >
               <p className="text-xs font-bold text-gray-700">
-                {paymentSummary.isPartiallyPaid ? 'Pay remaining' : 'Pay full balance'}
+                {isJaigaonPickup ? 'Pay Shop2Bhutan charges' : paymentSummary.isPartiallyPaid ? 'Pay remaining' : 'Pay full balance'}
               </p>
               <p className="mt-1 text-base font-black text-gray-950">{formatCurrency(fullPaymentAmount)}</p>
               <p className="mt-1 text-[11px] font-semibold text-gray-400">
@@ -572,7 +589,7 @@ export default function PaymentUpload() {
               </p>
             </button>
 
-            {!paymentSummary.isPartiallyPaid && appSettings.partialPaymentEnabled && minimumAdvancePercent < 100 && minimumInitialPayment > 0 ? (
+            {!isJaigaonPickup && !paymentSummary.isPartiallyPaid && appSettings.partialPaymentEnabled && minimumAdvancePercent < 100 && minimumInitialPayment > 0 ? (
               <button
                 type="button"
                 onClick={() => selectPaymentAmount('advance')}
@@ -593,7 +610,18 @@ export default function PaymentUpload() {
           </div>
 
           <div className="mt-3 rounded-2xl bg-gray-50 p-3 text-xs leading-5 text-gray-500">
-            Minimum first payment: <span className="font-bold text-gray-700">{formatCurrency(minimumInitialPayment)}</span> ({minimumAdvancePercent}% advance). The selected amount is locked to avoid mismatch during verification.
+            {isJaigaonPickup ? (
+              <>
+                Jaigaon pickup is charges-only. 50% advance is not available, and the selected amount is locked to the full Shop2Bhutan charges.
+                {productReferenceTotal > 0 && (
+                  <span className="mt-1 block">Product value reference: <span className="font-bold text-gray-700">{formatCurrency(productReferenceTotal)}</span>.</span>
+                )}
+              </>
+            ) : (
+              <>
+                Minimum first payment: <span className="font-bold text-gray-700">{formatCurrency(minimumInitialPayment)}</span> ({minimumAdvancePercent}% advance). The selected amount is locked to avoid mismatch during verification.
+              </>
+            )}
           </div>
         </section>
 
@@ -607,6 +635,13 @@ export default function PaymentUpload() {
               <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Items</p>
               <p className="mt-1 font-bold text-gray-900">{getItemCount(order)} item(s)</p>
             </div>
+            {isJaigaonPickup && productReferenceTotal > 0 && (
+              <div className="rounded-2xl border border-gray-100 bg-white p-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Product value</p>
+                <p className="mt-1 font-bold text-gray-900">{formatCurrency(productReferenceTotal)}</p>
+                <p className="mt-1 text-[11px] leading-4 text-gray-400">Reference only</p>
+              </div>
+            )}
             <div className="rounded-2xl border border-gray-100 bg-white p-3">
               <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Delivery / address</p>
               <p className="mt-1 text-sm font-bold leading-5 text-gray-900">{getDeliverySummary(order)}</p>
@@ -735,7 +770,7 @@ export default function PaymentUpload() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-                  {paymentSelection === 'advance' ? 'Advance payment' : paymentSelection === 'remaining' ? 'Remaining balance' : 'Full payment'}
+                  {isJaigaonPickup ? 'Shop2Bhutan charges' : paymentSelection === 'advance' ? 'Advance payment' : paymentSelection === 'remaining' ? 'Remaining balance' : 'Full payment'}
                 </p>
                 <p className="mt-1 text-2xl font-black text-gray-950">{formatCurrency(amountPaidNumber)}</p>
               </div>

@@ -116,6 +116,7 @@ export type CreateAdminQuotationInput = {
   taxAmount: number
   additionalChargeLabel?: string
   additionalChargeAmount?: number
+  payableProductTotal?: number
   notes?: string
   validUntil?: string
 }
@@ -3701,14 +3702,21 @@ function quotationSubtotal(items: AdminQuotationItemInput[]) {
   return items.reduce((sum, item) => sum + numericAmount(item.unitPrice) * Math.max(1, Math.floor(Number(item.quantity) || 1)), 0)
 }
 
+function nonNegativeAmount(value: unknown, fallback = 0) {
+  if (value === undefined || value === null || value === '') return fallback
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : 0
+}
+
 function makeQuotationPayloadCandidates(input: CreateAdminQuotationInput, status: string): AnyRow[] {
   const productTotal = quotationSubtotal(input.items)
+  const payableProductTotal = nonNegativeAmount(input.payableProductTotal, productTotal)
   const serviceCharge = numericAmount(input.serviceCharge)
   const deliveryFee = numericAmount(input.deliveryFee)
   const taxAmount = numericAmount(input.taxAmount)
   const additionalChargeAmount = numericAmount(input.additionalChargeAmount ?? 0)
   const additionalChargeLabel = cleanText(input.additionalChargeLabel) || null
-  const totalAmount = productTotal + serviceCharge + deliveryFee + taxAmount + additionalChargeAmount
+  const totalAmount = payableProductTotal + serviceCharge + deliveryFee + taxAmount + additionalChargeAmount
   const notes = cleanText(input.notes) || null
   const validUntil = cleanText(input.validUntil) || null
   const now = new Date().toISOString()
@@ -4050,7 +4058,10 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
     payments,
   })
   const firstVerifiedPayment = paymentSummary.verifiedPaid <= 0
-  const minimumInitialPayment = paymentSummary.totalPayable > 0 ? Math.ceil(paymentSummary.totalPayable * 0.5) : 0
+  const jaigaonPickup = isJaigaonSelfPickupOrder(order)
+  const minimumInitialPayment = paymentSummary.totalPayable > 0
+    ? Math.ceil(paymentSummary.totalPayable * (jaigaonPickup ? 1 : 0.5))
+    : 0
 
   if (paymentAmount <= 0) {
     throw new Error('Payment amount must be greater than 0.')
@@ -4061,6 +4072,9 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
   }
 
   if (firstVerifiedPayment && minimumInitialPayment > 0 && paymentAmount < minimumInitialPayment) {
+    if (jaigaonPickup) {
+      throw new Error(`Jaigaon pickup requires full Shop2Bhutan charges: Nu. ${minimumInitialPayment.toLocaleString()}.`)
+    }
     throw new Error(`Minimum first payment is 50% of the quotation: Nu. ${minimumInitialPayment.toLocaleString()}.`)
   }
 
