@@ -280,6 +280,9 @@ export default function OrderDetail() {
   const [sellerReference, setSellerReference] = useState('');
   const [fulfillmentNote, setFulfillmentNote] = useState('');
   const [pendingFulfillmentAction, setPendingFulfillmentAction] = useState<FulfillmentAction | null>(null);
+  const [pendingPaymentReview, setPendingPaymentReview] = useState<{ type: 'verify' | 'reject'; payment: Payment } | null>(null);
+  const [rejectPaymentReason, setRejectPaymentReason] = useState('');
+  const [paymentReviewError, setPaymentReviewError] = useState('');
 
   const loadOrder = useCallback(async () => {
     if (!id) {
@@ -306,48 +309,67 @@ export default function OrderDetail() {
     loadOrder();
   }, [loadOrder]);
 
-  const handleVerifyPayment = async (payment: Payment) => {
+  const handleVerifyPayment = (payment: Payment) => {
     if (!order || !payment.id) return;
-    const confirmed = window.confirm(`Verify payment of ${formatAmount(payment.amount)}?`);
-    if (!confirmed) return;
-
-    setReviewBusyId(payment.id);
-    setReviewError('');
-
-    try {
-      await verifyCustomerPayment({
-        order,
-        paymentId: payment.id,
-        adminId: user?.id,
-      });
-      await loadOrder();
-    } catch (err) {
-      console.error('Failed to verify payment:', err);
-      setReviewError(err instanceof Error ? err.message : 'Unable to verify payment.');
-    } finally {
-      setReviewBusyId('');
-    }
+    setPaymentReviewError('');
+    setRejectPaymentReason('');
+    setPendingPaymentReview({ type: 'verify', payment });
   };
 
-  const handleRejectPayment = async (payment: Payment) => {
+  const handleRejectPayment = (payment: Payment) => {
     if (!order || !payment.id) return;
-    const reason = window.prompt('Reason for rejecting this payment proof?');
-    if (reason === null) return;
+    setPaymentReviewError('');
+    setRejectPaymentReason('');
+    setPendingPaymentReview({ type: 'reject', payment });
+  };
+
+  const closePaymentReviewDialog = () => {
+    if (reviewBusyId) return;
+    setPendingPaymentReview(null);
+    setRejectPaymentReason('');
+    setPaymentReviewError('');
+  };
+
+  const confirmPaymentReview = async () => {
+    if (!order || !pendingPaymentReview?.payment.id) return;
+
+    const payment = pendingPaymentReview.payment;
+    const isReject = pendingPaymentReview.type === 'reject';
+    const reason = rejectPaymentReason.trim();
+
+    if (isReject && !reason) {
+      setPaymentReviewError('Please enter a clear reason before rejecting this payment proof.');
+      return;
+    }
 
     setReviewBusyId(payment.id);
     setReviewError('');
+    setPaymentReviewError('');
 
     try {
-      await rejectCustomerPayment({
-        order,
-        paymentId: payment.id,
-        adminId: user?.id,
-        adminNote: reason.trim() || 'Rejected by admin.',
-      });
+      if (isReject) {
+        await rejectCustomerPayment({
+          order,
+          paymentId: payment.id,
+          adminId: user?.id,
+          adminNote: reason,
+        });
+      } else {
+        await verifyCustomerPayment({
+          order,
+          paymentId: payment.id,
+          adminId: user?.id,
+        });
+      }
+
+      setPendingPaymentReview(null);
+      setRejectPaymentReason('');
       await loadOrder();
     } catch (err) {
-      console.error('Failed to reject payment:', err);
-      setReviewError(err instanceof Error ? err.message : 'Unable to reject payment.');
+      console.error(`Failed to ${isReject ? 'reject' : 'verify'} payment:`, err);
+      const message = err instanceof Error ? err.message : `Unable to ${isReject ? 'reject' : 'verify'} payment.`;
+      setReviewError(message);
+      setPaymentReviewError(message);
     } finally {
       setReviewBusyId('');
     }
@@ -856,6 +878,95 @@ export default function OrderDetail() {
           </div>
         </div>
       </div>
+
+      {pendingPaymentReview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+            <div className="mb-4 flex items-start gap-3">
+              <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${
+                pendingPaymentReview.type === 'reject' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'
+              }`}>
+                {pendingPaymentReview.type === 'reject' ? <XCircle size={20} /> : <CheckCircle size={20} />}
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-950">
+                  {pendingPaymentReview.type === 'reject' ? 'Reject payment proof?' : 'Verify payment?'}
+                </h3>
+                <p className="mt-1 text-sm text-neutral-500">
+                  {pendingPaymentReview.type === 'reject'
+                    ? 'The customer will be asked to upload a corrected payment screenshot.'
+                    : `Confirm ${formatAmount(pendingPaymentReview.payment.amount)} as verified for this order.`}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-sm">
+              <div className="flex justify-between gap-4">
+                <span className="text-neutral-500">Order</span>
+                <span className="font-semibold text-gray-900">#{order.orderNumber}</span>
+              </div>
+              <div className="mt-2 flex justify-between gap-4">
+                <span className="text-neutral-500">Amount</span>
+                <span className="font-semibold text-gray-900">{formatAmount(pendingPaymentReview.payment.amount)}</span>
+              </div>
+              <div className="mt-2 flex justify-between gap-4">
+                <span className="text-neutral-500">Method</span>
+                <span className="text-right font-semibold text-gray-900">{pendingPaymentReview.payment.method || '-'}</span>
+              </div>
+            </div>
+
+            {pendingPaymentReview.type === 'reject' && (
+              <label className="mt-4 block">
+                <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Reason for rejection</span>
+                <textarea
+                  value={rejectPaymentReason}
+                  onChange={(event) => {
+                    setRejectPaymentReason(event.target.value);
+                    setPaymentReviewError('');
+                  }}
+                  rows={4}
+                  placeholder="Example: Screenshot is unclear, amount does not match, or transaction reference is missing."
+                  className="mt-1.5 w-full resize-none rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                  disabled={reviewBusyId !== ''}
+                />
+              </label>
+            )}
+
+            {paymentReviewError && (
+              <div className="mt-4 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs leading-5 text-red-700">
+                {paymentReviewError}
+              </div>
+            )}
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closePaymentReviewDialog}
+                disabled={reviewBusyId !== ''}
+                className="rounded-xl border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmPaymentReview}
+                disabled={reviewBusyId !== ''}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 ${
+                  pendingPaymentReview.type === 'reject' ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-500 hover:bg-emerald-600'
+                }`}
+              >
+                {reviewBusyId
+                  ? pendingPaymentReview.type === 'reject'
+                    ? 'Rejecting...'
+                    : 'Verifying...'
+                  : pendingPaymentReview.type === 'reject'
+                    ? 'Reject Payment'
+                    : 'Verify Payment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {pendingFulfillmentAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">

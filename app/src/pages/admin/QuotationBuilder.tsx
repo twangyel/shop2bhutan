@@ -20,6 +20,7 @@ import {
   fetchDeliveryFeeRules,
   fetchServiceChargeRules,
 } from '@/lib/customerOrders';
+import { getFulfillmentDisplay, isJaigaonPickupOrder, isSelfPickupOrder } from '@/lib/fulfillment';
 import type { DeliveryFeeRule, Order, OrderItem, ServiceChargeRule } from '@/types';
 
 type QuoteItemState = {
@@ -63,6 +64,11 @@ function compactAddressParts(parts: Array<string | undefined>) {
 }
 
 function fullDeliveryAddress(order: Order) {
+  if (isSelfPickupOrder(order)) {
+    const display = getFulfillmentDisplay(order);
+    return compactAddressParts([display.title, display.details]).join(' • ');
+  }
+
   return compactAddressParts([
     order.shippingAddress.village,
     order.shippingAddress.gewog,
@@ -114,7 +120,11 @@ function ruleSummary(rule?: ServiceChargeRule) {
   return `${rule.name}: ${rule.percentage}% or min Nu. ${(rule.minimumCharge ?? rule.flatFee ?? 0).toLocaleString()} (${min}–${max})`;
 }
 
-function deliveryRuleSummary(rule?: DeliveryFeeRule) {
+function deliveryRuleSummary(rule?: DeliveryFeeRule, order?: Order | null) {
+  if (order && isJaigaonPickupOrder(order)) {
+    return 'Jaigaon pickup selected: delivery fee is not charged.';
+  }
+
   if (!rule) return 'No active destination rule found';
   return `${rule.destination}: Nu. ${rule.baseFee.toLocaleString()}${rule.estimatedDays ? ` • ${rule.estimatedDays} days` : ''}`;
 }
@@ -221,6 +231,10 @@ export default function QuotationBuilder() {
   const safeAdditionalCharge = numberValue(additionalChargeAmount);
   const totalAmount = productTotal + serviceCharge + deliveryFee + safeAdditionalCharge;
   const deliveryAddressText = order ? fullDeliveryAddress(order) : '';
+  const fulfillmentDisplay = order ? getFulfillmentDisplay(order) : null;
+  const deliveryFeeLabel = order && isSelfPickupOrder(order) && !isJaigaonPickupOrder(order)
+    ? 'Pickup / Handover Fee'
+    : 'Delivery Fee';
 
   const updateQuotedPrice = (orderItemId: string, price: number) => {
     setSaved(false);
@@ -432,14 +446,14 @@ export default function QuotationBuilder() {
                 <p className="text-xs text-neutral-500 truncate">{order.user.email || '-'}</p>
               </div>
               <div className="rounded-xl bg-neutral-50 p-4">
-                <p className="text-xs font-semibold text-neutral-500 uppercase">Delivery</p>
+                <p className="text-xs font-semibold text-neutral-500 uppercase">{fulfillmentDisplay?.addressLabel || 'Delivery'}</p>
                 <div className="flex items-start gap-2 mt-1">
                   <MapPin size={15} className="text-amber-500 mt-0.5 flex-shrink-0" />
                   <p className="text-xs text-neutral-700">{deliveryAddressText || '-'}</p>
                 </div>
                 <div className="flex items-center gap-2 mt-2">
                   <Truck size={15} className="text-emerald-500 flex-shrink-0" />
-                  <p className="text-xs text-neutral-600">{order.deliveryHub.name}</p>
+                  <p className="text-xs text-neutral-600">{fulfillmentDisplay?.subtitle || order.deliveryHub.name}</p>
                 </div>
               </div>
             </div>
@@ -614,10 +628,15 @@ export default function QuotationBuilder() {
               </div>
               <div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-neutral-600">Delivery Fee</span>
+                  <span className="text-neutral-600">{deliveryFeeLabel}</span>
                   <span className="font-semibold">{settingsLoading ? 'Loading...' : formatAmount(deliveryFee)}</span>
                 </div>
-                <p className="text-[11px] text-neutral-400 mt-1">{deliveryRuleSummary(settingsAmounts.deliveryRule)}</p>
+                <p className="text-[11px] text-neutral-400 mt-1">{deliveryRuleSummary(settingsAmounts.deliveryRule, order)}</p>
+                {order && isJaigaonPickupOrder(order) && (
+                  <p className="mt-2 rounded-lg border border-neutral-200 bg-white px-2.5 py-2 text-[11px] leading-relaxed text-neutral-600">
+                    Customer chose to collect from Jaigaon. Service charge still applies, but Bhutan delivery fee is zero.
+                  </p>
+                )}
               </div>
               {safeAdditionalCharge > 0 && (
                 <div className="flex justify-between text-sm">

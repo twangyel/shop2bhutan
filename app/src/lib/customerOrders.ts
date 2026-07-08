@@ -582,7 +582,46 @@ export function calculateServiceChargeFromRules(productTotal: number, rules: Ser
   }
 }
 
+function isJaigaonSelfPickupOrder(order: Order) {
+  if (normalizeFulfillmentModeValue(order.fulfillmentMode) !== 'self_pickup') return false
+
+  const pickupText = normalizeKey(
+    [
+      order.pickupHubId,
+      order.pickupHubName,
+      order.deliveryHub?.id,
+      order.deliveryHub?.name,
+      order.deliveryHub?.address,
+    ].join(' ')
+  )
+
+  return pickupText.includes('jaigaon')
+}
+
+function isShop2BhutanHandoverPickup(order: Order) {
+  if (normalizeFulfillmentModeValue(order.fulfillmentMode) !== 'self_pickup') return false
+
+  const pickupText = normalizeKey(
+    [
+      order.pickupHubId,
+      order.pickupHubName,
+      order.deliveryHub?.id,
+      order.deliveryHub?.name,
+      order.deliveryHub?.address,
+    ].join(' ')
+  )
+
+  return pickupText.includes('shop2bhutan') || pickupText.includes('handover')
+}
+
 export function resolveDeliveryDestinationKeyForOrder(order: Order) {
+  if (isJaigaonSelfPickupOrder(order)) return 'jaigaon-pickup'
+
+  // Shop2Bhutan handover means S2B still brings the item to the Bhutan-side
+  // handover point, so keep a delivery/pickup handling fee. Until this hub is
+  // made fully configurable, use the Thimphu delivery tier as the MVP default.
+  if (isShop2BhutanHandoverPickup(order)) return 'thimphu'
+
   return normalizeDestinationKey(
     [
       order.shippingAddress?.dzongkhag,
@@ -597,6 +636,14 @@ export function resolveDeliveryDestinationKeyForOrder(order: Order) {
 }
 
 export function calculateDeliveryFeeForOrder(order: Order, rules: DeliveryFeeRule[]) {
+  if (isJaigaonSelfPickupOrder(order)) {
+    return {
+      amount: 0,
+      rule: undefined,
+      needsManualQuote: false,
+    }
+  }
+
   const destinationKey = resolveDeliveryDestinationKeyForOrder(order)
   const activeRules = sortDeliveryRules(rules.filter((rule) => rule.isActive))
   const rule =
