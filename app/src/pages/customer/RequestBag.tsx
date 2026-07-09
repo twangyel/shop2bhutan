@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   CheckCircle,
+  ChevronDown,
   Edit3,
   ImageIcon,
   Loader2,
@@ -208,6 +209,45 @@ function getSelfPickupOptionById(id: string) {
   );
 }
 
+const DELIVERY_DESTINATION_OPTIONS = ['Thimphu', 'Paro', 'Chhukha'] as const;
+
+type DeliveryDestinationOption = (typeof DELIVERY_DESTINATION_OPTIONS)[number];
+
+function normalizeSupportedDeliveryDestination(value: unknown, options: DzongkhagOption[] = []) {
+  const raw = cleanString(value);
+  if (!raw) return '';
+
+  const resolved = UUID_RE.test(raw)
+    ? (Array.isArray(options) ? options.find((item) => item.id === raw)?.name : '') || raw
+    : raw;
+
+  const text = resolved.toLowerCase();
+
+  if (text.includes('thimphu')) return 'Thimphu' satisfies DeliveryDestinationOption;
+  if (text.includes('paro')) return 'Paro' satisfies DeliveryDestinationOption;
+  if (text.includes('chhukha') || text.includes('phuentsholing') || text.includes('phuntsholing')) {
+    return 'Chhukha' satisfies DeliveryDestinationOption;
+  }
+
+  return '';
+}
+
+function getProfileDestinationDzongkhag(profile: ProfileLike | null, options: DzongkhagOption[]) {
+  if (!profile) return '';
+
+  const row = profile as AnyRow;
+  const candidates = [
+    firstString(row, ['dzongkhag', 'dzongkhag_name', 'dzongkhag_id', 'default_dzongkhag_id', 'delivery_dzongkhag', 'delivery_city']),
+    makeDeliveryAddress(profile, options),
+  ];
+
+  for (const candidate of candidates) {
+    const destination = normalizeSupportedDeliveryDestination(candidate, options);
+    if (destination) return destination;
+  }
+
+  return '';
+}
 
 const REQUEST_BAG_CACHE_PREFIX = 'shop2bhutan:request-bag:';
 
@@ -558,13 +598,20 @@ export default function RequestBag() {
       user.email?.split('@')[0] ||
       '';
 
-    setCustomer((prev) => ({
-      name: prev.name || bag?.customerName || profileName,
-      phone: prev.phone || bag?.customerPhone || profile?.phone?.trim() || '',
-      deliveryAddress: prev.deliveryAddress || bag?.deliveryAddress || '',
-      notes: prev.notes || bag?.customerNotes || '',
-    }));
-  }, [user, isGuest, profile, bag?.customerName, bag?.customerPhone, bag?.deliveryAddress, bag?.customerNotes]);
+    const bagDestination = normalizeSupportedDeliveryDestination(bag?.deliveryAddress, dzongkhagOptions);
+    const profileDestination = getProfileDestinationDzongkhag(profile, dzongkhagOptions);
+
+    setCustomer((prev) => {
+      const currentDestination = normalizeSupportedDeliveryDestination(prev.deliveryAddress, dzongkhagOptions);
+
+      return {
+        name: prev.name || bag?.customerName || profileName,
+        phone: prev.phone || bag?.customerPhone || profile?.phone?.trim() || '',
+        deliveryAddress: currentDestination || bagDestination || profileDestination,
+        notes: prev.notes || bag?.customerNotes || '',
+      };
+    });
+  }, [user, isGuest, profile, bag?.customerName, bag?.customerPhone, bag?.deliveryAddress, bag?.customerNotes, dzongkhagOptions]);
 
   useEffect(() => {
     if (!user || isGuest) {
@@ -585,20 +632,27 @@ export default function RequestBag() {
         setSavedAddress(address);
 
         if (address?.formattedAddress) {
+          const addressDestination = normalizeSupportedDeliveryDestination(address.formattedAddress, dzongkhagOptions);
+          const profileDestination = getProfileDestinationDzongkhag(profile, dzongkhagOptions);
+
           setCustomer((prev) => ({
             name: address.recipientName || prev.name,
             phone: address.phone || prev.phone,
-            deliveryAddress: address.formattedAddress,
+            deliveryAddress:
+              normalizeSupportedDeliveryDestination(prev.deliveryAddress, dzongkhagOptions) ||
+              addressDestination ||
+              profileDestination,
             notes: prev.notes,
           }));
           return;
         }
 
-        const profileAddress = makeDeliveryAddress(profile, dzongkhagOptions);
-        if (profileAddress) {
+        const profileDestination = getProfileDestinationDzongkhag(profile, dzongkhagOptions);
+        if (profileDestination) {
           setCustomer((prev) => ({
             ...prev,
-            deliveryAddress: prev.deliveryAddress || profileAddress,
+            deliveryAddress:
+              normalizeSupportedDeliveryDestination(prev.deliveryAddress, dzongkhagOptions) || profileDestination,
           }));
         }
       } finally {
@@ -710,8 +764,8 @@ export default function RequestBag() {
       return false;
     }
 
-    if (!isSelfPickup && !customer.deliveryAddress.trim()) {
-      setError('Please enter your destination dzongkhag or area.')
+    if (!isSelfPickup && !normalizeSupportedDeliveryDestination(customer.deliveryAddress, dzongkhagOptions)) {
+      setError('Please select Thimphu, Paro, or Chhukha as your destination.');
       return false;
     }
 
@@ -1029,7 +1083,7 @@ export default function RequestBag() {
                       }`}
                     >
                       <span className="block text-sm font-extrabold">Deliver to me</span>
-                      <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Use my location</span>
+                      <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Choose destination</span>
                     </button>
                     <button
                       type="button"
@@ -1051,18 +1105,23 @@ export default function RequestBag() {
                   {addressLoading && (
                     <div className="mt-3 flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs text-gray-500">
                       <Loader2 size={15} className="animate-spin text-orange-500" />
-                      Loading saved delivery address...
+                      Loading destination...
                     </div>
                   )}
 
-                  {!isSelfPickup && savedAddress?.formattedAddress && (
+                  {!isSelfPickup && customer.deliveryAddress && (
                     <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2.5">
                       <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-600">
-                        Saved location loaded
+                        Destination selected
                       </p>
                       <p className="mt-1 text-xs leading-5 font-medium text-emerald-900">
-                        {savedAddress.formattedAddress}
+                        {customer.deliveryAddress}
                       </p>
+                      {savedAddress?.formattedAddress && (
+                        <p className="mt-0.5 text-[11px] leading-4 text-emerald-700/80">
+                          Loaded from your profile or saved address. You can change it below.
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -1094,21 +1153,30 @@ export default function RequestBag() {
                   ) : (
                     <div className="mt-3">
                       <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">
-                        Destination dzongkhag / area
+                        Destination dzongkhag
                       </p>
                       <div className="relative">
-                        <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text"
-                          value={customer.deliveryAddress}
+                        <MapPin size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <select
+                          value={normalizeSupportedDeliveryDestination(customer.deliveryAddress, dzongkhagOptions)}
                           onChange={(e) => {
                             setCustomer((prev) => ({ ...prev, deliveryAddress: e.target.value }));
                             setError('');
                           }}
-                          placeholder="Example: Chhukha, Thimphu, Paro..."
-                          className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm font-medium text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
-                        />
+                          className="h-11 w-full appearance-none rounded-xl border border-gray-200 bg-white pl-10 pr-10 text-sm font-medium text-gray-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+                        >
+                          <option value="">Select destination</option>
+                          {DELIVERY_DESTINATION_OPTIONS.map((destination) => (
+                            <option key={destination} value={destination}>
+                              {destination}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
                       </div>
+                      <p className="mt-1.5 text-[11px] leading-4 text-gray-400">
+                        Quotation delivery fee is currently estimated only for Thimphu, Paro, and Chhukha.
+                      </p>
                     </div>
                   )}
 
