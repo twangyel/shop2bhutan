@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   CheckCircle,
+  Edit3,
   ImageIcon,
   Loader2,
   MapPin,
@@ -463,6 +464,7 @@ export default function RequestBag() {
   const [removingItemId, setRemovingItemId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [contactExpanded, setContactExpanded] = useState(false);
   const [error, setError] = useState('');
   const [addressLoading, setAddressLoading] = useState(false);
   const [savedAddress, setSavedAddress] = useState<CustomerAddress | null>(null);
@@ -480,6 +482,7 @@ export default function RequestBag() {
   const hasItems = Boolean(bag?.items.length);
   const selectedPickupHub = getSelfPickupOptionById(pickupHubId);
   const isSelfPickup = fulfillmentMode === 'self_pickup';
+  const contactDetailsComplete = Boolean(customer.name.trim() && customer.phone.trim());
   const itemCount = bag?.items.length ?? 0;
   const totalQuantity = bag?.items.reduce((sum, item) => sum + Math.max(1, item.quantity || 1), 0) ?? 0;
   const estimatedSiteTotal = bag?.items.reduce((sum, item) => sum + Math.max(0, item.priceShown || 0) * Math.max(1, item.quantity || 1), 0) ?? 0;
@@ -691,11 +694,13 @@ export default function RequestBag() {
     if (!validateRequestBagItems()) return false;
 
     if (!customer.name.trim()) {
+      setContactExpanded(true);
       setError('Please enter your name.');
       return false;
     }
 
     if (!customer.phone.trim()) {
+      setContactExpanded(true);
       setError('Please enter your phone number.');
       return false;
     }
@@ -706,7 +711,7 @@ export default function RequestBag() {
     }
 
     if (!isSelfPickup && !customer.deliveryAddress.trim()) {
-      setError('Please enter your delivery address or pickup area.');
+      setError('Please enter your destination dzongkhag or area.')
       return false;
     }
 
@@ -716,6 +721,7 @@ export default function RequestBag() {
   const openSubmitConfirmation = () => {
     if (!validateRequestBagItems()) return;
     setError('');
+    setContactExpanded(!contactDetailsComplete);
     setConfirmOpen(true);
   };
 
@@ -867,7 +873,7 @@ export default function RequestBag() {
                 <div>
                   <h3 className="text-sm font-extrabold text-blue-950">Ready to request a quotation?</h3>
                   <p className="mt-1 text-xs leading-5 text-blue-800">
-                    Contact and delivery preference will be confirmed in the next step. No payment is required now.
+                    Contact, destination, and delivery preference will be confirmed in the next step. No payment is required now.
                   </p>
                 </div>
               </div>
@@ -879,7 +885,7 @@ export default function RequestBag() {
       {/* ===== CONFIRMATION DIALOG ===== */}
       {confirmOpen && (
         <div
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 px-4 py-6"
+          className="fixed inset-0 z-[90] flex items-end justify-center bg-black/35 px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-6 backdrop-blur-[2px] sm:items-center sm:px-4 sm:pb-6"
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-quotation-title"
@@ -891,53 +897,70 @@ export default function RequestBag() {
             aria-label="Close confirmation"
           />
 
-          <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl shadow-black/10">
-            <div className="max-h-[calc(100vh-3rem)] overflow-y-auto px-6 py-7">
+          <div className="relative w-full max-w-md overflow-hidden rounded-[28px] bg-white shadow-2xl shadow-black/10">
+            <div className="flex justify-center pb-1 pt-3">
+              <div className="h-1.5 w-11 rounded-full bg-gray-200" />
+            </div>
+            <div className="max-h-[calc(100dvh-8.5rem)] overflow-y-auto px-5 pb-5 pt-2 sm:max-h-[calc(100vh-3rem)] sm:px-6 sm:pb-7">
               {/* Header */}
               <div className="text-center">
                 <h2 id="confirm-quotation-title" className="text-xl font-extrabold tracking-tight text-gray-900">
-                  Submit Request Bag?
+                  Request Quotation
                 </h2>
                 <p className="mt-1.5 text-sm leading-relaxed text-gray-500">
-                  You are sending <span className="font-semibold text-gray-800">{itemCount} item{itemCount === 1 ? '' : 's'}</span> for quotation review.
+                  We’ll review your items, destination, and delivery preference before sending the final price.
                 </p>
               </div>
 
               {/* Summary */}
-              <div className="mt-6 space-y-4">
-                {/* Items row */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50">
-                      <ShoppingBag size={18} className="text-orange-500" strokeWidth={1.8} />
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Items</p>
-                      <p className="text-[15px] font-bold text-gray-900">{itemCount} <span className="text-xs font-normal text-gray-500">({totalQuantity} qty)</span></p>
-                    </div>
+              <div className="mt-5 space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-2xl border border-orange-100 bg-orange-50/70 px-3 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-orange-500">Items</p>
+                    <p className="mt-1 text-[15px] font-extrabold text-gray-900">
+                      {itemCount} item{itemCount === 1 ? '' : 's'}
+                      <span className="ml-1 text-xs font-semibold text-gray-500">({totalQuantity} qty)</span>
+                    </p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Site Estimate</p>
-                    <p className="text-[15px] font-bold text-gray-900">
-                      {estimatedSiteTotal > 0 ? formatPrice(estimatedSiteTotal) : <span className="text-sm font-medium text-gray-400">To be quoted</span>}
+                  <div className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-right">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Site estimate</p>
+                    <p className="mt-1 text-[15px] font-extrabold text-gray-900">
+                      {estimatedSiteTotal > 0 ? formatPrice(estimatedSiteTotal) : <span className="text-sm font-semibold text-gray-400">To be quoted</span>}
                     </p>
                   </div>
                 </div>
 
-                <div className="h-px bg-gray-100" />
-
                 {/* Contact and delivery form */}
-                <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-orange-500 ring-1 ring-orange-100">
-                      <User size={18} strokeWidth={2.2} />
+                <div className="rounded-2xl border border-gray-100 bg-white p-3.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500 ring-1 ring-orange-100">
+                        <User size={17} strokeWidth={2.2} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-extrabold text-gray-900">Contact</p>
+                        {contactDetailsComplete && !contactExpanded ? (
+                          <p className="mt-1 truncate text-xs font-semibold text-gray-600">
+                            {customer.name.trim()} • {customer.phone.trim()}
+                          </p>
+                        ) : (
+                          <p className="mt-0.5 text-xs leading-5 text-gray-500">
+                            We use this only for quotation updates.
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-extrabold text-gray-900">Confirm contact details</p>
-                      <p className="mt-0.5 text-xs leading-5 text-gray-500">
-                        We use this only to prepare and send your quotation update.
-                      </p>
-                    </div>
+
+                    {contactDetailsComplete && (
+                      <button
+                        type="button"
+                        onClick={() => setContactExpanded((prev) => !prev)}
+                        className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-gray-100 px-3 text-[11px] font-bold text-gray-600 transition active:scale-[0.97]"
+                      >
+                        <Edit3 size={12} strokeWidth={2.3} />
+                        {contactExpanded ? 'Done' : 'Edit'}
+                      </button>
+                    )}
                   </div>
 
                   {error && (
@@ -946,46 +969,48 @@ export default function RequestBag() {
                     </div>
                   )}
 
-                  <div className="mt-3 space-y-3">
-                    <div className="relative">
-                      <User size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
-                        type="text"
-                        value={customer.name}
-                        onChange={(e) => {
-                          setCustomer((prev) => ({ ...prev, name: e.target.value }));
-                          setError('');
-                        }}
-                        placeholder="Full name"
-                        className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm font-medium text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
-                      />
-                    </div>
+                  {(!contactDetailsComplete || contactExpanded) && (
+                    <div className="mt-3 grid gap-2">
+                      <div className="relative">
+                        <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          type="text"
+                          value={customer.name}
+                          onChange={(e) => {
+                            setCustomer((prev) => ({ ...prev, name: e.target.value }));
+                            setError('');
+                          }}
+                          placeholder="Full name"
+                          className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm font-medium text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+                        />
+                      </div>
 
-                    <div className="relative">
-                      <Phone size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
-                        type="tel"
-                        value={customer.phone}
-                        onChange={(e) => {
-                          setCustomer((prev) => ({ ...prev, phone: e.target.value }));
-                          setError('');
-                        }}
-                        placeholder="Phone number"
-                        className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm font-medium text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
-                      />
+                      <div className="relative">
+                        <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          type="tel"
+                          value={customer.phone}
+                          onChange={(e) => {
+                            setCustomer((prev) => ({ ...prev, phone: e.target.value }));
+                            setError('');
+                          }}
+                          placeholder="Phone number"
+                          className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm font-medium text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
-                <div className="rounded-2xl border border-gray-100 bg-white p-4">
+                <div className="rounded-2xl border border-gray-100 bg-white p-3.5">
                   <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                      <MapPin size={18} strokeWidth={2.2} />
+                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                      <MapPin size={17} strokeWidth={2.2} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-extrabold text-gray-900">Delivery preference</p>
                       <p className="mt-0.5 text-xs leading-5 text-gray-500">
-                        This helps admin estimate delivery or pickup cost correctly.
+                        Helps us estimate delivery or pickup fee.
                       </p>
                     </div>
                   </div>
@@ -997,14 +1022,14 @@ export default function RequestBag() {
                         setFulfillmentMode('delivery');
                         setError('');
                       }}
-                      className={`rounded-2xl border px-3 py-3 text-left transition ${
+                      className={`rounded-2xl border px-3 py-2.5 text-left transition ${
                         fulfillmentMode === 'delivery'
                           ? 'border-orange-300 bg-orange-50 text-orange-700'
                           : 'border-gray-200 bg-white text-gray-600 active:bg-gray-50'
                       }`}
                     >
                       <span className="block text-sm font-extrabold">Deliver to me</span>
-                      <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Use my address</span>
+                      <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Use my location</span>
                     </button>
                     <button
                       type="button"
@@ -1012,7 +1037,7 @@ export default function RequestBag() {
                         setFulfillmentMode('self_pickup');
                         setError('');
                       }}
-                      className={`rounded-2xl border px-3 py-3 text-left transition ${
+                      className={`rounded-2xl border px-3 py-2.5 text-left transition ${
                         fulfillmentMode === 'self_pickup'
                           ? 'border-blue-300 bg-blue-50 text-blue-700'
                           : 'border-gray-200 bg-white text-gray-600 active:bg-gray-50'
@@ -1033,7 +1058,7 @@ export default function RequestBag() {
                   {!isSelfPickup && savedAddress?.formattedAddress && (
                     <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2.5">
                       <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-600">
-                        Saved {savedAddress.label || 'delivery'} address loaded
+                        Saved location loaded
                       </p>
                       <p className="mt-1 text-xs leading-5 font-medium text-emerald-900">
                         {savedAddress.formattedAddress}
@@ -1067,25 +1092,30 @@ export default function RequestBag() {
                       </div>
                     </div>
                   ) : (
-                    <div className="relative mt-3">
-                      <MapPin size={17} className="absolute left-3 top-3 text-gray-400" />
-                      <textarea
-                        value={customer.deliveryAddress}
-                        onChange={(e) => {
-                          setCustomer((prev) => ({ ...prev, deliveryAddress: e.target.value }));
-                          setError('');
-                        }}
-                        placeholder="Delivery address or pickup area"
-                        rows={3}
-                        className="w-full resize-none rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm font-medium leading-5 text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
-                      />
+                    <div className="mt-3">
+                      <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                        Destination dzongkhag / area
+                      </p>
+                      <div className="relative">
+                        <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          type="text"
+                          value={customer.deliveryAddress}
+                          onChange={(e) => {
+                            setCustomer((prev) => ({ ...prev, deliveryAddress: e.target.value }));
+                            setError('');
+                          }}
+                          placeholder="Example: Chhukha, Thimphu, Paro..."
+                          className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm font-medium text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+                        />
+                      </div>
                     </div>
                   )}
 
                   <textarea
                     value={customer.notes}
                     onChange={(e) => setCustomer((prev) => ({ ...prev, notes: e.target.value }))}
-                    placeholder="Optional note for Shop2Bhutan..."
+                    placeholder="Any size, color, delivery, or pickup note..."
                     rows={2}
                     className="mt-3 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm leading-5 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
                   />
@@ -1093,7 +1123,7 @@ export default function RequestBag() {
               </div>
 
               {/* Warning */}
-              <div className="mt-5 flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-3.5">
+              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3">
                 <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
@@ -1101,13 +1131,16 @@ export default function RequestBag() {
                     <line x1="12" y1="17" x2="12.01" y2="17" />
                   </svg>
                 </div>
-                <p className="text-xs leading-5 font-medium text-amber-700">
-                  No payment is required now. Shop2Bhutan will send a quotation first, and you can approve it before paying.
-                </p>
+                <div>
+                  <p className="text-xs font-extrabold text-amber-800">No payment now</p>
+                  <p className="mt-0.5 text-xs leading-5 font-medium text-amber-700">
+                    You’ll receive a quotation first and pay only after approval.
+                  </p>
+                </div>
               </div>
 
               {/* Buttons */}
-              <div className="mt-6 space-y-3">
+              <div className="mt-5 space-y-2.5">
                 <button
                   type="button"
                   onClick={submitBag}
@@ -1120,7 +1153,7 @@ export default function RequestBag() {
                       Sending Request...
                     </>
                   ) : (
-                    'Send Quotation Request'
+                    'Request Quotation'
                   )}
                 </button>
 
