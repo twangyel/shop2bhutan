@@ -756,7 +756,7 @@ export default function RequestBag() {
           <ShoppingBag size={42} className="mx-auto text-gray-300" />
           <h1 className="mt-3 text-lg font-bold text-gray-900">Sign in to use Request Bag</h1>
           <p className="mt-1 text-sm leading-6 text-gray-500">
-            Guest mode is only for Parcel booking. Please sign in or create an account to request shopping quotations.
+            Shopping quotations require an account so we can save your request, send updates, and track your order.
           </p>
           <button
             type="button"
@@ -785,13 +785,13 @@ export default function RequestBag() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-36">
+    <div className="min-h-screen bg-white pb-[calc(9rem+env(safe-area-inset-bottom))]">
       <div className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-bold text-gray-900">Request Bag</h1>
             <p className="text-[12px] leading-5 text-gray-500">
-              Review your items before requesting one quotation.
+              Review your products, delivery option, and request one quotation.
             </p>
           </div>
           {hasItems && (
@@ -820,7 +820,7 @@ export default function RequestBag() {
             <ShoppingBag size={44} className="mx-auto text-gray-300" />
             <h2 className="mt-3 text-lg font-bold text-gray-900">Your Request Bag is empty</h2>
             <p className="mt-1 text-sm leading-6 text-gray-500">
-              Add Amazon, Flipkart, Myntra, or Meesho links first. You can request quotation after adding items.
+              Add a product link or screenshot first. You can add multiple items, then request one quotation.
             </p>
             <button
               type="button"
@@ -828,7 +828,7 @@ export default function RequestBag() {
               className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 text-sm font-semibold text-white hover:bg-orange-600"
             >
               <Plus size={17} />
-              Add Product Link
+              Add Product
             </button>
           </div>
         ) : (
@@ -859,11 +859,11 @@ export default function RequestBag() {
             <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-semibold text-gray-900">Contact & Fulfillment</h3>
+                  <h3 className="text-base font-semibold text-gray-900">Contact & Delivery Option</h3>
                   <p className="text-xs text-gray-500">
                     {addressLoading
                       ? 'Loading your saved delivery address...'
-                      : 'Choose delivery or pickup option before requesting quotation.'}
+                      : 'Choose delivery or pickup before requesting your quotation.'}
                   </p>
                 </div>
                 {!isSelfPickup && hasDeliveryAddress && !showDeliveryFields && (
@@ -889,7 +889,7 @@ export default function RequestBag() {
                   }`}
                 >
                   <span className="block text-sm font-extrabold">Deliver to me</span>
-                  <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Use saved/manual address</span>
+                  <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Use saved or manual address</span>
                 </button>
                 <button
                   type="button"
@@ -1013,7 +1013,7 @@ export default function RequestBag() {
               <textarea
                 value={customer.notes}
                 onChange={(e) => setCustomer((prev) => ({ ...prev, notes: e.target.value }))}
-                placeholder="Optional note for all items..."
+                placeholder="Optional note for Shop2Bhutan..."
                 rows={2}
                 className="mt-3 w-full resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
               />
@@ -1042,10 +1042,10 @@ export default function RequestBag() {
               {/* Header */}
               <div className="text-center">
                 <h2 id="confirm-quotation-title" className="text-xl font-extrabold tracking-tight text-gray-900">
-                  Confirm Quotation Request
+                  Submit Request Bag?
                 </h2>
                 <p className="mt-1.5 text-sm leading-relaxed text-gray-500">
-                  You are sending <span className="font-semibold text-gray-800">{itemCount} item{itemCount === 1 ? '' : 's'}</span> to Shop2Bhutan for admin review.
+                  You are sending <span className="font-semibold text-gray-800">{itemCount} item{itemCount === 1 ? '' : 's'}</span> for quotation review.
                 </p>
               </div>
 
@@ -1101,7 +1101,7 @@ export default function RequestBag() {
                   </svg>
                 </div>
                 <p className="text-xs leading-5 font-medium text-amber-700">
-                  This is not a payment or final order. Admin will send a quotation for your approval first.
+                  No payment is required now. Shop2Bhutan will send a quotation first, and you can approve it before paying.
                 </p>
               </div>
 
@@ -1119,7 +1119,7 @@ export default function RequestBag() {
                       Sending Request...
                     </>
                   ) : (
-                    'Confirm & Send Request'
+                    'Send Quotation Request'
                   )}
                 </button>
 
@@ -1136,7 +1136,7 @@ export default function RequestBag() {
           </div>
         </div>
       )}{hasItems && (
-        <div className="fixed bottom-16 left-0 right-0 z-40 border-t border-gray-200 bg-white px-4 py-3">
+        <div className="fixed bottom-16 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur-xl">
           <div className="mx-auto max-w-lg">
             <button
               type="button"
@@ -1147,7 +1147,7 @@ export default function RequestBag() {
               {submitting ? (
                 <>
                   <Loader2 size={18} className="animate-spin" />
-                  Requesting quotation...
+                  Sending request...
                 </>
               ) : (
                 <>
@@ -1157,7 +1157,7 @@ export default function RequestBag() {
               )}
             </button>
             <p className="mt-2 text-center text-[11px] text-gray-500">
-              You can review before sending. Admin will see your request only after confirmation.
+              No payment now. You will approve the quotation before paying.
             </p>
           </div>
         </div>

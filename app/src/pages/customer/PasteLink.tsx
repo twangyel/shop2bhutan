@@ -150,6 +150,7 @@ export default function PasteLink() {
   }, []);
 
   const visiblePlatforms = platforms.filter((platform) => appSettings.acceptedPlatforms[platform.key as keyof typeof appSettings.acceptedPlatforms]);
+  const hasRequestInput = Boolean(cleanUrl || screenshotFile);
 
   /* ---- Screenshot upload ---- */
   const handleScreenshotChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -216,7 +217,7 @@ export default function PasteLink() {
         },
       });
       window.dispatchEvent(new Event('shop2bhutan:request-bag-updated'));
-      setSuccessMessage('Added to Request Bag. You can add more items or review your bag.');
+      setSuccessMessage('Added to Request Bag. Add more products or open your bag to request one quotation.');
       resetForm();
     } catch (err) {
       console.error('Failed to add item to Request Bag:', err);
@@ -240,8 +241,8 @@ export default function PasteLink() {
         <header className="sticky top-0 z-40 bg-white border-b border-gray-100">
           <div className="px-4 pb-3 pt-3">
             <div>
-              <h1 className="text-lg font-bold text-black">Request Product</h1>
-              <p className="text-sm text-gray-500">Paste a link or upload a screenshot. We will verify and quote.</p>
+              <h1 className="text-lg font-bold text-black">Add Product to Request Bag</h1>
+              <p className="text-sm leading-5 text-gray-500">Paste an accepted store link or upload a screenshot. Add products first, then request one quotation.</p>
             </div>
 
             <div className="mt-2.5 inline-flex items-center gap-2 rounded-full bg-orange-50 border border-orange-100 px-3 py-1">
@@ -277,12 +278,12 @@ export default function PasteLink() {
         </div>
 
         {/* ═══════════════ MAIN CONTENT ═══════════════ */}
-        <div className="px-4 pb-10 pt-5">
+        <div className="px-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-5">
 
           {/* ----- Platform Selector ----- */}
           <div>
             <p className="mb-3 px-0.5 text-xs font-bold uppercase tracking-wider text-gray-400">
-              Select Store
+              Accepted Stores
             </p>
             <div className="grid grid-cols-4 gap-2.5">
               {visiblePlatforms.map((p) => (
@@ -320,7 +321,7 @@ export default function PasteLink() {
                 value={url}
                 onChange={(e) => { setUrl(e.target.value); setError(''); setSuccessMessage(''); }}
                 onKeyDown={(e) => { if (e.key === 'Enter') void addToRequestBag(); }}
-                placeholder="Paste product URL here..."
+                placeholder="Paste Amazon, Flipkart, Myntra or Meesho link..."
                 className="h-14 w-full rounded-2xl border-2 border-gray-200 bg-white pl-12 pr-11 text-sm text-gray-900 placeholder:text-gray-400 shadow-sm transition-all focus:border-orange-500 focus:outline-none focus:ring-4 focus:ring-orange-500/10"
               />
               {url ? (
@@ -353,7 +354,7 @@ export default function PasteLink() {
                 <div className="text-left">
                   <p className="text-sm font-bold text-gray-900">Upload a screenshot</p>
                   <p className="text-xs leading-relaxed text-gray-400">
-                    Tap to choose an image from your gallery
+                    Use this if the product link is not available
                   </p>
                 </div>
               </button>
@@ -423,7 +424,7 @@ export default function PasteLink() {
                   </p>
                   {!preview.data.fetched && (
                     <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                      We will verify this product manually.
+                      We will verify this product manually before quotation.
                     </p>
                   )}
                 </div>
@@ -467,13 +468,15 @@ export default function PasteLink() {
           <button
             type="button"
             onClick={addToRequestBag}
-            disabled={(!cleanUrl && !screenshotFile) || preview.loading || adding}
-            className="mt-5 flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-orange-500 text-sm font-bold text-white transition-colors hover:bg-orange-600 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+            disabled={!hasRequestInput || preview.loading || adding}
+            className="mt-5 flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-orange-500 px-3 text-center text-sm font-bold text-white transition-colors hover:bg-orange-600 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-orange-200 disabled:active:scale-100"
           >
             {adding ? (
               <><Loader2 size={20} className="animate-spin" strokeWidth={2.5} /> Adding...</>
-            ) : (
+            ) : hasRequestInput ? (
               <><Plus size={20} strokeWidth={2.5} /> Add to Request Bag</>
+            ) : (
+              <span>Paste link or upload screenshot first</span>
             )}
           </button>
 
@@ -489,7 +492,7 @@ export default function PasteLink() {
                 <div>
                   <p className="text-sm font-bold text-gray-900">Pro tip</p>
                   <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                    Add multiple products to your bag first, then request one quotation for everything together. Saves time and delivery cost.
+                    Add all products to your bag first, then request one quotation for everything together. This saves time and can reduce delivery cost.
                   </p>
                 </div>
               </div>
@@ -497,13 +500,13 @@ export default function PasteLink() {
 
             {/* How it works — numbered steps */}
             <div className="rounded-2xl bg-white border border-gray-100 p-4">
-              <p className="mb-3.5 text-sm font-bold text-gray-900">How it works</p>
+              <p className="mb-3.5 text-sm font-bold text-gray-900">How this page works</p>
               <div className="space-y-3">
                 {[
-                  { num: '1', text: 'Paste product link or upload screenshot', accent: 'bg-orange-50 text-orange-600' },
-                  { num: '2', text: 'Add items to your Request Bag', accent: 'bg-violet-50 text-violet-600' },
-                  { num: '3', text: 'Review and request quotation', accent: 'bg-blue-50 text-blue-600' },
-                  { num: '4', text: 'Pay after you approve the quote', accent: 'bg-emerald-50 text-emerald-600' },
+                  { num: '1', text: 'Paste a product link or upload screenshot', accent: 'bg-orange-50 text-orange-600' },
+                  { num: '2', text: 'Add one or more products to your Request Bag', accent: 'bg-violet-50 text-violet-600' },
+                  { num: '3', text: 'Open Request Bag and review your items', accent: 'bg-blue-50 text-blue-600' },
+                  { num: '4', text: 'Request quotation, then pay only after approval', accent: 'bg-emerald-50 text-emerald-600' },
                 ].map((s) => (
                   <div key={s.num} className="flex items-center gap-3">
                     <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${s.accent}`}>
@@ -519,7 +522,7 @@ export default function PasteLink() {
             <button
               type="button"
               onClick={() => navigate('/request-bag')}
-              className="flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl border-2 border-gray-200 bg-white text-sm font-bold text-gray-700 transition-all hover:bg-gray-50 active:scale-[0.98]"
+              className="flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl border border-orange-200 bg-orange-50 text-sm font-bold text-orange-700 transition-all hover:bg-orange-100 active:scale-[0.98]"
             >
               Open Request Bag <ExternalLink size={17} strokeWidth={2.5} />
             </button>
