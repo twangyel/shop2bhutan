@@ -505,6 +505,7 @@ export default function RequestBag() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [contactExpanded, setContactExpanded] = useState(false);
+  const [destinationPickerOpen, setDestinationPickerOpen] = useState(false);
   const [error, setError] = useState('');
   const [addressLoading, setAddressLoading] = useState(false);
   const [savedAddress, setSavedAddress] = useState<CustomerAddress | null>(null);
@@ -939,7 +940,7 @@ export default function RequestBag() {
       {/* ===== CONFIRMATION DIALOG ===== */}
       {confirmOpen && (
         <div
-          className="fixed inset-0 z-[90] flex items-end justify-center bg-black/35 px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-6 backdrop-blur-[2px] sm:items-center sm:px-4 sm:pb-6"
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/35 px-4 py-[calc(1.25rem+env(safe-area-inset-top))] pb-[calc(1.25rem+env(safe-area-inset-bottom))] backdrop-blur-[2px]"
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-quotation-title"
@@ -951,11 +952,8 @@ export default function RequestBag() {
             aria-label="Close confirmation"
           />
 
-          <div className="relative w-full max-w-md overflow-hidden rounded-[28px] bg-white shadow-2xl shadow-black/10">
-            <div className="flex justify-center pb-1 pt-3">
-              <div className="h-1.5 w-11 rounded-full bg-gray-200" />
-            </div>
-            <div className="max-h-[calc(100dvh-8.5rem)] overflow-y-auto px-5 pb-5 pt-2 sm:max-h-[calc(100vh-3rem)] sm:px-6 sm:pb-7">
+          <div className="relative w-full max-w-md overflow-hidden rounded-[30px] bg-white shadow-2xl shadow-black/10 ring-1 ring-white/70">
+            <div className="max-h-[calc(100dvh-2.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] overflow-y-auto px-5 pb-5 pt-6 sm:px-6 sm:pb-7">
               {/* Header */}
               <div className="text-center">
                 <h2 id="confirm-quotation-title" className="text-xl font-extrabold tracking-tight text-gray-900">
@@ -1089,6 +1087,7 @@ export default function RequestBag() {
                       type="button"
                       onClick={() => {
                         setFulfillmentMode('self_pickup');
+                        setDestinationPickerOpen(false);
                         setError('');
                       }}
                       className={`rounded-2xl border px-3 py-2.5 text-left transition ${
@@ -1153,29 +1152,79 @@ export default function RequestBag() {
                   ) : (
                     <div className="mt-3">
                       <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">
-                        Destination dzongkhag
+                        Delivery area
                       </p>
-                      <div className="relative">
-                        <MapPin size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <select
-                          value={normalizeSupportedDeliveryDestination(customer.deliveryAddress, dzongkhagOptions)}
-                          onChange={(e) => {
-                            setCustomer((prev) => ({ ...prev, deliveryAddress: e.target.value }));
-                            setError('');
-                          }}
-                          className="h-11 w-full appearance-none rounded-xl border border-gray-200 bg-white pl-10 pr-10 text-sm font-medium text-gray-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+
+                      <div className="rounded-2xl border border-gray-200 bg-white p-1.5 shadow-sm">
+                        <button
+                          type="button"
+                          onClick={() => setDestinationPickerOpen((prev) => !prev)}
+                          className={`flex min-h-[46px] w-full items-center justify-between gap-3 rounded-xl px-3 text-left transition active:scale-[0.99] ${
+                            customer.deliveryAddress
+                              ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-100'
+                              : 'bg-gray-50 text-gray-500'
+                          }`}
+                          aria-expanded={destinationPickerOpen}
                         >
-                          <option value="">Select destination</option>
-                          {DELIVERY_DESTINATION_OPTIONS.map((destination) => (
-                            <option key={destination} value={destination}>
-                              {destination}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <span className="flex min-w-0 items-center gap-2.5">
+                            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
+                              customer.deliveryAddress ? 'bg-white text-orange-500' : 'bg-white text-gray-400'
+                            }`}>
+                              <MapPin size={16} strokeWidth={2.2} />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-[10px] font-bold uppercase tracking-wide opacity-70">
+                                {customer.deliveryAddress ? 'Selected area' : 'Choose area'}
+                              </span>
+                              <span className="block truncate text-sm font-extrabold">
+                                {customer.deliveryAddress || 'Select Thimphu, Paro, or Chhukha'}
+                              </span>
+                            </span>
+                          </span>
+                          <ChevronDown
+                            size={18}
+                            strokeWidth={2.4}
+                            className={`shrink-0 transition-transform ${destinationPickerOpen ? 'rotate-180' : ''}`}
+                          />
+                        </button>
+
+                        {destinationPickerOpen && (
+                          <div className="mt-1.5 grid gap-1.5">
+                            {DELIVERY_DESTINATION_OPTIONS.map((destination) => {
+                              const selected = normalizeSupportedDeliveryDestination(customer.deliveryAddress, dzongkhagOptions) === destination;
+                              return (
+                                <button
+                                  key={destination}
+                                  type="button"
+                                  onClick={() => {
+                                    setCustomer((prev) => ({ ...prev, deliveryAddress: destination }));
+                                    setDestinationPickerOpen(false);
+                                    setError('');
+                                  }}
+                                  className={`flex min-h-[44px] items-center justify-between rounded-xl px-3 text-left transition active:scale-[0.99] ${
+                                    selected
+                                      ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                                      : 'bg-white text-gray-700 hover:bg-gray-50 active:bg-gray-50'
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-2.5">
+                                    <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${
+                                      selected ? 'bg-white/20 text-white' : 'bg-orange-50 text-orange-500'
+                                    }`}>
+                                      <MapPin size={14} strokeWidth={2.3} />
+                                    </span>
+                                    <span className="text-sm font-bold">{destination}</span>
+                                  </span>
+                                  {selected && <CheckCircle size={17} strokeWidth={2.5} />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
+
                       <p className="mt-1.5 text-[11px] leading-4 text-gray-400">
-                        Quotation delivery fee is currently estimated only for Thimphu, Paro, and Chhukha.
+                        Used only to estimate the delivery fee in your quotation.
                       </p>
                     </div>
                   )}
