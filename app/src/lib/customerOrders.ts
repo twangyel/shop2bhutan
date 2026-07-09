@@ -1584,7 +1584,6 @@ function formatParcelTripNotificationDate(value?: string | null) {
     timeZone: 'Asia/Thimphu',
     day: 'numeric',
     month: 'short',
-    year: 'numeric',
   }).format(date)
 }
 
@@ -1594,13 +1593,20 @@ function formatParcelTripNotificationCutoff(value?: string | null) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
 
-  return new Intl.DateTimeFormat('en-GB', {
+  const dateText = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Thimphu',
     day: 'numeric',
     month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
   }).format(date)
+
+  const timeText = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Thimphu',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date)
+
+  return `${dateText}, ${timeText}`
 }
 
 export async function createCustomerParcelTripOpenNotifications(input: {
@@ -1618,7 +1624,7 @@ export async function createCustomerParcelTripOpenNotifications(input: {
 
     const origin = cleanText(input.origin) || 'Thimphu'
     const destination = cleanText(input.destination) || 'Phuentsholing'
-    const route = cleanText(input.title) || `${origin} → ${destination}`
+    const route = `${origin} ↔ ${destination}`
     const dateText = formatParcelTripNotificationDate(input.goingDate)
     const cutoffText = formatParcelTripNotificationCutoff(input.bookingCutoffAt)
     const eventKey = cleanText(input.eventKey) || new Date().toISOString()
@@ -1627,8 +1633,8 @@ export async function createCustomerParcelTripOpenNotifications(input: {
     if (customerIds.length === 0) return
 
     const message = cutoffText
-      ? `${route} is open for ${dateText}. Book your parcel before ${cutoffText} BTT.`
-      : `${route} is open for ${dateText}. Book your parcel now.`
+      ? `${route} trip is open for ${dateText}. Book before ${cutoffText} BTT.`
+      : `${route} trip is open for ${dateText}. Book your parcel now.`
 
     const results = await Promise.allSettled(
       customerIds.map((userId) =>
