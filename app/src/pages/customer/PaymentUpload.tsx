@@ -6,17 +6,22 @@ import {
   Copy,
   CreditCard,
   FileText,
+  Home,
   MapPin,
+  Plus,
   ShieldCheck,
   Upload,
   Wallet,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   fetchCustomerOrderById,
+  fetchCustomerSavedAddresses,
   fetchPaymentMethods,
   submitCustomerPaymentProof,
   updateCustomerOrderDeliveryAddress,
+  type CustomerSavedAddress,
 } from '@/lib/customerOrders';
 import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings';
 import { getFulfillmentDisplay, isJaigaonPickupOrder, isSelfPickupOrder } from '@/lib/fulfillment';
@@ -59,17 +64,14 @@ function getDeliverySummary(order: Order) {
   return [hubLabel, addressLabel].filter(Boolean).join(' • ') || 'Delivery address will be confirmed.';
 }
 
-const DELIVERY_AREAS = ['Thimphu', 'Paro', 'Chhukha'] as const;
 
 function normalizeDeliveryArea(value: unknown) {
   const text = String(value ?? '').trim().toLowerCase();
-
   if (text.includes('thimphu')) return 'Thimphu';
   if (text.includes('paro')) return 'Paro';
   if (text.includes('chhukha') || text.includes('phuentsholing') || text.includes('phuntsholing') || text.includes('pling')) {
     return 'Chhukha';
   }
-
   return '';
 }
 
@@ -86,24 +88,50 @@ function getLockedDeliveryArea(order: Order) {
   );
 }
 
-function getExistingDeliveryAddressLine(order: Order) {
-  if (isSelfPickupOrder(order)) return '';
-
-  const parts = [
-    order.shippingAddress?.village,
-    order.shippingAddress?.gewog,
-  ]
-    .map((part) => String(part ?? '').trim())
-    .filter(Boolean);
-
-  const area = getLockedDeliveryArea(order).toLowerCase();
-
-  return parts
-    .filter((part) => part.toLowerCase() !== area)
-    .filter((part) => !DELIVERY_AREAS.some((item) => item.toLowerCase() === part.toLowerCase()))
-    .join(', ');
+function addressMatchesArea(address: CustomerSavedAddress, lockedArea: string) {
+  return Boolean(lockedArea && normalizeDeliveryArea(address.dzongkhag) === lockedArea);
 }
 
+function uniqueTextParts(parts: Array<string | null | undefined>) {
+  const seen = new Set<string>();
+
+  return parts
+    .map((part) => String(part ?? '').trim())
+    .filter(Boolean)
+    .filter((part) => {
+      const key = part.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function savedAddressMainLine(address: CustomerSavedAddress) {
+  return uniqueTextParts([address.village, address.town, address.gewog]).join(', ');
+}
+
+function savedAddressFullLine(address: CustomerSavedAddress) {
+  return uniqueTextParts([
+    savedAddressMainLine(address),
+    address.dzongkhag,
+    address.landmark ? `Landmark: ${address.landmark}` : '',
+    address.address_line,
+  ]).join(' • ');
+}
+
+function hasUsableSavedAddress(address: CustomerSavedAddress) {
+  return Boolean(
+    String(address.recipient_name ?? '').trim() &&
+      String(address.phone ?? '').trim() &&
+      savedAddressMainLine(address),
+  );
+}
+
+function formatSavedAddressPhone(phone: string) {
+  const cleaned = String(phone ?? '').trim();
+  if (!cleaned) return '';
+  return cleaned.startsWith('+') ? cleaned : `+975 ${cleaned}`;
+}
 
 function getPaymentSummary(order: Order | null) {
   const payments = order?.payments ?? (order?.payment ? [order.payment] : []);
@@ -162,13 +190,10 @@ export default function PaymentUpload() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
-  const [deliveryForm, setDeliveryForm] = useState({
-    recipientName: '',
-    phone: '',
-    addressLine: '',
-    landmark: '',
-  });
-  const [deliveryFormTouched, setDeliveryFormTouched] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<CustomerSavedAddress[]>([]);
+  const [addressesLoading, setAddressesLoading] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [showAddressPicker, setShowAddressPicker] = useState(false);
   const [savingDeliveryAddress, setSavingDeliveryAddress] = useState(false);
 
   const loadOrder = useCallback(async () => {
@@ -214,6 +239,27 @@ export default function PaymentUpload() {
     }
   }, []);
 
+  const loadSavedAddresses = useCallback(async () => {
+    if (!user) {
+      setSavedAddresses([]);
+      setSelectedAddressId('');
+      return;
+    }
+
+    setAddressesLoading(true);
+
+    try {
+      const addresses = await fetchCustomerSavedAddresses(user.id);
+      setSavedAddresses(addresses);
+    } catch (err) {
+      console.error('Failed to load saved addresses:', err);
+      setSavedAddresses([]);
+      setError(err instanceof Error ? err.message : 'Unable to load saved addresses.');
+    } finally {
+      setAddressesLoading(false);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!authLoading) {
       void loadOrder();
@@ -223,6 +269,11 @@ export default function PaymentUpload() {
   useEffect(() => {
     void loadPaymentMethods();
   }, [loadPaymentMethods]);
+
+
+  useEffect(() => {
+    void loadSavedAddresses();
+  }, [loadSavedAddresses]);
 
   useEffect(() => {
     let active = true;
@@ -259,17 +310,6 @@ export default function PaymentUpload() {
     };
   }, [screenshotPreview]);
 
-  useEffect(() => {
-    if (!order || isSelfPickupOrder(order) || deliveryFormTouched) return;
-
-    setDeliveryForm({
-      recipientName: order.shippingAddress?.recipientName || '',
-      phone: order.shippingAddress?.phone || '',
-      addressLine: getExistingDeliveryAddressLine(order),
-      landmark: order.shippingAddress?.landmark || '',
-    });
-  }, [order, deliveryFormTouched]);
-
   const selectedPaymentMethod = useMemo(
     () => paymentMethods.find((method) => method.id === selectedMethod) ?? paymentMethods[0] ?? null,
     [paymentMethods, selectedMethod],
@@ -279,18 +319,16 @@ export default function PaymentUpload() {
   const isJaigaonPickup = order ? isJaigaonPickupOrder(order) : false;
   const requiresDeliveryAddress = Boolean(order && !isSelfPickupOrder(order));
   const lockedDeliveryArea = order ? getLockedDeliveryArea(order) : '';
-  const deliveryAddressLine = deliveryForm.addressLine.trim();
-  const deliveryRecipientName = deliveryForm.recipientName.trim();
-  const deliveryPhone = deliveryForm.phone.trim();
-  const addressMentionsDifferentArea = Boolean(
-    lockedDeliveryArea &&
-      normalizeDeliveryArea(deliveryAddressLine) &&
-      normalizeDeliveryArea(deliveryAddressLine) !== lockedDeliveryArea,
+  const matchingSavedAddresses = useMemo(
+    () => savedAddresses.filter((address) => addressMatchesArea(address, lockedDeliveryArea)),
+    [lockedDeliveryArea, savedAddresses],
   );
-  const deliveryAddressConfirmed = Boolean(
-    !requiresDeliveryAddress ||
-      (lockedDeliveryArea && deliveryRecipientName && deliveryPhone && deliveryAddressLine && !addressMentionsDifferentArea),
+  const selectedDeliveryAddress = useMemo(
+    () => matchingSavedAddresses.find((address) => address.id === selectedAddressId) ?? null,
+    [matchingSavedAddresses, selectedAddressId],
   );
+  const deliveryAddressReady = Boolean(!requiresDeliveryAddress || (selectedDeliveryAddress && hasUsableSavedAddress(selectedDeliveryAddress)));
+  const hasSavedAddressForOtherArea = requiresDeliveryAddress && savedAddresses.length > 0 && matchingSavedAddresses.length === 0;
   const productReferenceTotal = order?.quotation?.productTotal ?? 0;
   const quotationTotal = paymentSummary.totalPayable;
   const minimumAdvancePercent = isJaigaonPickup
@@ -316,6 +354,19 @@ export default function PaymentUpload() {
   const amountAboveBalance = paymentSummary.balanceDue > 0 && amountPaidNumber > paymentSummary.balanceDue;
   const firstPaymentBelowMinimum = minimumInitialPayment > 0 && amountPaidNumber > 0 && amountPaidNumber < minimumInitialPayment;
 
+  useEffect(() => {
+    if (!requiresDeliveryAddress) {
+      setSelectedAddressId('');
+      return;
+    }
+
+    if (selectedAddressId && matchingSavedAddresses.some((address) => address.id === selectedAddressId)) return;
+
+    const defaultAddress = matchingSavedAddresses.find((address) => address.is_default && hasUsableSavedAddress(address));
+    const firstUsableAddress = matchingSavedAddresses.find((address) => hasUsableSavedAddress(address));
+    setSelectedAddressId(defaultAddress?.id || firstUsableAddress?.id || '');
+  }, [matchingSavedAddresses, requiresDeliveryAddress, selectedAddressId]);
+
   const selectPaymentAmount = (selection: PaymentSelection) => {
     setPaymentSelection(selection);
     setError('');
@@ -334,15 +385,23 @@ export default function PaymentUpload() {
       paymentSummary.balanceDue > 0,
   );
   const canSubmit = Boolean(
-    screenshotFile &&
+    deliveryAddressReady &&
+      screenshotFile &&
       selectedPaymentMethod &&
       amountPaidNumber > 0 &&
-      deliveryAddressConfirmed &&
       !amountAboveBalance &&
       !firstPaymentBelowMinimum &&
       canUpload &&
-      !submitting,
+      !submitting &&
+      !savingDeliveryAddress,
   );
+
+  const submitButtonLabel = (() => {
+    if (submitting || savingDeliveryAddress) return savingDeliveryAddress ? 'Confirming address...' : 'Uploading...';
+    if (!deliveryAddressReady) return 'Select delivery address to continue';
+    if (!screenshotFile) return 'Upload screenshot to continue';
+    return paymentSummary.isPartiallyPaid ? 'Submit Remaining Payment Proof' : 'Submit Payment Proof';
+  })();
 
   useEffect(() => {
     if (!order) return;
@@ -419,33 +478,6 @@ export default function PaymentUpload() {
       return;
     }
 
-    if (requiresDeliveryAddress) {
-      if (!lockedDeliveryArea) {
-        setError('Delivery area is missing. Please request an updated quotation before payment.');
-        return;
-      }
-
-      if (!deliveryRecipientName) {
-        setError('Please enter recipient name before submitting payment.');
-        return;
-      }
-
-      if (!deliveryPhone) {
-        setError('Please enter recipient phone number before submitting payment.');
-        return;
-      }
-
-      if (!deliveryAddressLine) {
-        setError('Please enter your exact delivery address before submitting payment.');
-        return;
-      }
-
-      if (addressMentionsDifferentArea) {
-        setError(`This quotation was prepared for ${lockedDeliveryArea}. Changing delivery area requires an updated quotation.`);
-        return;
-      }
-    }
-
     if (!screenshotFile) {
       setError('Please upload your payment screenshot.');
       return;
@@ -470,20 +502,35 @@ export default function PaymentUpload() {
       return;
     }
 
+    if (requiresDeliveryAddress && !selectedDeliveryAddress) {
+      setError(`Please select a saved delivery address in ${lockedDeliveryArea || 'the quoted delivery area'}.`);
+      return;
+    }
+
+    if (selectedDeliveryAddress && !hasUsableSavedAddress(selectedDeliveryAddress)) {
+      setError('Please update your saved address with recipient, phone, and exact location before continuing.');
+      return;
+    }
+
     setSubmitting(true);
     setError('');
 
     try {
-      if (requiresDeliveryAddress) {
+      if (requiresDeliveryAddress && selectedDeliveryAddress) {
         setSavingDeliveryAddress(true);
         await updateCustomerOrderDeliveryAddress({
           orderId: order.id,
           userId: user.id,
-          recipientName: deliveryRecipientName,
-          phone: deliveryPhone,
+          addressId: selectedDeliveryAddress.id,
+          label: selectedDeliveryAddress.label,
+          recipientName: selectedDeliveryAddress.recipient_name,
+          phone: selectedDeliveryAddress.phone,
           deliveryArea: lockedDeliveryArea,
-          addressLine: deliveryAddressLine,
-          landmark: deliveryForm.landmark.trim(),
+          town: selectedDeliveryAddress.town,
+          gewog: selectedDeliveryAddress.gewog,
+          village: selectedDeliveryAddress.village,
+          landmark: selectedDeliveryAddress.landmark,
+          addressLine: selectedDeliveryAddress.address_line,
         });
         setSavingDeliveryAddress(false);
       }
@@ -635,7 +682,7 @@ export default function PaymentUpload() {
       <div className="sticky top-0 z-30 border-b border-gray-100 bg-white/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto max-w-2xl">
           <p className="text-[11px] font-bold uppercase tracking-wider text-orange-500">Payment proof</p>
-          <h1 className="text-lg font-extrabold text-gray-900">Upload Payment</h1>
+          <h1 className="text-lg font-extrabold text-gray-900">Confirm & Pay</h1>
           <p className="truncate text-xs font-medium text-gray-500">#{order.orderNumber}</p>
         </div>
       </div>
@@ -694,102 +741,82 @@ export default function PaymentUpload() {
 
         <section className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-start gap-2.5">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gray-50 text-orange-500 ring-1 ring-gray-100">
-                <MapPin size={18} />
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500 ring-1 ring-orange-100">
+                {requiresDeliveryAddress ? <MapPin size={18} /> : <Home size={18} />}
               </span>
               <div className="min-w-0">
-                <h2 className="text-sm font-extrabold text-gray-900">
-                  {requiresDeliveryAddress ? 'Confirm delivery address' : 'Pickup option confirmed'}
+                <p className="text-[11px] font-black uppercase tracking-wider text-orange-500">
+                  {requiresDeliveryAddress ? 'Deliver to' : 'Pickup option'}
+                </p>
+                <h2 className="mt-0.5 text-base font-extrabold text-gray-950">
+                  {requiresDeliveryAddress ? selectedDeliveryAddress?.label || 'Choose saved address' : 'Self pickup selected'}
                 </h2>
                 <p className="mt-0.5 text-xs leading-5 text-gray-500">
                   {requiresDeliveryAddress
-                    ? `Your quotation was prepared for ${lockedDeliveryArea || 'the selected area'}. Exact address can be updated here.`
-                    : 'No delivery address is required for self pickup.'}
+                    ? `Quotation is locked for ${lockedDeliveryArea || 'the selected area'}. Choose a saved address from the same area.`
+                    : 'No delivery address is required for this order.'}
                 </p>
               </div>
             </div>
             {requiresDeliveryAddress && (
               <span className="shrink-0 rounded-full bg-gray-50 px-2.5 py-1 text-[10px] font-bold text-gray-500 ring-1 ring-gray-100">
-                Area locked
+                {lockedDeliveryArea || 'Area locked'}
               </span>
             )}
           </div>
 
           {requiresDeliveryAddress ? (
-            <div className="space-y-3">
-              <div className="rounded-2xl bg-gray-50 px-3 py-2.5 ring-1 ring-gray-100">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Delivery area</p>
-                <p className="mt-0.5 text-sm font-black text-gray-950">{lockedDeliveryArea || 'Not selected'}</p>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wide text-gray-400">Recipient name</label>
-                  <input
-                    type="text"
-                    value={deliveryForm.recipientName}
-                    onChange={(event) => {
-                      setDeliveryFormTouched(true);
-                      setDeliveryForm((prev) => ({ ...prev, recipientName: event.target.value }));
-                      setError('');
-                    }}
-                    placeholder="Full name"
-                    className="mt-1.5 h-11 w-full rounded-2xl border border-gray-200 px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wide text-gray-400">Phone</label>
-                  <input
-                    type="tel"
-                    value={deliveryForm.phone}
-                    onChange={(event) => {
-                      setDeliveryFormTouched(true);
-                      setDeliveryForm((prev) => ({ ...prev, phone: event.target.value }));
-                      setError('');
-                    }}
-                    placeholder="Contact number"
-                    className="mt-1.5 h-11 w-full rounded-2xl border border-gray-200 px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10"
-                  />
+            selectedDeliveryAddress ? (
+              <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-gray-950">{selectedDeliveryAddress.recipient_name}</p>
+                    <p className="mt-0.5 text-xs font-semibold text-gray-500">{formatSavedAddressPhone(selectedDeliveryAddress.phone)}</p>
+                    <p className="mt-2 text-sm font-semibold leading-5 text-gray-800">{savedAddressMainLine(selectedDeliveryAddress)}</p>
+                    <p className="mt-1 text-xs leading-5 text-gray-500">{uniqueTextParts([selectedDeliveryAddress.dzongkhag, selectedDeliveryAddress.landmark, selectedDeliveryAddress.address_line]).join(' • ')}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddressPicker(true)}
+                    className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-orange-600 ring-1 ring-orange-100"
+                  >
+                    Change
+                  </button>
                 </div>
               </div>
-
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wide text-gray-400">Exact address</label>
-                <textarea
-                  value={deliveryForm.addressLine}
-                  onChange={(event) => {
-                    setDeliveryFormTouched(true);
-                    setDeliveryForm((prev) => ({ ...prev, addressLine: event.target.value }));
-                    setError('');
-                  }}
-                  placeholder={`Building, town/area, gewog or nearby place in ${lockedDeliveryArea || 'selected area'}`}
-                  rows={3}
-                  className="mt-1.5 w-full resize-none rounded-2xl border border-gray-200 px-3 py-2.5 text-sm leading-5 text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10"
-                />
+            ) : (
+              <div className="rounded-2xl border border-orange-100 bg-orange-50/40 p-3">
+                <p className="text-sm font-bold text-gray-950">
+                  {addressesLoading ? 'Checking saved addresses...' : `No saved address found for ${lockedDeliveryArea || 'this delivery area'}`}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-gray-600">
+                  {hasSavedAddressForOtherArea
+                    ? `Your saved address is outside ${lockedDeliveryArea}. Add or choose an address in the quoted area to continue.`
+                    : 'Add a saved address first so checkout stays clear and professional.'}
+                </p>
+                <div className="mt-3 flex gap-2">
+                  {matchingSavedAddresses.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddressPicker(true)}
+                      className="h-10 flex-1 rounded-2xl bg-white text-sm font-bold text-gray-800 ring-1 ring-gray-200"
+                    >
+                      Choose address
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => navigate('/addresses')}
+                    className="h-10 flex-1 rounded-2xl bg-orange-500 text-sm font-bold text-white"
+                  >
+                    Add address
+                  </button>
+                </div>
               </div>
-
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wide text-gray-400">Landmark / instruction</label>
-                <input
-                  type="text"
-                  value={deliveryForm.landmark}
-                  onChange={(event) => {
-                    setDeliveryFormTouched(true);
-                    setDeliveryForm((prev) => ({ ...prev, landmark: event.target.value }));
-                    setError('');
-                  }}
-                  placeholder="Optional landmark or delivery instruction"
-                  className="mt-1.5 h-11 w-full rounded-2xl border border-gray-200 px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10"
-                />
-              </div>
-
-              <p className="rounded-2xl bg-gray-50 px-3 py-2.5 text-xs leading-5 text-gray-500">
-                Changing the delivery area requires a revised quotation because delivery fee may change.
-              </p>
-            </div>
+            )
           ) : (
-            <div className="rounded-2xl bg-gray-50 px-3 py-3 text-sm font-semibold leading-5 text-gray-800 ring-1 ring-gray-100">
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3 text-sm font-semibold leading-5 text-gray-800">
               {getDeliverySummary(order)}
             </div>
           )}
@@ -875,8 +902,8 @@ export default function PaymentUpload() {
               </div>
             )}
             <div className="rounded-2xl border border-gray-100 bg-white p-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Delivery / pickup summary</p>
-              <p className="mt-1 text-sm font-bold leading-5 text-gray-900">{getDeliverySummary(order)}</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Delivery / address</p>
+              <p className="mt-1 text-sm font-bold leading-5 text-gray-900">{selectedDeliveryAddress ? savedAddressFullLine(selectedDeliveryAddress) : getDeliverySummary(order)}</p>
             </div>
           </div>
           <div className="mt-3 rounded-2xl bg-gray-50 p-3 text-xs leading-5 text-gray-500">
@@ -1084,25 +1111,101 @@ export default function PaymentUpload() {
         </section>
       </main>
 
+      {showAddressPicker && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/45 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-10 sm:items-center">
+          <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-gray-200">
+            <div className="flex items-start justify-between gap-3 border-b border-gray-100 p-4">
+              <div>
+                <h3 className="text-base font-black text-gray-950">Choose delivery address</h3>
+                <p className="mt-1 text-xs leading-5 text-gray-500">Only addresses in {lockedDeliveryArea || 'the quoted area'} are shown.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddressPicker(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gray-50 text-gray-500"
+                aria-label="Close address picker"
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <div className="max-h-[60vh] space-y-2 overflow-y-auto p-4">
+              {matchingSavedAddresses.length === 0 ? (
+                <div className="rounded-2xl bg-gray-50 p-4 text-sm leading-6 text-gray-600">
+                  No saved address is available for {lockedDeliveryArea || 'this area'}.
+                </div>
+              ) : (
+                matchingSavedAddresses.map((address) => {
+                  const selected = selectedAddressId === address.id;
+                  const usable = hasUsableSavedAddress(address);
+
+                  return (
+                    <button
+                      key={address.id}
+                      type="button"
+                      disabled={!usable}
+                      onClick={() => {
+                        setSelectedAddressId(address.id);
+                        setShowAddressPicker(false);
+                        setError('');
+                      }}
+                      className={`w-full rounded-2xl border p-3 text-left transition active:scale-[0.99] disabled:opacity-60 ${
+                        selected ? 'border-orange-400 bg-orange-50/40 ring-2 ring-orange-500/10' : 'border-gray-100 bg-white hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-gray-600">
+                              {address.label || 'Address'}
+                            </span>
+                            {address.is_default && (
+                              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700">
+                                Default
+                              </span>
+                            )}
+                            {!usable && (
+                              <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-red-600">
+                                Incomplete
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-2 text-sm font-black text-gray-950">{address.recipient_name || 'Recipient name missing'}</p>
+                          <p className="mt-0.5 text-xs font-semibold text-gray-500">{formatSavedAddressPhone(address.phone)}</p>
+                          <p className="mt-2 text-sm font-semibold leading-5 text-gray-800">{savedAddressMainLine(address) || 'Exact address missing'}</p>
+                          <p className="mt-1 text-xs leading-5 text-gray-500">{uniqueTextParts([address.dzongkhag, address.landmark, address.address_line]).join(' • ')}</p>
+                        </div>
+                        {selected && <CheckCircle size={18} className="mt-1 shrink-0 text-orange-500" />}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="border-t border-gray-100 bg-gray-50 p-4">
+              <button
+                type="button"
+                onClick={() => navigate('/addresses')}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-white text-sm font-bold text-gray-800 ring-1 ring-gray-200"
+              >
+                <Plus size={16} />
+                Add or edit saved addresses
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-100 bg-white p-4">
         <div className="mx-auto max-w-2xl">
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!canSubmit || paymentMethodsLoading}
+            disabled={!canSubmit || paymentMethodsLoading || addressesLoading}
             className="h-12 w-full rounded-2xl bg-orange-500 font-bold text-white shadow-lg shadow-orange-500/20 transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300 disabled:shadow-none"
           >
-            {submitting || savingDeliveryAddress
-              ? savingDeliveryAddress
-                ? 'Saving address...'
-                : 'Uploading...'
-              : !deliveryAddressConfirmed
-                ? 'Confirm delivery address to continue'
-                : !screenshotFile
-                  ? 'Upload screenshot to continue'
-                  : paymentSummary.isPartiallyPaid
-                    ? 'Submit Remaining Payment Proof'
-                    : 'Submit Payment Proof'}
+            {submitButtonLabel}
           </button>
         </div>
       </div>

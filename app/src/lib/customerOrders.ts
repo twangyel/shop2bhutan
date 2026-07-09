@@ -4050,35 +4050,98 @@ async function insertPaymentWithKnownSchema(payload: {
 }
 
 
+export type CustomerSavedAddress = {
+  id: string
+  user_id: string
+  label: string
+  recipient_name: string
+  phone: string
+  dzongkhag: string
+  town: string | null
+  gewog: string | null
+  village: string | null
+  landmark: string | null
+  address_line: string | null
+  is_default: boolean
+  created_at?: string | null
+}
+
+export async function fetchCustomerSavedAddresses(userId: string): Promise<CustomerSavedAddress[]> {
+  const ownerId = cleanText(userId)
+  if (!ownerId) return []
+
+  const { data, error } = await supabase
+    .from('customer_addresses')
+    .select('*')
+    .eq('user_id', ownerId)
+    .order('is_default', { ascending: false })
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    if (isMissingColumnOrRelationError(error)) return []
+    throw error
+  }
+
+  return ((data ?? []) as AnyRow[]).map((row) => ({
+    id: firstString(row, ['id'], ''),
+    user_id: firstString(row, ['user_id'], ownerId),
+    label: firstString(row, ['label'], 'Home'),
+    recipient_name: firstString(row, ['recipient_name', 'recipientName', 'name'], ''),
+    phone: firstString(row, ['phone', 'customer_phone', 'recipient_phone'], ''),
+    dzongkhag: firstString(row, ['dzongkhag'], ''),
+    town: firstString(row, ['town', 'town_area'], '') || null,
+    gewog: firstString(row, ['gewog'], '') || null,
+    village: firstString(row, ['village', 'building'], '') || null,
+    landmark: firstString(row, ['landmark'], '') || null,
+    address_line: firstString(row, ['address_line', 'addressLine', 'address_details'], '') || null,
+    is_default: Boolean(firstValue(row, ['is_default', 'isDefault'])),
+    created_at: firstString(row, ['created_at'], '') || null,
+  }))
+}
+
 export type ConfirmCustomerDeliveryAddressInput = {
   orderId: string
   userId: string
+  addressId?: string
+  label?: string
   recipientName: string
   phone: string
   deliveryArea: string
-  addressLine: string
-  landmark?: string
+  town?: string | null
+  gewog?: string | null
+  village?: string | null
+  landmark?: string | null
+  addressLine?: string | null
 }
 
 function makeConfirmedDeliveryAddressSnapshot(input: ConfirmCustomerDeliveryAddressInput) {
   const recipientName = cleanText(input.recipientName)
   const phone = cleanText(input.phone)
   const deliveryArea = cleanText(input.deliveryArea)
-  const addressLine = cleanText(input.addressLine)
+  const town = cleanText(input.town)
+  const gewog = cleanText(input.gewog)
+  const village = cleanText(input.village)
   const landmark = cleanText(input.landmark)
-  const fullAddress = uniqueAddressParts([addressLine, deliveryArea, landmark]).join(', ')
+  const addressLine = cleanText(input.addressLine)
+  const exactAddress = uniqueAddressParts([village, town, gewog, addressLine]).join(', ')
+  const fullAddress = uniqueAddressParts([exactAddress, deliveryArea, landmark]).join(', ')
 
   return {
+    address_id: cleanText(input.addressId) || null,
+    label: cleanText(input.label) || 'Saved address',
     recipient_name: recipientName,
     phone,
     customer_phone: phone,
     delivery_address: fullAddress,
     full_address: fullAddress,
     formatted_address: fullAddress,
-    address_line1: addressLine,
-    village: addressLine,
+    address_line: addressLine || null,
+    address_line1: exactAddress,
+    town: town || null,
+    gewog: gewog || null,
+    village: village || exactAddress,
     dzongkhag: deliveryArea,
-    landmark,
+    landmark: landmark || null,
     fulfillment_mode: 'delivery',
     confirmed_at: new Date().toISOString(),
   }
@@ -4091,21 +4154,26 @@ export async function updateCustomerOrderDeliveryAddress(input: ConfirmCustomerD
   const recipientName = cleanText(input.recipientName)
   const phone = cleanText(input.phone)
   const deliveryArea = cleanText(input.deliveryArea)
+  const town = cleanText(input.town)
+  const gewog = cleanText(input.gewog)
+  const village = cleanText(input.village)
   const addressLine = cleanText(input.addressLine)
-  const landmark = cleanText(input.landmark)
+  const exactAddress = uniqueAddressParts([village, town, gewog, addressLine]).join(', ')
 
-  if (!recipientName) throw new Error('Please enter recipient name.')
-  if (!phone) throw new Error('Please enter phone number.')
+  if (!recipientName) throw new Error('Please select a delivery address with recipient name.')
+  if (!phone) throw new Error('Please select a delivery address with phone number.')
   if (!deliveryArea) throw new Error('Delivery area is required.')
-  if (!addressLine) throw new Error('Please enter your exact delivery address.')
+  if (!exactAddress) throw new Error('Please select or add a complete delivery address.')
 
   const snapshot = makeConfirmedDeliveryAddressSnapshot({
     ...input,
     recipientName,
     phone,
     deliveryArea,
+    town,
+    gewog,
+    village,
     addressLine,
-    landmark,
   })
   const now = new Date().toISOString()
   const fullAddress = snapshot.full_address
