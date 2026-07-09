@@ -524,41 +524,64 @@ export default function PaymentUpload() {
         )}
 
         <section className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
-          <div className="border-l-4 border-orange-500 p-4">
+          <div className="bg-gradient-to-br from-orange-50 via-white to-white p-4 sm:p-5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">{isJaigaonPickup ? 'Shop2Bhutan charges to pay' : 'Amount to pay'}</p>
-                <p className="mt-1 text-3xl font-black tracking-tight text-gray-950">{formatCurrency(amountPaidNumber)}</p>
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  {isJaigaonPickup
-                    ? 'Jaigaon pickup selected. Product value is reference only; pay Shop2Bhutan charges in full.'
-                    : paymentSelection === 'advance'
-                      ? `${minimumAdvancePercent}% advance selected. Remaining balance stays visible until paid.`
-                      : paymentSummary.isPartiallyPaid
-                        ? 'Remaining balance selected for this payment.'
-                        : 'Full payment selected for this order.'}
+                <div className="flex items-center gap-2">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-sm">
+                    <CreditCard size={18} />
+                  </span>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-orange-500">Payment amount</p>
+                    <p className="text-xs text-gray-500">Review the amount before uploading your proof.</p>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                    {isJaigaonPickup ? 'Shop2Bhutan charges to pay' : paymentSelection === 'advance' ? 'Advance amount selected' : paymentSelection === 'remaining' ? 'Remaining balance selected' : 'Selected amount to pay'}
+                  </p>
+                  <p className="mt-1 text-4xl font-black tracking-tight text-gray-950">{formatCurrency(amountPaidNumber)}</p>
+                  <p className="mt-2 max-w-md text-sm leading-6 text-gray-600">
+                    {isJaigaonPickup
+                      ? 'Jaigaon pickup selected. Product value is only for reference. Pay Shop2Bhutan charges in full.'
+                      : paymentSelection === 'advance'
+                        ? `${minimumAdvancePercent}% advance selected. The remaining balance will stay visible until paid.`
+                        : paymentSummary.isPartiallyPaid
+                          ? 'You are uploading the remaining balance for this order.'
+                          : 'You are uploading the full payable amount for this order.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="shrink-0 rounded-2xl border border-gray-200 bg-white px-3 py-2 text-right shadow-sm">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Status</p>
+                <p className="mt-1 text-xs font-bold text-gray-700">
+                  {paymentSummary.isPartiallyPaid ? 'Balance due' : 'Payment pending'}
                 </p>
               </div>
-              <span className="shrink-0 rounded-full border border-gray-100 bg-gray-50 px-3 py-1 text-xs font-bold text-gray-600">
-                {paymentSummary.isPartiallyPaid ? 'Balance due' : 'Payment pending'}
-              </span>
             </div>
 
-            <div className={`mt-4 grid gap-2 ${isJaigaonPickup ? 'grid-cols-1' : 'grid-cols-2'}`}>
-              <div className="rounded-2xl bg-gray-50 p-3">
+            <div className={`mt-5 grid gap-3 ${isJaigaonPickup ? 'grid-cols-2' : 'grid-cols-3'}`}>
+              <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Quotation total</p>
+                <p className="mt-1 text-base font-black text-gray-950">{formatCurrency(quotationTotal)}</p>
+              </div>
+              <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Verified paid</p>
-                <p className="mt-1 text-sm font-black text-gray-900">{formatCurrency(paymentSummary.verifiedPaid)}</p>
+                <p className="mt-1 text-base font-black text-gray-950">{formatCurrency(paymentSummary.verifiedPaid)}</p>
               </div>
-              <div className="rounded-2xl bg-gray-50 p-3">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Balance after</p>
-                <p className="mt-1 text-sm font-black text-gray-900">{formatCurrency(balanceAfterSelectedPayment)}</p>
+              <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm col-span-2 sm:col-span-1">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Balance after this</p>
+                <p className="mt-1 text-base font-black text-gray-950">{formatCurrency(balanceAfterSelectedPayment)}</p>
               </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              <PaymentStep number={1} label="Select amount" />
-              <PaymentStep number={2} label="Choose bank" />
-              <PaymentStep number={3} label="Upload proof" />
+            <div className="mt-4 rounded-2xl border border-orange-100 bg-white/80 p-3">
+              <div className="flex flex-wrap gap-2">
+                <PaymentStep number={1} label="Select amount" />
+                <PaymentStep number={2} label="Choose bank" />
+                <PaymentStep number={3} label="Upload proof" />
+              </div>
             </div>
           </div>
         </section>
