@@ -172,6 +172,7 @@ type ActiveUpdate = {
 type ActivityRow = Record<string, unknown> & {
   id?: string | null;
   order_id?: string | null;
+  order_no?: string | null;
   status?: string | null;
   created_at?: string | null;
   trip_id?: string | null;
@@ -260,22 +261,36 @@ async function fetchOwnedRows(
   select: string,
   userId: string,
   ownerColumns: string[],
+  fallbackSelect?: string,
 ) {
   for (const column of ownerColumns) {
-    const { data, error } = await supabase
-      .from(table)
-      .select(select)
-      .eq(column, userId)
-      .order('created_at', { ascending: false })
-      .limit(8);
+    const runQuery = async (selectValue: string) => {
+      const { data, error } = await supabase
+        .from(table)
+        .select(selectValue)
+        .eq(column, userId)
+        .order('created_at', { ascending: false })
+        .limit(8);
 
-    if (error) {
-      console.warn(`[Home] ${table}.${column} activity lookup skipped:`, error.message);
+      if (error) return { rows: [] as ActivityRow[], error };
+      return { rows: Array.isArray(data) ? (data as unknown as ActivityRow[]) : [], error: null };
+    };
+
+    const primary = await runQuery(select);
+
+    if (!primary.error && primary.rows.length > 0) return primary.rows;
+
+    if (primary.error && fallbackSelect) {
+      console.warn(`[Home] ${table}.${column} activity lookup fallback used:`, primary.error.message);
+      const fallback = await runQuery(fallbackSelect);
+      if (!fallback.error && fallback.rows.length > 0) return fallback.rows;
+      if (fallback.error) console.warn(`[Home] ${table}.${column} fallback lookup skipped:`, fallback.error.message);
       continue;
     }
 
-    const rows = Array.isArray(data) ? (data as unknown as ActivityRow[]) : [];
-    if (rows.length > 0) return rows;
+    if (primary.error) {
+      console.warn(`[Home] ${table}.${column} activity lookup skipped:`, primary.error.message);
+    }
   }
 
   return [];
@@ -284,16 +299,17 @@ async function fetchOwnedRows(
 async function fetchLatestActiveOrder(userId: string): Promise<ActiveUpdate | null> {
   const rows = await fetchOwnedRows(
     'orders',
-    'id, order_id, status, created_at, estimated_delivery_from, estimated_delivery_to, estimated_delivery_note',
+    'id, order_id, order_no, status, created_at, estimated_delivery_from, estimated_delivery_to, estimated_delivery_note',
     userId,
-    ['customer_id', 'user_id'],
+    ['customer_id', 'user_id', 'profile_id'],
+    'id, order_id, order_no, status, created_at',
   );
 
   const row = rows.find(isActiveOrderRow);
   if (!row) return null;
 
   const id = makeActivityId(row);
-  const orderNumber = cleanString(row.order_id) ?? id.slice(0, 8).toUpperCase();
+  const orderNumber = cleanString(row.order_no) ?? cleanString(row.order_id) ?? id.slice(0, 8).toUpperCase();
 
   return {
     kind: 'order',
@@ -336,7 +352,7 @@ async function fetchLatestActiveParcel(userId: string): Promise<ActiveUpdate | n
     'parcel_requests',
     'id, status, created_at, trip_id',
     userId,
-    ['customer_id', 'user_id'],
+    ['customer_id', 'user_id', 'profile_id'],
   );
 
   const row = rows.find(isActiveParcelRow);
