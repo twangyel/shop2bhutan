@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import {
-  ArrowLeft,
   Calendar,
   CheckCircle2,
   ChevronDown,
@@ -133,13 +132,7 @@ export default function MyParcels() {
   return (
     <div className="min-h-screen bg-white pb-24">
       <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white/95 backdrop-blur">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="-ml-1 rounded-full p-1 hover:bg-neutral-100"
-          >
-            <ArrowLeft size={22} />
-          </button>
+        <div className="px-4 py-3">
 
           <div>
             <h1 className="text-lg font-bold text-neutral-900">My Parcels</h1>

@@ -401,49 +401,49 @@ function ActivityMiniCard({
   onNavigate: (path: string) => void;
 }) {
   const isOrder = update.kind === 'order';
+  const heading = isOrder ? 'Order update' : 'Parcel update';
+  const cta = isOrder ? 'View Order' : 'View Parcel';
 
   return (
     <button
       type="button"
       onClick={() => onNavigate(update.path)}
-      className={`rounded-3xl border border-gray-100 bg-white p-3 text-left shadow-sm transition active:scale-[0.98] ${
+      className={`min-h-[172px] rounded-3xl border border-gray-100 bg-white p-3.5 text-left shadow-sm transition active:scale-[0.98] ${
         fullWidth ? 'col-span-2' : ''
       }`}
     >
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-center justify-between gap-2">
         <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
             isOrder ? 'bg-orange-50 text-orange-500' : 'bg-emerald-50 text-emerald-600'
           }`}
         >
-          {isOrder ? <Package size={19} strokeWidth={2.2} /> : <Truck size={19} strokeWidth={2.2} />}
+          {isOrder ? <Package size={20} strokeWidth={2.2} /> : <Truck size={20} strokeWidth={2.2} />}
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <span
-              className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${
-                isOrder ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'
-              }`}
-            >
-              {isOrder ? 'Order' : 'Parcel'}
-            </span>
-            <span className="truncate text-[10px] font-bold text-gray-400">{update.statusLabel}</span>
-          </div>
+        <span
+          className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-wide ${
+            isOrder ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'
+          }`}
+        >
+          {isOrder ? 'Order' : 'Parcel'}
+        </span>
+      </div>
 
-          <h3 className="mt-2 line-clamp-1 text-sm font-extrabold text-gray-950">{update.title}</h3>
-          <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-gray-500">{update.description}</p>
+      <div className="mt-3 min-w-0">
+        <p className="text-[11px] font-extrabold text-gray-400">{update.statusLabel}</p>
+        <h3 className="mt-1 text-[15px] font-black leading-5 text-gray-950">{heading}</h3>
+        <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-gray-500">{update.description}</p>
 
-          {update.etaLabel && (
-            <p className={`mt-2 text-[11px] font-extrabold ${isOrder ? 'text-orange-600' : 'text-emerald-600'}`}>
-              {update.etaLabel}
-            </p>
-          )}
-        </div>
+        {update.etaLabel && (
+          <p className={`mt-2 line-clamp-2 text-[11px] font-extrabold leading-4 ${isOrder ? 'text-orange-600' : 'text-emerald-600'}`}>
+            {update.etaLabel}
+          </p>
+        )}
       </div>
 
       <div className="mt-3 flex items-center justify-between rounded-2xl bg-gray-50 px-3 py-2">
-        <span className="text-[11px] font-bold text-gray-700">{isOrder ? 'View Order' : 'View Parcel'}</span>
+        <span className="text-[11px] font-bold text-gray-700">{cta}</span>
         <ArrowRight size={14} strokeWidth={2.5} className="text-gray-500" />
       </div>
     </button>
@@ -461,7 +461,7 @@ function ContinueTrackingCard({
 }) {
   if (loading) {
     return (
-      <section className="mt-5 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+      <section className="mt-5 rounded-3xl border border-gray-100 bg-white p-3.5 shadow-sm">
         <div className="h-3 w-28 animate-pulse rounded-full bg-gray-100" />
         <div className="mt-3 h-5 w-44 animate-pulse rounded-full bg-gray-100" />
         <div className="mt-4 grid grid-cols-2 gap-3">
@@ -534,7 +534,7 @@ function ContinueTrackingCard({
   const fullWidth = visibleUpdates.length === 1;
 
   return (
-    <section className="mt-5 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+    <section className="mt-5 rounded-3xl border border-gray-100 bg-white p-3.5 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-2">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Continue Tracking</p>
@@ -551,7 +551,7 @@ function ContinueTrackingCard({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2.5">
         {visibleUpdates.map((update) => (
           <ActivityMiniCard
             key={`${update.kind}-${update.id}`}
