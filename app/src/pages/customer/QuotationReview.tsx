@@ -496,14 +496,14 @@ export default function QuotationReview() {
  </section>
  </main>
 
- {canRespond && (
- <div className="fixed bottom-[68px] left-0 right-0 z-40 border-t border-gray-200 bg-white p-4 shadow-[0_-12px_30px_rgba(15,23,42,0.06)] ">
+ {canRespond && !showRejectDialog && (
+ <div className="fixed bottom-[84px] left-0 right-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom)+4px)] sm:bottom-4">
  <div className="mx-auto flex max-w-2xl gap-3">
  <button
  type="button"
  onClick={handleReject}
  disabled={submitting}
- className="h-12 flex-1 rounded-2xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+ className="h-12 flex-1 rounded-2xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:opacity-50"
 >
  Need Changes
  </button>
@@ -511,7 +511,7 @@ export default function QuotationReview() {
  type="button"
  onClick={handleAccept}
  disabled={submitting}
- className="h-12 flex-[1.5] rounded-2xl bg-emerald-500 text-sm font-semibold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+ className="h-12 flex-[1.5] rounded-2xl bg-emerald-500 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-600 disabled:opacity-50"
 >
  {submitting ? 'Processing...' : 'Accept & Continue'}
  </button>
@@ -520,7 +520,7 @@ export default function QuotationReview() {
  )}
 
  {showRejectDialog && (
- <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/45 px-4 pb-5 pt-10 -sm sm:items-center sm:pb-10">
+ <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/45 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-10 sm:items-center sm:pb-10">
  <div className="w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-gray-200">
  <div className="p-5">
  <div className="mb-4 flex items-start gap-3">
