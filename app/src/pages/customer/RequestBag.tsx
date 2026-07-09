@@ -508,7 +508,7 @@ export default function RequestBag() {
   const [destinationPickerOpen, setDestinationPickerOpen] = useState(false);
   const [error, setError] = useState('');
   const [addressLoading, setAddressLoading] = useState(false);
-  const [savedAddress, setSavedAddress] = useState<CustomerAddress | null>(null);
+  const [, setSavedAddress] = useState<CustomerAddress | null>(null);
   const [dzongkhagOptions, setDzongkhagOptions] = useState<DzongkhagOption[]>([]);
   const [fulfillmentMode, setFulfillmentMode] = useState<FulfillmentMode>('delivery');
   const [pickupHubId, setPickupHubId] = useState(SELF_PICKUP_OPTIONS[0].id);
@@ -967,14 +967,14 @@ export default function RequestBag() {
               {/* Summary */}
               <div className="mt-5 space-y-3">
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-2xl border border-orange-100 bg-orange-50/70 px-3 py-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-orange-500">Items</p>
+                  <div className="rounded-2xl border border-gray-100 bg-white px-3 py-3 shadow-sm">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Items</p>
                     <p className="mt-1 text-[15px] font-extrabold text-gray-900">
                       {itemCount} item{itemCount === 1 ? '' : 's'}
                       <span className="ml-1 text-xs font-semibold text-gray-500">({totalQuantity} qty)</span>
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-right">
+                  <div className="rounded-2xl border border-gray-100 bg-white px-3 py-3 text-right shadow-sm">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Site estimate</p>
                     <p className="mt-1 text-[15px] font-extrabold text-gray-900">
                       {estimatedSiteTotal > 0 ? formatPrice(estimatedSiteTotal) : <span className="text-sm font-semibold text-gray-400">To be quoted</span>}
@@ -982,11 +982,25 @@ export default function RequestBag() {
                   </div>
                 </div>
 
+                <div className="rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm">
+                  <p className="text-sm font-extrabold text-gray-900">Notes for quotation</p>
+                  <p className="mt-0.5 text-xs leading-5 text-gray-500">
+                    Add size, color, variant, delivery, or pickup instructions if needed.
+                  </p>
+                  <textarea
+                    value={customer.notes}
+                    onChange={(e) => setCustomer((prev) => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Optional note for Shop2Bhutan..."
+                    rows={2}
+                    className="mt-3 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm leading-5 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+                  />
+                </div>
+
                 {/* Contact and delivery form */}
-                <div className="rounded-2xl border border-gray-100 bg-white p-3.5">
+                <div className="rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-3">
-                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500 ring-1 ring-orange-100">
+                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gray-50 text-gray-500 ring-1 ring-gray-100">
                         <User size={17} strokeWidth={2.2} />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -1054,15 +1068,15 @@ export default function RequestBag() {
                   )}
                 </div>
 
-                <div className="rounded-2xl border border-gray-100 bg-white p-3.5">
+                <div className="rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm">
                   <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gray-50 text-gray-500 ring-1 ring-gray-100">
                       <MapPin size={17} strokeWidth={2.2} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-extrabold text-gray-900">Delivery preference</p>
                       <p className="mt-0.5 text-xs leading-5 text-gray-500">
-                        Helps us estimate delivery or pickup fee.
+                        Used to estimate delivery or pickup fee.
                       </p>
                     </div>
                   </div>
@@ -1076,7 +1090,7 @@ export default function RequestBag() {
                       }}
                       className={`rounded-2xl border px-3 py-2.5 text-left transition ${
                         fulfillmentMode === 'delivery'
-                          ? 'border-orange-300 bg-orange-50 text-orange-700'
+                          ? 'border-orange-200 bg-orange-50/70 text-orange-700 ring-1 ring-orange-100'
                           : 'border-gray-200 bg-white text-gray-600 active:bg-gray-50'
                       }`}
                     >
@@ -1092,7 +1106,7 @@ export default function RequestBag() {
                       }}
                       className={`rounded-2xl border px-3 py-2.5 text-left transition ${
                         fulfillmentMode === 'self_pickup'
-                          ? 'border-blue-300 bg-blue-50 text-blue-700'
+                          ? 'border-orange-200 bg-orange-50/70 text-orange-700 ring-1 ring-orange-100'
                           : 'border-gray-200 bg-white text-gray-600 active:bg-gray-50'
                       }`}
                     >
@@ -1105,22 +1119,6 @@ export default function RequestBag() {
                     <div className="mt-3 flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs text-gray-500">
                       <Loader2 size={15} className="animate-spin text-orange-500" />
                       Loading destination...
-                    </div>
-                  )}
-
-                  {!isSelfPickup && customer.deliveryAddress && (
-                    <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2.5">
-                      <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-600">
-                        Destination selected
-                      </p>
-                      <p className="mt-1 text-xs leading-5 font-medium text-emerald-900">
-                        {customer.deliveryAddress}
-                      </p>
-                      {savedAddress?.formattedAddress && (
-                        <p className="mt-0.5 text-[11px] leading-4 text-emerald-700/80">
-                          Loaded from your profile or saved address. You can change it below.
-                        </p>
-                      )}
                     </div>
                   )}
 
@@ -1137,7 +1135,7 @@ export default function RequestBag() {
                           }}
                           className={`w-full rounded-2xl border p-3 text-left transition ${
                             pickupHubId === hub.id
-                              ? 'border-blue-300 bg-blue-50 text-blue-800'
+                              ? 'border-orange-200 bg-orange-50/70 text-orange-700 ring-1 ring-orange-100'
                               : 'border-gray-200 bg-white text-gray-600 active:bg-gray-50'
                           }`}
                         >
@@ -1145,7 +1143,7 @@ export default function RequestBag() {
                           <span className="mt-0.5 block text-[11px] leading-4 text-gray-500">{hub.dzongkhag}</span>
                         </button>
                       ))}
-                      <div className="rounded-2xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-800">
+                      <div className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs leading-5 text-gray-600">
                         {selectedPickupHub.pickupInstructions}
                       </div>
                     </div>
@@ -1159,24 +1157,18 @@ export default function RequestBag() {
                         <button
                           type="button"
                           onClick={() => setDestinationPickerOpen((prev) => !prev)}
-                          className={`flex min-h-[46px] w-full items-center justify-between gap-3 rounded-xl px-3 text-left transition active:scale-[0.99] ${
-                            customer.deliveryAddress
-                              ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-100'
-                              : 'bg-gray-50 text-gray-500'
-                          }`}
+                          className="flex min-h-[46px] w-full items-center justify-between gap-3 rounded-xl bg-white px-3 text-left transition active:scale-[0.99]"
                           aria-expanded={destinationPickerOpen}
                         >
                           <span className="flex min-w-0 items-center gap-2.5">
-                            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
-                              customer.deliveryAddress ? 'bg-white text-orange-500' : 'bg-white text-gray-400'
-                            }`}>
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gray-50 text-orange-500">
                               <MapPin size={16} strokeWidth={2.2} />
                             </span>
                             <span className="min-w-0">
-                              <span className="block text-[10px] font-bold uppercase tracking-wide opacity-70">
+                              <span className="block text-[10px] font-bold uppercase tracking-wide text-gray-400">
                                 {customer.deliveryAddress ? 'Selected area' : 'Choose area'}
                               </span>
-                              <span className="block truncate text-sm font-extrabold">
+                              <span className="block truncate text-sm font-extrabold text-gray-900">
                                 {customer.deliveryAddress || 'Select Thimphu, Paro, or Chhukha'}
                               </span>
                             </span>
@@ -1184,12 +1176,12 @@ export default function RequestBag() {
                           <ChevronDown
                             size={18}
                             strokeWidth={2.4}
-                            className={`shrink-0 transition-transform ${destinationPickerOpen ? 'rotate-180' : ''}`}
+                            className={`shrink-0 text-gray-400 transition-transform ${destinationPickerOpen ? 'rotate-180' : ''}`}
                           />
                         </button>
 
                         {destinationPickerOpen && (
-                          <div className="mt-1.5 grid gap-1.5">
+                          <div className="mt-1.5 grid gap-1.5 border-t border-gray-100 pt-1.5">
                             {DELIVERY_DESTINATION_OPTIONS.map((destination) => {
                               const selected = normalizeSupportedDeliveryDestination(customer.deliveryAddress, dzongkhagOptions) === destination;
                               return (
@@ -1203,13 +1195,13 @@ export default function RequestBag() {
                                   }}
                                   className={`flex min-h-[44px] items-center justify-between rounded-xl px-3 text-left transition active:scale-[0.99] ${
                                     selected
-                                      ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                                      ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-100'
                                       : 'bg-white text-gray-700 hover:bg-gray-50 active:bg-gray-50'
                                   }`}
                                 >
                                   <span className="flex items-center gap-2.5">
                                     <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${
-                                      selected ? 'bg-white/20 text-white' : 'bg-orange-50 text-orange-500'
+                                      selected ? 'bg-white text-orange-500' : 'bg-gray-50 text-gray-400'
                                     }`}>
                                       <MapPin size={14} strokeWidth={2.3} />
                                     </span>
@@ -1228,20 +1220,12 @@ export default function RequestBag() {
                       </p>
                     </div>
                   )}
-
-                  <textarea
-                    value={customer.notes}
-                    onChange={(e) => setCustomer((prev) => ({ ...prev, notes: e.target.value }))}
-                    placeholder="Any size, color, delivery, or pickup note..."
-                    rows={2}
-                    className="mt-3 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm leading-5 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
-                  />
                 </div>
               </div>
 
               {/* Warning */}
-              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3">
-                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100">
+              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-amber-600 ring-1 ring-gray-100">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                     <line x1="12" y1="9" x2="12" y2="13" />
@@ -1249,8 +1233,8 @@ export default function RequestBag() {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-xs font-extrabold text-amber-800">No payment now</p>
-                  <p className="mt-0.5 text-xs leading-5 font-medium text-amber-700">
+                  <p className="text-xs font-extrabold text-gray-900">No payment now</p>
+                  <p className="mt-0.5 text-xs leading-5 font-medium text-gray-600">
                     You’ll receive a quotation first and pay only after approval.
                   </p>
                 </div>
