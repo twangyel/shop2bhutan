@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { appSettings } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
-import StatusBadge from '@/components/shared/StatusBadge';
 import { fetchCustomerOrderById, fetchCustomerOrderByIdFast } from '@/lib/customerOrders';
 import { getFulfillmentDisplay, isSelfPickupOrder } from '@/lib/fulfillment';
 import type { Order, OrderStatus } from '@/types';
@@ -45,17 +44,17 @@ const progressSteps: Array<{
 }> = [
   {
     status: 'pending_confirmation',
-    label: 'Order Received',
-    shortLabel: 'Received',
-    description: 'Your order has been received',
-    next: 'Admin will review your request and prepare quotation.',
+    label: 'Request Received',
+    shortLabel: 'Request',
+    description: 'Your quotation request has been received',
+    next: 'Admin will review your items, site prices, and delivery area before preparing your quotation.',
   },
   {
     status: 'quotation_pending',
-    label: 'Quotation Pending',
-    shortLabel: 'Quotation',
+    label: 'Waiting for Quotation',
+    shortLabel: 'Quote',
     description: 'We are preparing your quotation',
-    next: 'You will be notified once quotation is ready.',
+    next: 'You will be notified once your quotation is ready.',
   },
   {
     status: 'quoted',
@@ -206,7 +205,8 @@ function statusMessage(order: Order, status = getEffectiveOrderStatus(order)) {
   if (status === 'payment_pending' && order.payment?.status === 'rejected') {
     return 'Your payment proof was rejected. Please upload a corrected screenshot.';
   }
-  if (status === 'quotation_pending') return 'We are checking your product details and preparing your quotation.';
+  if (status === 'quotation_pending') return 'We received your request. Our team is checking the product details, site price, and delivery area before sending your quotation.';
+  if (status === 'pending_confirmation') return 'Your quotation request has been received. Our team will review it and prepare your quotation.';
   return 'We are processing your order.';
 }
 
@@ -316,6 +316,47 @@ function getEffectiveOrderStatus(order: Order): OrderStatus {
 function getProgressIndex(status: OrderStatus) {
   const index = progressSteps.findIndex((step) => step.status === status);
   return index >= 0 ? index : 0;
+}
+
+function isQuotationRequestStage(status?: OrderStatus) {
+  return status === 'pending_confirmation' || status === 'quotation_pending' || status === 'quoted';
+}
+
+function isWaitingForQuotation(status?: OrderStatus) {
+  return status === 'pending_confirmation' || status === 'quotation_pending';
+}
+
+function customerStageLabel(status?: OrderStatus) {
+  if (status === 'pending_confirmation' || status === 'quotation_pending') return 'Waiting for Quotation';
+  if (status === 'quoted') return 'Quotation Ready';
+  if (status === 'payment_pending') return 'Payment Pending';
+  if (status === 'payment_verified') return 'Payment Verified';
+  if (status === 'order_placed') return 'Order Placed';
+  if (status === 'in_transit') return 'In Transit';
+  if (status === 'arrived_at_hub') return 'Arrived at Hub';
+  if (status === 'out_for_delivery') return 'Out for Delivery';
+  if (status === 'delivered') return 'Delivered';
+  if (status === 'cancelled') return 'Cancelled';
+  return 'In Progress';
+}
+
+function CustomerStageBadge({ status }: { status?: OrderStatus }) {
+  const isWaiting = isWaitingForQuotation(status);
+  const className = isWaiting
+    ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-100'
+    : status === 'quoted'
+      ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-100'
+      : status === 'delivered'
+        ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
+        : status === 'cancelled'
+          ? 'bg-red-50 text-red-700 ring-1 ring-red-100'
+          : 'bg-orange-50 text-orange-700 ring-1 ring-orange-100';
+
+  return (
+    <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${className}`}>
+      {customerStageLabel(status)}
+    </span>
+  );
 }
 
 function getCompactProgress(order: Order) {
@@ -571,24 +612,64 @@ export default function OrderDetail() {
   const fulfillmentMethodDescription = isSelfPickup
     ? fulfillmentDisplay.subtitle
     : `${appSettings.orderCoverage.label}. Delivery/pickup currently available in ${appSettings.deliveryHubs.hubNamesJoined}.`;
+  const quotationStage = isQuotationRequestStage(effectiveStatus);
+  const waitingForQuotation = isWaitingForQuotation(effectiveStatus);
+  const detailTitle = quotationStage ? 'Quotation Request' : 'Order Details';
+  const currentStatusTitle = quotationStage ? 'Request status' : 'Current status';
+  const progressTitle = quotationStage ? 'Request progress' : 'Order progress';
+  const itemsTitle = quotationStage ? 'Requested items' : 'Items ordered';
+  const contactTitle = quotationStage
+    ? 'Contact & destination'
+    : isSelfPickup
+      ? 'Pickup contact'
+      : 'Delivery address';
+  const methodTitle = quotationStage
+    ? isSelfPickup
+      ? 'Pickup option'
+      : 'Delivery preference'
+    : isSelfPickup
+      ? 'Pickup option'
+      : 'Delivery arrangement';
+  const quotationFulfillmentMethodTitle = quotationStage && !isSelfPickup
+    ? 'Deliver to me'
+    : fulfillmentMethodTitle;
+  const quotationFulfillmentDescription = quotationStage && !isSelfPickup
+    ? 'Delivery fee will be included in your quotation based on the selected area.'
+    : fulfillmentMethodDescription;
 
   return (
     <div className="min-h-screen bg-white pb-28">
       <div className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-3">
         <div className="mx-auto max-w-2xl">
-          <h1 className="text-lg font-bold text-gray-900">Order Details</h1>
+          <h1 className="text-lg font-bold text-gray-900">{detailTitle}</h1>
           <p className="truncate text-xs text-gray-500">#{order.orderNumber}</p>
         </div>
       </div>
 
       <main className="mx-auto max-w-2xl space-y-4 px-4 py-4">
+        {waitingForQuotation && (
+          <section className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-600 shadow-sm ring-1 ring-emerald-100">
+                <CheckCircle size={20} strokeWidth={2.5} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-extrabold text-emerald-950">Quotation request sent</p>
+                <p className="mt-1 text-xs leading-5 text-emerald-800">
+                  We’ll notify you once your quotation is ready. No payment is required until you approve the quotation.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
         <section className="overflow-hidden rounded-2xl bg-white border border-gray-100">
           <div className="bg-white p-5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Current status</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">{currentStatusTitle}</p>
                 <div className="mt-2 inline-flex">
-                  <StatusBadge status={effectiveStatus ?? order.status} />
+                  <CustomerStageBadge status={effectiveStatus ?? order.status} />
                 </div>
                 <p className="mt-3 text-sm leading-relaxed text-gray-600">{statusMessage(order, effectiveStatus ?? order.status)}</p>
               </div>
@@ -655,7 +736,7 @@ export default function OrderDetail() {
           >
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <h3 className="text-base font-bold text-gray-900">Order progress</h3>
+                <h3 className="text-base font-bold text-gray-900">{progressTitle}</h3>
                 <p className="mt-1 text-sm font-semibold text-gray-800">{compactProgress.currentLabel}</p>
                 <p className="mt-1 text-xs leading-relaxed text-gray-500">{compactProgress.nextText}</p>
               </div>
@@ -673,7 +754,7 @@ export default function OrderDetail() {
                 />
               </div>
               <div className="mt-2 flex justify-between text-[10px] font-bold uppercase tracking-wide text-gray-400">
-                <span>Received</span>
+                <span>{quotationStage ? 'Request' : 'Received'}</span>
                 <span>{isSelfPickupOrder(order) ? 'Picked up' : 'Delivered'}</span>
               </div>
             </div>
@@ -688,7 +769,7 @@ export default function OrderDetail() {
 
         <section className="rounded-2xl bg-white p-4 border border-gray-100">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-base font-bold text-gray-900">Items ordered</h3>
+            <h3 className="text-base font-bold text-gray-900">{itemsTitle}</h3>
             <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-bold text-gray-600">
               {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
             </span>
@@ -737,7 +818,7 @@ export default function OrderDetail() {
 
         <section className="rounded-3xl bg-white p-4 border border-gray-100 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="text-base font-bold text-gray-900">Fulfillment details</h3>
+            <h3 className="text-base font-bold text-gray-900">{quotationStage ? 'Quotation details' : 'Fulfillment details'}</h3>
             <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${fulfillmentDisplay.badgeClass}`}>
               {fulfillmentDisplay.label}
             </span>
@@ -751,7 +832,7 @@ export default function OrderDetail() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-orange-600">
-                    {isSelfPickup ? 'Pickup contact' : 'Delivery address'}
+                    {contactTitle}
                   </p>
                   <p className="mt-1 text-sm font-extrabold text-gray-900">
                     {order.shippingAddress.recipientName || 'Customer'}
@@ -773,13 +854,13 @@ export default function OrderDetail() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">
-                    {isSelfPickup ? 'Pickup option' : 'Delivery arrangement'}
+                    {methodTitle}
                   </p>
                   <p className="mt-1 text-sm font-extrabold text-gray-900">
-                    {fulfillmentMethodTitle}
+                    {quotationFulfillmentMethodTitle}
                   </p>
                   <p className="mt-1 text-xs leading-5 text-gray-600">
-                    {fulfillmentMethodDescription}
+                    {quotationFulfillmentDescription}
                   </p>
                 </div>
               </div>

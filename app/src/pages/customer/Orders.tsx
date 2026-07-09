@@ -126,10 +126,17 @@ function timeAgo(value?: string) {
 }
 
 function actionHint(order: Order) {
+  if (order.status === 'pending_confirmation' || order.status === 'quotation_pending') return 'Waiting for quotation';
   if (order.status === 'quoted') return 'Quotation ready for review';
   if (order.status === 'payment_pending') return order.payment?.status === 'pending' ? 'Payment proof under review' : 'Payment upload pending';
   if (order.status === 'delivered') return 'Delivered successfully';
   return 'Track status and order details';
+}
+
+function amountLabel(order: Order) {
+  if (order.quotation?.totalAmount) return 'Quotation total';
+  if (estimatedTotal(order) > 0) return 'Site estimate';
+  return 'Amount';
 }
 
 function CustomerOrderCard({ order }: { order: Order }) {
@@ -183,7 +190,7 @@ function CustomerOrderCard({ order }: { order: Order }) {
             </span>
           </div>
 
-          <p className="text-xs font-semibold text-gray-500">Estimated total</p>
+          <p className="text-xs font-semibold text-gray-500">{amountLabel(order)}</p>
           <p className={`leading-tight tracking-tight ${hasTotal ? 'text-lg font-bold text-gray-900' : 'text-sm font-medium italic text-gray-400'}`}>
             {hasTotal ? money(total) : 'To be quoted'}
           </p>
@@ -288,7 +295,7 @@ export default function Orders() {
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <h1 className="text-xl font-bold text-gray-900">My Orders</h1>
-              <p className="mt-1 text-xs leading-5 text-gray-500">Review quotations, payments, and delivery tracking.</p>
+              <p className="mt-1 text-xs leading-5 text-gray-500">Review quotation requests, payments, and delivery tracking.</p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -374,8 +381,8 @@ export default function Orders() {
           <EmptyState
             icon={<Package size={40} className="text-gray-300" />}
             title={`No ${activeTab === 'all' ? '' : activeTab.replace('_', ' ')} orders`}
-            description="Orders will appear here once you request a quotation."
-            action={{ label: 'Request Product', onClick: () => navigate('/paste-link') }}
+            description="Quotation requests and orders will appear here once you add products and request a quotation."
+            action={{ label: 'Add Product', onClick: () => navigate('/paste-link') }}
           />
         )}
       </main>
