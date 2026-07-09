@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   CheckCircle,
-  Edit3,
   ImageIcon,
   Loader2,
   MapPin,
@@ -390,7 +389,7 @@ function BagItemCard({
         <div className="mt-4 grid grid-cols-[minmax(0,1fr)_104px] items-end gap-3">
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400">
-              Price shown on site
+              Site price estimate
             </label>
             <input
               type="number"
@@ -400,6 +399,9 @@ function BagItemCard({
               placeholder="Price if known"
               className="mt-1.5 h-11 w-full rounded-2xl border border-gray-200 bg-white px-3 text-[14px] font-semibold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
             />
+            <p className="mt-1 text-[10.5px] leading-4 text-gray-400">
+              Optional. Admin will verify before quotation.
+            </p>
           </div>
 
           <div className="flex flex-col items-center">
@@ -462,7 +464,6 @@ export default function RequestBag() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState('');
-  const [deliveryExpanded, setDeliveryExpanded] = useState(false);
   const [addressLoading, setAddressLoading] = useState(false);
   const [savedAddress, setSavedAddress] = useState<CustomerAddress | null>(null);
   const [dzongkhagOptions, setDzongkhagOptions] = useState<DzongkhagOption[]>([]);
@@ -479,8 +480,6 @@ export default function RequestBag() {
   const hasItems = Boolean(bag?.items.length);
   const selectedPickupHub = getSelfPickupOptionById(pickupHubId);
   const isSelfPickup = fulfillmentMode === 'self_pickup';
-  const hasDeliveryAddress = isSelfPickup || Boolean(customer.deliveryAddress.trim());
-  const showDeliveryFields = deliveryExpanded || !customer.name.trim() || !customer.phone.trim() || (!isSelfPickup && !customer.deliveryAddress.trim());
   const itemCount = bag?.items.length ?? 0;
   const totalQuantity = bag?.items.reduce((sum, item) => sum + Math.max(1, item.quantity || 1), 0) ?? 0;
   const estimatedSiteTotal = bag?.items.reduce((sum, item) => sum + Math.max(0, item.priceShown || 0) * Math.max(1, item.quantity || 1), 0) ?? 0;
@@ -670,7 +669,7 @@ export default function RequestBag() {
     }
   };
 
-  const validateRequestDetails = () => {
+  const validateRequestBagItems = () => {
     setError('');
 
     if (!user || !bag) return false;
@@ -685,15 +684,19 @@ export default function RequestBag() {
       return false;
     }
 
+    return true;
+  };
+
+  const validateRequestDetails = () => {
+    if (!validateRequestBagItems()) return false;
+
     if (!customer.name.trim()) {
       setError('Please enter your name.');
-      setDeliveryExpanded(true);
       return false;
     }
 
     if (!customer.phone.trim()) {
       setError('Please enter your phone number.');
-      setDeliveryExpanded(true);
       return false;
     }
 
@@ -703,8 +706,7 @@ export default function RequestBag() {
     }
 
     if (!isSelfPickup && !customer.deliveryAddress.trim()) {
-      setError('Please select or enter your delivery address.');
-      setDeliveryExpanded(true);
+      setError('Please enter your delivery address or pickup area.');
       return false;
     }
 
@@ -712,7 +714,8 @@ export default function RequestBag() {
   };
 
   const openSubmitConfirmation = () => {
-    if (!validateRequestDetails()) return;
+    if (!validateRequestBagItems()) return;
+    setError('');
     setConfirmOpen(true);
   };
 
@@ -791,7 +794,7 @@ export default function RequestBag() {
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-bold text-gray-900">Request Bag</h1>
             <p className="text-[12px] leading-5 text-gray-500">
-              Review your products, delivery option, and request one quotation.
+              Review your products and request one quotation.
             </p>
           </div>
           {hasItems && (
@@ -856,167 +859,18 @@ export default function RequestBag() {
               Add another product
             </button>
 
-            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 ring-1 ring-blue-100">
+                  <CheckCircle size={18} strokeWidth={2.4} />
+                </span>
                 <div>
-                  <h3 className="text-base font-semibold text-gray-900">Contact & Delivery Option</h3>
-                  <p className="text-xs text-gray-500">
-                    {addressLoading
-                      ? 'Loading your saved delivery address...'
-                      : 'Choose delivery or pickup before requesting your quotation.'}
+                  <h3 className="text-sm font-extrabold text-blue-950">Ready to request a quotation?</h3>
+                  <p className="mt-1 text-xs leading-5 text-blue-800">
+                    Contact and delivery preference will be confirmed in the next step. No payment is required now.
                   </p>
                 </div>
-                {!isSelfPickup && hasDeliveryAddress && !showDeliveryFields && (
-                  <button
-                    type="button"
-                    onClick={() => setDeliveryExpanded(true)}
-                    className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-200"
-                  >
-                    <Edit3 size={13} />
-                    Edit
-                  </button>
-                )}
               </div>
-
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setFulfillmentMode('delivery')}
-                  className={`rounded-2xl border px-3 py-3 text-left transition ${
-                    fulfillmentMode === 'delivery'
-                      ? 'border-orange-300 bg-orange-50 text-orange-700'
-                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  <span className="block text-sm font-extrabold">Deliver to me</span>
-                  <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Use saved or manual address</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFulfillmentMode('self_pickup')}
-                  className={`rounded-2xl border px-3 py-3 text-left transition ${
-                    fulfillmentMode === 'self_pickup'
-                      ? 'border-blue-300 bg-blue-50 text-blue-700'
-                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  <span className="block text-sm font-extrabold">I will collect</span>
-                  <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Choose pickup option</span>
-                </button>
-              </div>
-
-              {isSelfPickup && (
-                <div className="mt-3 space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Pickup option</p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {SELF_PICKUP_OPTIONS.map((hub) => (
-                      <button
-                        key={hub.id}
-                        type="button"
-                        onClick={() => setPickupHubId(hub.id)}
-                        className={`rounded-2xl border p-3 text-left transition ${
-                          pickupHubId === hub.id
-                            ? 'border-blue-300 bg-blue-50 text-blue-800'
-                            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-                        }`}
-                      >
-                        <span className="block text-sm font-bold">{hub.name}</span>
-                        <span className="mt-0.5 block text-[11px] text-gray-500">{hub.dzongkhag}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="rounded-2xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-800">
-                    {selectedPickupHub.pickupInstructions}
-                  </div>
-                </div>
-              )}
-
-              {addressLoading && (
-                <div className="mt-3 flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs text-gray-500">
-                  <Loader2 size={15} className="animate-spin text-orange-500" />
-                  Loading saved delivery address...
-                </div>
-              )}
-
-              {!isSelfPickup && hasDeliveryAddress && !showDeliveryFields && (
-                <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-600">
-                      <CheckCircle size={18} strokeWidth={2.5} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-emerald-900">{customer.name || 'Customer'}</p>
-                      {savedAddress?.label && (
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">{savedAddress.label} address</p>
-                      )}
-                      {customer.phone && <p className="text-xs font-medium text-emerald-600/80">{customer.phone}</p>}
-                      <p className="mt-1 text-xs leading-5 font-medium text-emerald-900">{customer.deliveryAddress}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {isSelfPickup && (
-                <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 p-3">
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600">
-                      <MapPin size={18} strokeWidth={2.5} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-blue-950">Pickup Option</p>
-                      <p className="mt-0.5 text-xs font-semibold text-blue-700">{selectedPickupHub.name}</p>
-                      <p className="mt-1 text-xs leading-5 text-blue-800">{selectedPickupHub.pickupInstructions}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {showDeliveryFields && (
-                <div className="mt-3 space-y-3">
-                  <div className="relative">
-                    <User size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      value={customer.name}
-                      onChange={(e) => setCustomer((prev) => ({ ...prev, name: e.target.value }))}
-                      placeholder="Full name"
-                      className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-                    />
-                  </div>
-
-                  <div className="relative">
-                    <Phone size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="tel"
-                      value={customer.phone}
-                      onChange={(e) => setCustomer((prev) => ({ ...prev, phone: e.target.value }))}
-                      placeholder="Phone number"
-                      className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-                    />
-                  </div>
-
-                  {!isSelfPickup && (
-                    <div className="relative">
-                      <MapPin size={17} className="absolute left-3 top-3 text-gray-400" />
-                      <textarea
-                        value={customer.deliveryAddress}
-                        onChange={(e) => setCustomer((prev) => ({ ...prev, deliveryAddress: e.target.value }))}
-                        placeholder="Delivery address"
-                        rows={3}
-                        className="w-full resize-none rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <textarea
-                value={customer.notes}
-                onChange={(e) => setCustomer((prev) => ({ ...prev, notes: e.target.value }))}
-                placeholder="Optional note for Shop2Bhutan..."
-                rows={2}
-                className="mt-3 w-full resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-              />
             </div>
           </>
         )}
@@ -1072,22 +926,169 @@ export default function RequestBag() {
 
                 <div className="h-px bg-gray-100" />
 
-                {/* Delivery Info */}
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50">
-                    <CheckCircle size={18} className="text-emerald-600" strokeWidth={1.8} />
+                {/* Contact and delivery form */}
+                <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-orange-500 ring-1 ring-orange-100">
+                      <User size={18} strokeWidth={2.2} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-extrabold text-gray-900">Confirm contact details</p>
+                      <p className="mt-0.5 text-xs leading-5 text-gray-500">
+                        We use this only to prepare and send your quotation update.
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-gray-900">{customer.name || 'Customer'}</p>
-                    {customer.phone && (
-                      <p className="mt-0.5 text-xs text-gray-500">{customer.phone}</p>
-                    )}
-                    <p className="mt-2 text-xs leading-5 text-gray-600">
-                      {isSelfPickup
-                        ? `Self Pickup — ${selectedPickupHub.name}. ${selectedPickupHub.pickupInstructions}`
-                        : customer.deliveryAddress}
-                    </p>
+
+                  {error && (
+                    <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-medium leading-5 text-red-700">
+                      {error}
+                    </div>
+                  )}
+
+                  <div className="mt-3 space-y-3">
+                    <div className="relative">
+                      <User size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        value={customer.name}
+                        onChange={(e) => {
+                          setCustomer((prev) => ({ ...prev, name: e.target.value }));
+                          setError('');
+                        }}
+                        placeholder="Full name"
+                        className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm font-medium text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+                      />
+                    </div>
+
+                    <div className="relative">
+                      <Phone size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="tel"
+                        value={customer.phone}
+                        onChange={(e) => {
+                          setCustomer((prev) => ({ ...prev, phone: e.target.value }));
+                          setError('');
+                        }}
+                        placeholder="Phone number"
+                        className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm font-medium text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+                      />
+                    </div>
                   </div>
+                </div>
+
+                <div className="rounded-2xl border border-gray-100 bg-white p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                      <MapPin size={18} strokeWidth={2.2} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-extrabold text-gray-900">Delivery preference</p>
+                      <p className="mt-0.5 text-xs leading-5 text-gray-500">
+                        This helps admin estimate delivery or pickup cost correctly.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFulfillmentMode('delivery');
+                        setError('');
+                      }}
+                      className={`rounded-2xl border px-3 py-3 text-left transition ${
+                        fulfillmentMode === 'delivery'
+                          ? 'border-orange-300 bg-orange-50 text-orange-700'
+                          : 'border-gray-200 bg-white text-gray-600 active:bg-gray-50'
+                      }`}
+                    >
+                      <span className="block text-sm font-extrabold">Deliver to me</span>
+                      <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Use my address</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFulfillmentMode('self_pickup');
+                        setError('');
+                      }}
+                      className={`rounded-2xl border px-3 py-3 text-left transition ${
+                        fulfillmentMode === 'self_pickup'
+                          ? 'border-blue-300 bg-blue-50 text-blue-700'
+                          : 'border-gray-200 bg-white text-gray-600 active:bg-gray-50'
+                      }`}
+                    >
+                      <span className="block text-sm font-extrabold">I will collect</span>
+                      <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Pickup option</span>
+                    </button>
+                  </div>
+
+                  {addressLoading && (
+                    <div className="mt-3 flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs text-gray-500">
+                      <Loader2 size={15} className="animate-spin text-orange-500" />
+                      Loading saved delivery address...
+                    </div>
+                  )}
+
+                  {!isSelfPickup && savedAddress?.formattedAddress && (
+                    <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2.5">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-600">
+                        Saved {savedAddress.label || 'delivery'} address loaded
+                      </p>
+                      <p className="mt-1 text-xs leading-5 font-medium text-emerald-900">
+                        {savedAddress.formattedAddress}
+                      </p>
+                    </div>
+                  )}
+
+                  {isSelfPickup ? (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Pickup option</p>
+                      {SELF_PICKUP_OPTIONS.map((hub) => (
+                        <button
+                          key={hub.id}
+                          type="button"
+                          onClick={() => {
+                            setPickupHubId(hub.id);
+                            setError('');
+                          }}
+                          className={`w-full rounded-2xl border p-3 text-left transition ${
+                            pickupHubId === hub.id
+                              ? 'border-blue-300 bg-blue-50 text-blue-800'
+                              : 'border-gray-200 bg-white text-gray-600 active:bg-gray-50'
+                          }`}
+                        >
+                          <span className="block text-sm font-bold">{hub.name}</span>
+                          <span className="mt-0.5 block text-[11px] leading-4 text-gray-500">{hub.dzongkhag}</span>
+                        </button>
+                      ))}
+                      <div className="rounded-2xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-800">
+                        {selectedPickupHub.pickupInstructions}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative mt-3">
+                      <MapPin size={17} className="absolute left-3 top-3 text-gray-400" />
+                      <textarea
+                        value={customer.deliveryAddress}
+                        onChange={(e) => {
+                          setCustomer((prev) => ({ ...prev, deliveryAddress: e.target.value }));
+                          setError('');
+                        }}
+                        placeholder="Delivery address or pickup area"
+                        rows={3}
+                        className="w-full resize-none rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm font-medium leading-5 text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+                      />
+                    </div>
+                  )}
+
+                  <textarea
+                    value={customer.notes}
+                    onChange={(e) => setCustomer((prev) => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Optional note for Shop2Bhutan..."
+                    rows={2}
+                    className="mt-3 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm leading-5 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+                  />
                 </div>
               </div>
 
@@ -1151,7 +1152,7 @@ export default function RequestBag() {
                 </>
               ) : (
                 <>
-                  Request Quotation
+                  Review & Request Quotation
                   <Package size={18} />
                 </>
               )}
