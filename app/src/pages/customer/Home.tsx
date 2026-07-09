@@ -12,6 +12,7 @@ import {
   MapPin,
   Megaphone,
   Package,
+  ShieldCheck,
   Truck,
   UserPlus,
 } from 'lucide-react';
@@ -30,10 +31,23 @@ const stores = [
 
 const quickActions = [
   { icon: ShoppingBag, label: 'Request Bag', path: '/request-bag' },
-  { icon: Package, label: 'Orders', path: '/orders' },
+  { icon: Package, label: 'My Orders', path: '/orders' },
   { icon: Truck, label: 'Parcel', path: '/parcel' },
   { icon: Headphones, label: 'Support', path: '/support' },
 ];
+
+const trustBadges = [
+  { icon: MapPin, label: '20 Dzongkhags Accepted' },
+  { icon: Activity, label: 'Order Tracking' },
+  { icon: ShieldCheck, label: 'Quote Before Pay' },
+] as const;
+
+const howItWorks = [
+  { step: '1', title: 'Paste Link', description: 'Send us any product link from accepted Indian stores.' },
+  { step: '2', title: 'Get Quote', description: 'We calculate item cost, service fee, and delivery.' },
+  { step: '3', title: 'Pay Safely', description: 'Upload payment proof after reviewing the quotation.' },
+  { step: '4', title: 'Track Delivery', description: 'Follow your order or parcel until handover.' },
+] as const;
 
 type DzongkhagOption = {
   id: string;
@@ -291,24 +305,51 @@ function ContinueTrackingCard({
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-bold uppercase tracking-wider text-orange-500">
-              Your Active Updates
+              How It Works
             </p>
             <h3 className="mt-1 text-base font-extrabold text-gray-900">
-              No active updates yet
+              Start shopping in 4 simple steps
             </h3>
             <p className="mt-1 text-xs leading-5 text-gray-500">
-              Your latest order or parcel status will appear here.
+              Paste a product link, review your quotation, pay safely, and track delivery.
             </p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => onNavigate('/parcel')}
-          className="mt-4 h-11 w-full rounded-2xl border border-blue-100 bg-blue-50 px-3 text-xs font-bold text-blue-700 transition active:scale-[0.98]"
-        >
-          Book a Parcel Trip
-        </button>
+        <div className="mt-4 grid gap-2">
+          {howItWorks.map((item) => (
+            <div
+              key={item.step}
+              className="flex items-start gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-3 py-2.5"
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-extrabold text-orange-500 shadow-sm ring-1 ring-orange-100">
+                {item.step}
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-extrabold text-gray-900">{item.title}</p>
+                <p className="mt-0.5 text-[11px] leading-4 text-gray-500">{item.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => onNavigate('/paste-link')}
+            className="flex h-11 items-center justify-center gap-1.5 rounded-2xl bg-orange-500 px-3 text-xs font-bold text-white transition active:scale-[0.98]"
+          >
+            <span>Paste Link</span>
+            <ArrowRight size={14} strokeWidth={2.5} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate('/parcel')}
+            className="h-11 rounded-2xl border border-blue-100 bg-blue-50 px-3 text-xs font-bold text-blue-700 transition active:scale-[0.98]"
+          >
+            Send a Parcel
+          </button>
+        </div>
       </section>
     );
   }
@@ -610,7 +651,8 @@ export default function Home() {
           className="relative overflow-hidden rounded-3xl"
           style={{
             backgroundImage: `
-              linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.55) 100%),
+              linear-gradient(90deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.46) 48%, rgba(0,0,0,0.12) 100%),
+              linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.42) 100%),
               url('/home-banner-bg.jpg')
             `,
             backgroundSize: 'cover',
@@ -636,20 +678,15 @@ export default function Home() {
               ))}
             </div>
 
-            {/* Label */}
-            <p className="mt-4 text-[11px] font-bold uppercase tracking-widest text-amber-400">
-              {appSettings.appName}
-            </p>
-
             {/* Headline */}
-            <h2 className="mt-1.5 text-[1.45rem] font-extrabold text-white leading-tight sm:text-3xl">
+            <h2 className="mt-7 text-[1.45rem] font-extrabold text-white leading-tight sm:text-3xl">
               Shop from India,<br />
               <span className="text-amber-400">Delivered to Bhutan</span>
             </h2>
 
             {/* Subtext */}
-            <p className="mt-2 max-w-[270px] text-xs leading-5 text-white/85">
-              We shop from Amazon, Flipkart, Myntra, and Meesho. Large appliances excluded. We order and deliver to Thimphu, Paro and Chhukha.
+            <p className="mt-2 max-w-[285px] text-xs leading-5 text-white/90">
+              Paste links from Amazon, Flipkart, Myntra or Meesho. We quote, order, and deliver for you.
             </p>
           </div>
         </section>
@@ -663,6 +700,24 @@ export default function Home() {
           <span>Paste Product Link</span>
           <ArrowRight size={18} strokeWidth={2.5} />
         </button>
+
+        {/* ----- Trust Badges ----- */}
+        <section className="mt-3 grid grid-cols-3 gap-2">
+          {trustBadges.map((badge) => {
+            const Icon = badge.icon;
+            return (
+              <div
+                key={badge.label}
+                className="flex min-h-[46px] items-center justify-center gap-1.5 rounded-2xl border border-gray-100 bg-white px-2 text-center shadow-sm"
+              >
+                <Icon size={14} strokeWidth={2.2} className="shrink-0 text-blue-600" />
+                <span className="text-[10.5px] font-extrabold leading-3 text-gray-700">
+                  {badge.label}
+                </span>
+              </div>
+            );
+          })}
+        </section>
 
         {/* ----- Quick Actions ----- */}
         <section className="mt-4 rounded-[1.6rem] border border-gray-100 bg-white p-2.5 shadow-sm">
@@ -693,10 +748,6 @@ export default function Home() {
           onNavigate={(path) => navigate(path)}
         />
 
-        {/* ----- Footer Note ----- */}
-        <p className="mt-6 px-2 text-center text-[0.65rem] leading-relaxed text-gray-400">
-          Orders accepted from all 20 dzongkhags. Delivery currently available in Thimphu, Paro, and Phuntsholing/Chhukha.
-        </p>
       </main>
 
       {locationSheetOpen && (
