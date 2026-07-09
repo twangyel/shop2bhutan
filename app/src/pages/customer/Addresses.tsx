@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   Check,
+  ChevronDown,
   Home,
   Loader2,
   MapPin,
@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
 const DELIVERY_DZONGKHAGS = ['Thimphu', 'Paro', 'Chhukha'] as const;
+const ADDRESS_LABELS = ['Home', 'Office', 'Family', 'Other'] as const;
 
 type CustomerAddress = {
   id: string;
@@ -84,6 +85,74 @@ function formFromAddress(address: CustomerAddress): AddressForm {
     addressLine: address.address_line || '',
     isDefault: Boolean(address.is_default),
   };
+}
+
+
+type ModernSelectProps = {
+  label: string;
+  value: string;
+  placeholder?: string;
+  options: readonly string[];
+  onChange: (value: string) => void;
+};
+
+function ModernSelect({ label, value, placeholder = 'Select', options, onChange }: ModernSelectProps) {
+  const [open, setOpen] = useState(false);
+  const selectedLabel = value || '';
+
+  return (
+    <div
+      className="relative"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setOpen(false);
+        }
+      }}
+    >
+      <label className="mb-1.5 block text-sm font-semibold text-gray-700">{label}</label>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className={`flex h-11 w-full items-center justify-between gap-2 rounded-2xl border bg-white px-3 text-left text-sm shadow-sm outline-none transition ${
+          open
+            ? 'border-orange-400 ring-4 ring-orange-500/10'
+            : 'border-gray-200 hover:border-gray-300'
+        }`}
+      >
+        <span className={selectedLabel ? 'font-semibold text-gray-900' : 'text-gray-400'}>
+          {selectedLabel || placeholder}
+        </span>
+        <ChevronDown
+          size={17}
+          className={`shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180 text-orange-500' : ''}`}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-2xl border border-gray-100 bg-white p-1 shadow-2xl shadow-gray-200/80">
+          {options.map((option) => {
+            const selected = value === option;
+            return (
+              <button
+                key={option}
+                type="button"
+                onClick={() => {
+                  onChange(option);
+                  setOpen(false);
+                }}
+                className={`flex h-10 w-full items-center justify-between rounded-xl px-3 text-left text-sm font-semibold transition ${
+                  selected ? 'bg-orange-50 text-orange-700' : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <span>{option}</span>
+                {selected && <Check size={16} strokeWidth={2.5} />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function Addresses() {
@@ -180,8 +249,8 @@ export default function Addresses() {
     if (!DELIVERY_DZONGKHAGS.includes(form.dzongkhag as (typeof DELIVERY_DZONGKHAGS)[number])) {
       return 'Delivery is currently available only in Thimphu, Paro, and Chhukha.';
     }
-    if (!form.town.trim() && !form.gewog.trim() && !form.village.trim()) {
-      return 'Please add at least town, gewog, or village.';
+    if (!form.town.trim() && !form.village.trim()) {
+      return 'Please add at least town/area or village/building.';
     }
     return '';
   };
@@ -292,14 +361,9 @@ export default function Addresses() {
     <div className="min-h-screen bg-white pb-24">
       <div className="sticky top-0 z-20 border-b border-gray-100 bg-white px-4 py-3">
         <div className="mx-auto flex max-w-md items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button type="button" onClick={() => navigate('/account')} className="rounded-full p-1.5 hover:bg-gray-100">
-              <ArrowLeft size={21} className="text-gray-700" />
-            </button>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">Saved Addresses</h1>
-              <p className="text-xs text-gray-500">Manage your delivery locations</p>
-            </div>
+          <div>
+            <h1 className="text-lg font-bold text-gray-900">Saved Addresses</h1>
+            <p className="text-xs text-gray-500">Manage your delivery locations</p>
           </div>
           <button
             type="button"
@@ -337,32 +401,19 @@ export default function Addresses() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">Label</label>
-                <select
-                  value={form.label}
-                  onChange={(event) => update('label', event.target.value)}
-                  className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
-                >
-                  <option>Home</option>
-                  <option>Office</option>
-                  <option>Family</option>
-                  <option>Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">Dzongkhag</label>
-                <select
-                  value={form.dzongkhag}
-                  onChange={(event) => update('dzongkhag', event.target.value)}
-                  className="h-11 w-full rounded-2xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
-                >
-                  <option value="">Select</option>
-                  {DELIVERY_DZONGKHAGS.map((dzongkhag) => (
-                    <option key={dzongkhag} value={dzongkhag}>{dzongkhag}</option>
-                  ))}
-                </select>
-              </div>
+              <ModernSelect
+                label="Label"
+                value={form.label}
+                options={ADDRESS_LABELS}
+                onChange={(value) => update('label', value)}
+              />
+              <ModernSelect
+                label="Dzongkhag"
+                value={form.dzongkhag}
+                placeholder="Select"
+                options={DELIVERY_DZONGKHAGS}
+                onChange={(value) => update('dzongkhag', value)}
+              />
             </div>
 
             <div>
@@ -387,27 +438,15 @@ export default function Addresses() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">Town / Area</label>
-                <input
-                  type="text"
-                  value={form.town}
-                  onChange={(event) => update('town', event.target.value)}
-                  placeholder="Town / Area"
-                  className="h-11 w-full rounded-2xl border border-gray-200 px-3 text-sm outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">Gewog</label>
-                <input
-                  type="text"
-                  value={form.gewog}
-                  onChange={(event) => update('gewog', event.target.value)}
-                  placeholder="Gewog"
-                  className="h-11 w-full rounded-2xl border border-gray-200 px-3 text-sm outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
-                />
-              </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-gray-700">Town / Area</label>
+              <input
+                type="text"
+                value={form.town}
+                onChange={(event) => update('town', event.target.value)}
+                placeholder="Town / Area"
+                className="h-11 w-full rounded-2xl border border-gray-200 px-3 text-sm outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
+              />
             </div>
 
             <div>
@@ -514,7 +553,7 @@ export default function Addresses() {
                     <p className="mt-3 text-sm font-bold text-gray-900">{address.recipient_name}</p>
                     <p className="text-xs font-medium text-gray-500">{formatPhone(address.phone)}</p>
                     <p className="mt-2 text-sm leading-5 text-gray-700">
-                      {[address.village, address.town, address.gewog, address.dzongkhag].filter(Boolean).join(', ')}
+                      {[address.village, address.town, address.dzongkhag].filter(Boolean).join(', ')}
                     </p>
                     {address.address_line && <p className="mt-1 text-xs leading-5 text-gray-500">{address.address_line}</p>}
                     {address.landmark && <p className="mt-1 text-xs text-gray-400">Landmark: {address.landmark}</p>}
