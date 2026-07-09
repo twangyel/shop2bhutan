@@ -79,7 +79,7 @@ function quotationDisplay(quotation: Quotation) {
  title: quotation.status === 'pending' ? 'Quotation pending' : 'Quotation ready',
  subtitle: quotation.validUntil
  ? `Valid until ${readableDate(quotation.validUntil)}`
- : 'Please review the quotation before accepting.',
+ : 'Review the price breakdown before accepting.',
  };
 }
 
@@ -210,7 +210,7 @@ export default function QuotationReview() {
  <div className="min-h-screen bg-white pb-24">
  <div className="border-b border-gray-100 bg-white px-4 py-3">
  <div className="mx-auto flex max-w-2xl items-center gap-3">
- <h1 className="text-lg font-semibold text-gray-900">Quotation</h1>
+ <h1 className="text-lg font-semibold text-gray-900">Review Quotation</h1>
  </div>
  </div>
  <div className="mx-auto max-w-2xl space-y-4 px-4 py-4">
@@ -258,7 +258,7 @@ export default function QuotationReview() {
  <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-3">
  <div className="mx-auto flex max-w-2xl items-center gap-3">
  <div className="min-w-0">
- <h1 className="text-lg font-semibold text-gray-900">Quotation</h1>
+ <h1 className="text-lg font-semibold text-gray-900">Review Quotation</h1>
  <p className="truncate text-xs text-gray-500">#{order.orderNumber}</p>
  </div>
  </div>
@@ -291,6 +291,68 @@ export default function QuotationReview() {
  <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-4 py-2 text-[11px] text-gray-500">
  <span>{isJaigaonPickup ? 'Product value is reference only' : 'Clear quotation before payment'}</span>
  <span className={`font-semibold ${display.accent}`}>No hidden charges</span>
+ </div>
+ </section>
+
+ <section className="mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+ <div className="mb-4 flex items-start justify-between gap-3">
+ <div className="flex min-w-0 items-start gap-2.5">
+ <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500 ring-1 ring-orange-100">
+ <FileText size={17} />
+ </span>
+ <div className="min-w-0">
+ <h3 className="text-base font-semibold text-gray-900">Price breakdown</h3>
+ <p className="mt-0.5 text-xs leading-5 text-gray-500">Review charges before accepting this quotation.</p>
+ </div>
+ </div>
+ <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-600">
+ Final
+ </span>
+ </div>
+
+ <div className="space-y-3">
+ <div>
+ <div className="flex justify-between gap-4 text-sm">
+ <span className="text-gray-600">{isJaigaonPickup ? 'Product value (reference)' : 'Product total'}</span>
+ <span className="font-semibold text-gray-900">{money(quotation.productTotal)}</span>
+ </div>
+ {isJaigaonPickup && (
+ <p className="mt-1 text-[11px] leading-5 text-gray-400">This product value is not included in the amount payable to Shop2Bhutan.</p>
+ )}
+ </div>
+ <div className="flex justify-between gap-4 text-sm">
+ <span className="text-gray-600">Service charge</span>
+ <span className="font-semibold text-gray-900">{money(quotation.serviceCharge)}</span>
+ </div>
+ <div className="flex justify-between gap-4 text-sm">
+ <span className="text-gray-600">Delivery fee</span>
+ <span className="font-semibold text-gray-900">{money(quotation.deliveryFee)}</span>
+ </div>
+ {quotation.taxAmount> 0 && (
+ <div className="flex justify-between gap-4 text-sm">
+ <span className="text-gray-600">Tax</span>
+ <span className="font-semibold text-gray-900">{money(quotation.taxAmount)}</span>
+ </div>
+ )}
+ {(quotation.additionalChargeAmount ?? 0)> 0 && (
+ <div className="flex justify-between gap-4 text-sm">
+ <span className="text-gray-600">{quotation.additionalChargeLabel || 'Additional charge'}</span>
+ <span className="font-semibold text-gray-900">{money(quotation.additionalChargeAmount)}</span>
+ </div>
+ )}
+ </div>
+
+ <div className="my-4 border-t border-dashed border-gray-200" />
+ <div className="rounded-2xl bg-gray-50 p-3 ring-1 ring-gray-100">
+ <div className="flex items-center justify-between gap-4">
+ <div className="min-w-0">
+ <p className="text-sm font-bold text-gray-950">{isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total payable'}</p>
+ <p className="mt-1 text-xs leading-relaxed text-gray-500">{isJaigaonPickup ? 'Pay only Shop2Bhutan charges for Jaigaon pickup. No Bhutan delivery fee.' : 'Final payable amount. No hidden charges.'}</p>
+ </div>
+ <p className="shrink-0 whitespace-nowrap text-xl font-black tracking-tight text-gray-950 sm:text-2xl">
+ {money(quotation.totalAmount)}
+ </p>
+ </div>
  </div>
  </section>
 
@@ -371,58 +433,6 @@ export default function QuotationReview() {
  </section>
 
  <section className="mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
- <div className="mb-4 flex items-center gap-2">
- <FileText size={18} className="text-orange-500" />
- <h3 className="text-base font-semibold text-gray-900">Price breakdown</h3>
- </div>
-
- <div className="space-y-3">
- <div>
- <div className="flex justify-between gap-4 text-sm">
- <span className="text-gray-600">{isJaigaonPickup ? 'Product value (reference)' : 'Product total'}</span>
- <span className="font-semibold text-gray-900">{money(quotation.productTotal)}</span>
- </div>
- {isJaigaonPickup && (
- <p className="mt-1 text-[11px] leading-5 text-gray-400">This product value is not included in the amount payable to Shop2Bhutan.</p>
- )}
- </div>
- <div className="flex justify-between gap-4 text-sm">
- <span className="text-gray-600">Service charge</span>
- <span className="font-semibold text-gray-900">{money(quotation.serviceCharge)}</span>
- </div>
- <div className="flex justify-between gap-4 text-sm">
- <span className="text-gray-600">Delivery fee</span>
- <span className="font-semibold text-gray-900">{money(quotation.deliveryFee)}</span>
- </div>
- {quotation.taxAmount> 0 && (
- <div className="flex justify-between gap-4 text-sm">
- <span className="text-gray-600">Tax</span>
- <span className="font-semibold text-gray-900">{money(quotation.taxAmount)}</span>
- </div>
- )}
- {(quotation.additionalChargeAmount ?? 0)> 0 && (
- <div className="flex justify-between gap-4 text-sm">
- <span className="text-gray-600">{quotation.additionalChargeLabel || 'Additional charge'}</span>
- <span className="font-semibold text-gray-900">{money(quotation.additionalChargeAmount)}</span>
- </div>
- )}
- </div>
-
- <div className="my-4 border-t border-dashed border-gray-200" />
- <div className="rounded-2xl bg-gray-50 p-3 ring-1 ring-gray-100">
- <div className="flex items-center justify-between gap-4">
- <div className="min-w-0">
- <p className="text-sm font-bold text-gray-950">{isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total payable'}</p>
- <p className="mt-1 text-xs leading-relaxed text-gray-500">{isJaigaonPickup ? 'Pay only Shop2Bhutan charges for Jaigaon pickup. No Bhutan delivery fee.' : 'Final payable amount. No hidden charges.'}</p>
- </div>
- <p className="shrink-0 whitespace-nowrap text-xl font-black tracking-tight text-gray-950 sm:text-2xl">
- {money(quotation.totalAmount)}
- </p>
- </div>
- </div>
- </section>
-
- <section className="mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
  <div className="mb-3 flex items-center gap-2">
  <CreditCard size={18} className="text-gray-500" />
  <h3 className="text-base font-semibold text-gray-900">Payment options</h3>
@@ -495,7 +505,7 @@ export default function QuotationReview() {
  disabled={submitting}
  className="h-12 flex-1 rounded-2xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
 >
- Reject
+ Need Changes
  </button>
  <button
  type="button"
@@ -503,7 +513,7 @@ export default function QuotationReview() {
  disabled={submitting}
  className="h-12 flex-[1.5] rounded-2xl bg-emerald-500 text-sm font-semibold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
 >
- {submitting ? 'Processing...' : 'Accept & Upload Payment'}
+ {submitting ? 'Processing...' : 'Accept & Continue'}
  </button>
  </div>
  </div>
@@ -518,14 +528,14 @@ export default function QuotationReview() {
  <AlertTriangle size={22} />
  </span>
  <div>
- <h3 className="text-lg font-bold text-gray-950">Reject quotation?</h3>
+ <h3 className="text-lg font-bold text-gray-950">Need changes?</h3>
  <p className="mt-1 text-sm leading-6 text-gray-500">
- You can reject this quotation if the price or product details are not suitable. You may request support if you need changes.
+ If the price or product details are not suitable, you can mark this quotation as needing changes. Shop2Bhutan can follow up from your request.
  </p>
  </div>
  </div>
  <div className="rounded-2xl bg-gray-50 px-3 py-2 text-xs leading-5 text-gray-500 ring-1 ring-gray-100">
- This only rejects the quotation. Your order request will remain in your account for reference.
+ This will mark the quotation as rejected. Your request will remain in your account for reference.
  </div>
  </div>
  <div className="flex gap-3 border-t border-gray-100 bg-gray-50 p-4">
@@ -543,7 +553,7 @@ export default function QuotationReview() {
  disabled={submitting}
  className="h-11 flex-1 rounded-2xl bg-red-500 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50"
 >
- {submitting ? 'Rejecting...' : 'Reject'}
+ {submitting ? 'Updating...' : 'Reject Quotation'}
  </button>
  </div>
  </div>
