@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Logo from '@/components/shared/Logo';
-import { getUnreadNotificationCount } from '@/lib/customerOrders';
+import { fetchCustomerOrdersSummary, getUnreadNotificationCount } from '@/lib/customerOrders';
 import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings';
 import { supabase } from '@/lib/supabase';
 
@@ -57,6 +57,10 @@ type DzongkhagOption = {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function cleanString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function optionalString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
@@ -246,10 +250,6 @@ function makeActivityId(row: ActivityRow) {
   return cleanString(row.id) ?? '';
 }
 
-function isActiveOrderRow(row: ActivityRow) {
-  const status = normalizeStatus(row.status);
-  return Boolean(makeActivityId(row)) && !inactiveOrderStatuses.has(status);
-}
 
 function isActiveParcelRow(row: ActivityRow) {
   const status = normalizeStatus(row.status);
@@ -296,30 +296,49 @@ async function fetchOwnedRows(
   return [];
 }
 
-async function fetchLatestActiveOrder(userId: string): Promise<ActiveUpdate | null> {
-  const rows = await fetchOwnedRows(
-    'orders',
-    'id, order_id, order_no, status, created_at, estimated_delivery_from, estimated_delivery_to, estimated_delivery_note',
-    userId,
-    ['customer_id', 'user_id', 'profile_id'],
-    'id, order_id, order_no, status, created_at',
-  );
+async function fetchLatestActiveOrder(userId: string, email = ''): Promise<ActiveUpdate | null> {
+  try {
+    const orders = await fetchCustomerOrdersSummary(userId, email);
+    const order = orders.find((item) => {
+      const status = normalizeStatus(item.status);
+      return Boolean(item.id) && !inactiveOrderStatuses.has(status);
+    });
 
-  const row = rows.find(isActiveOrderRow);
-  if (!row) return null;
+    if (!order) return null;
 
-  const id = makeActivityId(row);
-  const orderNumber = cleanString(row.order_no) ?? cleanString(row.order_id) ?? id.slice(0, 8).toUpperCase();
+    const row = order as unknown as ActivityRow;
+    const orderNumber =
+      cleanString((order as { orderNumber?: string }).orderNumber) ??
+      cleanString(row.order_no) ??
+      cleanString(row.order_id) ??
+      order.id.slice(0, 8).toUpperCase();
 
-  return {
-    kind: 'order',
-    id,
-    title: `Order #${orderNumber}`,
-    statusLabel: titleCaseStatus(row.status),
-    description: orderStatusDescription(row.status),
-    etaLabel: orderEtaLabel(row),
-    path: `/order/${id}`,
-  };
+    return {
+      kind: 'order',
+      id: order.id,
+      title: `Order #${orderNumber}`,
+      statusLabel: titleCaseStatus(order.status),
+      description: orderStatusDescription(order.status),
+      etaLabel: orderEtaLabel({
+        ...row,
+        status: order.status,
+        estimated_delivery_from: optionalString(
+          row.estimated_delivery_from ??
+            row.estimatedDeliveryFrom ??
+            (order as unknown as Record<string, unknown>).estimatedDeliveryFrom,
+        ),
+        estimated_delivery_to: optionalString(
+          row.estimated_delivery_to ??
+            row.estimatedDeliveryTo ??
+            (order as unknown as Record<string, unknown>).estimatedDeliveryTo,
+        ),
+      }),
+      path: `/order/${order.id}`,
+    };
+  } catch (error) {
+    console.warn('[Home] customer order summary activity lookup skipped:', error);
+    return null;
+  }
 }
 
 
@@ -607,7 +626,7 @@ export default function Home() {
 
     try {
       const [orderUpdate, parcelUpdate] = await Promise.all([
-        isGuest ? Promise.resolve(null) : fetchLatestActiveOrder(authUser.id),
+        isGuest ? Promise.resolve(null) : fetchLatestActiveOrder(authUser.id, authUser.email ?? ''),
         fetchLatestActiveParcel(authUser.id),
       ]);
 
