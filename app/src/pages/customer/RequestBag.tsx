@@ -327,6 +327,12 @@ function BagItemCard({
   const hasScreenshot = Boolean(item.screenshotUrl);
   const itemTypeLabel = hasSourceUrl ? 'Product link' : 'Screenshot request';
   const domain = extractDomain(item.sourceUrl);
+  const safeQuantity = Math.max(1, Number(item.quantity) || 1);
+  const sitePriceEstimate = Math.max(0, Number(item.priceShown || 0));
+  const hasSitePriceEstimate = sitePriceEstimate > 0;
+  const sitePriceEstimateLabel = hasSitePriceEstimate
+    ? formatPrice(sitePriceEstimate)
+    : 'To be verified';
 
   return (
     <article
@@ -427,43 +433,40 @@ function BagItemCard({
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-[minmax(0,1fr)_104px] items-end gap-3">
+        <div className="mt-4 grid grid-cols-[minmax(0,1fr)_112px] items-start gap-3">
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400">
               Site price estimate
             </label>
-            <input
-              type="number"
-              value={item.priceShown || ''}
-              onChange={(e) => onPatch(item.id, { priceShown: Number(e.target.value) || 0 })}
-              onBlur={() => onPatch(item.id, { priceShown: item.priceShown })}
-              placeholder="Price if known"
-              className="mt-1.5 h-11 w-full rounded-2xl border border-gray-200 bg-white px-3 text-[14px] font-semibold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
-            />
-            <p className="mt-1 text-[10.5px] leading-4 text-gray-400">
-              Optional. Admin will verify before quotation.
-            </p>
+            <output
+              aria-label="Site price estimate"
+              className={`mt-1.5 flex h-11 w-full items-center rounded-2xl border border-gray-200 bg-gray-50 px-3 text-[14px] font-bold ring-1 ring-gray-100 ${
+                hasSitePriceEstimate ? 'text-gray-800' : 'text-gray-400'
+              }`}
+            >
+              {sitePriceEstimateLabel}
+            </output>
           </div>
 
-          <div className="flex flex-col items-center">
+          <div>
             <label className="block text-center text-[10px] font-bold uppercase tracking-wider text-gray-400">
               Qty
             </label>
             <div className="mt-1.5 flex h-11 items-center justify-center rounded-2xl border border-gray-200 bg-white px-1 shadow-xs">
               <button
                 type="button"
-                onClick={() => onPatch(item.id, { quantity: Math.max(1, item.quantity - 1) })}
+                onClick={() => onPatch(item.id, { quantity: Math.max(1, safeQuantity - 1) })}
                 className="flex h-9 w-8 items-center justify-center rounded-xl bg-gray-50 text-gray-700 transition active:scale-95 active:bg-gray-100"
                 aria-label="Decrease quantity"
               >
                 <Minus size={14} />
               </button>
               <span className="w-8 text-center text-[15px] font-extrabold text-gray-900">
-                {item.quantity}
+                {safeQuantity}
               </span>
               <button
                 type="button"
-                onClick={() => onPatch(item.id, { quantity: item.quantity + 1 })}
+                onClick={() => onPatch(item.id, { quantity: safeQuantity + 1 })}
                 className="flex h-9 w-8 items-center justify-center rounded-xl bg-gray-50 text-gray-700 transition active:scale-95 active:bg-gray-100"
                 aria-label="Increase quantity"
               >
@@ -473,9 +476,13 @@ function BagItemCard({
           </div>
         </div>
 
-        {item.priceShown > 0 && (
+        <div className="mt-2 rounded-2xl border border-blue-100 bg-blue-50/70 px-3 py-2 text-[11px] leading-4 text-blue-700">
+          Admin will verify the site price before sending your final quotation.
+        </div>
+
+        {hasSitePriceEstimate && (
           <p className="mt-2 text-[12px] font-bold text-orange-600">
-            Site price estimate: {formatPrice(item.priceShown * item.quantity)}
+            Estimated item total: {formatPrice(sitePriceEstimate * safeQuantity)}
           </p>
         )}
 
