@@ -86,11 +86,11 @@ function getPaymentSummary(order: Order | null) {
 
 function PaymentStep({ number, label }: { number: number; label: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-full border border-gray-100 bg-white px-3 py-1.5 shadow-sm">
-      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-50 text-[11px] font-black text-orange-600">
+    <div className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl bg-white px-2.5 py-2 text-center ring-1 ring-gray-100">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[10px] font-black text-gray-600">
         {number}
       </span>
-      <span className="text-[11px] font-bold text-gray-600">{label}</span>
+      <span className="truncate text-[10.5px] font-bold text-gray-600">{label}</span>
     </div>
   );
 }
@@ -523,66 +523,48 @@ export default function PaymentUpload() {
           </div>
         )}
 
-        <section className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
-          <div className="bg-gradient-to-br from-orange-50 via-white to-white p-4 sm:p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-sm">
-                    <CreditCard size={18} />
-                  </span>
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wide text-orange-500">Payment amount</p>
-                    <p className="text-xs text-gray-500">Review the amount before uploading your proof.</p>
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
-                    {isJaigaonPickup ? 'Shop2Bhutan charges to pay' : paymentSelection === 'advance' ? 'Advance amount selected' : paymentSelection === 'remaining' ? 'Remaining balance selected' : 'Selected amount to pay'}
-                  </p>
-                  <p className="mt-1 text-4xl font-black tracking-tight text-gray-950">{formatCurrency(amountPaidNumber)}</p>
-                  <p className="mt-2 max-w-md text-sm leading-6 text-gray-600">
-                    {isJaigaonPickup
-                      ? 'Jaigaon pickup selected. Product value is only for reference. Pay Shop2Bhutan charges in full.'
-                      : paymentSelection === 'advance'
-                        ? `${minimumAdvancePercent}% advance selected. The remaining balance will stay visible until paid.`
-                        : paymentSummary.isPartiallyPaid
-                          ? 'You are uploading the remaining balance for this order.'
-                          : 'You are uploading the full payable amount for this order.'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="shrink-0 rounded-2xl border border-gray-200 bg-white px-3 py-2 text-right shadow-sm">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Status</p>
-                <p className="mt-1 text-xs font-bold text-gray-700">
-                  {paymentSummary.isPartiallyPaid ? 'Balance due' : 'Payment pending'}
-                </p>
-              </div>
+        <section className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-black uppercase tracking-wider text-orange-500">Payment amount</p>
+              <h2 className="mt-1 text-3xl font-black tracking-tight text-gray-950">{formatCurrency(amountPaidNumber)}</h2>
+              <p className="mt-1 max-w-[230px] text-xs leading-5 text-gray-500">
+                {isJaigaonPickup
+                  ? 'Pay Shop2Bhutan charges for Jaigaon pickup.'
+                  : paymentSelection === 'advance'
+                    ? `${minimumAdvancePercent}% advance selected. Balance remains visible.`
+                    : paymentSummary.isPartiallyPaid
+                      ? 'Remaining balance selected for this payment.'
+                      : 'Full payment selected for this order.'}
+              </p>
             </div>
 
-            <div className={`mt-5 grid gap-3 ${isJaigaonPickup ? 'grid-cols-2' : 'grid-cols-3'}`}>
-              <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Quotation total</p>
-                <p className="mt-1 text-base font-black text-gray-950">{formatCurrency(quotationTotal)}</p>
-              </div>
-              <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Verified paid</p>
-                <p className="mt-1 text-base font-black text-gray-950">{formatCurrency(paymentSummary.verifiedPaid)}</p>
-              </div>
-              <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm col-span-2 sm:col-span-1">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Balance after this</p>
-                <p className="mt-1 text-base font-black text-gray-950">{formatCurrency(balanceAfterSelectedPayment)}</p>
-              </div>
-            </div>
+            <span className="shrink-0 rounded-full bg-gray-50 px-3 py-1.5 text-[11px] font-bold text-gray-600 ring-1 ring-gray-100">
+              {paymentSummary.isPartiallyPaid ? 'Balance due' : 'Payment pending'}
+            </span>
+          </div>
 
-            <div className="mt-4 rounded-2xl border border-orange-100 bg-white/80 p-3">
-              <div className="flex flex-wrap gap-2">
-                <PaymentStep number={1} label="Select amount" />
-                <PaymentStep number={2} label="Choose bank" />
-                <PaymentStep number={3} label="Upload proof" />
+          <div className="mt-4 rounded-2xl bg-gray-50 px-3 py-3 ring-1 ring-gray-100">
+            <div className="grid grid-cols-3 divide-x divide-gray-200">
+              <div className="px-1 text-left">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Total</p>
+                <p className="mt-1 text-sm font-black text-gray-950">{formatCurrency(quotationTotal)}</p>
+              </div>
+              <div className="px-3 text-left">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Paid</p>
+                <p className="mt-1 text-sm font-black text-gray-950">{formatCurrency(paymentSummary.verifiedPaid)}</p>
+              </div>
+              <div className="px-3 text-left">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">After this</p>
+                <p className="mt-1 text-sm font-black text-gray-950">{formatCurrency(balanceAfterSelectedPayment)}</p>
               </div>
             </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <PaymentStep number={1} label="Amount" />
+            <PaymentStep number={2} label="Method" />
+            <PaymentStep number={3} label="Proof" />
           </div>
         </section>
 
