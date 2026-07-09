@@ -24,6 +24,7 @@ import RequestBag from '@/pages/customer/RequestBag';
 import Checkout from '@/pages/customer/Checkout';
 import QuotationReview from '@/pages/customer/QuotationReview';
 import PaymentUpload from '@/pages/customer/PaymentUpload';
+import PaymentHistory from '@/pages/customer/PaymentHistory';
 import Orders from '@/pages/customer/Orders';
 import OrderDetail from '@/pages/customer/OrderDetail';
 import Account from '@/pages/customer/Account';
@@ -262,6 +263,14 @@ export default function App() {
             element={
               <RequireAuth title="Sign in to view notifications" message="Account notifications are linked to your order and payment activity.">
                 <Notifications />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/payment-history"
+            element={
+              <RequireAuth title="Sign in to view payment history" message="Your payment records are private and linked to your Shop2Bhutan account.">
+                <PaymentHistory />
               </RequireAuth>
             }
           />

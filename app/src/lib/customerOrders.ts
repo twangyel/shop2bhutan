@@ -70,6 +70,39 @@ export type AdminPaymentRecord = Payment & {
   paymentType: PaymentType
 }
 
+export type CustomerPaymentHistoryRecord = {
+  id: string
+  orderId: string
+  orderNumber: string
+  quotationId: string
+  amount: number
+  currency: string
+  paymentType: PaymentType
+  paymentMethod: string
+  status: PaymentStatus
+  proofUrl: string
+  submittedAt: string
+  verifiedAt: string
+  rejectionReason: string
+  adminNotes: string
+  createdAt: string
+}
+
+export type CustomerPaymentHistorySummary = {
+  totalPayments: number
+  verifiedCount: number
+  pendingCount: number
+  rejectedCount: number
+  verifiedPaid: number
+  pendingAmount: number
+  rejectedAmount: number
+}
+
+export type CustomerPaymentHistoryResult = {
+  payments: CustomerPaymentHistoryRecord[]
+  summary: CustomerPaymentHistorySummary
+}
+
 export type AdminCustomerRecord = {
   id: string
   name: string
@@ -1142,6 +1175,176 @@ function emitNotificationUpdated() {
     window.dispatchEvent(new CustomEvent('shop2bhutan:notifications-updated'))
   }
 }
+
+
+function makeEmptyCustomerPaymentHistory(): CustomerPaymentHistoryResult {
+  return {
+    payments: [],
+    summary: {
+      totalPayments: 0,
+      verifiedCount: 0,
+      pendingCount: 0,
+      rejectedCount: 0,
+      verifiedPaid: 0,
+      pendingAmount: 0,
+      rejectedAmount: 0,
+    },
+  }
+}
+
+function orderNumberFromPaymentHistoryOrder(row: AnyRow | undefined, fallbackOrderId: string) {
+  if (!row) return fallbackOrderId ? fallbackOrderId.slice(0, 8).toUpperCase() : 'Order'
+  return (
+    firstString(row, ['order_no', 'order_number', 'order_id', 'public_id'], '') ||
+    (fallbackOrderId ? fallbackOrderId.slice(0, 8).toUpperCase() : 'Order')
+  )
+}
+
+async function mapCustomerPaymentHistoryRow(payment: AnyRow, orderById: Map<string, AnyRow>): Promise<CustomerPaymentHistoryRecord> {
+  const orderId = firstString(payment, ['order_id'], '')
+  const proofPath = firstString(payment, ['proof_file_path', 'screenshot_url', 'payment_proof_url', 'proof_url'], '')
+  const proofUrl = proofPath ? (await makeSignedScreenshotUrl(proofPath)) || proofPath : ''
+  const status = normalizePaymentStatus(firstValue(payment, ['status']))
+  const submittedAt = firstString(payment, ['submitted_at', 'created_at'], '')
+  const createdAt = firstString(payment, ['created_at', 'submitted_at'], submittedAt)
+
+  return {
+    id: firstString(payment, ['id'], ''),
+    orderId,
+    orderNumber: orderNumberFromPaymentHistoryOrder(orderById.get(orderId), orderId),
+    quotationId: firstString(payment, ['quotation_id'], ''),
+    amount: firstNumber(payment, ['amount', 'total_amount', 'advance_paid'], 0),
+    currency: firstString(payment, ['currency'], 'BTN'),
+    paymentType: normalizePaymentType(firstValue(payment, ['payment_type', 'payment_kind', 'coverage_type'])),
+    paymentMethod: firstString(payment, ['payment_method_name', 'method_name', 'method', 'payment_method'], ''),
+    status,
+    proofUrl,
+    submittedAt,
+    verifiedAt: firstString(payment, ['verified_at'], ''),
+    rejectionReason: firstString(payment, ['rejection_reason'], ''),
+    adminNotes: firstString(payment, ['admin_notes', 'notes'], ''),
+    createdAt,
+  }
+}
+
+function summarizeCustomerPaymentHistory(payments: CustomerPaymentHistoryRecord[]): CustomerPaymentHistorySummary {
+  return payments.reduce<CustomerPaymentHistorySummary>(
+    (summary, payment) => {
+      const amount = numericAmount(payment.amount)
+
+      summary.totalPayments += 1
+
+      if (payment.status === 'verified') {
+        summary.verifiedCount += 1
+        summary.verifiedPaid += amount
+      } else if (payment.status === 'rejected') {
+        summary.rejectedCount += 1
+        summary.rejectedAmount += amount
+      } else {
+        summary.pendingCount += 1
+        summary.pendingAmount += amount
+      }
+
+      return summary
+    },
+    {
+      totalPayments: 0,
+      verifiedCount: 0,
+      pendingCount: 0,
+      rejectedCount: 0,
+      verifiedPaid: 0,
+      pendingAmount: 0,
+      rejectedAmount: 0,
+    }
+  )
+}
+
+export async function fetchCustomerPaymentHistory(userId: string): Promise<CustomerPaymentHistoryResult> {
+  const cleanUserId = cleanText(userId)
+  if (!cleanUserId) return makeEmptyCustomerPaymentHistory()
+
+  const primarySelect =
+    'id, order_id, quotation_id, user_id, payment_type, payment_method, amount, currency, proof_file_path, status, submitted_at, verified_at, rejection_reason, admin_notes, created_at, updated_at'
+
+  let paymentData: AnyRow[] = []
+  let lastPaymentError: unknown = null
+
+  const primary = await supabase
+    .from('payments')
+    .select(primarySelect)
+    .eq('user_id', cleanUserId)
+    .order('submitted_at', { ascending: false })
+    .limit(100)
+
+  if (!primary.error) {
+    paymentData = (primary.data ?? []) as AnyRow[]
+  } else {
+    lastPaymentError = primary.error
+    const fallback = await supabase
+      .from('payments')
+      .select('*')
+      .eq('user_id', cleanUserId)
+      .order('created_at', { ascending: false })
+      .limit(100)
+
+    if (!fallback.error) {
+      paymentData = (fallback.data ?? []) as AnyRow[]
+    } else if (isMissingColumnOrRelationError(primary.error) || isMissingColumnOrRelationError(fallback.error)) {
+      return makeEmptyCustomerPaymentHistory()
+    } else {
+      throw fallback.error || primary.error
+    }
+  }
+
+  const orderIds = Array.from(
+    new Set(
+      paymentData
+        .map((payment) => firstString(payment, ['order_id'], ''))
+        .filter(Boolean)
+    )
+  )
+
+  const orderById = new Map<string, AnyRow>()
+
+  if (orderIds.length > 0) {
+    const { data: orderData, error: orderError } = await supabase
+      .from('orders')
+      .select('id, order_no, order_number, order_id, public_id, created_at')
+      .in('id', orderIds)
+
+    if (!orderError) {
+      for (const row of (orderData ?? []) as AnyRow[]) {
+        const id = firstString(row, ['id'], '')
+        if (id) orderById.set(id, row)
+      }
+    } else if (!isMissingColumnOrRelationError(orderError)) {
+      console.warn('[customerOrders] payment history order lookup skipped:', errorMessage(orderError, 'Unable to load related orders.'))
+    }
+  }
+
+  try {
+    const payments = await Promise.all(
+      paymentData.map((payment) => mapCustomerPaymentHistoryRow(payment, orderById))
+    )
+
+    const sortedPayments = payments.sort((a, b) => {
+      const bTime = new Date(b.submittedAt || b.createdAt || 0).getTime() || 0
+      const aTime = new Date(a.submittedAt || a.createdAt || 0).getTime() || 0
+      return bTime - aTime
+    })
+
+    return {
+      payments: sortedPayments,
+      summary: summarizeCustomerPaymentHistory(sortedPayments),
+    }
+  } catch (error) {
+    if (lastPaymentError && !paymentData.length) {
+      throw lastPaymentError instanceof Error ? lastPaymentError : new Error(errorMessage(lastPaymentError, 'Unable to load payment history.'))
+    }
+    throw error
+  }
+}
+
 
 export async function fetchCustomerNotifications(userId: string): Promise<AppNotification[]> {
   if (!userId) return []

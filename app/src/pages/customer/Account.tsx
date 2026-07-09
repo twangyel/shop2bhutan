@@ -109,7 +109,7 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
       { icon: ClipboardList, label: 'My Orders', description: 'View quotations, payments, and tracking', path: '/orders' },
       { icon: Truck, label: 'My Parcels', description: 'Parcel requests and trip bookings', path: '/my-parcels' },
       { icon: MapPin, label: 'Saved Addresses', description: 'Manage delivery addresses', path: '/addresses' },
-      { icon: Wallet, label: 'Payment History', description: 'Payment records from your orders', path: '/orders' },
+      { icon: Wallet, label: 'Payment History', description: 'View uploaded payment proofs and verification status', path: '/payment-history' },
     ],
   },
   {
