@@ -87,6 +87,34 @@ function formatCurrency(value?: number) {
   return `Nu. ${amount.toLocaleString()}`;
 }
 
+
+type OrderWithEta = Order & {
+  estimatedDeliveryFrom?: string;
+  estimatedDeliveryTo?: string;
+  estimatedDeliveryNote?: string;
+};
+
+function formatEtaDate(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: BHUTAN_TIME_ZONE,
+    day: 'numeric',
+    month: 'short',
+  }).format(date);
+}
+
+function getOrderEtaLabel(order: Order) {
+  const etaOrder = order as OrderWithEta;
+  const from = formatEtaDate(etaOrder.estimatedDeliveryFrom);
+  const to = formatEtaDate(etaOrder.estimatedDeliveryTo);
+
+  if (from && to && from !== to) return `${from} – ${to}`;
+  return from || to || '';
+}
+
 function readablePaymentMethod(value?: string) {
   const clean = String(value || '').trim();
   if (!clean) return '';
@@ -219,6 +247,8 @@ export default function OrdersPanel() {
         order.shippingAddress.gewog,
         order.shippingAddress.landmark,
         fullDeliveryAddress(order),
+        getOrderEtaLabel(order),
+        (order as OrderWithEta).estimatedDeliveryNote,
         order.notes,
         paymentInfo.statusLabel,
         paymentInfo.typeLabel,
@@ -344,6 +374,7 @@ export default function OrdersPanel() {
                 paginatedOrders.map((order) => {
                   const deliveryAddressText = fullDeliveryAddress(order);
                   const paymentInfo = getOrderPaymentInfo(order);
+                  const etaLabel = getOrderEtaLabel(order);
 
                   return (
                   <tr
@@ -365,6 +396,9 @@ export default function OrdersPanel() {
                         <span className="font-medium text-neutral-700">{isSelfPickupOrder(order) ? getFulfillmentDisplay(order).title : order.shippingAddress.dzongkhag || '-'}</span>
                       </div>
                       <div className="mt-1 text-xs text-neutral-400 truncate">{deliveryAddressText || '-'}</div>
+                      {etaLabel && (
+                        <div className="mt-1 text-xs font-semibold text-blue-600">ETA: {etaLabel}</div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-neutral-600 min-w-[210px]">
                       <div className="flex flex-col gap-1">

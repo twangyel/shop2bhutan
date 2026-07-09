@@ -68,6 +68,52 @@ function formatAmount(value?: number) {
 }
 
 
+type OrderWithEta = Order & {
+  estimatedDeliveryFrom?: string;
+  estimatedDeliveryTo?: string;
+  estimatedDeliveryNote?: string;
+  estimatedDeliveryUpdatedAt?: string;
+};
+
+function getOrderEstimatedDelivery(order?: Order | null) {
+  const etaOrder = order as OrderWithEta | null | undefined;
+  return {
+    from: etaOrder?.estimatedDeliveryFrom || '',
+    to: etaOrder?.estimatedDeliveryTo || '',
+    note: etaOrder?.estimatedDeliveryNote || '',
+    updatedAt: etaOrder?.estimatedDeliveryUpdatedAt || '',
+  };
+}
+
+function dateInputValue(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 10);
+}
+
+function formatEtaDate(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: BHUTAN_TIME_ZONE,
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+}
+
+function formatEstimatedDeliveryRange(from?: string, to?: string) {
+  const fromText = formatEtaDate(from);
+  const toText = formatEtaDate(to);
+
+  if (fromText && toText && fromText !== toText) return `${fromText} – ${toText}`;
+  return fromText || toText || '';
+}
+
+
 function compactAddressParts(parts: Array<string | undefined>) {
   const seen = new Set<string>();
 
@@ -279,6 +325,9 @@ export default function OrderDetail() {
   const [fulfillmentError, setFulfillmentError] = useState('');
   const [sellerReference, setSellerReference] = useState('');
   const [fulfillmentNote, setFulfillmentNote] = useState('');
+  const [estimatedDeliveryFrom, setEstimatedDeliveryFrom] = useState('');
+  const [estimatedDeliveryTo, setEstimatedDeliveryTo] = useState('');
+  const [estimatedDeliveryNote, setEstimatedDeliveryNote] = useState('');
   const [pendingFulfillmentAction, setPendingFulfillmentAction] = useState<FulfillmentAction | null>(null);
   const [pendingPaymentReview, setPendingPaymentReview] = useState<{ type: 'verify' | 'reject'; payment: Payment } | null>(null);
   const [rejectPaymentReason, setRejectPaymentReason] = useState('');
@@ -297,6 +346,11 @@ export default function OrderDetail() {
     try {
       const realOrder = await fetchAdminOrderById(id);
       setOrder(realOrder);
+
+      const eta = getOrderEstimatedDelivery(realOrder);
+      setEstimatedDeliveryFrom(dateInputValue(eta.from));
+      setEstimatedDeliveryTo(dateInputValue(eta.to));
+      setEstimatedDeliveryNote(eta.note);
     } catch (err) {
       console.error('Failed to load admin order detail:', err);
       setError(err instanceof Error ? err.message : 'Unable to load order details.');
@@ -397,6 +451,9 @@ export default function OrderDetail() {
         adminId: user?.id,
         sellerReference: status === 'order_placed' ? sellerReference.trim() : undefined,
         adminNote: fulfillmentNote.trim(),
+        estimatedDeliveryFrom: estimatedDeliveryFrom || undefined,
+        estimatedDeliveryTo: estimatedDeliveryTo || undefined,
+        estimatedDeliveryNote: estimatedDeliveryNote.trim() || undefined,
       });
       setFulfillmentNote('');
       setPendingFulfillmentAction(null);
@@ -457,6 +514,9 @@ export default function OrderDetail() {
   const suggestedNextStatus = nextFulfillmentStatus(order);
   const currentStatusIndex = statusIndex(order.status);
   const isTerminalOrder = order.status === 'delivered' || order.status === 'cancelled';
+  const currentEta = getOrderEstimatedDelivery(order);
+  const currentEtaLabel = formatEstimatedDeliveryRange(currentEta.from, currentEta.to);
+  const draftEtaLabel = formatEstimatedDeliveryRange(estimatedDeliveryFrom, estimatedDeliveryTo);
 
   return (
     <div className="space-y-4">
@@ -553,6 +613,33 @@ export default function OrderDetail() {
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-5 shadow-card">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-gray-900">Estimated Delivery</h3>
+              <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700">
+                Customer visible
+              </span>
+            </div>
+            {currentEtaLabel ? (
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
+                <p className="text-sm font-bold text-blue-900">{currentEtaLabel}</p>
+                <p className="mt-1 text-xs leading-5 text-blue-700">
+                  {currentEta.note || 'Seller estimate entered by admin.'}
+                </p>
+                {currentEta.updatedAt && (
+                  <p className="mt-2 text-[11px] text-blue-500">Updated {formatBhutanDate(currentEta.updatedAt)}</p>
+                )}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-neutral-200 bg-neutral-50 p-3">
+                <p className="text-sm font-semibold text-neutral-700">No ETA added yet</p>
+                <p className="mt-1 text-xs leading-5 text-neutral-500">
+                  Add an estimated delivery window after placing the seller order.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-xl p-5 shadow-card">
@@ -833,6 +920,53 @@ export default function OrderDetail() {
               </label>
             </div>
 
+            <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-bold text-blue-900">Estimated delivery window</p>
+                  <p className="mt-0.5 text-xs text-blue-700">Enter the seller estimate after placing the order. This is shown to the customer.</p>
+                </div>
+                {draftEtaLabel && (
+                  <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-blue-700 ring-1 ring-blue-100">
+                    {draftEtaLabel}
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <label className="block">
+                  <span className="text-xs font-semibold text-blue-800">From</span>
+                  <input
+                    type="date"
+                    value={estimatedDeliveryFrom}
+                    onChange={(event) => setEstimatedDeliveryFrom(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-blue-100 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    disabled={!fulfillmentReady || isTerminalOrder}
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-semibold text-blue-800">To</span>
+                  <input
+                    type="date"
+                    value={estimatedDeliveryTo}
+                    onChange={(event) => setEstimatedDeliveryTo(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-blue-100 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    disabled={!fulfillmentReady || isTerminalOrder}
+                  />
+                </label>
+              </div>
+              <label className="mt-3 block">
+                <span className="text-xs font-semibold text-blue-800">ETA note</span>
+                <input
+                  type="text"
+                  value={estimatedDeliveryNote}
+                  onChange={(event) => setEstimatedDeliveryNote(event.target.value)}
+                  placeholder="Optional: Seller estimate, may change after dispatch..."
+                  className="mt-1 w-full rounded-lg border border-blue-100 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  disabled={!fulfillmentReady || isTerminalOrder}
+                />
+              </label>
+            </div>
+
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
               {fulfillmentActions.map((action) => {
                 const displayAction = displayFulfillmentAction(action, order);
@@ -991,6 +1125,16 @@ export default function OrderDetail() {
               {pendingFulfillmentAction.status === 'order_placed' && sellerReference.trim() && (
                 <p className="mt-2 text-xs text-neutral-600">
                   <span className="font-semibold">Seller reference:</span> {sellerReference.trim()}
+                </p>
+              )}
+              {draftEtaLabel && (
+                <p className="mt-2 text-xs text-neutral-600">
+                  <span className="font-semibold">Estimated delivery:</span> {draftEtaLabel}
+                </p>
+              )}
+              {estimatedDeliveryNote.trim() && (
+                <p className="mt-1 text-xs text-neutral-600">
+                  <span className="font-semibold">ETA note:</span> {estimatedDeliveryNote.trim()}
                 </p>
               )}
               {fulfillmentNote.trim() && (

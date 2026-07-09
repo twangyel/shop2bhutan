@@ -689,6 +689,102 @@ function cleanText(value: unknown) {
   return String(value ?? '').trim()
 }
 
+function orderEstimatedDeliveryFields(row: AnyRow) {
+  return {
+    estimatedDeliveryFrom: firstString(row, ['estimated_delivery_from', 'estimatedDeliveryFrom', 'eta_from', 'etaFrom'], ''),
+    estimatedDeliveryTo: firstString(row, ['estimated_delivery_to', 'estimatedDeliveryTo', 'eta_to', 'etaTo'], ''),
+    estimatedDeliveryNote: firstString(row, ['estimated_delivery_note', 'estimatedDeliveryNote', 'eta_note', 'etaNote'], ''),
+    estimatedDeliveryUpdatedAt: firstString(row, ['estimated_delivery_updated_at', 'estimatedDeliveryUpdatedAt', 'eta_updated_at', 'etaUpdatedAt'], ''),
+  }
+}
+
+function withOrderEstimatedDelivery(order: Order, row: AnyRow): Order {
+  Object.assign(order as Order & Record<string, unknown>, orderEstimatedDeliveryFields(row))
+  return order
+}
+
+function formatEstimatedDeliveryDateForNotification(value?: string) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Thimphu',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(date)
+}
+
+function estimatedDeliverySummaryText(input: {
+  estimatedDeliveryFrom?: string
+  estimatedDeliveryTo?: string
+  estimatedDeliveryNote?: string
+}) {
+  const from = formatEstimatedDeliveryDateForNotification(cleanText(input.estimatedDeliveryFrom))
+  const to = formatEstimatedDeliveryDateForNotification(cleanText(input.estimatedDeliveryTo))
+  const note = cleanText(input.estimatedDeliveryNote)
+
+  let range = ''
+  if (from && to && from !== to) range = `${from} – ${to}`
+  else range = from || to
+
+  if (range && note) return `Estimated delivery: ${range}. ${note}`
+  if (range) return `Estimated delivery: ${range}.`
+  if (note) return `Delivery note: ${note}`
+  return ''
+}
+
+async function updateOrderEstimatedDelivery(input: {
+  orderId: string
+  estimatedDeliveryFrom?: string
+  estimatedDeliveryTo?: string
+  estimatedDeliveryNote?: string
+}) {
+  const orderId = cleanText(input.orderId)
+  if (!orderId) return
+
+  const from = cleanText(input.estimatedDeliveryFrom) || null
+  const to = cleanText(input.estimatedDeliveryTo) || null
+  const note = cleanText(input.estimatedDeliveryNote) || null
+  const now = new Date().toISOString()
+
+  const candidates: AnyRow[] = [
+    {
+      estimated_delivery_from: from,
+      estimated_delivery_to: to,
+      estimated_delivery_note: note,
+      estimated_delivery_updated_at: now,
+      updated_at: now,
+    },
+    {
+      estimated_delivery_from: from,
+      estimated_delivery_to: to,
+      estimated_delivery_note: note,
+      estimated_delivery_updated_at: now,
+    },
+    {
+      eta_from: from,
+      eta_to: to,
+      eta_note: note,
+      eta_updated_at: now,
+      updated_at: now,
+    },
+  ]
+
+  let lastError: unknown = null
+
+  for (const payload of candidates) {
+    const result = await supabase.from('orders').update(payload).eq('id', orderId)
+    if (!result.error) return
+    lastError = result.error
+    if (!shouldTryFallbackPayload(result.error)) break
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(errorMessage(lastError, 'Unable to update estimated delivery.'))
+}
+
+
 const PHONE_ONLY_EMAIL_SUFFIX = '@phone.shop2bhutan.com'
 
 function isPhoneOnlyAuthEmail(value: unknown) {
@@ -2982,7 +3078,7 @@ async function mapOrderRow(row: AnyRow, related: RelatedRows, authUserId: string
   )
   const customerId = firstString(displayRow, ORDER_OWNER_COLUMNS, authUserId)
 
-  return {
+  return withOrderEstimatedDelivery({
     id: firstString(row, ['id'], ''),
     orderNumber: firstString(
       row,
@@ -3012,7 +3108,7 @@ async function mapOrderRow(row: AnyRow, related: RelatedRows, authUserId: string
     notes: firstString(displayRow, ['notes', 'customer_notes', 'admin_notes'], ''),
     createdAt: firstString(row, ['created_at'], ''),
     updatedAt: firstString(row, ['updated_at'], firstString(row, ['created_at'], '')),
-  }
+  }, row)
 }
 
 async function safeSelectIn(table: string, column: string, values: string[]) {
@@ -3267,7 +3363,7 @@ function mapOrderRowSummary(row: AnyRow, related: RelatedRows, authUserId: strin
   const payment = getPrimaryPayment(payments)
   const customerId = firstString(displayRow, ORDER_OWNER_COLUMNS, authUserId)
 
-  return {
+  return withOrderEstimatedDelivery({
     id: firstString(row, ['id'], ''),
     orderNumber: firstString(
       row,
@@ -3297,7 +3393,7 @@ function mapOrderRowSummary(row: AnyRow, related: RelatedRows, authUserId: strin
     notes: firstString(displayRow, ['notes', 'customer_notes', 'admin_notes'], ''),
     createdAt: firstString(row, ['created_at'], ''),
     updatedAt: firstString(row, ['updated_at'], firstString(row, ['created_at'], '')),
-  }
+  }, row)
 }
 
 export async function fetchCustomerOrdersSummary(userId: string, email = '') {
@@ -3654,6 +3750,9 @@ export async function updateAdminFulfillmentStatus(input: {
   adminId?: string
   sellerReference?: string
   adminNote?: string
+  estimatedDeliveryFrom?: string
+  estimatedDeliveryTo?: string
+  estimatedDeliveryNote?: string
 }) {
   const orderId = cleanText(input.orderId)
   if (!orderId) throw new Error('Order UUID is required.')
@@ -3663,16 +3762,36 @@ export async function updateAdminFulfillmentStatus(input: {
 
   await updateCustomerOrderStatus(orderId, input.status)
 
+  const etaSummary = estimatedDeliverySummaryText({
+    estimatedDeliveryFrom: input.estimatedDeliveryFrom,
+    estimatedDeliveryTo: input.estimatedDeliveryTo,
+    estimatedDeliveryNote: input.estimatedDeliveryNote,
+  })
+  const timelineNote = [cleanText(input.adminNote), etaSummary].filter(Boolean).join(' ')
+
+  if (input.estimatedDeliveryFrom || input.estimatedDeliveryTo || input.estimatedDeliveryNote) {
+    try {
+      await updateOrderEstimatedDelivery({
+        orderId,
+        estimatedDeliveryFrom: input.estimatedDeliveryFrom,
+        estimatedDeliveryTo: input.estimatedDeliveryTo,
+        estimatedDeliveryNote: input.estimatedDeliveryNote,
+      })
+    } catch (error) {
+      console.warn('[customerOrders] estimated delivery update skipped:', error)
+    }
+  }
+
   try {
     await insertOrderTrackingEvent({
       orderId,
       status: input.status,
       title: FULFILLMENT_STATUS_LABELS[input.status],
-      message: fulfillmentMessage(input.status, input.sellerReference, input.adminNote),
+      message: fulfillmentMessage(input.status, input.sellerReference, timelineNote),
       location: input.status === 'arrived_at_hub' || input.status === 'out_for_delivery' ? 'Bhutan Hub' : undefined,
       createdBy: input.adminId,
       sellerReference: input.sellerReference,
-      adminNote: input.adminNote,
+      adminNote: timelineNote,
       visibleToCustomer: true,
     })
   } catch (error) {
@@ -3683,7 +3802,7 @@ export async function updateAdminFulfillmentStatus(input: {
     orderId,
     status: input.status,
     sellerReference: input.sellerReference,
-    adminNote: input.adminNote,
+    adminNote: timelineNote,
   })
 }
 

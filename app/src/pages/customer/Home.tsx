@@ -116,6 +116,49 @@ function resolveDeliveryLabel({
 }
 
 
+
+const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
+
+function readableHomeDate(value?: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: BHUTAN_TIME_ZONE,
+    day: 'numeric',
+    month: 'short',
+  }).format(date);
+}
+
+function etaRangeLabel(from?: unknown, to?: unknown) {
+  const fromText = readableHomeDate(cleanString(from));
+  const toText = readableHomeDate(cleanString(to));
+
+  if (fromText && toText && fromText !== toText) return `${fromText} – ${toText}`;
+  return fromText || toText || '';
+}
+
+function orderEtaLabel(row: ActivityRow) {
+  const eta = etaRangeLabel(
+    row.estimated_delivery_from ?? row.estimatedDeliveryFrom ?? row.eta_from,
+    row.estimated_delivery_to ?? row.estimatedDeliveryTo ?? row.eta_to,
+  );
+
+  if (eta) return `Expected ${eta}`;
+
+  const status = normalizeStatus(row.status);
+  if (['order_placed', 'in_transit', 'arrived_at_hub', 'out_for_delivery'].includes(status)) {
+    return 'ETA will be updated soon';
+  }
+
+  if (['payment_verified', 'payment_pending'].includes(status)) {
+    return 'ETA after seller order';
+  }
+
+  return '';
+}
+
 type ActiveUpdate = {
   kind: 'order' | 'parcel';
   id: string;
@@ -123,6 +166,7 @@ type ActiveUpdate = {
   statusLabel: string;
   description: string;
   path: string;
+  etaLabel?: string;
 };
 
 type ActivityRow = Record<string, unknown> & {
@@ -130,6 +174,14 @@ type ActivityRow = Record<string, unknown> & {
   order_id?: string | null;
   status?: string | null;
   created_at?: string | null;
+  trip_id?: string | null;
+  estimated_delivery_from?: string | null;
+  estimated_delivery_to?: string | null;
+  estimated_delivery_note?: string | null;
+  estimatedDeliveryFrom?: string | null;
+  estimatedDeliveryTo?: string | null;
+  eta_from?: string | null;
+  eta_to?: string | null;
 };
 
 const inactiveOrderStatuses = new Set([
@@ -232,7 +284,7 @@ async function fetchOwnedRows(
 async function fetchLatestActiveOrder(userId: string): Promise<ActiveUpdate | null> {
   const rows = await fetchOwnedRows(
     'orders',
-    'id, order_id, status, created_at',
+    'id, order_id, status, created_at, estimated_delivery_from, estimated_delivery_to, estimated_delivery_note',
     userId,
     ['customer_id', 'user_id'],
   );
@@ -249,8 +301,34 @@ async function fetchLatestActiveOrder(userId: string): Promise<ActiveUpdate | nu
     title: `Order #${orderNumber}`,
     statusLabel: titleCaseStatus(row.status),
     description: orderStatusDescription(row.status),
-    path: `/order/${id}`, // customer route is /order/:id
+    etaLabel: orderEtaLabel(row),
+    path: `/order/${id}`,
   };
+}
+
+
+async function fetchParcelTripEta(tripId?: unknown) {
+  const id = cleanString(tripId);
+  if (!id) return '';
+
+  const { data, error } = await supabase
+    .from('parcel_trips')
+    .select('going_date, return_date, origin, destination, title')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error || !data) {
+    if (error) console.warn('[Home] parcel trip ETA lookup skipped:', error.message);
+    return '';
+  }
+
+  const row = data as Record<string, unknown>;
+  const goingDate = readableHomeDate(cleanString(row.going_date));
+  const returnDate = readableHomeDate(cleanString(row.return_date));
+
+  if (goingDate && returnDate && goingDate !== returnDate) return `Trip ${goingDate} – ${returnDate}`;
+  if (goingDate) return `Trip ${goingDate}`;
+  return '';
 }
 
 async function fetchLatestActiveParcel(userId: string): Promise<ActiveUpdate | null> {
@@ -265,6 +343,7 @@ async function fetchLatestActiveParcel(userId: string): Promise<ActiveUpdate | n
   if (!row) return null;
 
   const id = makeActivityId(row);
+  const tripEta = await fetchParcelTripEta(row.trip_id);
 
   return {
     kind: 'parcel',
@@ -272,16 +351,76 @@ async function fetchLatestActiveParcel(userId: string): Promise<ActiveUpdate | n
     title: 'Parcel request active',
     statusLabel: titleCaseStatus(row.status),
     description: parcelStatusDescription(row.status),
+    etaLabel: tripEta,
     path: '/my-parcels',
   };
 }
 
-function ContinueTrackingCard({
+function ActivityMiniCard({
   update,
+  fullWidth,
+  onNavigate,
+}: {
+  update: ActiveUpdate;
+  fullWidth: boolean;
+  onNavigate: (path: string) => void;
+}) {
+  const isOrder = update.kind === 'order';
+
+  return (
+    <button
+      type="button"
+      onClick={() => onNavigate(update.path)}
+      className={`rounded-3xl border border-gray-100 bg-white p-3 text-left shadow-sm transition active:scale-[0.98] ${
+        fullWidth ? 'col-span-2' : ''
+      }`}
+    >
+      <div className="flex items-start gap-2.5">
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+            isOrder ? 'bg-orange-50 text-orange-500' : 'bg-emerald-50 text-emerald-600'
+          }`}
+        >
+          {isOrder ? <Package size={19} strokeWidth={2.2} /> : <Truck size={19} strokeWidth={2.2} />}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span
+              className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${
+                isOrder ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'
+              }`}
+            >
+              {isOrder ? 'Order' : 'Parcel'}
+            </span>
+            <span className="truncate text-[10px] font-bold text-gray-400">{update.statusLabel}</span>
+          </div>
+
+          <h3 className="mt-2 line-clamp-1 text-sm font-extrabold text-gray-950">{update.title}</h3>
+          <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-gray-500">{update.description}</p>
+
+          {update.etaLabel && (
+            <p className={`mt-2 text-[11px] font-extrabold ${isOrder ? 'text-orange-600' : 'text-emerald-600'}`}>
+              {update.etaLabel}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between rounded-2xl bg-gray-50 px-3 py-2">
+        <span className="text-[11px] font-bold text-gray-700">{isOrder ? 'View Order' : 'View Parcel'}</span>
+        <ArrowRight size={14} strokeWidth={2.5} className="text-gray-500" />
+      </div>
+    </button>
+  );
+}
+
+function ContinueTrackingCard({
+  updates,
   loading,
   onNavigate,
 }: {
-  update: ActiveUpdate | null;
+  updates: ActiveUpdate[];
   loading: boolean;
   onNavigate: (path: string) => void;
 }) {
@@ -290,13 +429,15 @@ function ContinueTrackingCard({
       <section className="mt-5 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
         <div className="h-3 w-28 animate-pulse rounded-full bg-gray-100" />
         <div className="mt-3 h-5 w-44 animate-pulse rounded-full bg-gray-100" />
-        <div className="mt-3 h-3 w-full animate-pulse rounded-full bg-gray-100" />
-        <div className="mt-2 h-3 w-2/3 animate-pulse rounded-full bg-gray-100" />
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="h-28 animate-pulse rounded-3xl bg-gray-100" />
+          <div className="h-28 animate-pulse rounded-3xl bg-gray-100" />
+        </div>
       </section>
     );
   }
 
-  if (!update) {
+  if (updates.length === 0) {
     return (
       <section className="mt-5 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
         <div className="flex items-start gap-3">
@@ -354,53 +495,37 @@ function ContinueTrackingCard({
     );
   }
 
-  const isOrder = update.kind === 'order';
+  const visibleUpdates = updates.slice(0, 2);
+  const fullWidth = visibleUpdates.length === 1;
 
   return (
     <section className="mt-5 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
-            isOrder ? 'bg-orange-50 text-orange-500' : 'bg-emerald-50 text-emerald-600'
-          }`}
-        >
-          {isOrder ? <Package size={21} strokeWidth={2.2} /> : <Truck size={21} strokeWidth={2.2} />}
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Continue Tracking</p>
+          <h2 className="text-base font-extrabold text-gray-950">Active updates</h2>
         </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
-              Continue Tracking
-            </p>
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                isOrder ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'
-              }`}
-            >
-              {isOrder ? 'Order' : 'Parcel'}
-            </span>
-          </div>
-
-          <h3 className="mt-1 truncate text-base font-extrabold text-gray-900">
-            {update.title}
-          </h3>
-          <p className="mt-1 text-xs font-semibold text-gray-700">
-            {update.statusLabel}
-          </p>
-          <p className="mt-1 text-xs leading-5 text-gray-500">
-            {update.description}
-          </p>
-        </div>
+        {updates.length > 2 && (
+          <button
+            type="button"
+            onClick={() => onNavigate('/orders')}
+            className="text-[11px] font-bold text-orange-600"
+          >
+            View all
+          </button>
+        )}
       </div>
 
-      <button
-        type="button"
-        onClick={() => onNavigate(update.path)}
-        className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-gray-900 text-xs font-bold text-white transition active:scale-[0.98]"
-      >
-        <span>{isOrder ? 'View Order' : 'View Parcel'}</span>
-        <ArrowRight size={15} strokeWidth={2.5} />
-      </button>
+      <div className="grid grid-cols-2 gap-3">
+        {visibleUpdates.map((update) => (
+          <ActivityMiniCard
+            key={`${update.kind}-${update.id}`}
+            update={update}
+            fullWidth={fullWidth}
+            onNavigate={onNavigate}
+          />
+        ))}
+      </div>
     </section>
   );
 }
@@ -411,7 +536,7 @@ export default function Home() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
   const [dzongkhags, setDzongkhags] = useState<DzongkhagOption[]>([]);
-  const [activeUpdate, setActiveUpdate] = useState<ActiveUpdate | null>(null);
+  const [activeUpdates, setActiveUpdates] = useState<ActiveUpdate[]>([]);
   const [activeUpdateLoading, setActiveUpdateLoading] = useState(false);
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
 
@@ -457,7 +582,7 @@ export default function Home() {
     if (authLoading) return;
 
     if (!authUser) {
-      setActiveUpdate(null);
+      setActiveUpdates([]);
       setActiveUpdateLoading(false);
       return;
     }
@@ -470,10 +595,10 @@ export default function Home() {
         fetchLatestActiveParcel(authUser.id),
       ]);
 
-      setActiveUpdate(orderUpdate ?? parcelUpdate);
+      setActiveUpdates([orderUpdate, parcelUpdate].filter(Boolean) as ActiveUpdate[]);
     } catch (error) {
       console.warn('[Home] Active update lookup skipped:', error);
-      setActiveUpdate(null);
+      setActiveUpdates([]);
     } finally {
       setActiveUpdateLoading(false);
     }
@@ -743,7 +868,7 @@ export default function Home() {
 
         {/* ----- Active Order / Parcel Card ----- */}
         <ContinueTrackingCard
-          update={activeUpdate}
+          updates={activeUpdates}
           loading={activeUpdateLoading}
           onNavigate={(path) => navigate(path)}
         />
