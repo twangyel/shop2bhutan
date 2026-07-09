@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, AlertCircle, FileText, Loader2 } from 'lucide-react';
+import { AlertCircle, FileText, Loader2 } from 'lucide-react';
 import {
   fetchPublicContentPage,
   getDefaultContentPage,
@@ -22,7 +21,6 @@ function formatDate(value?: string) {
 }
 
 export default function PolicyPage({ slug }: { slug: ContentPageSlug }) {
-  const navigate = useNavigate();
   const [page, setPage] = useState<ContentPageRecord>(() => getDefaultContentPage(slug));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -65,21 +63,14 @@ export default function PolicyPage({ slug }: { slug: ContentPageSlug }) {
   return (
     <div className="min-h-screen bg-white pb-8">
       <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="-ml-1 flex h-9 w-9 items-center justify-center rounded-full hover:bg-neutral-100"
-          >
-            <ArrowLeft size={22} />
-          </button>
+        <div className="px-4 py-3">
           <h1 className="text-lg font-bold text-neutral-900">{page.title}</h1>
         </div>
       </div>
 
-      <div className="px-4 py-5">
+      <div className="px-4 py-4">
         <div className="mx-auto max-w-2xl">
-          <div className="mb-5 flex items-start gap-3 rounded-3xl border border-neutral-100 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-start gap-3 rounded-3xl border border-neutral-100 bg-white p-4 shadow-sm">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
               <FileText size={24} />
             </div>
@@ -104,16 +95,16 @@ export default function PolicyPage({ slug }: { slug: ContentPageSlug }) {
               Loading content...
             </div>
           ) : (
-            <div className="rounded-3xl border border-neutral-100 bg-white p-5 shadow-sm">
-              <div className="space-y-4 text-sm leading-relaxed text-neutral-600">
+            <div className="rounded-3xl border border-neutral-100 bg-white p-4 shadow-sm">
+              <div className="space-y-2.5 text-sm leading-6 text-neutral-600">
                 {page.content.split('\n').map((line, index) => {
                   const cleanLine = line.trim();
-                  if (!cleanLine) return <div key={`gap-${index}`} className="h-1" />;
+                  if (!cleanLine) return <div key={`gap-${index}`} className="h-0" />;
 
                   const looksLikeHeading = /^\d+\.|^[A-Z][A-Za-z\s&]+$/.test(cleanLine) && cleanLine.length < 80;
 
                   return looksLikeHeading ? (
-                    <h3 key={`${cleanLine}-${index}`} className="pt-2 text-base font-bold text-neutral-900">
+                    <h3 key={`${cleanLine}-${index}`} className="pt-3 text-[15px] font-extrabold text-neutral-900 first:pt-0">
                       {cleanLine}
                     </h3>
                   ) : (
