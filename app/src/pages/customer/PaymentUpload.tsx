@@ -6,6 +6,7 @@ import {
   Copy,
   CreditCard,
   FileText,
+  MapPin,
   ShieldCheck,
   Upload,
   Wallet,
@@ -15,6 +16,7 @@ import {
   fetchCustomerOrderById,
   fetchPaymentMethods,
   submitCustomerPaymentProof,
+  updateCustomerOrderDeliveryAddress,
 } from '@/lib/customerOrders';
 import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings';
 import { getFulfillmentDisplay, isJaigaonPickupOrder, isSelfPickupOrder } from '@/lib/fulfillment';
@@ -56,6 +58,52 @@ function getDeliverySummary(order: Order) {
 
   return [hubLabel, addressLabel].filter(Boolean).join(' • ') || 'Delivery address will be confirmed.';
 }
+
+const DELIVERY_AREAS = ['Thimphu', 'Paro', 'Chhukha'] as const;
+
+function normalizeDeliveryArea(value: unknown) {
+  const text = String(value ?? '').trim().toLowerCase();
+
+  if (text.includes('thimphu')) return 'Thimphu';
+  if (text.includes('paro')) return 'Paro';
+  if (text.includes('chhukha') || text.includes('phuentsholing') || text.includes('phuntsholing') || text.includes('pling')) {
+    return 'Chhukha';
+  }
+
+  return '';
+}
+
+function getLockedDeliveryArea(order: Order) {
+  if (isSelfPickupOrder(order)) return '';
+
+  return (
+    normalizeDeliveryArea(order.shippingAddress?.dzongkhag) ||
+    normalizeDeliveryArea(order.shippingAddress?.village) ||
+    normalizeDeliveryArea(order.shippingAddress?.gewog) ||
+    normalizeDeliveryArea(order.deliveryHub?.name) ||
+    normalizeDeliveryArea(order.deliveryHub?.address) ||
+    ''
+  );
+}
+
+function getExistingDeliveryAddressLine(order: Order) {
+  if (isSelfPickupOrder(order)) return '';
+
+  const parts = [
+    order.shippingAddress?.village,
+    order.shippingAddress?.gewog,
+  ]
+    .map((part) => String(part ?? '').trim())
+    .filter(Boolean);
+
+  const area = getLockedDeliveryArea(order).toLowerCase();
+
+  return parts
+    .filter((part) => part.toLowerCase() !== area)
+    .filter((part) => !DELIVERY_AREAS.some((item) => item.toLowerCase() === part.toLowerCase()))
+    .join(', ');
+}
+
 
 function getPaymentSummary(order: Order | null) {
   const payments = order?.payments ?? (order?.payment ? [order.payment] : []);
@@ -114,6 +162,14 @@ export default function PaymentUpload() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
+  const [deliveryForm, setDeliveryForm] = useState({
+    recipientName: '',
+    phone: '',
+    addressLine: '',
+    landmark: '',
+  });
+  const [deliveryFormTouched, setDeliveryFormTouched] = useState(false);
+  const [savingDeliveryAddress, setSavingDeliveryAddress] = useState(false);
 
   const loadOrder = useCallback(async () => {
     if (!orderId || !user) {
@@ -203,6 +259,17 @@ export default function PaymentUpload() {
     };
   }, [screenshotPreview]);
 
+  useEffect(() => {
+    if (!order || isSelfPickupOrder(order) || deliveryFormTouched) return;
+
+    setDeliveryForm({
+      recipientName: order.shippingAddress?.recipientName || '',
+      phone: order.shippingAddress?.phone || '',
+      addressLine: getExistingDeliveryAddressLine(order),
+      landmark: order.shippingAddress?.landmark || '',
+    });
+  }, [order, deliveryFormTouched]);
+
   const selectedPaymentMethod = useMemo(
     () => paymentMethods.find((method) => method.id === selectedMethod) ?? paymentMethods[0] ?? null,
     [paymentMethods, selectedMethod],
@@ -210,6 +277,20 @@ export default function PaymentUpload() {
 
   const paymentSummary = getPaymentSummary(order);
   const isJaigaonPickup = order ? isJaigaonPickupOrder(order) : false;
+  const requiresDeliveryAddress = Boolean(order && !isSelfPickupOrder(order));
+  const lockedDeliveryArea = order ? getLockedDeliveryArea(order) : '';
+  const deliveryAddressLine = deliveryForm.addressLine.trim();
+  const deliveryRecipientName = deliveryForm.recipientName.trim();
+  const deliveryPhone = deliveryForm.phone.trim();
+  const addressMentionsDifferentArea = Boolean(
+    lockedDeliveryArea &&
+      normalizeDeliveryArea(deliveryAddressLine) &&
+      normalizeDeliveryArea(deliveryAddressLine) !== lockedDeliveryArea,
+  );
+  const deliveryAddressConfirmed = Boolean(
+    !requiresDeliveryAddress ||
+      (lockedDeliveryArea && deliveryRecipientName && deliveryPhone && deliveryAddressLine && !addressMentionsDifferentArea),
+  );
   const productReferenceTotal = order?.quotation?.productTotal ?? 0;
   const quotationTotal = paymentSummary.totalPayable;
   const minimumAdvancePercent = isJaigaonPickup
@@ -256,6 +337,7 @@ export default function PaymentUpload() {
     screenshotFile &&
       selectedPaymentMethod &&
       amountPaidNumber > 0 &&
+      deliveryAddressConfirmed &&
       !amountAboveBalance &&
       !firstPaymentBelowMinimum &&
       canUpload &&
@@ -337,6 +419,33 @@ export default function PaymentUpload() {
       return;
     }
 
+    if (requiresDeliveryAddress) {
+      if (!lockedDeliveryArea) {
+        setError('Delivery area is missing. Please request an updated quotation before payment.');
+        return;
+      }
+
+      if (!deliveryRecipientName) {
+        setError('Please enter recipient name before submitting payment.');
+        return;
+      }
+
+      if (!deliveryPhone) {
+        setError('Please enter recipient phone number before submitting payment.');
+        return;
+      }
+
+      if (!deliveryAddressLine) {
+        setError('Please enter your exact delivery address before submitting payment.');
+        return;
+      }
+
+      if (addressMentionsDifferentArea) {
+        setError(`This quotation was prepared for ${lockedDeliveryArea}. Changing delivery area requires an updated quotation.`);
+        return;
+      }
+    }
+
     if (!screenshotFile) {
       setError('Please upload your payment screenshot.');
       return;
@@ -365,6 +474,20 @@ export default function PaymentUpload() {
     setError('');
 
     try {
+      if (requiresDeliveryAddress) {
+        setSavingDeliveryAddress(true);
+        await updateCustomerOrderDeliveryAddress({
+          orderId: order.id,
+          userId: user.id,
+          recipientName: deliveryRecipientName,
+          phone: deliveryPhone,
+          deliveryArea: lockedDeliveryArea,
+          addressLine: deliveryAddressLine,
+          landmark: deliveryForm.landmark.trim(),
+        });
+        setSavingDeliveryAddress(false);
+      }
+
       await submitCustomerPaymentProof({
         order,
         userId: user.id,
@@ -383,6 +506,7 @@ export default function PaymentUpload() {
       console.error('Failed to submit payment proof:', err);
       setError(err instanceof Error ? err.message : 'Unable to submit payment proof.');
     } finally {
+      setSavingDeliveryAddress(false);
       setSubmitting(false);
     }
   };
@@ -569,6 +693,109 @@ export default function PaymentUpload() {
         </section>
 
         <section className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-2.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gray-50 text-orange-500 ring-1 ring-gray-100">
+                <MapPin size={18} />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-sm font-extrabold text-gray-900">
+                  {requiresDeliveryAddress ? 'Confirm delivery address' : 'Pickup option confirmed'}
+                </h2>
+                <p className="mt-0.5 text-xs leading-5 text-gray-500">
+                  {requiresDeliveryAddress
+                    ? `Your quotation was prepared for ${lockedDeliveryArea || 'the selected area'}. Exact address can be updated here.`
+                    : 'No delivery address is required for self pickup.'}
+                </p>
+              </div>
+            </div>
+            {requiresDeliveryAddress && (
+              <span className="shrink-0 rounded-full bg-gray-50 px-2.5 py-1 text-[10px] font-bold text-gray-500 ring-1 ring-gray-100">
+                Area locked
+              </span>
+            )}
+          </div>
+
+          {requiresDeliveryAddress ? (
+            <div className="space-y-3">
+              <div className="rounded-2xl bg-gray-50 px-3 py-2.5 ring-1 ring-gray-100">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Delivery area</p>
+                <p className="mt-0.5 text-sm font-black text-gray-950">{lockedDeliveryArea || 'Not selected'}</p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wide text-gray-400">Recipient name</label>
+                  <input
+                    type="text"
+                    value={deliveryForm.recipientName}
+                    onChange={(event) => {
+                      setDeliveryFormTouched(true);
+                      setDeliveryForm((prev) => ({ ...prev, recipientName: event.target.value }));
+                      setError('');
+                    }}
+                    placeholder="Full name"
+                    className="mt-1.5 h-11 w-full rounded-2xl border border-gray-200 px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wide text-gray-400">Phone</label>
+                  <input
+                    type="tel"
+                    value={deliveryForm.phone}
+                    onChange={(event) => {
+                      setDeliveryFormTouched(true);
+                      setDeliveryForm((prev) => ({ ...prev, phone: event.target.value }));
+                      setError('');
+                    }}
+                    placeholder="Contact number"
+                    className="mt-1.5 h-11 w-full rounded-2xl border border-gray-200 px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wide text-gray-400">Exact address</label>
+                <textarea
+                  value={deliveryForm.addressLine}
+                  onChange={(event) => {
+                    setDeliveryFormTouched(true);
+                    setDeliveryForm((prev) => ({ ...prev, addressLine: event.target.value }));
+                    setError('');
+                  }}
+                  placeholder={`Building, town/area, gewog or nearby place in ${lockedDeliveryArea || 'selected area'}`}
+                  rows={3}
+                  className="mt-1.5 w-full resize-none rounded-2xl border border-gray-200 px-3 py-2.5 text-sm leading-5 text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wide text-gray-400">Landmark / instruction</label>
+                <input
+                  type="text"
+                  value={deliveryForm.landmark}
+                  onChange={(event) => {
+                    setDeliveryFormTouched(true);
+                    setDeliveryForm((prev) => ({ ...prev, landmark: event.target.value }));
+                    setError('');
+                  }}
+                  placeholder="Optional landmark or delivery instruction"
+                  className="mt-1.5 h-11 w-full rounded-2xl border border-gray-200 px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10"
+                />
+              </div>
+
+              <p className="rounded-2xl bg-gray-50 px-3 py-2.5 text-xs leading-5 text-gray-500">
+                Changing the delivery area requires a revised quotation because delivery fee may change.
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-gray-50 px-3 py-3 text-sm font-semibold leading-5 text-gray-800 ring-1 ring-gray-100">
+              {getDeliverySummary(order)}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center gap-2">
             <CreditCard size={18} className="text-orange-500" />
             <h2 className="text-sm font-extrabold text-gray-900">Select payment amount</h2>
@@ -648,7 +875,7 @@ export default function PaymentUpload() {
               </div>
             )}
             <div className="rounded-2xl border border-gray-100 bg-white p-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Delivery / address</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Delivery / pickup summary</p>
               <p className="mt-1 text-sm font-bold leading-5 text-gray-900">{getDeliverySummary(order)}</p>
             </div>
           </div>
@@ -865,7 +1092,17 @@ export default function PaymentUpload() {
             disabled={!canSubmit || paymentMethodsLoading}
             className="h-12 w-full rounded-2xl bg-orange-500 font-bold text-white shadow-lg shadow-orange-500/20 transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300 disabled:shadow-none"
           >
-            {submitting ? 'Uploading...' : paymentSummary.isPartiallyPaid ? 'Submit Remaining Payment Proof' : 'Submit Payment Proof'}
+            {submitting || savingDeliveryAddress
+              ? savingDeliveryAddress
+                ? 'Saving address...'
+                : 'Uploading...'
+              : !deliveryAddressConfirmed
+                ? 'Confirm delivery address to continue'
+                : !screenshotFile
+                  ? 'Upload screenshot to continue'
+                  : paymentSummary.isPartiallyPaid
+                    ? 'Submit Remaining Payment Proof'
+                    : 'Submit Payment Proof'}
           </button>
         </div>
       </div>

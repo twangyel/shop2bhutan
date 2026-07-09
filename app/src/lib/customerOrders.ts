@@ -4049,6 +4049,122 @@ async function insertPaymentWithKnownSchema(payload: {
   throw new Error(errorMessage(lastError, 'Unable to create payment row. Check payment method/payment type enum values.'))
 }
 
+
+export type ConfirmCustomerDeliveryAddressInput = {
+  orderId: string
+  userId: string
+  recipientName: string
+  phone: string
+  deliveryArea: string
+  addressLine: string
+  landmark?: string
+}
+
+function makeConfirmedDeliveryAddressSnapshot(input: ConfirmCustomerDeliveryAddressInput) {
+  const recipientName = cleanText(input.recipientName)
+  const phone = cleanText(input.phone)
+  const deliveryArea = cleanText(input.deliveryArea)
+  const addressLine = cleanText(input.addressLine)
+  const landmark = cleanText(input.landmark)
+  const fullAddress = uniqueAddressParts([addressLine, deliveryArea, landmark]).join(', ')
+
+  return {
+    recipient_name: recipientName,
+    phone,
+    customer_phone: phone,
+    delivery_address: fullAddress,
+    full_address: fullAddress,
+    formatted_address: fullAddress,
+    address_line1: addressLine,
+    village: addressLine,
+    dzongkhag: deliveryArea,
+    landmark,
+    fulfillment_mode: 'delivery',
+    confirmed_at: new Date().toISOString(),
+  }
+}
+
+export async function updateCustomerOrderDeliveryAddress(input: ConfirmCustomerDeliveryAddressInput) {
+  const orderId = cleanText(input.orderId)
+  if (!orderId) throw new Error('Order ID is required.')
+
+  const recipientName = cleanText(input.recipientName)
+  const phone = cleanText(input.phone)
+  const deliveryArea = cleanText(input.deliveryArea)
+  const addressLine = cleanText(input.addressLine)
+  const landmark = cleanText(input.landmark)
+
+  if (!recipientName) throw new Error('Please enter recipient name.')
+  if (!phone) throw new Error('Please enter phone number.')
+  if (!deliveryArea) throw new Error('Delivery area is required.')
+  if (!addressLine) throw new Error('Please enter your exact delivery address.')
+
+  const snapshot = makeConfirmedDeliveryAddressSnapshot({
+    ...input,
+    recipientName,
+    phone,
+    deliveryArea,
+    addressLine,
+    landmark,
+  })
+  const now = new Date().toISOString()
+  const fullAddress = snapshot.full_address
+
+  const candidates: AnyRow[] = [
+    {
+      shipping_address: snapshot,
+      delivery_address_json: snapshot,
+      address: snapshot,
+      delivery_address: fullAddress,
+      customer_name: recipientName,
+      customer_phone: phone,
+      recipient_name: recipientName,
+      recipient_phone: phone,
+      updated_at: now,
+    },
+    {
+      shipping_address: snapshot,
+      delivery_address: fullAddress,
+      customer_name: recipientName,
+      customer_phone: phone,
+      updated_at: now,
+    },
+    {
+      shipping_address: snapshot,
+      customer_name: recipientName,
+      customer_phone: phone,
+      updated_at: now,
+    },
+    {
+      delivery_address_json: snapshot,
+      customer_name: recipientName,
+      customer_phone: phone,
+      updated_at: now,
+    },
+    {
+      delivery_address: fullAddress,
+      customer_name: recipientName,
+      customer_phone: phone,
+      updated_at: now,
+    },
+    {
+      shipping_address: snapshot,
+    },
+  ]
+
+  let lastError: unknown = null
+
+  for (const payload of candidates) {
+    const result = await supabase.from('orders').update(payload).eq('id', orderId)
+    if (!result.error) return
+    lastError = result.error
+    if (!shouldTryFallbackPayload(result.error)) break
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(errorMessage(lastError, 'Unable to save delivery address.'))
+}
+
+
 export async function submitCustomerPaymentProof(input: PaymentProofInput) {
   const { order, userId, file, paymentMethodName, paymentMethodId, paymentMethodType, transactionId, amount, paymentType, note } = input
   const paymentAmount = numericAmount(amount)
