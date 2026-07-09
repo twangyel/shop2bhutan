@@ -1421,13 +1421,45 @@ async function createAdminPaymentUploadedNotification(input: {
     paymentType === 'advance' ? 'advance payment'
     : paymentType === 'balance' ? 'remaining balance payment'
     : 'full payment'
+  const eventKey = transactionId || new Date().toISOString()
 
   await createAdminNotificationForAdmins({
     type: 'payment',
     title: 'Payment Proof Uploaded',
     message: `${customerName} uploaded ${amount > 0 ? `Nu. ${amount.toLocaleString()}` : 'a payment proof'} as ${paymentTypeText} for order #${orderNo}.`,
     link: `/admin/orders/${order.id}`,
-    dedupeKey: transactionId ? `admin:payment-uploaded:${order.id}:${transactionId}` : undefined,
+    dedupeKey: `admin:payment-uploaded:${order.id}:${eventKey}`,
+  })
+}
+
+async function createCustomerPaymentSubmittedNotification(input: {
+  order: Order
+  userId: string
+  amount: number
+  paymentType?: PaymentType | string
+  transactionId?: string
+}) {
+  const userId = cleanText(input.userId)
+  if (!userId) return
+
+  const order = input.order
+  const orderNo = cleanText(order.orderNumber) || order.id.slice(0, 8).toUpperCase()
+  const amount = numericAmount(input.amount)
+  const transactionId = cleanText(input.transactionId)
+  const paymentType = normalizePaymentType(input.paymentType)
+  const paymentTypeText =
+    paymentType === 'advance' ? 'advance payment'
+    : paymentType === 'balance' ? 'remaining balance payment'
+    : 'payment proof'
+  const eventKey = transactionId || new Date().toISOString()
+
+  await createCustomerNotification({
+    userId,
+    type: 'payment',
+    title: 'Payment Proof Submitted',
+    message: `Your ${paymentTypeText} of ${amount > 0 ? `Nu. ${amount.toLocaleString()}` : 'the selected amount'} for order #${orderNo} has been submitted and is pending verification.`,
+    link: `/order/${order.id}`,
+    dedupeKey: `customer:payment-submitted:${order.id}:${eventKey}`,
   })
 }
 
@@ -4308,12 +4340,28 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
     console.warn('[customerOrders] order status update skipped:', error)
   }
 
-  await createAdminPaymentUploadedNotification({
-    order,
-    amount: paymentAmount,
-    paymentType,
-    transactionId,
-  })
+  try {
+    await createAdminPaymentUploadedNotification({
+      order,
+      amount: paymentAmount,
+      paymentType,
+      transactionId,
+    })
+  } catch (error) {
+    console.warn('[customerOrders] admin payment upload notification skipped:', error)
+  }
+
+  try {
+    await createCustomerPaymentSubmittedNotification({
+      order,
+      userId,
+      amount: paymentAmount,
+      paymentType,
+      transactionId,
+    })
+  } catch (error) {
+    console.warn('[customerOrders] customer payment submitted notification skipped:', error)
+  }
 
   return { path }
 }
