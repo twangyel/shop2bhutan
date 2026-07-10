@@ -319,7 +319,12 @@ function BagItemCard({
   index: number;
   saving: boolean;
   removing: boolean;
-  onPatch: (itemId: string, patch: Partial<Pick<RequestBagItem, 'productName' | 'priceShown' | 'quantity' | 'notes'>>) => void;
+  onPatch: (
+    itemId: string,
+    patch: Partial<
+      Pick<RequestBagItem, 'productName' | 'priceShown' | 'quantity' | 'notes'>
+    >,
+  ) => void;
   onRemove: (itemId: string) => void;
 }) {
   const ps = platformStyles(item.sourcePlatform);
@@ -336,18 +341,18 @@ function BagItemCard({
 
   return (
     <article
-      className={`overflow-hidden rounded-3xl border bg-white shadow-sm transition-all duration-200 ${
+      className={`overflow-hidden rounded-[26px] border bg-white shadow-[0_10px_32px_rgba(15,23,42,0.05)] transition-all duration-200 ${
         removing
           ? 'pointer-events-none translate-x-2 scale-[0.98] opacity-0'
-          : 'translate-x-0 scale-100 border-gray-200 opacity-100'
+          : 'translate-x-0 scale-100 border-slate-100 opacity-100'
       }`}
     >
-      <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/60 px-3.5 py-2.5">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-gray-500 ring-1 ring-gray-200">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="inline-flex h-7 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-extrabold text-slate-600">
             Item {index + 1}
           </span>
-          <span className="truncate text-[12px] font-semibold text-gray-500">
+          <span className="truncate text-xs font-semibold text-slate-500">
             {itemTypeLabel}
           </span>
         </div>
@@ -356,38 +361,48 @@ function BagItemCard({
           type="button"
           onClick={() => onRemove(item.id)}
           disabled={removing}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-red-50 hover:text-red-500 active:scale-95 disabled:pointer-events-none disabled:opacity-50"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-400 transition active:scale-95 active:bg-red-50 active:text-red-500 disabled:pointer-events-none disabled:opacity-50"
           aria-label="Remove item"
         >
-          {removing ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+          {removing ? (
+            <Loader2 size={17} className="animate-spin" />
+          ) : (
+            <Trash2 size={17} />
+          )}
         </button>
       </div>
 
-      <div className="p-3.5">
-        <div className="flex gap-3">
+      <div className="p-4">
+        <div className="flex gap-3.5">
           {item.productImage ? (
             <img
               src={item.productImage}
               alt=""
-              className="h-[82px] w-[82px] flex-shrink-0 rounded-2xl bg-gray-100 object-cover ring-1 ring-gray-100"
+              className="h-[86px] w-[86px] shrink-0 rounded-[22px] bg-slate-100 object-cover ring-1 ring-slate-100"
             />
           ) : (
-            <div className={`flex h-[82px] w-[82px] flex-shrink-0 items-center justify-center rounded-2xl ring-1 ring-gray-100 ${ps.bg}`}>
+            <div
+              className={`flex h-[86px] w-[86px] shrink-0 items-center justify-center rounded-[22px] ring-1 ring-slate-100 ${ps.bg}`}
+            >
               {ps.initial ? (
-                <span className={`text-lg font-bold ${ps.text}`}>{ps.initial}</span>
+                <span className={`text-lg font-black ${ps.text}`}>{ps.initial}</span>
               ) : (
-                <ImageIcon size={23} className={ps.text} />
+                <ImageIcon size={24} className={ps.text} />
               )}
             </div>
           )}
 
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 pt-0.5">
             <input
               type="text"
               value={item.productName}
-              onChange={(e) => onPatch(item.id, { productName: e.target.value })}
-              onBlur={() => onPatch(item.id, { productName: item.productName })}
-              className="w-full border-0 bg-transparent p-0 text-[15px] font-extrabold leading-5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-0"
+              onChange={(event) =>
+                onPatch(item.id, { productName: event.target.value })
+              }
+              onBlur={() =>
+                onPatch(item.id, { productName: item.productName })
+              }
+              className="w-full border-0 bg-transparent p-0 text-base font-extrabold leading-6 text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-0"
               placeholder="Product name"
             />
 
@@ -396,36 +411,36 @@ function BagItemCard({
                 href={item.sourceUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-1 block truncate text-[12px] font-medium text-gray-500 transition-colors hover:text-orange-600"
+                className="mt-1 block truncate text-sm font-medium text-slate-500 transition-colors active:text-orange-600"
               >
                 {domain || 'Open product link'}
               </a>
             ) : (
-              <p className="mt-1 text-[12px] font-medium text-gray-500">
+              <p className="mt-1 text-sm font-medium text-slate-500">
                 Product details from screenshot
               </p>
             )}
 
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-gray-600">
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-600">
                 {platformLabel(item.sourcePlatform)}
               </span>
 
               {!hasSourceUrl && (
-                <span className="rounded-full bg-orange-50 px-2.5 py-1 text-[10px] font-bold text-orange-600">
+                <span className="rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-bold text-orange-600">
                   Screenshot request
                 </span>
               )}
 
               {hasScreenshot && (
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-600">
+                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-600">
                   Screenshot saved
                 </span>
               )}
 
               {saving && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2.5 py-1 text-[10px] font-semibold text-gray-400">
-                  <Loader2 size={10} className="animate-spin" />
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-400">
+                  <Loader2 size={11} className="animate-spin" />
                   Saving
                 </span>
               )}
@@ -433,15 +448,15 @@ function BagItemCard({
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-[minmax(0,1fr)_112px] items-start gap-3">
+        <div className="mt-4 grid grid-cols-[minmax(0,1fr)_132px] gap-3">
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400">
+            <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
               Site price estimate
             </label>
             <output
               aria-label="Site price estimate"
-              className={`mt-1.5 flex h-11 w-full items-center rounded-2xl border border-gray-200 bg-gray-50 px-3 text-[14px] font-bold ring-1 ring-gray-100 ${
-                hasSitePriceEstimate ? 'text-gray-800' : 'text-gray-400'
+              className={`mt-2 flex h-12 w-full items-center rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[15px] font-bold ${
+                hasSitePriceEstimate ? 'text-slate-800' : 'text-slate-400'
               }`}
             >
               {sitePriceEstimateLabel}
@@ -449,50 +464,59 @@ function BagItemCard({
           </div>
 
           <div>
-            <label className="block text-center text-[10px] font-bold uppercase tracking-wider text-gray-400">
+            <label className="block text-center text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
               Qty
             </label>
-            <div className="mt-1.5 flex h-11 items-center justify-center rounded-2xl border border-gray-200 bg-white px-1 shadow-xs">
+            <div className="mt-2 flex h-12 items-center justify-between rounded-2xl border border-slate-200 bg-white p-1">
               <button
                 type="button"
-                onClick={() => onPatch(item.id, { quantity: Math.max(1, safeQuantity - 1) })}
-                className="flex h-9 w-8 items-center justify-center rounded-xl bg-gray-50 text-gray-700 transition active:scale-95 active:bg-gray-100"
+                onClick={() =>
+                  onPatch(item.id, {
+                    quantity: Math.max(1, safeQuantity - 1),
+                  })
+                }
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-700 transition active:scale-95 active:bg-slate-100"
                 aria-label="Decrease quantity"
               >
-                <Minus size={14} />
+                <Minus size={16} />
               </button>
-              <span className="w-8 text-center text-[15px] font-extrabold text-gray-900">
+              <span className="min-w-8 text-center text-base font-extrabold text-slate-950">
                 {safeQuantity}
               </span>
               <button
                 type="button"
-                onClick={() => onPatch(item.id, { quantity: safeQuantity + 1 })}
-                className="flex h-9 w-8 items-center justify-center rounded-xl bg-gray-50 text-gray-700 transition active:scale-95 active:bg-gray-100"
+                onClick={() =>
+                  onPatch(item.id, { quantity: safeQuantity + 1 })
+                }
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-700 transition active:scale-95 active:bg-slate-100"
                 aria-label="Increase quantity"
               >
-                <Plus size={14} />
+                <Plus size={16} />
               </button>
             </div>
           </div>
         </div>
 
-        <div className="mt-2 rounded-2xl border border-blue-100 bg-blue-50/70 px-3 py-2 text-[11px] leading-4 text-blue-700">
-          Admin will verify the site price before sending your final quotation.
+        <div className="mt-3 flex items-start gap-2 rounded-2xl border border-blue-100 bg-blue-50/80 px-3.5 py-2.5 text-xs font-medium leading-5 text-blue-700">
+          <CheckCircle size={15} className="mt-0.5 shrink-0" strokeWidth={2.3} />
+          <span>Admin will verify the site price before sending your final quotation.</span>
         </div>
 
         {hasSitePriceEstimate && (
-          <p className="mt-2 text-[12px] font-bold text-orange-600">
+          <p className="mt-2.5 text-sm font-bold text-orange-600">
             Estimated item total: {formatPrice(sitePriceEstimate * safeQuantity)}
           </p>
         )}
 
         <textarea
           value={item.notes || ''}
-          onChange={(e) => onPatch(item.id, { notes: e.target.value })}
+          onChange={(event) =>
+            onPatch(item.id, { notes: event.target.value })
+          }
           onBlur={() => onPatch(item.id, { notes: item.notes || '' })}
           placeholder="Size, color, variant, or instruction for this item..."
           rows={2}
-          className="mt-3 w-full resize-none rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-[14px] leading-5 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+          className="mt-3.5 w-full resize-none rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-[15px] leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
         />
       </div>
     </article>
@@ -822,31 +846,43 @@ export default function RequestBag() {
 
   if (!authLoading && (!user || isGuest)) {
     return (
-      <div className="min-h-screen bg-white px-4 py-8">
-        <div className="rounded-2xl bg-white border border-gray-100 p-6 text-center">
-          <ShoppingBag size={42} className="mx-auto text-gray-300" />
-          <h1 className="mt-3 text-lg font-bold text-gray-900">Sign in to use Request Bag</h1>
-          <p className="mt-1 text-sm leading-6 text-gray-500">
-            Shopping quotations require an account so we can save your request, send updates, and track your order.
+      <div className="min-h-screen bg-white px-5 py-8">
+        <div className="mx-auto max-w-lg rounded-[28px] border border-slate-100 bg-white p-7 text-center shadow-[0_12px_36px_rgba(15,23,42,0.06)]">
+          <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-orange-50 text-orange-500 ring-1 ring-orange-100">
+            <ShoppingBag size={30} strokeWidth={2.1} />
+          </span>
+          <h1 className="mt-5 text-xl font-extrabold text-slate-950">
+            Sign in to use Request Bag
+          </h1>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
+            Shopping quotations require an account so we can save your request,
+            send updates, and track your order.
           </p>
+
           <button
             type="button"
-            onClick={() => navigate('/login', { state: { from: '/request-bag' } })}
-            className="mt-4 h-11 rounded-xl bg-orange-500 px-5 text-sm font-semibold text-white hover:bg-orange-600"
+            onClick={() =>
+              navigate('/login', { state: { from: '/request-bag' } })
+            }
+            className="mt-6 flex h-[52px] w-full items-center justify-center rounded-2xl bg-orange-500 text-[15px] font-bold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98] active:bg-orange-600"
           >
             Sign In
           </button>
           <button
             type="button"
-            onClick={() => navigate('/register', { state: { returnTo: '/request-bag' } })}
-            className="mt-2 h-11 rounded-xl px-5 text-sm font-semibold text-orange-600 hover:bg-orange-50"
+            onClick={() =>
+              navigate('/register', {
+                state: { returnTo: '/request-bag' },
+              })
+            }
+            className="mt-2.5 flex h-12 w-full items-center justify-center rounded-2xl bg-orange-50 text-sm font-bold text-orange-700 transition active:scale-[0.98]"
           >
             Create Account
           </button>
           <button
             type="button"
             onClick={() => navigate('/parcel')}
-            className="mt-1 h-10 rounded-xl px-5 text-xs font-semibold text-gray-500 hover:bg-gray-50"
+            className="mt-2 h-11 w-full rounded-2xl text-sm font-semibold text-slate-500 transition active:bg-slate-50"
           >
             Continue to Parcel
           </button>
@@ -856,55 +892,66 @@ export default function RequestBag() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-[calc(9rem+env(safe-area-inset-bottom))]">
-      <div className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-3">
-        <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-white pb-[calc(10.5rem+env(safe-area-inset-bottom))]">
+      <header className="border-b border-slate-100 bg-white px-5 py-4">
+        <div className="mx-auto flex max-w-lg items-center gap-3">
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-bold text-gray-900">Request Bag</h1>
-            <p className="text-[12px] leading-5 text-gray-500">
+            <h1 className="text-[22px] font-extrabold tracking-tight text-slate-950">
+              Request Bag
+            </h1>
+            <p className="mt-0.5 text-sm leading-5 text-slate-500">
               Review your products and request one quotation.
             </p>
           </div>
+
           {hasItems && (
-            <span className="rounded-full bg-orange-50 border border-orange-100 px-2.5 py-1 text-xs font-bold text-orange-700">
+            <span className="inline-flex h-8 items-center rounded-full border border-orange-100 bg-orange-50 px-3 text-sm font-extrabold text-orange-700">
               {bag?.items.length} item{bag?.items.length === 1 ? '' : 's'}
             </span>
           )}
         </div>
-      </div>
+      </header>
 
-      <div className="px-4 py-4 space-y-4">
-        {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+      <main className="mx-auto max-w-lg space-y-4 px-5 py-5">
+        {error && !confirmOpen && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium leading-5 text-red-700">
             {error}
           </div>
         )}
 
         {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="h-32 rounded-2xl bg-gray-100 animate-pulse" />
+          <div className="space-y-4">
+            {[1, 2].map((item) => (
+              <div
+                key={item}
+                className="h-72 animate-pulse rounded-[26px] bg-slate-100"
+              />
             ))}
           </div>
         ) : !hasItems ? (
-          <div className="rounded-2xl bg-white border border-gray-100 p-6 text-center">
-            <ShoppingBag size={44} className="mx-auto text-gray-300" />
-            <h2 className="mt-3 text-lg font-bold text-gray-900">Your Request Bag is empty</h2>
-            <p className="mt-1 text-sm leading-6 text-gray-500">
-              Add a product link or screenshot first. You can add multiple items, then request one quotation.
+          <div className="rounded-[28px] border border-slate-100 bg-white p-7 text-center shadow-[0_12px_36px_rgba(15,23,42,0.05)]">
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-orange-50 text-orange-500 ring-1 ring-orange-100">
+              <ShoppingBag size={30} strokeWidth={2.1} />
+            </span>
+            <h2 className="mt-5 text-xl font-extrabold text-slate-950">
+              Your Request Bag is empty
+            </h2>
+            <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
+              Add a product link or screenshot first. You can add multiple
+              items and request one quotation.
             </p>
             <button
               type="button"
               onClick={() => navigate('/paste-link')}
-              className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 text-sm font-semibold text-white hover:bg-orange-600"
+              className="mt-6 inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 px-5 text-[15px] font-bold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98]"
             >
-              <Plus size={17} />
+              <Plus size={18} />
               Add Product
             </button>
           </div>
         ) : (
           <>
-            <div className="space-y-3">
+            <section className="space-y-4">
               {bag?.items.map((item, index) => (
                 <BagItemCard
                   key={item.id}
@@ -916,38 +963,40 @@ export default function RequestBag() {
                   onRemove={removeItem}
                 />
               ))}
-            </div>
+            </section>
 
             <button
               type="button"
               onClick={() => navigate('/paste-link')}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50/50 text-sm font-bold text-gray-700 hover:border-orange-300 hover:text-orange-600 hover:bg-orange-50/30 transition-colors"
+              className="flex h-[54px] w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 text-[15px] font-bold text-slate-700 transition active:scale-[0.99] active:border-orange-300 active:bg-orange-50 active:text-orange-700"
             >
-              <Plus size={17} />
+              <Plus size={19} />
               Add another product
             </button>
 
-            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-              <div className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 ring-1 ring-blue-100">
-                  <CheckCircle size={18} strokeWidth={2.4} />
+            <section className="rounded-[24px] border border-blue-100 bg-blue-50/80 p-4">
+              <div className="flex items-start gap-3.5">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-600 ring-1 ring-blue-100">
+                  <CheckCircle size={21} strokeWidth={2.4} />
                 </span>
                 <div>
-                  <h3 className="text-sm font-extrabold text-blue-950">Ready to request a quotation?</h3>
-                  <p className="mt-1 text-xs leading-5 text-blue-800">
-                    Contact, destination, and delivery preference will be confirmed in the next step. No payment is required now.
+                  <h2 className="text-base font-extrabold text-blue-950">
+                    Ready to request a quotation?
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-blue-800">
+                    Contact, destination, and delivery preference will be
+                    confirmed in the next step. No payment is required now.
                   </p>
                 </div>
               </div>
-            </div>
+            </section>
           </>
         )}
-      </div>
+      </main>
 
-      {/* ===== CONFIRMATION DIALOG ===== */}
       {confirmOpen && (
         <div
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/35 px-4 py-[calc(1.25rem+env(safe-area-inset-top))] pb-[calc(1.25rem+env(safe-area-inset-bottom))] backdrop-blur-[2px]"
+          className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/45 backdrop-blur-[2px]"
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-quotation-title"
@@ -959,65 +1008,106 @@ export default function RequestBag() {
             aria-label="Close confirmation"
           />
 
-          <div className="relative w-full max-w-md overflow-hidden rounded-[30px] bg-white shadow-2xl shadow-black/10 ring-1 ring-white/70">
-            <div className="max-h-[calc(100dvh-2.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] overflow-y-auto px-5 pb-5 pt-6 sm:px-6 sm:pb-7">
-              {/* Header */}
-              <div className="text-center">
-                <h2 id="confirm-quotation-title" className="text-xl font-extrabold tracking-tight text-gray-900">
-                  Request Quotation
+          <section className="relative w-full max-w-lg overflow-hidden rounded-t-[32px] bg-white shadow-2xl">
+            <div className="flex justify-center pt-3">
+              <span className="h-1.5 w-12 rounded-full bg-slate-200" />
+            </div>
+
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 pb-4 pt-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
+                  Final review
+                </p>
+                <h2
+                  id="confirm-quotation-title"
+                  className="mt-1 text-xl font-extrabold tracking-tight text-slate-950"
+                >
+                  Request quotation
                 </h2>
-                <p className="mt-1.5 text-sm leading-relaxed text-gray-500">
-                  We’ll review your items, destination, and delivery preference before sending the final price.
+                <p className="mt-1 text-sm leading-5 text-slate-500">
+                  Confirm your contact and delivery preference.
                 </p>
               </div>
 
-              {/* Summary */}
-              <div className="mt-5 space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-2xl border border-gray-100 bg-white px-3 py-3 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Items</p>
-                    <p className="mt-1 text-[15px] font-extrabold text-gray-900">
-                      {itemCount} item{itemCount === 1 ? '' : 's'}
-                      <span className="ml-1 text-xs font-semibold text-gray-500">({totalQuantity} qty)</span>
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-gray-100 bg-white px-3 py-3 text-right shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Site estimate</p>
-                    <p className="mt-1 text-[15px] font-extrabold text-gray-900">
-                      {estimatedSiteTotal > 0 ? formatPrice(estimatedSiteTotal) : <span className="text-sm font-semibold text-gray-400">To be quoted</span>}
-                    </p>
-                  </div>
+              <button
+                type="button"
+                onClick={() => !submitting && setConfirmOpen(false)}
+                disabled={submitting}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition active:scale-95"
+                aria-label="Close"
+              >
+                <ChevronDown size={20} strokeWidth={2.4} />
+              </button>
+            </div>
+
+            <div className="max-h-[calc(88dvh-env(safe-area-inset-bottom))] overflow-y-auto px-5 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-slate-50 px-4 py-3.5">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                    Items
+                  </p>
+                  <p className="mt-1 text-base font-extrabold text-slate-950">
+                    {itemCount} item{itemCount === 1 ? '' : 's'}
+                    <span className="ml-1 text-sm font-semibold text-slate-500">
+                      ({totalQuantity} qty)
+                    </span>
+                  </p>
                 </div>
 
-                <div className="rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm">
-                  <p className="text-sm font-extrabold text-gray-900">Notes for quotation</p>
-                  <p className="mt-0.5 text-xs leading-5 text-gray-500">
-                    Add size, color, variant, delivery, or pickup instructions if needed.
+                <div className="rounded-2xl bg-slate-50 px-4 py-3.5 text-right">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                    Site estimate
+                  </p>
+                  <p className="mt-1 text-base font-extrabold text-slate-950">
+                    {estimatedSiteTotal > 0 ? (
+                      formatPrice(estimatedSiteTotal)
+                    ) : (
+                      <span className="text-sm font-semibold text-slate-400">
+                        To be quoted
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <section className="rounded-[22px] border border-slate-100 bg-white p-4 shadow-sm">
+                  <p className="text-sm font-extrabold text-slate-950">
+                    Notes for quotation
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Add size, color, variant, delivery, or pickup instructions.
                   </p>
                   <textarea
                     value={customer.notes}
-                    onChange={(e) => setCustomer((prev) => ({ ...prev, notes: e.target.value }))}
+                    onChange={(event) =>
+                      setCustomer((previous) => ({
+                        ...previous,
+                        notes: event.target.value,
+                      }))
+                    }
                     placeholder="Optional note for Shop2Bhutan..."
                     rows={2}
-                    className="mt-3 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm leading-5 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+                    className="mt-3 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-5 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
                   />
-                </div>
+                </section>
 
-                {/* Contact and delivery form */}
-                <div className="rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm">
+                <section className="rounded-[22px] border border-slate-100 bg-white p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-3">
-                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gray-50 text-gray-500 ring-1 ring-gray-100">
-                        <User size={17} strokeWidth={2.2} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-extrabold text-gray-900">Contact</p>
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
+                        <User size={18} strokeWidth={2.2} />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-extrabold text-slate-950">
+                          Contact
+                        </p>
                         {contactDetailsComplete && !contactExpanded ? (
-                          <p className="mt-1 truncate text-xs font-semibold text-gray-600">
+                          <p className="mt-1 truncate text-sm font-semibold text-slate-600">
                             {customer.name.trim()} • {customer.phone.trim()}
                           </p>
                         ) : (
-                          <p className="mt-0.5 text-xs leading-5 text-gray-500">
+                          <p className="mt-1 text-xs leading-5 text-slate-500">
                             We use this only for quotation updates.
                           </p>
                         )}
@@ -1027,83 +1117,104 @@ export default function RequestBag() {
                     {contactDetailsComplete && (
                       <button
                         type="button"
-                        onClick={() => setContactExpanded((prev) => !prev)}
-                        className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-gray-100 px-3 text-[11px] font-bold text-gray-600 transition active:scale-[0.97]"
+                        onClick={() =>
+                          setContactExpanded((previous) => !previous)
+                        }
+                        className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-3 text-xs font-bold text-slate-600 transition active:scale-[0.97]"
                       >
-                        <Edit3 size={12} strokeWidth={2.3} />
+                        <Edit3 size={13} strokeWidth={2.3} />
                         {contactExpanded ? 'Done' : 'Edit'}
                       </button>
                     )}
                   </div>
 
                   {error && (
-                    <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-medium leading-5 text-red-700">
+                    <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3.5 py-3 text-xs font-medium leading-5 text-red-700">
                       {error}
                     </div>
                   )}
 
                   {(!contactDetailsComplete || contactExpanded) && (
-                    <div className="mt-3 grid gap-2">
+                    <div className="mt-3 grid gap-2.5">
                       <div className="relative">
-                        <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <User
+                          size={17}
+                          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                        />
                         <input
                           type="text"
                           value={customer.name}
-                          onChange={(e) => {
-                            setCustomer((prev) => ({ ...prev, name: e.target.value }));
+                          onChange={(event) => {
+                            setCustomer((previous) => ({
+                              ...previous,
+                              name: event.target.value,
+                            }));
                             setError('');
                           }}
                           placeholder="Full name"
-                          className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm font-medium text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+                          className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-3 text-sm font-medium text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
                         />
                       </div>
 
                       <div className="relative">
-                        <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <Phone
+                          size={17}
+                          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                        />
                         <input
                           type="tel"
                           value={customer.phone}
-                          onChange={(e) => {
-                            setCustomer((prev) => ({ ...prev, phone: e.target.value }));
+                          onChange={(event) => {
+                            setCustomer((previous) => ({
+                              ...previous,
+                              phone: event.target.value,
+                            }));
                             setError('');
                           }}
                           placeholder="Phone number"
-                          className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm font-medium text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+                          className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-3 text-sm font-medium text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
                         />
                       </div>
                     </div>
                   )}
-                </div>
+                </section>
 
-                <div className="rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm">
+                <section className="rounded-[22px] border border-slate-100 bg-white p-4 shadow-sm">
                   <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gray-50 text-gray-500 ring-1 ring-gray-100">
-                      <MapPin size={17} strokeWidth={2.2} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-extrabold text-gray-900">Delivery preference</p>
-                      <p className="mt-0.5 text-xs leading-5 text-gray-500">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
+                      <MapPin size={18} strokeWidth={2.2} />
+                    </span>
+                    <div>
+                      <p className="text-sm font-extrabold text-slate-950">
+                        Delivery preference
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
                         Used to estimate delivery or pickup fee.
                       </p>
                     </div>
                   </div>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="mt-3 grid grid-cols-2 gap-2.5">
                     <button
                       type="button"
                       onClick={() => {
                         setFulfillmentMode('delivery');
                         setError('');
                       }}
-                      className={`rounded-2xl border px-3 py-2.5 text-left transition ${
+                      className={`rounded-2xl border px-3.5 py-3 text-left transition active:scale-[0.99] ${
                         fulfillmentMode === 'delivery'
-                          ? 'border-orange-200 bg-orange-50/70 text-orange-700 ring-1 ring-orange-100'
-                          : 'border-gray-200 bg-white text-gray-600 active:bg-gray-50'
+                          ? 'border-orange-200 bg-orange-50 text-orange-700 ring-1 ring-orange-100'
+                          : 'border-slate-200 bg-white text-slate-600'
                       }`}
                     >
-                      <span className="block text-sm font-extrabold">Deliver to me</span>
-                      <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Choose destination</span>
+                      <span className="block text-sm font-extrabold">
+                        Deliver to me
+                      </span>
+                      <span className="mt-1 block text-xs leading-4 opacity-75">
+                        Choose destination
+                      </span>
                     </button>
+
                     <button
                       type="button"
                       onClick={() => {
@@ -1111,27 +1222,36 @@ export default function RequestBag() {
                         setDestinationPickerOpen(false);
                         setError('');
                       }}
-                      className={`rounded-2xl border px-3 py-2.5 text-left transition ${
+                      className={`rounded-2xl border px-3.5 py-3 text-left transition active:scale-[0.99] ${
                         fulfillmentMode === 'self_pickup'
-                          ? 'border-orange-200 bg-orange-50/70 text-orange-700 ring-1 ring-orange-100'
-                          : 'border-gray-200 bg-white text-gray-600 active:bg-gray-50'
+                          ? 'border-orange-200 bg-orange-50 text-orange-700 ring-1 ring-orange-100'
+                          : 'border-slate-200 bg-white text-slate-600'
                       }`}
                     >
-                      <span className="block text-sm font-extrabold">I will collect</span>
-                      <span className="mt-0.5 block text-[11px] leading-4 opacity-75">Pickup option</span>
+                      <span className="block text-sm font-extrabold">
+                        I will collect
+                      </span>
+                      <span className="mt-1 block text-xs leading-4 opacity-75">
+                        Pickup option
+                      </span>
                     </button>
                   </div>
 
                   {addressLoading && (
-                    <div className="mt-3 flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs text-gray-500">
-                      <Loader2 size={15} className="animate-spin text-orange-500" />
+                    <div className="mt-3 flex items-center gap-2 rounded-2xl bg-slate-50 px-3.5 py-3 text-xs text-slate-500">
+                      <Loader2
+                        size={15}
+                        className="animate-spin text-orange-500"
+                      />
                       Loading destination...
                     </div>
                   )}
 
                   {isSelfPickup ? (
-                    <div className="mt-3 space-y-2">
-                      <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Pickup option</p>
+                    <div className="mt-3 space-y-2.5">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                        Pickup option
+                      </p>
                       {SELF_PICKUP_OPTIONS.map((hub) => (
                         <button
                           key={hub.id}
@@ -1140,151 +1260,184 @@ export default function RequestBag() {
                             setPickupHubId(hub.id);
                             setError('');
                           }}
-                          className={`w-full rounded-2xl border p-3 text-left transition ${
+                          className={`w-full rounded-2xl border p-3.5 text-left transition active:scale-[0.99] ${
                             pickupHubId === hub.id
-                              ? 'border-orange-200 bg-orange-50/70 text-orange-700 ring-1 ring-orange-100'
-                              : 'border-gray-200 bg-white text-gray-600 active:bg-gray-50'
+                              ? 'border-orange-200 bg-orange-50 text-orange-700 ring-1 ring-orange-100'
+                              : 'border-slate-200 bg-white text-slate-600'
                           }`}
                         >
-                          <span className="block text-sm font-bold">{hub.name}</span>
-                          <span className="mt-0.5 block text-[11px] leading-4 text-gray-500">{hub.dzongkhag}</span>
+                          <span className="block text-sm font-bold">
+                            {hub.name}
+                          </span>
+                          <span className="mt-1 block text-xs leading-4 text-slate-500">
+                            {hub.dzongkhag}
+                          </span>
                         </button>
                       ))}
-                      <div className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs leading-5 text-gray-600">
+
+                      <div className="rounded-2xl bg-slate-50 px-3.5 py-3 text-xs leading-5 text-slate-600">
                         {selectedPickupHub.pickupInstructions}
                       </div>
                     </div>
                   ) : (
                     <div className="mt-3">
-                      <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                      <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
                         Delivery area
                       </p>
 
-                      <div className="rounded-2xl border border-gray-200 bg-white p-1.5 shadow-sm">
+                      <div className="rounded-2xl border border-slate-200 bg-white p-1.5">
                         <button
                           type="button"
-                          onClick={() => setDestinationPickerOpen((prev) => !prev)}
-                          className="flex min-h-[46px] w-full items-center justify-between gap-3 rounded-xl bg-white px-3 text-left transition active:scale-[0.99]"
+                          onClick={() =>
+                            setDestinationPickerOpen((previous) => !previous)
+                          }
+                          className="flex min-h-[50px] w-full items-center justify-between gap-3 rounded-xl px-3 text-left transition active:scale-[0.99]"
                           aria-expanded={destinationPickerOpen}
                         >
                           <span className="flex min-w-0 items-center gap-2.5">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gray-50 text-orange-500">
-                              <MapPin size={16} strokeWidth={2.2} />
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-orange-500">
+                              <MapPin size={17} strokeWidth={2.2} />
                             </span>
                             <span className="min-w-0">
-                              <span className="block text-[10px] font-bold uppercase tracking-wide text-gray-400">
-                                {customer.deliveryAddress ? 'Selected area' : 'Choose area'}
+                              <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                {customer.deliveryAddress
+                                  ? 'Selected area'
+                                  : 'Choose area'}
                               </span>
-                              <span className="block truncate text-sm font-extrabold text-gray-900">
-                                {customer.deliveryAddress || 'Select Thimphu, Paro, or Chhukha'}
+                              <span className="block truncate text-sm font-extrabold text-slate-950">
+                                {customer.deliveryAddress ||
+                                  'Select Thimphu, Paro, or Chhukha'}
                               </span>
                             </span>
                           </span>
                           <ChevronDown
                             size={18}
                             strokeWidth={2.4}
-                            className={`shrink-0 text-gray-400 transition-transform ${destinationPickerOpen ? 'rotate-180' : ''}`}
+                            className={`shrink-0 text-slate-400 transition-transform ${
+                              destinationPickerOpen ? 'rotate-180' : ''
+                            }`}
                           />
                         </button>
 
                         {destinationPickerOpen && (
-                          <div className="mt-1.5 grid gap-1.5 border-t border-gray-100 pt-1.5">
-                            {DELIVERY_DESTINATION_OPTIONS.map((destination) => {
-                              const selected = normalizeSupportedDeliveryDestination(customer.deliveryAddress, dzongkhagOptions) === destination;
-                              return (
-                                <button
-                                  key={destination}
-                                  type="button"
-                                  onClick={() => {
-                                    setCustomer((prev) => ({ ...prev, deliveryAddress: destination }));
-                                    setDestinationPickerOpen(false);
-                                    setError('');
-                                  }}
-                                  className={`flex min-h-[44px] items-center justify-between rounded-xl px-3 text-left transition active:scale-[0.99] ${
-                                    selected
-                                      ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-100'
-                                      : 'bg-white text-gray-700 hover:bg-gray-50 active:bg-gray-50'
-                                  }`}
-                                >
-                                  <span className="flex items-center gap-2.5">
-                                    <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${
-                                      selected ? 'bg-white text-orange-500' : 'bg-gray-50 text-gray-400'
-                                    }`}>
-                                      <MapPin size={14} strokeWidth={2.3} />
+                          <div className="mt-1.5 grid gap-1.5 border-t border-slate-100 pt-1.5">
+                            {DELIVERY_DESTINATION_OPTIONS.map(
+                              (destination) => {
+                                const selected =
+                                  normalizeSupportedDeliveryDestination(
+                                    customer.deliveryAddress,
+                                    dzongkhagOptions,
+                                  ) === destination;
+
+                                return (
+                                  <button
+                                    key={destination}
+                                    type="button"
+                                    onClick={() => {
+                                      setCustomer((previous) => ({
+                                        ...previous,
+                                        deliveryAddress: destination,
+                                      }));
+                                      setDestinationPickerOpen(false);
+                                      setError('');
+                                    }}
+                                    className={`flex min-h-[46px] items-center justify-between rounded-xl px-3 text-left transition active:scale-[0.99] ${
+                                      selected
+                                        ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-100'
+                                        : 'bg-white text-slate-700 active:bg-slate-50'
+                                    }`}
+                                  >
+                                    <span className="flex items-center gap-2.5">
+                                      <span
+                                        className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                                          selected
+                                            ? 'bg-white text-orange-500'
+                                            : 'bg-slate-50 text-slate-400'
+                                        }`}
+                                      >
+                                        <MapPin
+                                          size={15}
+                                          strokeWidth={2.3}
+                                        />
+                                      </span>
+                                      <span className="text-sm font-bold">
+                                        {destination}
+                                      </span>
                                     </span>
-                                    <span className="text-sm font-bold">{destination}</span>
-                                  </span>
-                                  {selected && <CheckCircle size={17} strokeWidth={2.5} />}
-                                </button>
-                              );
-                            })}
+                                    {selected && (
+                                      <CheckCircle
+                                        size={17}
+                                        strokeWidth={2.5}
+                                      />
+                                    )}
+                                  </button>
+                                );
+                              },
+                            )}
                           </div>
                         )}
                       </div>
 
-                      <p className="mt-1.5 text-[11px] leading-4 text-gray-400">
+                      <p className="mt-2 text-xs leading-4 text-slate-400">
                         Used only to estimate the delivery fee in your quotation.
                       </p>
                     </div>
                   )}
-                </div>
-              </div>
+                </section>
 
-              {/* Warning */}
-              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-amber-600 ring-1 ring-gray-100">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                    <line x1="12" y1="9" x2="12" y2="13" />
-                    <line x1="12" y1="17" x2="12.01" y2="17" />
-                  </svg>
+                <div className="flex items-start gap-3 rounded-[22px] border border-amber-100 bg-amber-50/70 px-4 py-3.5">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-amber-600 ring-1 ring-amber-100">
+                    <CheckCircle size={17} strokeWidth={2.3} />
+                  </span>
+                  <div>
+                    <p className="text-sm font-extrabold text-slate-950">
+                      No payment now
+                    </p>
+                    <p className="mt-1 text-xs font-medium leading-5 text-slate-600">
+                      You’ll receive a quotation first and pay only after
+                      approval.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-extrabold text-gray-900">No payment now</p>
-                  <p className="mt-0.5 text-xs leading-5 font-medium text-gray-600">
-                    You’ll receive a quotation first and pay only after approval.
-                  </p>
-                </div>
-              </div>
-
-              {/* Buttons */}
-              <div className="mt-5 space-y-2.5">
-                <button
-                  type="button"
-                  onClick={submitBag}
-                  disabled={submitting}
-                  className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-[15px] font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 size={18} strokeWidth={2.5} className="animate-spin" />
-                      Sending Request...
-                    </>
-                  ) : (
-                    'Request Quotation'
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setConfirmOpen(false)}
-                  disabled={submitting}
-                  className="h-11 w-full rounded-2xl text-sm font-semibold text-gray-500 transition-colors hover:bg-gray-50 active:scale-[0.98] disabled:opacity-60"
-                >
-                  Cancel
-                </button>
               </div>
             </div>
-          </div>
+
+            <div className="absolute bottom-0 left-0 right-0 border-t border-slate-100 bg-white/95 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+              <button
+                type="button"
+                onClick={submitBag}
+                disabled={submitting}
+                className="flex h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-[15px] font-bold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98] active:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2
+                      size={18}
+                      strokeWidth={2.5}
+                      className="animate-spin"
+                    />
+                    Sending Request...
+                  </>
+                ) : (
+                  <>
+                    Request Quotation
+                    <Package size={18} />
+                  </>
+                )}
+              </button>
+            </div>
+          </section>
         </div>
-      )}{hasItems && (
-        <div className="fixed bottom-16 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur-xl">
+      )}
+
+      {hasItems && (
+        <div className="fixed bottom-[calc(4.55rem+env(safe-area-inset-bottom))] left-0 right-0 z-40 border-t border-slate-100 bg-white/95 px-5 py-3 backdrop-blur-xl">
           <div className="mx-auto max-w-lg">
             <button
               type="button"
               onClick={openSubmitConfirmation}
               disabled={submitting}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 text-sm font-bold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-[15px] font-bold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98] active:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? (
                 <>
@@ -1298,8 +1451,8 @@ export default function RequestBag() {
                 </>
               )}
             </button>
-            <p className="mt-2 text-center text-[11px] text-gray-500">
-              No payment now. You will approve the quotation before paying.
+            <p className="mt-2 text-center text-xs text-slate-500">
+              No payment now. Approve the quotation before paying.
             </p>
           </div>
         </div>
