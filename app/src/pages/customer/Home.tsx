@@ -476,7 +476,7 @@ function ActivityMiniCard({
         </span>
 
         <span
-          className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wide ${
+          className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${
             isOrder
               ? 'bg-orange-50 text-orange-700'
               : 'bg-emerald-50 text-emerald-700'
@@ -489,13 +489,13 @@ function ActivityMiniCard({
       <h3 className="mt-3 line-clamp-1 text-sm font-extrabold text-slate-950">
         {update.title}
       </h3>
-      <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500">
+      <p className="mt-1 line-clamp-2 text-[12px] leading-[1.45] text-slate-500">
         {update.description}
       </p>
 
       {update.etaLabel && (
         <p
-          className={`mt-2 text-[11px] font-bold ${
+          className={`mt-2 text-[12px] font-bold ${
             isOrder ? 'text-orange-600' : 'text-emerald-600'
           }`}
         >
@@ -503,7 +503,7 @@ function ActivityMiniCard({
         </p>
       )}
 
-      <span className="mt-3 flex items-center justify-between text-[11px] font-bold text-slate-700">
+      <span className="mt-3 flex items-center justify-between text-[12px] font-bold text-slate-700">
         {isOrder ? 'View order' : 'View parcel'}
         <ArrowRight size={14} strokeWidth={2.5} />
       </span>
@@ -526,11 +526,11 @@ function SectionHeading({
     <div className="flex items-end justify-between gap-3">
       <div>
         {eyebrow && (
-          <p className="text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
+          <p className="text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
             {eyebrow}
           </p>
         )}
-        <h2 className="mt-1 text-[1.1rem] font-extrabold tracking-tight text-slate-950">
+        <h2 className="mt-1 text-[1.18rem] font-extrabold tracking-tight text-slate-950">
           {title}
         </h2>
       </div>
@@ -539,7 +539,7 @@ function SectionHeading({
         <button
           type="button"
           onClick={onAction}
-          className="flex items-center gap-0.5 text-xs font-bold text-orange-600 transition active:scale-95"
+          className="flex items-center gap-0.5 text-[13px] font-bold text-orange-600 transition active:scale-95"
         >
           {action}
           <ChevronRight size={15} strokeWidth={2.3} />
@@ -581,13 +581,13 @@ function ContinueTrackingCard({
               key={item.step}
               className="min-h-[128px] rounded-[1.25rem] border border-slate-100 bg-slate-50/80 p-4"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-xs font-black text-orange-600 shadow-sm ring-1 ring-orange-100">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[13px] font-black text-orange-600 shadow-sm ring-1 ring-orange-100">
                 {item.step}
               </span>
-              <p className="mt-2.5 text-[13px] font-extrabold text-slate-900">
+              <p className="mt-2.5 text-[14px] font-extrabold text-slate-900">
                 {item.title}
               </p>
-              <p className="mt-1.5 text-[11.5px] leading-[1.45] text-slate-500">
+              <p className="mt-1.5 text-[12.5px] leading-[1.5] text-slate-500">
                 {item.description}
               </p>
             </div>
@@ -841,7 +841,7 @@ export default function Home() {
           </div>
 
           <div className="mt-3">
-            <p className="text-[13px] font-medium text-slate-500">
+            <p className="text-[14px] font-medium text-slate-500">
               {customerFirstName ? `${greeting}, ${customerFirstName}` : greeting}
             </p>
             <h1 className="mt-1 max-w-[17rem] text-[1.45rem] font-extrabold leading-[1.18] tracking-tight text-slate-950">
@@ -854,7 +854,7 @@ export default function Home() {
               className="mt-2.5 inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full text-left text-orange-600 transition active:scale-95"
             >
               <MapPin size={17} strokeWidth={2.3} className="shrink-0" />
-              <span className="truncate text-[13px] font-bold">
+              <span className="truncate text-[14px] font-bold">
                 {deliveryLabel ? `Delivering to ${deliveryLabel}` : 'Set delivery location'}
               </span>
               <ChevronDown size={14} className="shrink-0" />
@@ -870,7 +870,7 @@ export default function Home() {
           className="flex h-[52px] w-full items-center gap-3 rounded-full bg-slate-100 px-4 text-left transition active:scale-[0.99] active:bg-slate-200"
         >
           <Search size={19} strokeWidth={2} className="shrink-0 text-slate-400" />
-          <span className="min-w-0 flex-1 truncate text-[13px] text-slate-500">
+          <span className="min-w-0 flex-1 truncate text-[14px] text-slate-500">
             Paste or search a product link
           </span>
           <Link2 size={17} strokeWidth={2.2} className="shrink-0 text-orange-500" />
@@ -879,7 +879,7 @@ export default function Home() {
         {appSettings.homeAnnouncementEnabled && appSettings.homeAnnouncementText && (
           <section className="mt-4 flex items-start gap-3 rounded-[1.2rem] bg-blue-50 px-4 py-3 text-blue-900">
             <Megaphone size={18} className="mt-0.5 shrink-0 text-blue-600" />
-            <p className="text-xs font-medium leading-5">
+            <p className="text-[13px] font-medium leading-5">
               {appSettings.homeAnnouncementText}
             </p>
           </section>
@@ -898,7 +898,7 @@ export default function Home() {
           }}
         >
           <div className="relative z-10 flex min-h-[205px] max-w-[76%] flex-col justify-center p-[22px]">
-            <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1.5 text-[10.5px] font-extrabold uppercase tracking-wider text-white backdrop-blur-md">
+            <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1.5 text-[11.5px] font-extrabold uppercase tracking-wider text-white backdrop-blur-md">
               <Sparkles size={12} />
               Shop without an Indian card
             </span>
@@ -908,14 +908,14 @@ export default function Home() {
               <span className="block text-orange-300">delivered to Bhutan.</span>
             </h2>
 
-            <p className="mt-2.5 text-[13px] leading-5 text-white/[0.85]">
+            <p className="mt-2.5 text-[14px] leading-[1.55] text-white/[0.85]">
               Share the link. Review our quotation. We handle the rest.
             </p>
 
             <button
               type="button"
               onClick={() => navigate('/paste-link')}
-              className="mt-4 inline-flex h-11 w-fit items-center gap-2 rounded-[0.9rem] bg-orange-500 px-[18px] text-[13px] font-extrabold text-white shadow-lg shadow-orange-950/20 transition active:scale-95 active:bg-orange-600"
+              className="mt-4 inline-flex h-11 w-fit items-center gap-2 rounded-[0.9rem] bg-orange-500 px-[18px] text-[14px] font-extrabold text-white shadow-lg shadow-orange-950/20 transition active:scale-95 active:bg-orange-600"
             >
               Paste product link
               <ArrowRight size={15} strokeWidth={2.5} />
@@ -930,7 +930,7 @@ export default function Home() {
                 key={store.name}
                 type="button"
                 onClick={() => window.open(store.url, '_blank', 'noopener,noreferrer')}
-                className="shrink-0 min-h-9 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-[11.5px] font-bold text-slate-700 transition active:scale-95 active:bg-slate-50"
+                className="shrink-0 min-h-9 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-[12.5px] font-bold text-slate-700 transition active:scale-95 active:bg-slate-50"
                 aria-label={`Open ${store.name} website`}
               >
                 {store.name}
@@ -961,7 +961,7 @@ export default function Home() {
                   >
                     <Icon size={20} strokeWidth={2.15} />
                   </span>
-                  <span className="text-[11.5px] font-bold leading-[1.15] text-slate-700">
+                  <span className="text-[12.5px] font-bold leading-[1.2] text-slate-700">
                     {action.label}
                   </span>
                 </button>
@@ -986,10 +986,10 @@ export default function Home() {
               <Truck size={22} strokeWidth={2.1} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-extrabold text-emerald-950">
+              <span className="block text-[15px] font-extrabold text-emerald-950">
                 Sending a small parcel?
               </span>
-              <span className="mt-1 block text-[12.5px] leading-5 text-emerald-800/75">
+              <span className="mt-1 block text-[13.5px] leading-[1.55] text-emerald-800/75">
                 Book documents, medicine or small electronics on an available trip.
               </span>
             </span>
@@ -1009,7 +1009,7 @@ export default function Home() {
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                     <Icon size={17} strokeWidth={2.1} />
                   </span>
-                  <span className="text-[12.5px] font-bold text-slate-700">
+                  <span className="text-[13.5px] font-bold text-slate-700">
                     {badge.label}
                   </span>
                 </div>
@@ -1050,7 +1050,7 @@ export default function Home() {
                   <MapPin size={19} strokeWidth={2.1} />
                 </span>
                 <div>
-                  <p className="text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
+                  <p className="text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
                     Delivery location
                   </p>
                   <h3 className="mt-0.5 text-base font-extrabold text-slate-950">
@@ -1064,7 +1064,7 @@ export default function Home() {
                   <p className="text-sm font-extrabold text-slate-950">
                     {locationChipText}
                   </p>
-                  <p className="mt-1 text-[12.5px] leading-5 text-slate-600">
+                  <p className="mt-1 text-[13.5px] leading-[1.55] text-slate-600">
                     This is based on your registered dzongkhag or saved profile.
                   </p>
                 </div>
@@ -1078,7 +1078,7 @@ export default function Home() {
                   <p className="mt-3 text-sm font-extrabold text-slate-900">
                     No location selected
                   </p>
-                  <p className="mt-1 text-[12.5px] leading-5 text-slate-500">
+                  <p className="mt-1 text-[13.5px] leading-[1.55] text-slate-500">
                     Add your dzongkhag to receive clearer delivery information.
                   </p>
                 </div>
@@ -1087,10 +1087,10 @@ export default function Home() {
               <div className="mt-3 flex items-start gap-3 rounded-[1.2rem] bg-blue-50 p-4">
                 <Truck size={19} className="mt-0.5 shrink-0 text-blue-600" />
                 <div>
-                  <p className="text-[12.5px] font-extrabold text-blue-950">
+                  <p className="text-[13.5px] font-extrabold text-blue-950">
                     Orders accepted from all 20 dzongkhags
                   </p>
-                  <p className="mt-1 text-[12px] leading-5 text-blue-800/75">
+                  <p className="mt-1 text-[13px] leading-[1.55] text-blue-800/75">
                     Delivery and pickup are currently available in Thimphu, Paro and
                     Phuentsholing/Chhukha.
                   </p>

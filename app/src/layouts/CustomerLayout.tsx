@@ -598,7 +598,7 @@ export default function CustomerLayout() {
 
                     {showBadge && (
                       <span
-                        className={`absolute -right-1 -top-1 flex h-4 items-center justify-center rounded-full px-1 text-[8px] font-black leading-none text-white shadow-sm ring-2 ring-white ${
+                        className={`absolute -right-1 -top-1 flex h-4 items-center justify-center rounded-full px-1 text-[9px] font-black leading-none text-white shadow-sm ring-2 ring-white ${
                           isCountBadge
                             ? 'min-w-4 bg-red-500'
                             : 'min-w-[1.75rem] bg-emerald-500'
@@ -610,7 +610,7 @@ export default function CustomerLayout() {
                   </span>
 
                   <span
-                    className={`text-[11px] leading-none ${
+                    className={`text-[12px] leading-none ${
                       isActive ? 'font-extrabold' : 'font-medium'
                     }`}
                   >

@@ -175,8 +175,10 @@
 /* Native Android WebView tuning.
    Use targeted component sizing instead of enlarging the entire rem scale. */
 html.capacitor-native {
-  font-size: 16px;
+  font-size: 16.25px;
   line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 html.capacitor-native body {
