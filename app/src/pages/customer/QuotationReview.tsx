@@ -254,7 +254,7 @@ export default function QuotationReview() {
  ];
 
  return (
- <div className="min-h-screen bg-white pb-48">
+ <div className="min-h-screen bg-white pb-[calc(8rem+env(safe-area-inset-bottom))]">
  <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-3">
  <div className="mx-auto flex max-w-2xl items-center gap-3">
  <div className="min-w-0">
@@ -497,7 +497,7 @@ export default function QuotationReview() {
  </main>
 
  {canRespond && !showRejectDialog && (
- <div className="fixed bottom-[84px] left-0 right-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom)+4px)] sm:bottom-4">
+ <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-100 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 shadow-[0_-12px_32px_rgba(15,23,42,0.08)] backdrop-blur-xl">
  <div className="mx-auto flex max-w-2xl gap-3">
  <button
  type="button"
@@ -521,7 +521,7 @@ export default function QuotationReview() {
 
  {showRejectDialog && (
  <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/45 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-10 sm:items-center sm:pb-10">
- <div className="w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-gray-200">
+ <div className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-gray-200">
  <div className="p-5">
  <div className="mb-4 flex items-start gap-3">
  <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600 ring-1 ring-orange-100">
@@ -538,7 +538,7 @@ export default function QuotationReview() {
  This will mark the quotation as rejected. Your request will remain in your account for reference.
  </div>
  </div>
- <div className="flex gap-3 border-t border-gray-100 bg-gray-50 p-4">
+ <div className="flex gap-3 border-t border-gray-100 bg-gray-50 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4">
  <button
  type="button"
  onClick={() => setShowRejectDialog(false)}

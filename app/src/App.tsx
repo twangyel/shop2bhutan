@@ -1,5 +1,6 @@
-import { useEffect, useLayoutEffect, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { Download, X } from 'lucide-react';
 import { AppProvider } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { registerPushDeviceForUser } from '@/lib/pushNotifications';
@@ -56,6 +57,204 @@ import AppSettings from '@/pages/admin/AppSettings';
 import FAQCMS from '@/pages/admin/FAQCMS';
 import AdminParcelTrips from '@/pages/admin/ParcelTrips';
 import AdminParcelRequests from '@/pages/admin/ParcelRequests';
+
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+};
+
+const PWA_INSTALL_DISMISSED_UNTIL_KEY = 'shop2bhutan:pwa-install-dismissed-until:v1';
+const PWA_INSTALL_DISMISS_DAYS = 3;
+
+function isPwaStandalone() {
+  if (typeof window === 'undefined') return false;
+
+  return (
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+  );
+}
+
+function isNativeAppRuntime() {
+  if (typeof window === 'undefined') return false;
+
+  const win = window as Window & {
+    Capacitor?: { isNativePlatform?: () => boolean };
+  };
+
+  return Boolean(win.Capacitor?.isNativePlatform?.());
+}
+
+function isInstallDismissed() {
+  if (typeof window === 'undefined') return true;
+
+  try {
+    const dismissedUntil = Number(
+      window.localStorage.getItem(PWA_INSTALL_DISMISSED_UNTIL_KEY) || 0,
+    );
+
+    return dismissedUntil > Date.now();
+  } catch {
+    return true;
+  }
+}
+
+function dismissInstallBanner() {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const dismissedUntil = Date.now() + PWA_INSTALL_DISMISS_DAYS * 24 * 60 * 60 * 1000;
+    window.localStorage.setItem(
+      PWA_INSTALL_DISMISSED_UNTIL_KEY,
+      String(dismissedUntil),
+    );
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function isIosSafari() {
+  if (typeof window === 'undefined') return false;
+
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  const isIos = /iphone|ipad|ipod/.test(userAgent);
+  const isSafari = /safari/.test(userAgent) && !/crios|fxios|edgios|chrome/.test(userAgent);
+
+  return isIos && isSafari;
+}
+
+function isMobileBrowser() {
+  if (typeof window === 'undefined') return false;
+
+  return /android|iphone|ipad|ipod/i.test(window.navigator.userAgent);
+}
+
+function PwaInstallBanner() {
+  const location = useLocation();
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [visible, setVisible] = useState(false);
+  const [installed, setInstalled] = useState(false);
+  const iosSafari = isIosSafari();
+  const shouldHideForRoute = location.pathname.startsWith('/admin');
+
+  useEffect(() => {
+    if (isPwaStandalone() || isNativeAppRuntime() || isInstallDismissed()) {
+      setVisible(false);
+      return undefined;
+    }
+
+    const showTimer = window.setTimeout(() => {
+      // iOS Safari never gives beforeinstallprompt. Show manual install help.
+      // For other mobile browsers, show a lightweight custom banner. If the
+      // browser has the install prompt ready, the Install button opens it.
+      if (isMobileBrowser()) setVisible(true);
+    }, 900);
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setDeferredPrompt(event as BeforeInstallPromptEvent);
+      setVisible(true);
+    };
+
+    const handleInstalled = () => {
+      setInstalled(true);
+      setVisible(false);
+      dismissInstallBanner();
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleInstalled);
+
+    return () => {
+      window.clearTimeout(showTimer);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleInstalled);
+    };
+  }, []);
+
+  const handleInstall = async () => {
+    if (iosSafari || !deferredPrompt) return;
+
+    try {
+      await deferredPrompt.prompt();
+      const choice = await deferredPrompt.userChoice;
+
+      if (choice.outcome === 'accepted') {
+        dismissInstallBanner();
+        setVisible(false);
+      }
+    } finally {
+      setDeferredPrompt(null);
+    }
+  };
+
+  const handleDismiss = () => {
+    dismissInstallBanner();
+    setVisible(false);
+  };
+
+  if (installed || shouldHideForRoute || !visible || isPwaStandalone() || isNativeAppRuntime()) {
+    return null;
+  }
+
+  return (
+    <div className="fixed left-0 right-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[95] px-4">
+      <div className="mx-auto max-w-lg overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-2xl shadow-slate-900/15 ring-1 ring-white/70">
+        <div className="flex items-start gap-3 p-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600 ring-1 ring-orange-100">
+            <Download size={21} strokeWidth={2.4} />
+          </span>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-extrabold text-slate-950">
+              Install Shop2Bhutan app
+            </p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              {iosSafari
+                ? 'For app-like access on iPhone, tap Share and choose Add to Home Screen.'
+                : 'Get faster access from your home screen with a native app-like experience.'}
+            </p>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {iosSafari ? (
+                <span className="inline-flex h-9 items-center rounded-2xl bg-slate-950 px-4 text-xs font-extrabold text-white">
+                  Share → Add to Home Screen
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleInstall}
+                  disabled={!deferredPrompt}
+                  className="h-9 rounded-2xl bg-orange-500 px-4 text-xs font-extrabold text-white transition active:scale-[0.98] disabled:bg-orange-200 disabled:text-white"
+                >
+                  {deferredPrompt ? 'Install App' : 'Use browser Install'}
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handleDismiss}
+                className="h-9 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 transition active:scale-[0.98]"
+              >
+                Later
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDismiss}
+            className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 active:bg-slate-100"
+            aria-label="Dismiss install banner"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 
 function mustChangePassword(profile: unknown) {
@@ -152,6 +351,7 @@ export default function App() {
     <AppProvider>
       <NativePushBridge />
       <RouteScrollToTop />
+      <PwaInstallBanner />
       <Routes>
         {/* Auth Routes - No Layout */}
         <Route path="/login" element={<Login />} />

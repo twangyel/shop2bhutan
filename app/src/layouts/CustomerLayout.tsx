@@ -59,7 +59,8 @@ function isTabActive(pathname: string, tabPath: string) {
       pathname === '/profile' ||
       pathname === '/addresses' ||
       pathname === '/notifications' ||
-      pathname === '/support'
+      pathname === '/support' ||
+      pathname === '/payment-history'
     )
   }
 
@@ -448,6 +449,7 @@ export default function CustomerLayout() {
   ]
   const shouldHideTabBar =
     hideTabBarPaths.some((p) => location.pathname === p) ||
+    location.pathname.startsWith('/quotation/') ||
     location.pathname.startsWith('/payment/') ||
     location.pathname.startsWith('/parcel-booking/') ||
     location.pathname.startsWith('/product/') ||
