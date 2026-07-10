@@ -555,13 +555,13 @@ export default function Orders() {
             </button>
           </div>
 
-          <div className="mt-3 flex items-center gap-2 text-[10.5px] font-bold">
-            <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-slate-50 px-2.5 text-slate-600 ring-1 ring-slate-100">
+          <div className="mt-3 flex min-h-[30px] flex-wrap items-center gap-x-2 gap-y-1.5 pb-0.5 text-[10.5px] font-bold leading-none">
+            <span className="inline-flex min-h-[26px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-slate-50 px-2.5 py-1.5 text-slate-600 ring-1 ring-slate-100">
               <span className="font-black text-slate-950">{activeCount}</span>
               Active
             </span>
             <span
-              className={`inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 ring-1 ${
+              className={`inline-flex min-h-[26px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 ring-1 ${
                 actionCount > 0
                   ? 'bg-orange-50 text-orange-700 ring-orange-100'
                   : 'bg-slate-50 text-slate-600 ring-slate-100'
@@ -572,7 +572,7 @@ export default function Orders() {
             </span>
           </div>
 
-          <div className="scrollbar-hide -mx-4 mt-3 flex gap-1.5 overflow-x-auto px-4 pb-1">
+          <div className="scrollbar-hide -mx-4 mt-4 flex items-center gap-1.5 overflow-x-auto px-4 pb-1.5 pt-0.5">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.key;
               const Icon = tab.icon;
@@ -584,7 +584,7 @@ export default function Orders() {
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
                   aria-label={tab.label}
-                  className={`flex h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-extrabold ring-1 transition active:scale-[0.97] ${
+                  className={`flex min-h-[30px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-[11px] font-extrabold leading-none ring-1 transition active:scale-[0.97] ${
                     isActive
                       ? 'bg-orange-500 text-white ring-orange-500 shadow-sm shadow-orange-500/20'
                       : 'bg-white text-slate-600 ring-slate-200 active:bg-slate-50'
