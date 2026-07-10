@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  AlertTriangle,
   Check,
   ChevronRight,
   Clock,
@@ -9,15 +8,16 @@ import {
   ExternalLink,
   FileText,
   Info,
+  MessageSquareText,
   ShieldCheck,
   Truck,
   X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import {
   acceptCustomerQuotation,
   fetchCustomerOrderById,
-  updateQuotationStatus,
 } from '@/lib/customerOrders';
 import { isJaigaonPickupOrder } from '@/lib/fulfillment';
 import type { Order, Quotation, QuotationItem } from '@/types';
@@ -135,6 +135,7 @@ export default function QuotationReview() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [rejectRemark, setRejectRemark] = useState('');
   const [error, setError] = useState('');
 
   const loadOrder = useCallback(async () => {
@@ -169,22 +170,40 @@ export default function QuotationReview() {
 
   const handleReject = () => {
     if (!quotation || submitting) return;
+    setRejectRemark('');
+    setError('');
     setShowRejectDialog(true);
   };
 
   const confirmReject = async () => {
-    if (!quotation) return;
+    if (!quotation || !order) return;
+
+    const cleanRemark = rejectRemark.trim();
+    if (cleanRemark.length < 5) {
+      setError('Please briefly explain what should be changed in the quotation.');
+      return;
+    }
 
     setSubmitting(true);
     setError('');
 
     try {
-      await updateQuotationStatus(quotation.id, 'rejected');
+      const { error: revisionError } = await supabase.rpc('request_quotation_revision', {
+        p_quotation_id: quotation.id,
+        p_remark: cleanRemark,
+      });
+
+      if (revisionError) throw revisionError;
+
       setShowRejectDialog(false);
-      await loadOrder();
+      navigate(`/order/${order.id}`, { replace: true });
     } catch (err) {
-      console.error('Failed to reject quotation:', err);
-      setError(err instanceof Error ? err.message : 'Unable to reject quotation.');
+      console.error('Failed to request quotation revision:', err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to send your revision request. Please try again.',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -285,7 +304,7 @@ export default function QuotationReview() {
       ];
 
   return (
-    <div className="min-h-screen bg-white pb-[calc(13rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-screen bg-white pb-[calc(8.5rem+env(safe-area-inset-bottom))]">
       <header className="border-b border-gray-100 bg-white px-5 py-4">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-4">
           <div className="min-w-0">
@@ -662,21 +681,21 @@ export default function QuotationReview() {
       </main>
 
       {canRespond && !showRejectDialog && (
-        <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-0 right-0 z-40 px-4">
-          <div className="mx-auto flex max-w-2xl gap-2 rounded-[1.35rem] border border-gray-100 bg-white/95 p-2 shadow-[0_14px_34px_rgba(15,23,42,0.16)] backdrop-blur-xl">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-100 bg-white/95 px-4 pt-2.5 pb-[max(env(safe-area-inset-bottom),0.75rem)] shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+          <div className="mx-auto flex max-w-2xl gap-2.5">
             <button
               type="button"
               onClick={handleReject}
               disabled={submitting}
-              className="h-11 flex-1 rounded-[1rem] bg-gray-100 px-2.5 text-[13px] font-extrabold text-gray-700 transition active:scale-[0.98] disabled:opacity-50"
+              className="h-12 flex-1 rounded-2xl bg-gray-100 px-3 text-sm font-extrabold text-gray-700 transition active:scale-[0.98] disabled:opacity-50"
             >
-              Decline
+              Request Changes
             </button>
             <button
               type="button"
               onClick={handleAccept}
               disabled={submitting}
-              className="flex h-11 flex-[1.55] items-center justify-center gap-1.5 rounded-[1rem] bg-orange-500 px-3 text-[13px] font-extrabold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50"
+              className="flex h-12 flex-[1.55] items-center justify-center gap-1.5 rounded-2xl bg-orange-500 px-4 text-sm font-extrabold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50"
             >
               {submitting ? 'Processing...' : 'Accept & Continue'}
               {!submitting && <ChevronRight size={17} />}
@@ -686,12 +705,12 @@ export default function QuotationReview() {
       )}
 
       {isApproved && (
-        <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-0 right-0 z-40 px-4">
-          <div className="mx-auto max-w-2xl rounded-[1.35rem] border border-gray-100 bg-white/95 p-2 shadow-[0_14px_34px_rgba(15,23,42,0.16)] backdrop-blur-xl">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-100 bg-white/95 px-4 pt-2.5 pb-[max(env(safe-area-inset-bottom),0.75rem)] shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+          <div className="mx-auto max-w-2xl">
             <button
               type="button"
               onClick={() => navigate(`/payment/${order.id}`)}
-              className="flex h-11 w-full items-center justify-between rounded-[1rem] bg-orange-500 px-4 text-[13px] font-extrabold text-white transition active:scale-[0.99]"
+              className="flex h-12 w-full items-center justify-between rounded-2xl bg-orange-500 px-4 text-sm font-extrabold text-white transition active:scale-[0.99]"
             >
               <span>Continue to Payment</span>
               <ChevronRight size={18} />
@@ -702,31 +721,59 @@ export default function QuotationReview() {
 
       {showRejectDialog && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/50 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-10 backdrop-blur-[2px] sm:items-center sm:pb-10">
-          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-sm overflow-hidden rounded-[2rem] bg-white shadow-2xl ring-1 ring-black/5">
+          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-sm overflow-y-auto rounded-[2rem] bg-white shadow-2xl ring-1 ring-black/5">
             <div className="px-5 pb-5 pt-3">
               <div className="mx-auto mb-5 h-1.5 w-12 rounded-full bg-gray-200" />
 
               <div className="flex items-start gap-3.5">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600 ring-1 ring-orange-100">
-                  <AlertTriangle size={23} />
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
+                  <MessageSquareText size={22} />
                 </span>
                 <div>
-                  <h3 className="text-xl font-black tracking-tight text-gray-950">Decline quotation?</h3>
+                  <h3 className="text-xl font-black tracking-tight text-gray-950">Request quotation changes</h3>
                   <p className="mt-1.5 text-sm leading-6 text-gray-500">
-                    Decline this quotation when the price or product details are not suitable.
+                    Tell Shop2Bhutan what should be corrected so the admin can prepare and resend a revised quotation.
                   </p>
                 </div>
               </div>
 
-              <div className="mt-5 rounded-2xl bg-gray-50 px-4 py-3 text-xs leading-5 text-gray-500 ring-1 ring-gray-100">
-                This quotation will be recorded as declined. Your request will remain available in your account for reference.
+              <label className="mt-5 block">
+                <span className="text-xs font-extrabold text-gray-700">What needs to change?</span>
+                <textarea
+                  value={rejectRemark}
+                  onChange={(event) => {
+                    setRejectRemark(event.target.value.slice(0, 500));
+                    if (error) setError('');
+                  }}
+                  rows={4}
+                  autoFocus
+                  placeholder="Example: Please recheck the product price and remove the second item."
+                  className="mt-2 w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-violet-300 focus:bg-white focus:ring-4 focus:ring-violet-50"
+                />
+                <div className="mt-1.5 flex items-center justify-between gap-3">
+                  <span className="text-[11px] text-gray-400">Required · minimum 5 characters</span>
+                  <span className="text-[11px] font-semibold text-gray-400">{rejectRemark.length}/500</span>
+                </div>
+              </label>
+
+              {error && (
+                <div className="mt-3 rounded-2xl border border-red-100 bg-red-50 px-3.5 py-3 text-xs leading-5 text-red-600">
+                  {error}
+                </div>
+              )}
+
+              <div className="mt-4 rounded-2xl bg-violet-50 px-4 py-3 text-xs leading-5 text-violet-700 ring-1 ring-violet-100">
+                The current quotation will be marked for revision, your order will return to “Waiting for Quotation,” and all admins will receive this remark with a direct link to the order.
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 border-t border-gray-100 bg-gray-50 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4">
               <button
                 type="button"
-                onClick={() => setShowRejectDialog(false)}
+                onClick={() => {
+                  setShowRejectDialog(false);
+                  setError('');
+                }}
                 disabled={submitting}
                 className="h-12 rounded-2xl bg-white text-sm font-extrabold text-gray-700 ring-1 ring-gray-200 transition active:scale-[0.98] disabled:opacity-50"
               >
@@ -735,10 +782,10 @@ export default function QuotationReview() {
               <button
                 type="button"
                 onClick={confirmReject}
-                disabled={submitting}
-                className="h-12 rounded-2xl bg-red-500 text-sm font-extrabold text-white transition active:scale-[0.98] disabled:opacity-50"
+                disabled={submitting || rejectRemark.trim().length < 5}
+                className="h-12 rounded-2xl bg-violet-600 px-3 text-sm font-extrabold text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {submitting ? 'Updating...' : 'Reject Quotation'}
+                {submitting ? 'Sending...' : 'Send Request'}
               </button>
             </div>
           </div>
