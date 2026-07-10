@@ -285,48 +285,46 @@ function CustomerOrderCard({ order }: { order: Order }) {
     <button
       type="button"
       onClick={() => navigate(`/order/${order.id}`)}
-      className="group w-full overflow-hidden rounded-[26px] border border-slate-100 bg-white text-left shadow-[0_8px_28px_rgba(15,23,42,0.04)] transition duration-200 active:scale-[0.985] active:bg-slate-50/60"
+      className="group w-full overflow-hidden rounded-[22px] border border-slate-100 bg-white text-left shadow-[0_5px_18px_rgba(15,23,42,0.035)] transition duration-200 active:scale-[0.988] active:bg-slate-50/60"
     >
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1 ${tone.pill}`}>
-                {tone.label}
+      <div className="p-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-[10px] font-extrabold ring-1 ${tone.pill}`}>
+              {tone.label}
+            </span>
+            {needsCustomerAction(order) && (
+              <span className="inline-flex shrink-0 rounded-full bg-orange-500 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-white">
+                Action
               </span>
-              {needsCustomerAction(order) && (
-                <span className="inline-flex rounded-full bg-orange-500 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-sm shadow-orange-500/20">
-                  Action needed
-                </span>
-              )}
-            </div>
-            <p className="mt-2 truncate text-[12px] font-bold text-slate-400">Order #{order.orderNumber}</p>
+            )}
           </div>
-
-          <span className="shrink-0 text-[11px] font-semibold text-slate-400">{readableDate(order.createdAt)}</span>
+          <span className="shrink-0 text-[10.5px] font-semibold text-slate-400">{readableDate(order.createdAt)}</span>
         </div>
 
-        <div className="mt-4 flex gap-3.5">
+        <p className="mt-2 truncate text-[11px] font-bold text-slate-400">Order #{order.orderNumber}</p>
+
+        <div className="mt-3 flex gap-3">
           <div className="relative shrink-0">
             <img
               src={item.productImage || fallbackImage()}
               alt=""
-              className="h-[86px] w-[86px] rounded-[22px] border border-slate-100 bg-slate-50 object-cover"
+              className="h-[72px] w-[72px] rounded-[18px] border border-slate-100 bg-slate-50 object-cover"
               loading="lazy"
             />
             {extraItems > 0 && (
-              <span className="absolute -bottom-1.5 -right-1.5 flex h-7 min-w-7 items-center justify-center rounded-full border-2 border-white bg-slate-900 px-1.5 text-[10px] font-black text-white shadow-sm">
+              <span className="absolute -bottom-1 -right-1 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-slate-900 px-1 text-[9px] font-black text-white">
                 +{extraItems}
               </span>
             )}
           </div>
 
           <div className="min-w-0 flex-1">
-            <h2 className="line-clamp-2 text-[16px] font-black leading-5 text-slate-950">
+            <h2 className="line-clamp-2 text-[14px] font-black leading-[1.25rem] text-slate-950">
               {item.productName || 'Shop2Bhutan order'}
             </h2>
 
-            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-semibold text-slate-500">
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-semibold text-slate-500">
               <span>{count} {count === 1 ? 'item' : 'items'}</span>
               {item.sourcePlatform && (
                 <>
@@ -336,50 +334,49 @@ function CustomerOrderCard({ order }: { order: Order }) {
               )}
             </div>
 
-            <div className="mt-3">
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">{amountLabel(order)}</p>
-              <p className={`mt-0.5 tracking-tight ${total > 0 ? 'text-[20px] font-black text-slate-950' : 'text-[15px] font-bold text-slate-400'}`}>
-                {total > 0 ? money(total) : 'To be quoted'}
-              </p>
+            <div className="mt-2.5 flex items-end justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[9.5px] font-bold uppercase tracking-[0.1em] text-slate-400">{amountLabel(order)}</p>
+                <p className={`mt-0.5 tracking-tight ${total > 0 ? 'text-[18px] font-black text-slate-950' : 'text-[13px] font-bold text-slate-400'}`}>
+                  {total > 0 ? money(total) : 'To be quoted'}
+                </p>
+              </div>
+              <span className="text-[10px] font-bold text-slate-400">{progress}%</span>
             </div>
           </div>
         </div>
 
-        <div className="mt-4 rounded-2xl bg-slate-50 px-3.5 py-3">
-          <div className="flex items-start gap-3">
-            <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tone.iconBg} ${tone.iconText}`}>
-              {order.status === 'delivered' ? (
-                <CheckCircle2 size={18} strokeWidth={2.4} />
-              ) : order.status === 'in_transit' || order.status === 'out_for_delivery' ? (
-                <Truck size={18} strokeWidth={2.3} />
-              ) : order.status === 'quoted' ? (
-                <FileText size={18} strokeWidth={2.3} />
-              ) : (
-                <Package size={18} strokeWidth={2.3} />
-              )}
-            </span>
+        <div className="mt-3 flex items-start gap-2.5 rounded-2xl bg-slate-50 px-3 py-2.5">
+          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${tone.iconBg} ${tone.iconText}`}>
+            {order.status === 'delivered' ? (
+              <CheckCircle2 size={16} strokeWidth={2.4} />
+            ) : order.status === 'in_transit' || order.status === 'out_for_delivery' ? (
+              <Truck size={16} strokeWidth={2.3} />
+            ) : order.status === 'quoted' ? (
+              <FileText size={16} strokeWidth={2.3} />
+            ) : (
+              <Package size={16} strokeWidth={2.3} />
+            )}
+          </span>
 
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[13px] font-extrabold text-slate-900">Latest update</p>
-                <span className="text-[11px] font-bold text-slate-400">{progress}%</span>
-              </div>
-              <p className="mt-1 text-[12px] leading-5 text-slate-500">{statusDescription(order)}</p>
-              <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white ring-1 ring-slate-100">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${tone.bar}`}
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
+          <div className="min-w-0 flex-1 pt-0.5">
+            <p className="line-clamp-2 text-[11.5px] font-semibold leading-[1.05rem] text-slate-600">
+              {statusDescription(order)}
+            </p>
+            <div className="mt-2 h-1 overflow-hidden rounded-full bg-white ring-1 ring-slate-100">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${tone.bar}`}
+                style={{ width: `${progress}%` }}
+              />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex min-h-[50px] items-center justify-between border-t border-slate-100 px-4 py-3">
-        <span className="text-[13px] font-extrabold text-slate-900">{actionText(order)}</span>
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-50 text-orange-600 transition group-active:translate-x-0.5">
-          <ChevronRight size={17} strokeWidth={2.6} />
+      <div className="flex min-h-[44px] items-center justify-between border-t border-slate-100 px-3.5 py-2.5">
+        <span className="text-[12px] font-extrabold text-slate-900">{actionText(order)}</span>
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-50 text-orange-600 transition group-active:translate-x-0.5">
+          <ChevronRight size={15} strokeWidth={2.6} />
         </span>
       </div>
     </button>
@@ -390,20 +387,20 @@ function OrdersSkeleton() {
   return (
     <div className="space-y-3.5">
       {[1, 2, 3].map((item) => (
-        <div key={item} className="rounded-[26px] border border-slate-100 bg-white p-4">
+        <div key={item} className="rounded-[22px] border border-slate-100 bg-white p-4">
           <div className="flex items-center justify-between">
             <div className="h-7 w-32 animate-pulse rounded-full bg-slate-100" />
             <div className="h-3 w-16 animate-pulse rounded-full bg-slate-100" />
           </div>
           <div className="mt-4 flex gap-3.5">
-            <div className="h-[86px] w-[86px] animate-pulse rounded-[22px] bg-slate-100" />
+            <div className="h-[72px] w-[72px] animate-pulse rounded-[18px] bg-slate-100" />
             <div className="flex-1">
               <div className="h-4 w-4/5 animate-pulse rounded-full bg-slate-100" />
               <div className="mt-2 h-3 w-1/2 animate-pulse rounded-full bg-slate-100" />
               <div className="mt-4 h-6 w-28 animate-pulse rounded-full bg-slate-100" />
             </div>
           </div>
-          <div className="mt-4 h-24 animate-pulse rounded-2xl bg-slate-100" />
+          <div className="mt-3 h-20 animate-pulse rounded-2xl bg-slate-100" />
         </div>
       ))}
     </div>
@@ -548,8 +545,8 @@ export default function Orders() {
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-orange-500">Shopping activity</p>
-              <h1 className="mt-1 text-[24px] font-black tracking-tight text-slate-950">My Orders</h1>
-              <p className="mt-1 text-[13px] leading-5 text-slate-500">Track quotations, payments, and delivery.</p>
+              <h1 className="mt-1 text-[22px] font-black tracking-tight text-slate-950">My Orders</h1>
+              <p className="mt-0.5 text-[12px] leading-5 text-slate-500">Track quotations, payments, and delivery.</p>
             </div>
 
             <button
@@ -563,22 +560,19 @@ export default function Orders() {
             </button>
           </div>
 
-          <div className="mt-3.5 grid grid-cols-3 divide-x divide-slate-100 rounded-2xl border border-slate-100 bg-white py-2.5 shadow-[0_6px_18px_rgba(15,23,42,0.03)]">
-            <div className="px-3 text-center">
-              <p className="text-[20px] font-black text-slate-950">{activeCount}</p>
-              <p className="mt-0.5 text-[11px] font-bold text-slate-400">Active</p>
-            </div>
-            <div className="px-3 text-center">
-              <p className={`text-[20px] font-black ${actionCount > 0 ? 'text-orange-600' : 'text-slate-950'}`}>{actionCount}</p>
-              <p className="mt-0.5 text-[11px] font-bold text-slate-400">Action</p>
-            </div>
-            <div className="px-3 text-center">
-              <p className="text-[20px] font-black text-slate-950">{completedCount}</p>
-              <p className="mt-0.5 text-[11px] font-bold text-slate-400">Delivered</p>
-            </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-bold">
+            <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-50 px-3 text-slate-600 ring-1 ring-slate-100">
+              <span className="font-black text-slate-950">{activeCount}</span> Active
+            </span>
+            <span className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 ring-1 ${actionCount > 0 ? 'bg-orange-50 text-orange-700 ring-orange-100' : 'bg-slate-50 text-slate-600 ring-slate-100'}`}>
+              <span className="font-black">{actionCount}</span> Action
+            </span>
+            <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-50 px-3 text-slate-600 ring-1 ring-slate-100">
+              <span className="font-black text-slate-950">{completedCount}</span> Delivered
+            </span>
           </div>
 
-          <div className="scrollbar-hide -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-0.5">
+          <div className="scrollbar-hide -mx-4 mt-2.5 flex gap-2 overflow-x-auto px-4 pb-0.5">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.key;
               const Icon = tab.icon;
@@ -590,16 +584,16 @@ export default function Orders() {
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
                   aria-label={tab.label}
-                  className={`flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[12px] font-extrabold ring-1 transition active:scale-[0.97] ${
+                  className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-[11.5px] font-extrabold ring-1 transition active:scale-[0.97] ${
                     isActive
                       ? 'bg-orange-500 text-white ring-orange-500 shadow-sm shadow-orange-500/20'
                       : 'bg-white text-slate-600 ring-slate-200 active:bg-slate-50'
                   }`}
                 >
-                  <Icon size={14} strokeWidth={isActive ? 2.6 : 2.1} />
+                  <Icon size={13} strokeWidth={isActive ? 2.6 : 2.1} />
                   <span>{tab.shortLabel}</span>
                   <span
-                    className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-black ${
+                    className={`flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[9px] font-black ${
                       isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
                     }`}
                   >
@@ -612,7 +606,7 @@ export default function Orders() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-3.5">
+      <main className="mx-auto max-w-3xl px-4 py-3">
         {error && (
           <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium leading-5 text-red-700">
             {error}
@@ -622,7 +616,7 @@ export default function Orders() {
         {loading && orders.length === 0 ? (
           <OrdersSkeleton />
         ) : filteredOrders.length > 0 ? (
-          <div className="space-y-3.5">
+          <div className="space-y-3">
             {filteredOrders.map((order) => (
               <CustomerOrderCard key={order.id} order={order} />
             ))}
