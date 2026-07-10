@@ -173,24 +173,37 @@
 }
 
 /* Native Android WebView tuning.
-   Keep this scoped to Capacitor so the browser and PWA remain unchanged. */
+   Use targeted component sizing instead of enlarging the entire rem scale. */
 html.capacitor-native {
-  font-size: 17.7px;
+  font-size: 16px;
   line-height: 1.5;
 }
 
 html.capacitor-native body {
   min-height: 100dvh;
+  background: #ffffff;
 }
 
-@media (max-width: 390px) {
-  html.capacitor-native {
-    font-size: 17.4px;
+html.capacitor-native .customer-app-shell,
+html.capacitor-native .customer-bottom-nav,
+html.capacitor-native .customer-bottom-sheet {
+  max-width: none !important;
+}
+
+html.capacitor-native .customer-app-shell,
+html.capacitor-native .customer-bottom-nav {
+  box-shadow: none !important;
+}
+
+@media (display-mode: standalone) and (max-width: 640px) {
+  body {
+    background: #ffffff;
   }
-}
 
-@media (min-width: 430px) {
-  html.capacitor-native {
-    font-size: 18px;
+  .customer-app-shell,
+  .customer-bottom-nav,
+  .customer-bottom-sheet {
+    max-width: none !important;
+    box-shadow: none !important;
   }
 }

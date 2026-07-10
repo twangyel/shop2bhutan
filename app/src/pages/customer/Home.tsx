@@ -526,11 +526,11 @@ function SectionHeading({
     <div className="flex items-end justify-between gap-3">
       <div>
         {eyebrow && (
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
+          <p className="text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
             {eyebrow}
           </p>
         )}
-        <h2 className="mt-0.5 text-[1.05rem] font-extrabold tracking-tight text-slate-950">
+        <h2 className="mt-1 text-[1.1rem] font-extrabold tracking-tight text-slate-950">
           {title}
         </h2>
       </div>
@@ -579,15 +579,15 @@ function ContinueTrackingCard({
           {howItWorks.map((item) => (
             <div
               key={item.step}
-              className="rounded-[1.25rem] border border-slate-100 bg-slate-50/80 p-3.5"
+              className="min-h-[128px] rounded-[1.25rem] border border-slate-100 bg-slate-50/80 p-4"
             >
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-[11px] font-black text-orange-600 shadow-sm ring-1 ring-orange-100">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-xs font-black text-orange-600 shadow-sm ring-1 ring-orange-100">
                 {item.step}
               </span>
-              <p className="mt-2 text-xs font-extrabold text-slate-900">
+              <p className="mt-2.5 text-[13px] font-extrabold text-slate-900">
                 {item.title}
               </p>
-              <p className="mt-1 text-[10.5px] leading-4 text-slate-500">
+              <p className="mt-1.5 text-[11.5px] leading-[1.45] text-slate-500">
                 {item.description}
               </p>
             </div>
@@ -820,8 +820,8 @@ export default function Home() {
 
   return (
     <div className="min-h-dvh bg-white">
-      <header className="sticky top-0 z-40 border-b border-slate-100/80 bg-white/95 backdrop-blur-xl">
-        <div className="px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.7rem)]">
+      <header className="bg-white">
+        <div className="px-4 pb-2 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
           <div className="flex items-center justify-between gap-3">
             <Logo size="sm" className="min-w-0" />
 
@@ -840,39 +840,37 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="mt-3 flex items-end justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-slate-500">
-                {customerFirstName ? `${greeting}, ${customerFirstName}` : greeting}
-              </p>
-              <h1 className="mt-0.5 text-[1.35rem] font-extrabold tracking-tight text-slate-950">
-                What would you like to shop?
-              </h1>
-            </div>
+          <div className="mt-3">
+            <p className="text-[13px] font-medium text-slate-500">
+              {customerFirstName ? `${greeting}, ${customerFirstName}` : greeting}
+            </p>
+            <h1 className="mt-1 max-w-[17rem] text-[1.45rem] font-extrabold leading-[1.18] tracking-tight text-slate-950">
+              What would you like to shop?
+            </h1>
 
             <button
               type="button"
               onClick={() => setLocationSheetOpen(true)}
-              className="flex max-w-[46%] shrink-0 items-center gap-1.5 text-left text-orange-600 transition active:scale-95"
+              className="mt-2.5 inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full text-left text-orange-600 transition active:scale-95"
             >
-              <MapPin size={16} strokeWidth={2.3} className="shrink-0" />
-              <span className="truncate text-xs font-bold">
-                {deliveryLabel || 'Set location'}
+              <MapPin size={17} strokeWidth={2.3} className="shrink-0" />
+              <span className="truncate text-[13px] font-bold">
+                {deliveryLabel ? `Delivering to ${deliveryLabel}` : 'Set delivery location'}
               </span>
-              <ChevronDown size={13} className="shrink-0" />
+              <ChevronDown size={14} className="shrink-0" />
             </button>
           </div>
         </div>
       </header>
 
-      <main className="px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-4">
+      <main className="px-4 pb-[calc(1.75rem+env(safe-area-inset-bottom))] pt-2">
         <button
           type="button"
           onClick={() => navigate('/paste-link')}
-          className="flex h-12 w-full items-center gap-3 rounded-full bg-slate-100 px-4 text-left transition active:scale-[0.99] active:bg-slate-200"
+          className="flex h-[52px] w-full items-center gap-3 rounded-full bg-slate-100 px-4 text-left transition active:scale-[0.99] active:bg-slate-200"
         >
           <Search size={19} strokeWidth={2} className="shrink-0 text-slate-400" />
-          <span className="min-w-0 flex-1 truncate text-sm text-slate-500">
+          <span className="min-w-0 flex-1 truncate text-[13px] text-slate-500">
             Paste or search a product link
           </span>
           <Link2 size={17} strokeWidth={2.2} className="shrink-0 text-orange-500" />
@@ -888,36 +886,36 @@ export default function Home() {
         )}
 
         <section
-          className="relative mt-4 min-h-[188px] overflow-hidden rounded-[1.45rem] bg-slate-900"
+          className="relative mt-4 min-h-[205px] overflow-hidden rounded-[1.55rem] bg-slate-900 shadow-[0_14px_35px_rgba(15,23,42,0.12)]"
           style={{
             backgroundImage: `
-              linear-gradient(90deg, rgba(15,23,42,0.88) 0%, rgba(15,23,42,0.62) 52%, rgba(15,23,42,0.16) 100%),
+              linear-gradient(90deg, rgba(15,23,42,0.94) 0%, rgba(15,23,42,0.72) 52%, rgba(15,23,42,0.22) 100%),
               linear-gradient(to top, rgba(15,23,42,0.58), rgba(15,23,42,0.04)),
               url('/home-banner-bg.jpg')
             `,
             backgroundSize: 'cover',
-            backgroundPosition: 'center',
+            backgroundPosition: '62% center',
           }}
         >
-          <div className="relative z-10 flex min-h-[188px] max-w-[78%] flex-col justify-center p-5">
-            <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-white backdrop-blur-md">
+          <div className="relative z-10 flex min-h-[205px] max-w-[76%] flex-col justify-center p-[22px]">
+            <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1.5 text-[10.5px] font-extrabold uppercase tracking-wider text-white backdrop-blur-md">
               <Sparkles size={12} />
               Shop without an Indian card
             </span>
 
-            <h2 className="mt-3 text-[1.45rem] font-extrabold leading-[1.12] tracking-tight text-white">
+            <h2 className="mt-3 text-[1.5rem] font-extrabold leading-[1.12] tracking-tight text-white">
               India’s online stores,
               <span className="block text-orange-300">delivered to Bhutan.</span>
             </h2>
 
-            <p className="mt-2 text-xs leading-5 text-white/80">
+            <p className="mt-2.5 text-[13px] leading-5 text-white/[0.85]">
               Share the link. Review our quotation. We handle the rest.
             </p>
 
             <button
               type="button"
               onClick={() => navigate('/paste-link')}
-              className="mt-4 inline-flex h-10 w-fit items-center gap-2 rounded-xl bg-orange-500 px-4 text-xs font-extrabold text-white shadow-lg shadow-orange-950/20 transition active:scale-95"
+              className="mt-4 inline-flex h-11 w-fit items-center gap-2 rounded-[0.9rem] bg-orange-500 px-[18px] text-[13px] font-extrabold text-white shadow-lg shadow-orange-950/20 transition active:scale-95 active:bg-orange-600"
             >
               Paste product link
               <ArrowRight size={15} strokeWidth={2.5} />
@@ -932,7 +930,7 @@ export default function Home() {
                 key={store.name}
                 type="button"
                 onClick={() => window.open(store.url, '_blank', 'noopener,noreferrer')}
-                className="shrink-0 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-[11px] font-bold text-slate-700 transition active:scale-95 active:bg-slate-50"
+                className="shrink-0 min-h-9 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-[11.5px] font-bold text-slate-700 transition active:scale-95 active:bg-slate-50"
                 aria-label={`Open ${store.name} website`}
               >
                 {store.name}
@@ -956,14 +954,14 @@ export default function Home() {
                   key={action.label}
                   type="button"
                   onClick={() => navigate(action.path)}
-                  className="flex min-h-[82px] flex-col items-center justify-center gap-2 rounded-[1.2rem] bg-slate-50 px-1.5 py-3 text-center transition active:scale-95 active:bg-slate-100"
+                  className="flex min-h-[94px] flex-col items-center justify-center gap-2.5 rounded-[1.25rem] bg-slate-50 px-1.5 py-3 text-center transition active:scale-95 active:bg-slate-100"
                 >
                   <span
-                    className={`flex h-10 w-10 items-center justify-center rounded-2xl ${action.iconClass}`}
+                    className={`flex h-11 w-11 items-center justify-center rounded-2xl ${action.iconClass}`}
                   >
-                    <Icon size={19} strokeWidth={2.1} />
+                    <Icon size={20} strokeWidth={2.15} />
                   </span>
-                  <span className="text-[10.5px] font-bold leading-3 text-slate-700">
+                  <span className="text-[11.5px] font-bold leading-[1.15] text-slate-700">
                     {action.label}
                   </span>
                 </button>
@@ -991,7 +989,7 @@ export default function Home() {
               <span className="block text-sm font-extrabold text-emerald-950">
                 Sending a small parcel?
               </span>
-              <span className="mt-1 block text-xs leading-5 text-emerald-800/70">
+              <span className="mt-1 block text-[12.5px] leading-5 text-emerald-800/75">
                 Book documents, medicine or small electronics on an available trip.
               </span>
             </span>
@@ -1011,7 +1009,7 @@ export default function Home() {
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                     <Icon size={17} strokeWidth={2.1} />
                   </span>
-                  <span className="text-xs font-bold text-slate-700">
+                  <span className="text-[12.5px] font-bold text-slate-700">
                     {badge.label}
                   </span>
                 </div>
@@ -1029,7 +1027,7 @@ export default function Home() {
           onClick={() => setLocationSheetOpen(false)}
         >
           <div
-            className="w-full max-w-lg rounded-t-[2rem] bg-white shadow-[0_-18px_55px_rgba(15,23,42,0.16)]"
+            className="customer-bottom-sheet w-full max-w-lg rounded-t-[2rem] bg-white shadow-[0_-18px_55px_rgba(15,23,42,0.16)]"
             style={{
               animation: isDragging ? undefined : 's2b-sheet-up 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
               transform: sheetDragY > 0 ? `translateY(${sheetDragY}px)` : undefined,
@@ -1043,7 +1041,7 @@ export default function Home() {
             onTouchEnd={handleSheetTouchEnd}
           >
             <div className="flex justify-center pb-1 pt-3">
-              <div className="h-1.5 w-10 rounded-full bg-slate-200" />
+              <div className="h-1.5 w-12 rounded-full bg-slate-200" />
             </div>
 
             <div className="max-h-[84dvh] overflow-y-auto px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
@@ -1052,7 +1050,7 @@ export default function Home() {
                   <MapPin size={19} strokeWidth={2.1} />
                 </span>
                 <div>
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
+                  <p className="text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
                     Delivery location
                   </p>
                   <h3 className="mt-0.5 text-base font-extrabold text-slate-950">
@@ -1066,7 +1064,7 @@ export default function Home() {
                   <p className="text-sm font-extrabold text-slate-950">
                     {locationChipText}
                   </p>
-                  <p className="mt-1 text-xs leading-5 text-slate-600">
+                  <p className="mt-1 text-[12.5px] leading-5 text-slate-600">
                     This is based on your registered dzongkhag or saved profile.
                   </p>
                 </div>
@@ -1080,7 +1078,7 @@ export default function Home() {
                   <p className="mt-3 text-sm font-extrabold text-slate-900">
                     No location selected
                   </p>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                  <p className="mt-1 text-[12.5px] leading-5 text-slate-500">
                     Add your dzongkhag to receive clearer delivery information.
                   </p>
                 </div>
@@ -1089,10 +1087,10 @@ export default function Home() {
               <div className="mt-3 flex items-start gap-3 rounded-[1.2rem] bg-blue-50 p-4">
                 <Truck size={19} className="mt-0.5 shrink-0 text-blue-600" />
                 <div>
-                  <p className="text-xs font-extrabold text-blue-950">
+                  <p className="text-[12.5px] font-extrabold text-blue-950">
                     Orders accepted from all 20 dzongkhags
                   </p>
-                  <p className="mt-1 text-xs leading-5 text-blue-800/75">
+                  <p className="mt-1 text-[12px] leading-5 text-blue-800/75">
                     Delivery and pickup are currently available in Thimphu, Paro and
                     Phuentsholing/Chhukha.
                   </p>
@@ -1108,9 +1106,9 @@ export default function Home() {
                         setLocationSheetOpen(false);
                         navigate('/profile');
                       }}
-                      className="h-12 rounded-2xl bg-orange-500 px-4 text-sm font-extrabold text-white transition active:scale-[0.98]"
+                      className="h-12 rounded-2xl bg-orange-500 px-4 text-sm font-extrabold text-white transition active:scale-[0.98] active:bg-orange-600"
                     >
-                      Change registered dzongkhag
+                      {deliveryLabel ? 'Change delivery location' : 'Set delivery location'}
                     </button>
 
                     <button
@@ -1119,7 +1117,7 @@ export default function Home() {
                         setLocationSheetOpen(false);
                         navigate('/addresses');
                       }}
-                      className="h-11 rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-700 transition active:scale-[0.98]"
+                      className="h-12 rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-700 transition active:scale-[0.98] active:bg-slate-200"
                     >
                       Manage saved addresses
                     </button>

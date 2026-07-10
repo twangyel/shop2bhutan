@@ -466,7 +466,7 @@ export default function CustomerLayout() {
   }
 
   return (
-    <div className="mx-auto min-h-dvh w-full max-w-lg bg-white text-slate-900 sm:shadow-[0_0_40px_rgba(15,23,42,0.08)]">
+    <div className="customer-app-shell mx-auto min-h-dvh w-full max-w-lg bg-white text-slate-900 sm:shadow-[0_0_40px_rgba(15,23,42,0.08)]">
       {appSettings.maintenanceEnabled && (
         <div className="border-b border-amber-100 bg-amber-50 px-4 py-3 text-amber-900">
           <div className="mx-auto flex items-start gap-2.5 text-sm leading-5">
@@ -480,7 +480,7 @@ export default function CustomerLayout() {
         className={
           shouldHideTabBar
             ? 'min-h-dvh'
-            : 'min-h-dvh pb-[calc(4.7rem+env(safe-area-inset-bottom))]'
+            : 'min-h-dvh pb-[calc(5.15rem+env(safe-area-inset-bottom))]'
         }
       >
         <AnimatePresence mode="wait" initial={false}>
@@ -557,7 +557,7 @@ export default function CustomerLayout() {
 
       {!shouldHideTabBar && (
         <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50">
-          <div className="pointer-events-auto mx-auto flex h-[calc(66px+env(safe-area-inset-bottom))] w-full max-w-lg items-start border-t border-slate-200/80 bg-white/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:shadow-[0_-10px_30px_rgba(15,23,42,0.06)]">
+          <div className="customer-bottom-nav pointer-events-auto mx-auto flex h-[calc(72px+env(safe-area-inset-bottom))] w-full max-w-lg items-start border-t border-slate-200/80 bg-white/[0.97] px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:shadow-[0_-10px_30px_rgba(15,23,42,0.06)]">
             {tabs.map((tab) => {
               const isActive = isTabActive(location.pathname, tab.path)
               const Icon = tab.icon
@@ -585,13 +585,13 @@ export default function CustomerLayout() {
                   type="button"
                   onClick={() => handleTabPress(tab.path)}
                   aria-current={isActive ? 'page' : undefined}
-                  className={`relative flex h-[66px] flex-1 flex-col items-center justify-center gap-1 transition active:scale-95 ${
+                  className={`relative flex h-[72px] flex-1 flex-col items-center justify-center gap-1.5 transition active:scale-95 ${
                     isActive ? 'text-orange-600' : 'text-slate-400'
                   }`}
                 >
-                  <span className="relative flex h-7 w-8 items-center justify-center">
+                  <span className="relative flex h-8 w-9 items-center justify-center">
                     <Icon
-                      size={isActive ? 24 : 22}
+                      size={isActive ? 25 : 23}
                       strokeWidth={isActive ? 2.45 : 1.7}
                       className="transition-all duration-150"
                     />
@@ -610,7 +610,7 @@ export default function CustomerLayout() {
                   </span>
 
                   <span
-                    className={`text-[10.5px] leading-none ${
+                    className={`text-[11px] leading-none ${
                       isActive ? 'font-extrabold' : 'font-medium'
                     }`}
                   >
@@ -620,7 +620,7 @@ export default function CustomerLayout() {
                   {isActive && (
                     <motion.span
                       layoutId="customer-active-tab"
-                      className="absolute bottom-1 h-1 w-1 rounded-full bg-orange-500"
+                      className="absolute bottom-1.5 h-1 w-1 rounded-full bg-orange-500"
                       transition={{ type: 'spring', stiffness: 520, damping: 34 }}
                     />
                   )}
