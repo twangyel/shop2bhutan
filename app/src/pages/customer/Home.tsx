@@ -13,6 +13,7 @@ import {
   Megaphone,
   Package,
   ShieldCheck,
+  Sparkles,
   Truck,
   UserPlus,
 } from 'lucide-react';
@@ -53,30 +54,26 @@ const quickActions = [
   {
     icon: ShoppingBag,
     label: 'Request Bag',
-    description: 'Review products before requesting a quotation',
     path: '/request-bag',
     iconClass: 'bg-orange-50 text-orange-600',
   },
   {
     icon: Package,
     label: 'My Orders',
-    description: 'Track quotations, payments, and delivery',
     path: '/orders',
-    iconClass: 'bg-slate-100 text-slate-700',
+    iconClass: 'bg-blue-50 text-blue-600',
   },
   {
     icon: Truck,
-    label: 'Send Parcel',
-    description: 'Book documents and supported small items',
+    label: 'Parcel',
     path: '/parcel',
-    iconClass: 'bg-slate-100 text-slate-700',
+    iconClass: 'bg-emerald-50 text-emerald-600',
   },
   {
     icon: Headphones,
     label: 'Support',
-    description: 'Get help with orders, payment, or delivery',
     path: '/support',
-    iconClass: 'bg-slate-100 text-slate-700',
+    iconClass: 'bg-violet-50 text-violet-600',
   },
 ] as const;
 
@@ -581,7 +578,7 @@ function ContinueTrackingCard({
 }) {
   if (loading) {
     return (
-      <section className="mt-7">
+      <section className="mt-6">
         <div className="h-4 w-36 animate-pulse rounded-full bg-slate-100" />
         <div className="mt-3 grid grid-cols-2 gap-3">
           <div className="h-40 animate-pulse rounded-[1.35rem] bg-slate-100" />
@@ -594,7 +591,7 @@ function ContinueTrackingCard({
   if (updates.length === 0) {
     return (
       <section className="mt-7">
-        <SectionHeading title="How Shop2Bhutan works" />
+        <SectionHeading eyebrow="Simple process" title="How Shop2Bhutan works" />
 
         <div className="mt-3 grid grid-cols-2 gap-2.5">
           {howItWorks.map((item) => (
@@ -624,6 +621,7 @@ function ContinueTrackingCard({
   return (
     <section className="mt-7">
       <SectionHeading
+        eyebrow="Continue tracking"
         title="Active updates"
         action="View all"
         onAction={() => onNavigate('/orders')}
@@ -841,7 +839,7 @@ export default function Home() {
   return (
     <div className="min-h-dvh bg-white">
       <header className="bg-white">
-        <div className="px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+        <div className="px-4 pb-2 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
           <div className="flex items-center justify-between gap-3">
             <Logo size="sm" className="min-w-0" />
 
@@ -861,25 +859,24 @@ export default function Home() {
           </div>
 
           <div className="mt-3">
-            <p className="text-[15px] font-medium text-slate-500">
+            <p className="text-[14px] font-medium text-slate-500">
               {greeting}
               {customerFirstName && (
                 <>
                   {', '}
-                  <span className="font-extrabold text-slate-950">
+                  <span className="font-extrabold text-slate-900">
                     {customerFirstName}
                   </span>
                 </>
               )}
             </p>
-
             <button
               type="button"
               onClick={() => setLocationSheetOpen(true)}
-              className="mt-2 inline-flex min-h-10 max-w-full items-center gap-2 rounded-full border border-orange-100 bg-orange-50 px-3.5 py-2 text-left text-orange-700 transition active:scale-95 active:bg-orange-100"
+              className="mt-1.5 inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full text-left text-orange-600 transition active:scale-95"
             >
               <MapPin size={17} strokeWidth={2.3} className="shrink-0" />
-              <span className="truncate text-[13.5px] font-extrabold">
+              <span className="truncate text-[14px] font-bold">
                 {deliveryLabel ? `Delivering to ${deliveryLabel}` : 'Set delivery location'}
               </span>
               <ChevronDown size={14} className="shrink-0" />
@@ -888,68 +885,9 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="px-4 pb-[calc(1.75rem+env(safe-area-inset-bottom))]">
-        <section className="rounded-[1.6rem] border border-orange-100 bg-orange-50/60 p-5">
-          <div className="flex items-start gap-3.5">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-white text-orange-500 shadow-sm ring-1 ring-orange-100">
-              <ShoppingBag size={23} strokeWidth={2.2} />
-            </span>
-
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-orange-500">
-                Shop from Indian stores
-              </p>
-              <h1 className="mt-1 text-[1.25rem] font-black leading-tight tracking-tight text-slate-950">
-                Add a product and get a quotation
-              </h1>
-              <p className="mt-2 text-[13.5px] leading-[1.55] text-slate-600">
-                Paste a product link or upload a screenshot from Amazon, Flipkart,
-                Myntra, or Meesho. Review our quotation before making payment.
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => navigate('/paste-link')}
-            className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98] active:bg-orange-600"
-          >
-            Add Product
-            <ArrowRight size={16} strokeWidth={2.5} />
-          </button>
-
-          {visibleStores.length > 0 && (
-            <div className="mt-4 grid grid-cols-4 gap-2">
-              {visibleStores.map((store) => (
-                <button
-                  key={store.name}
-                  type="button"
-                  onClick={() => window.open(store.url, '_blank', 'noopener,noreferrer')}
-                  className="flex min-h-[70px] flex-col items-center justify-center gap-1.5 rounded-2xl bg-white px-1.5 py-2.5 shadow-sm ring-1 ring-orange-100 transition active:scale-95"
-                  aria-label={`Open ${store.name} website`}
-                >
-                  <img
-                    src={store.logo}
-                    alt={store.name}
-                    className="h-8 w-8 object-contain"
-                    loading="lazy"
-                  />
-                  <span className="text-[10.5px] font-bold text-slate-700">
-                    {store.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-orange-700">
-            <ShieldCheck size={13} strokeWidth={2.2} />
-            Quotation before payment
-          </div>
-        </section>
-
+      <main className="px-4 pb-[calc(1.75rem+env(safe-area-inset-bottom))] pt-2">
         {appSettings.homeAnnouncementEnabled && appSettings.homeAnnouncementText && (
-          <section className="mt-3 flex items-start gap-3 rounded-[1.2rem] bg-blue-50 px-4 py-3 text-blue-900">
+          <section className="mt-2 flex items-start gap-3 rounded-[1.2rem] bg-blue-50 px-4 py-3 text-blue-900">
             <Megaphone size={18} className="mt-0.5 shrink-0 text-blue-600" />
             <p className="text-[13px] font-medium leading-5">
               {appSettings.homeAnnouncementText}
@@ -957,18 +895,93 @@ export default function Home() {
           </section>
         )}
 
-        {(activeUpdateLoading || activeUpdates.length > 0) && (
-          <ContinueTrackingCard
-            updates={activeUpdates}
-            loading={activeUpdateLoading}
-            onNavigate={(path) => navigate(path)}
-          />
+        <section
+          className="relative mt-4 min-h-[205px] overflow-hidden rounded-[1.55rem] bg-slate-900 shadow-[0_14px_35px_rgba(15,23,42,0.12)]"
+          style={{
+            backgroundImage: `
+              linear-gradient(90deg, rgba(15,23,42,0.82) 0%, rgba(15,23,42,0.52) 52%, rgba(15,23,42,0.10) 100%),
+              linear-gradient(to top, rgba(15,23,42,0.40), rgba(15,23,42,0.01)),
+              url('/home-banner-bg.jpg')
+            `,
+            backgroundSize: 'cover',
+            backgroundPosition: '62% center',
+          }}
+        >
+          <div className="relative z-10 flex min-h-[190px] max-w-[79%] flex-col justify-center p-5">
+            <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1.5 text-[11.5px] font-extrabold uppercase tracking-wider text-white backdrop-blur-md">
+              <Sparkles size={12} />
+              Order from trusted Indian stores
+            </span>
+
+            <h2 className="mt-3 text-[1.5rem] font-extrabold leading-[1.12] tracking-tight text-white">
+              Shop Amazon, Flipkart,
+              <span className="block text-orange-300">Myntra &amp; Meesho.</span>
+            </h2>
+
+            <p className="mt-2.5 text-[14px] leading-[1.55] text-white/[0.85]">
+              Paste the product link or upload a screenshot. We send a quotation before you pay.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => navigate('/paste-link')}
+              className="mt-4 inline-flex h-11 w-fit items-center gap-2 rounded-[0.9rem] bg-orange-500 px-[18px] text-[14px] font-extrabold text-white shadow-lg shadow-orange-950/20 transition active:scale-95 active:bg-orange-600"
+            >
+              Start shopping
+              <ArrowRight size={15} strokeWidth={2.5} />
+            </button>
+          </div>
+        </section>
+
+        {visibleStores.length > 0 && (
+          <section className="mt-4">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
+                  Accepted stores
+                </p>
+                <h2 className="mt-1 text-[15px] font-extrabold text-slate-950">
+                  Shop from these platforms
+                </h2>
+              </div>
+              <span className="text-[10px] font-semibold text-slate-400">
+                Opens official site
+              </span>
+            </div>
+
+            <div className="mt-3 grid grid-cols-4 gap-2">
+              {visibleStores.map((store) => (
+                <button
+                  key={store.name}
+                  type="button"
+                  onClick={() => window.open(store.url, '_blank', 'noopener,noreferrer')}
+                  className="flex min-h-[86px] flex-col items-center justify-center gap-2 rounded-[1.15rem] border border-slate-100 bg-white px-2 py-3 text-center shadow-[0_6px_20px_rgba(15,23,42,0.045)] transition active:scale-95 active:bg-slate-50"
+                  aria-label={`Open ${store.name} website`}
+                >
+                  <span className="flex h-9 w-9 items-center justify-center">
+                    <img
+                      src={store.logo}
+                      alt={store.name}
+                      className="h-full w-full object-contain"
+                      loading="lazy"
+                    />
+                  </span>
+                  <span className="text-[11.5px] font-extrabold text-slate-700">
+                    {store.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
         )}
 
-        <section className="mt-6">
-          <SectionHeading title="Shortcuts" />
+        <section className="mt-7">
+          <SectionHeading
+            eyebrow="Everything in one place"
+            title="Quick actions"
+          />
 
-          <div className="mt-3 grid grid-cols-2 gap-3">
+          <div className="mt-3 grid grid-cols-4 gap-2">
             {quickActions.map((action) => {
               const Icon = action.icon;
 
@@ -977,38 +990,29 @@ export default function Home() {
                   key={action.label}
                   type="button"
                   onClick={() => navigate(action.path)}
-                  className="rounded-[1.3rem] border border-slate-100 bg-white p-4 text-left shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition active:scale-[0.98] active:bg-slate-50"
+                  className="flex min-h-[94px] flex-col items-center justify-center gap-2.5 rounded-[1.25rem] bg-slate-50 px-1.5 py-3 text-center transition active:scale-95 active:bg-slate-100"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <span
-                      className={`flex h-11 w-11 items-center justify-center rounded-2xl ${action.iconClass}`}
-                    >
-                      <Icon size={20} strokeWidth={2.15} />
-                    </span>
-                    <ChevronRight size={17} className="mt-1 text-slate-300" />
-                  </div>
-
-                  <h3 className="mt-3 text-[14px] font-extrabold text-slate-900">
+                  <span
+                    className={`flex h-11 w-11 items-center justify-center rounded-2xl ${action.iconClass}`}
+                  >
+                    <Icon size={20} strokeWidth={2.15} />
+                  </span>
+                  <span className="text-[12.5px] font-bold leading-[1.2] text-slate-700">
                     {action.label}
-                  </h3>
-                  <p className="mt-1 line-clamp-2 text-[11.5px] leading-[1.45] text-slate-500">
-                    {action.description}
-                  </p>
+                  </span>
                 </button>
               );
             })}
           </div>
         </section>
 
-        {!activeUpdateLoading && activeUpdates.length === 0 && (
-          <ContinueTrackingCard
-            updates={activeUpdates}
-            loading={false}
-            onNavigate={(path) => navigate(path)}
-          />
-        )}
+        <ContinueTrackingCard
+          updates={activeUpdates}
+          loading={activeUpdateLoading}
+          onNavigate={(path) => navigate(path)}
+        />
 
-        <section className="mt-6">
+        <section className="mt-7">
           <button
             type="button"
             onClick={() => navigate('/parcel')}
@@ -1021,16 +1025,16 @@ export default function Home() {
               <span className="block text-[15px] font-extrabold text-emerald-950">
                 Sending a small parcel?
               </span>
-              <span className="mt-1 block text-[13px] leading-[1.5] text-emerald-800/75">
-                Book documents, medicine, or supported small electronics on an available trip.
+              <span className="mt-1 block text-[13.5px] leading-[1.55] text-emerald-800/75">
+                Book documents, medicine or small electronics on an available trip.
               </span>
             </span>
             <ChevronRight size={19} className="shrink-0 text-emerald-600" />
           </button>
         </section>
 
-        <section className="mt-6">
-          <SectionHeading title="Why Shop2Bhutan" />
+        <section className="mt-7">
+          <SectionHeading eyebrow="Shop confidently" title="Why customers trust us" />
 
           <div className="mt-3 divide-y divide-slate-100 rounded-[1.35rem] border border-slate-100 bg-white">
             {trustBadges.map((badge) => {
@@ -1038,7 +1042,7 @@ export default function Home() {
 
               return (
                 <div key={badge.label} className="flex items-center gap-3 px-4 py-3.5">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                     <Icon size={17} strokeWidth={2.1} />
                   </span>
                   <span className="text-[13.5px] font-bold text-slate-700">

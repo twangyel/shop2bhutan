@@ -248,7 +248,112 @@ export default function PasteLink() {
         </header>
 
         <main className="px-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-4">
-          <section className="rounded-[1.5rem] border border-neutral-100 bg-white p-4 shadow-[0_10px_32px_rgba(15,23,42,0.05)]">
+          <section className="overflow-hidden rounded-[1.6rem] border border-neutral-100 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.06)]">
+            <div className="border-b border-neutral-100 px-5 py-5">
+              <div className="flex items-start gap-3">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-orange-50 text-orange-500">
+                  <ShoppingBag size={23} strokeWidth={2.2} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-orange-500">
+                    Request Bag
+                  </p>
+                  <h2 className="mt-1 text-xl font-black tracking-tight text-neutral-950">
+                    Add products first
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-neutral-500">
+                    Add one or more products, then submit the complete bag for a single quotation.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center gap-2 rounded-2xl bg-emerald-50 px-3.5 py-3 text-emerald-700">
+                <CheckCircle size={17} className="shrink-0" strokeWidth={2.4} />
+                <p className="text-xs font-bold leading-5">
+                  No payment is required until you review and accept our quotation.
+                </p>
+              </div>
+            </div>
+
+            <div className="px-5 py-4">
+              <div className="relative flex items-start justify-between">
+                <div className="absolute left-[16%] right-[16%] top-[18px] h-px bg-neutral-200" />
+                {stepsFlow.map((step) => {
+                  const Icon = step.icon;
+                  const isActive = step.status === 'active';
+
+                  return (
+                    <div
+                      key={step.label}
+                      className="relative z-10 flex w-1/3 flex-col items-center gap-2 text-center"
+                    >
+                      <span
+                        className={`flex h-9 w-9 items-center justify-center rounded-full ring-4 ring-white ${
+                          isActive
+                            ? 'bg-orange-500 text-white'
+                            : 'bg-neutral-100 text-neutral-400'
+                        }`}
+                      >
+                        <Icon size={16} strokeWidth={2.4} />
+                      </span>
+                      <span
+                        className={`text-[10px] font-extrabold uppercase tracking-wide ${
+                          isActive ? 'text-orange-600' : 'text-neutral-400'
+                        }`}
+                      >
+                        {step.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
+          {visiblePlatforms.length > 0 && (
+            <section className="mt-6">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-orange-500">
+                    Accepted stores
+                  </p>
+                  <h2 className="mt-1 text-base font-extrabold text-neutral-950">
+                    Order from these platforms
+                  </h2>
+                </div>
+                <span className="text-[11px] font-semibold text-neutral-400">
+                  Opens official site
+                </span>
+              </div>
+
+              <div className="mt-3 grid grid-cols-4 gap-2">
+                {visiblePlatforms.map((platform) => (
+                  <a
+                    key={platform.name}
+                    href={platform.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => selectPlatform(platform.key)}
+                    className="flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-[1.2rem] border border-neutral-100 bg-white px-2 py-3 text-center transition active:scale-95 active:bg-neutral-50"
+                  >
+                    <span className="flex h-10 w-10 items-center justify-center">
+                      <img
+                        src={platform.logo}
+                        alt={platform.name}
+                        className="h-full w-full object-contain"
+                        loading="lazy"
+                      />
+                    </span>
+                    <span className="text-[11.5px] font-bold text-neutral-700">
+                      {platform.name}
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="mt-6 rounded-[1.5rem] border border-neutral-100 bg-white p-4 shadow-[0_10px_32px_rgba(15,23,42,0.045)]">
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
                 <Link2 size={19} strokeWidth={2.2} />
@@ -328,7 +433,7 @@ export default function PasteLink() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex min-h-[86px] w-full items-center gap-4 rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 px-4 text-left transition active:scale-[0.99] active:border-orange-400 active:bg-orange-50/40"
+                className="flex min-h-[88px] w-full items-center gap-4 rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 px-4 text-left transition active:scale-[0.99] active:border-orange-400 active:bg-orange-50/40"
               >
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm ring-1 ring-neutral-100">
                   <Camera size={22} strokeWidth={2.1} />
@@ -338,18 +443,18 @@ export default function PasteLink() {
                     Upload product screenshot
                   </span>
                   <span className="mt-1 block text-xs leading-5 text-neutral-400">
-                    Use a screenshot when a product link is unavailable.
+                    Use a screenshot when a shareable product link is unavailable.
                   </span>
                 </span>
                 <Plus size={18} className="shrink-0 text-neutral-400" />
               </button>
             ) : (
               <div className="overflow-hidden rounded-2xl border border-orange-200 bg-white">
-                <div className="relative flex min-h-[200px] max-h-[350px] items-center justify-center bg-neutral-50">
+                <div className="relative flex min-h-[210px] max-h-[360px] items-center justify-center bg-neutral-50">
                   <img
                     src={screenshotPreview}
                     alt="Uploaded product screenshot"
-                    className="max-h-[350px] w-full object-contain"
+                    className="max-h-[360px] w-full object-contain"
                   />
                   <button
                     type="button"
@@ -437,36 +542,6 @@ export default function PasteLink() {
             </section>
           )}
 
-          {error && (
-            <section className="mt-4 rounded-[1.3rem] border border-red-100 bg-red-50 px-4 py-3.5">
-              <div className="flex items-start gap-2.5 text-red-700">
-                <X size={17} className="mt-0.5 shrink-0" strokeWidth={2.5} />
-                <p className="text-sm font-medium leading-5">{error}</p>
-              </div>
-            </section>
-          )}
-
-          <button
-            type="button"
-            onClick={addToRequestBag}
-            disabled={!hasRequestInput || preview.loading || adding}
-            className="mt-4 flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-orange-500 px-4 text-center text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-orange-200 disabled:shadow-none disabled:active:scale-100"
-          >
-            {adding ? (
-              <>
-                <Loader2 size={20} className="animate-spin" strokeWidth={2.5} />
-                Adding to Request Bag...
-              </>
-            ) : hasRequestInput ? (
-              <>
-                <Plus size={20} strokeWidth={2.5} />
-                Add to Request Bag
-              </>
-            ) : (
-              'Paste a link or upload a screenshot'
-            )}
-          </button>
-
           {successMessage && (
             <section className="mt-4 rounded-[1.3rem] border border-emerald-100 bg-emerald-50 p-4">
               <div className="flex gap-3">
@@ -493,108 +568,47 @@ export default function PasteLink() {
             </section>
           )}
 
-          {visiblePlatforms.length > 0 && (
-            <section className="mt-6">
-              <div>
-                <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-orange-500">
-                  Accepted stores
-                </p>
-                <h2 className="mt-1 text-base font-extrabold text-neutral-950">
-                  We currently accept orders from
-                </h2>
-              </div>
-
-              <div className="mt-3 grid grid-cols-4 gap-2">
-                {visiblePlatforms.map((platform) => (
-                  <a
-                    key={platform.name}
-                    href={platform.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => selectPlatform(platform.key)}
-                    className="flex min-h-[82px] flex-col items-center justify-center gap-2 rounded-[1.2rem] border border-neutral-100 bg-white px-2 py-3 text-center transition active:scale-95 active:bg-neutral-50"
-                  >
-                    <span className="flex h-9 w-9 items-center justify-center">
-                      <img
-                        src={platform.logo}
-                        alt={platform.name}
-                        className="h-full w-full object-contain"
-                        loading="lazy"
-                      />
-                    </span>
-                    <span className="text-[11px] font-bold text-neutral-700">
-                      {platform.name}
-                    </span>
-                  </a>
-                ))}
+          {error && (
+            <section className="mt-4 rounded-[1.3rem] border border-red-100 bg-red-50 px-4 py-3.5">
+              <div className="flex items-start gap-2.5 text-red-700">
+                <X size={17} className="mt-0.5 shrink-0" strokeWidth={2.5} />
+                <p className="text-sm font-medium leading-5">{error}</p>
               </div>
             </section>
           )}
 
-          <section className="mt-6 overflow-hidden rounded-[1.5rem] border border-neutral-100 bg-white">
-            <div className="flex items-start gap-3 border-b border-neutral-100 p-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-                <CheckCircle size={19} strokeWidth={2.4} />
-              </span>
-              <div>
-                <h2 className="text-sm font-extrabold text-neutral-950">
-                  No payment is required now
-                </h2>
-                <p className="mt-1 text-xs leading-5 text-neutral-500">
-                  Add all products first. You will pay only after reviewing and accepting the quotation.
-                </p>
-              </div>
-            </div>
+          <button
+            type="button"
+            onClick={addToRequestBag}
+            disabled={!hasRequestInput || preview.loading || adding}
+            className="mt-5 flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-orange-500 px-4 text-center text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-orange-200 disabled:shadow-none disabled:active:scale-100"
+          >
+            {adding ? (
+              <>
+                <Loader2 size={20} className="animate-spin" strokeWidth={2.5} />
+                Adding to Request Bag...
+              </>
+            ) : hasRequestInput ? (
+              <>
+                <Plus size={20} strokeWidth={2.5} />
+                Add to Request Bag
+              </>
+            ) : (
+              'Paste a link or upload a screenshot'
+            )}
+          </button>
 
-            <div className="p-4">
-              <p className="mb-4 text-sm font-extrabold text-neutral-950">
-                What happens next
-              </p>
-              <div className="relative flex items-start justify-between">
-                <div className="absolute left-[16%] right-[16%] top-[18px] h-px bg-neutral-200" />
-                {stepsFlow.map((step) => {
-                  const Icon = step.icon;
-                  const isActive = step.status === 'active';
-
-                  return (
-                    <div
-                      key={step.label}
-                      className="relative z-10 flex w-1/3 flex-col items-center gap-2 text-center"
-                    >
-                      <span
-                        className={`flex h-9 w-9 items-center justify-center rounded-full ring-4 ring-white ${
-                          isActive
-                            ? 'bg-orange-500 text-white'
-                            : 'bg-neutral-100 text-neutral-400'
-                        }`}
-                      >
-                        <Icon size={16} strokeWidth={2.4} />
-                      </span>
-                      <span
-                        className={`text-[10px] font-extrabold uppercase tracking-wide ${
-                          isActive ? 'text-orange-600' : 'text-neutral-400'
-                        }`}
-                      >
-                        {step.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-
-          <section className="mt-4 rounded-[1.35rem] border border-blue-100 bg-blue-50 p-4">
+          <section className="mt-6 rounded-[1.35rem] border border-blue-100 bg-blue-50 p-4">
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-500 shadow-sm">
                 <Sparkles size={18} strokeWidth={2.4} />
               </span>
               <div>
                 <h2 className="text-sm font-extrabold text-blue-950">
-                  Add multiple products together
+                  Add everything before requesting a quote
                 </h2>
                 <p className="mt-1 text-xs leading-5 text-blue-800/75">
-                  Add everything to one Request Bag, review your items, and submit them together for one quotation.
+                  You can add multiple products to one Request Bag. Review the bag when finished, then submit all items together.
                 </p>
               </div>
             </div>
