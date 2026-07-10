@@ -236,82 +236,51 @@ export default function PasteLink() {
   return (
     <div className="min-h-[100dvh] bg-white">
       <div className="mx-auto w-full max-w-3xl">
-        <header className="sticky top-0 z-40 border-b border-neutral-100 bg-white/95 backdrop-blur">
+        <header className="border-b border-neutral-100 bg-white">
           <div className="px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
             <h1 className="text-lg font-extrabold tracking-tight text-neutral-950">
               Add a product
             </h1>
-            <p className="mt-0.5 text-xs leading-5 text-neutral-500">
-              Paste a supported store link or upload a screenshot.
-            </p>
           </div>
         </header>
 
-        <main className="px-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-4">
-          <section className="overflow-hidden rounded-[1.6rem] border border-neutral-100 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.06)]">
-            <div className="border-b border-neutral-100 px-5 py-5">
-              <div className="flex items-start gap-3">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-orange-50 text-orange-500">
-                  <ShoppingBag size={23} strokeWidth={2.2} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-orange-500">
-                    Request Bag
-                  </p>
-                  <h2 className="mt-1 text-xl font-black tracking-tight text-neutral-950">
-                    Add products first
-                  </h2>
-                  <p className="mt-1 text-sm leading-6 text-neutral-500">
-                    Add one or more products, then submit the complete bag for a single quotation.
-                  </p>
-                </div>
-              </div>
+        <main className="px-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-3">
+          <section className="rounded-[1.35rem] border border-neutral-100 bg-white px-4 py-4 shadow-[0_8px_26px_rgba(15,23,42,0.045)]">
+            <div className="relative flex items-start justify-between">
+              <div className="absolute left-[16%] right-[16%] top-[18px] h-px bg-neutral-200" />
+              {stepsFlow.map((step) => {
+                const Icon = step.icon;
+                const isActive = step.status === 'active';
 
-              <div className="mt-4 flex items-center gap-2 rounded-2xl bg-emerald-50 px-3.5 py-3 text-emerald-700">
-                <CheckCircle size={17} className="shrink-0" strokeWidth={2.4} />
-                <p className="text-xs font-bold leading-5">
-                  No payment is required until you review and accept our quotation.
-                </p>
-              </div>
-            </div>
-
-            <div className="px-5 py-4">
-              <div className="relative flex items-start justify-between">
-                <div className="absolute left-[16%] right-[16%] top-[18px] h-px bg-neutral-200" />
-                {stepsFlow.map((step) => {
-                  const Icon = step.icon;
-                  const isActive = step.status === 'active';
-
-                  return (
-                    <div
-                      key={step.label}
-                      className="relative z-10 flex w-1/3 flex-col items-center gap-2 text-center"
+                return (
+                  <div
+                    key={step.label}
+                    className="relative z-10 flex w-1/3 flex-col items-center gap-2 text-center"
+                  >
+                    <span
+                      className={`flex h-9 w-9 items-center justify-center rounded-full ring-4 ring-white ${
+                        isActive
+                          ? 'bg-orange-500 text-white'
+                          : 'bg-neutral-100 text-neutral-400'
+                      }`}
                     >
-                      <span
-                        className={`flex h-9 w-9 items-center justify-center rounded-full ring-4 ring-white ${
-                          isActive
-                            ? 'bg-orange-500 text-white'
-                            : 'bg-neutral-100 text-neutral-400'
-                        }`}
-                      >
-                        <Icon size={16} strokeWidth={2.4} />
-                      </span>
-                      <span
-                        className={`text-[10px] font-extrabold uppercase tracking-wide ${
-                          isActive ? 'text-orange-600' : 'text-neutral-400'
-                        }`}
-                      >
-                        {step.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+                      <Icon size={16} strokeWidth={2.4} />
+                    </span>
+                    <span
+                      className={`text-[10px] font-extrabold uppercase tracking-wide ${
+                        isActive ? 'text-orange-600' : 'text-neutral-400'
+                      }`}
+                    >
+                      {step.label}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </section>
 
           {visiblePlatforms.length > 0 && (
-            <section className="mt-6">
+            <section className="mt-5">
               <div className="flex items-end justify-between gap-3">
                 <div>
                   <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-orange-500">
@@ -353,9 +322,9 @@ export default function PasteLink() {
             </section>
           )}
 
-          <section className="mt-6 rounded-[1.5rem] border border-neutral-100 bg-white p-4 shadow-[0_10px_32px_rgba(15,23,42,0.045)]">
+          <section className="mt-5 rounded-[1.6rem] border-2 border-orange-100 bg-white p-4 shadow-[0_16px_42px_rgba(249,115,22,0.10)]">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-lg shadow-orange-500/20">
                 <Link2 size={19} strokeWidth={2.2} />
               </span>
               <div>
@@ -414,11 +383,11 @@ export default function PasteLink() {
             </div>
 
             <div className="my-4 flex items-center gap-3">
-              <div className="h-px flex-1 bg-neutral-100" />
+              <div className="h-px flex-1 bg-orange-100" />
               <span className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-neutral-400">
-                or
+                or upload instead
               </span>
-              <div className="h-px flex-1 bg-neutral-100" />
+              <div className="h-px flex-1 bg-orange-100" />
             </div>
 
             <input
@@ -439,7 +408,7 @@ export default function PasteLink() {
                   <Camera size={22} strokeWidth={2.1} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-extrabold text-neutral-900">
+                  <span className="block text-base font-black text-neutral-900">
                     Upload product screenshot
                   </span>
                   <span className="mt-1 block text-xs leading-5 text-neutral-400">

@@ -13,7 +13,6 @@ import {
   Megaphone,
   Package,
   ShieldCheck,
-  Sparkles,
   Truck,
   UserPlus,
 } from 'lucide-react';
@@ -907,18 +906,13 @@ export default function Home() {
             backgroundPosition: '62% center',
           }}
         >
-          <div className="relative z-10 flex min-h-[190px] max-w-[79%] flex-col justify-center p-5">
-            <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1.5 text-[11.5px] font-extrabold uppercase tracking-wider text-white backdrop-blur-md">
-              <Sparkles size={12} />
-              Order from trusted Indian stores
-            </span>
-
-            <h2 className="mt-3 text-[1.5rem] font-extrabold leading-[1.12] tracking-tight text-white">
+          <div className="relative z-10 flex min-h-[166px] max-w-[79%] flex-col justify-center p-5">
+            <h2 className="text-[1.38rem] font-extrabold leading-[1.13] tracking-tight text-white">
               Shop Amazon, Flipkart,
               <span className="block text-orange-300">Myntra &amp; Meesho.</span>
             </h2>
 
-            <p className="mt-2.5 text-[14px] leading-[1.55] text-white/[0.85]">
+            <p className="mt-2 text-[13px] leading-[1.5] text-white/[0.88]">
               Paste the product link or upload a screenshot. We send a quotation before you pay.
             </p>
 
