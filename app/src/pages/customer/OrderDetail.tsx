@@ -184,6 +184,31 @@ function money(value?: number) {
   return `Nu. ${Number(value ?? 0).toLocaleString()}`;
 }
 
+function formatPaymentMethod(value?: string) {
+  const clean = String(value ?? '').trim();
+  if (!clean) return 'Under review';
+
+  return clean
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function itemDisplayPrice(order: Order, item: Order['items'][number], index: number) {
+  const quotationItem =
+    order.quotation?.items?.find((candidate) => candidate.orderItemId === item.id) ??
+    order.quotation?.items?.[index];
+  const quantity = Math.max(1, Number(item.quantity) || 1);
+  const quotedTotal = Number(quotationItem?.totalPrice || 0);
+  const quotedUnitPrice = Number(quotationItem?.unitPrice || 0);
+  const orderUnitPrice = Number(item.unitPrice || 0);
+
+  if (quotedTotal > 0) return money(quotedTotal);
+  if (quotedUnitPrice > 0) return money(quotedUnitPrice * quantity);
+  if (orderUnitPrice > 0) return money(orderUnitPrice * quantity);
+  return 'Price in quotation';
+}
+
 function statusMessage(order: Order, status = getEffectiveOrderStatus(order)) {
   if (isSelfPickupOrder(order)) {
     if (status === 'delivered') return 'Your order has been picked up successfully.';
@@ -381,6 +406,24 @@ function getCompactProgress(order: Order) {
   };
 }
 
+function getProgressCardTitle(order: Order) {
+  const effectiveStatus = getEffectiveOrderStatus(order);
+
+  if (effectiveStatus === 'cancelled') return 'Journey cancelled';
+  if (effectiveStatus === 'delivered') return isSelfPickupOrder(order) ? 'Pickup complete' : 'Delivery complete';
+
+  const currentIndex = getProgressIndex(effectiveStatus);
+  const currentStep = displayProgressStep(progressSteps[currentIndex] ?? progressSteps[0], order);
+  const currentStageLabel = customerStageLabel(effectiveStatus);
+
+  if (currentStep.label.toLowerCase() !== currentStageLabel.toLowerCase()) {
+    return currentStep.label;
+  }
+
+  const nextStep = progressSteps[currentIndex + 1];
+  return nextStep ? `Next: ${displayProgressStep(nextStep, order).label}` : currentStep.label;
+}
+
 function formatBhutanDateTime(value?: string) {
   if (!value) return '';
 
@@ -538,6 +581,7 @@ export default function OrderDetail() {
   }, [authLoading, loadOrder]);
 
   const compactProgress = useMemo(() => (order ? getCompactProgress(order) : null), [order]);
+  const progressCardTitle = useMemo(() => (order ? getProgressCardTitle(order) : ''), [order]);
   const effectiveStatus = useMemo(() => (order ? getEffectiveOrderStatus(order) : undefined), [order]);
 
   if (!authLoading && !user) {
@@ -636,6 +680,10 @@ export default function OrderDetail() {
   const quotationFulfillmentDescription = quotationStage && !isSelfPickup
     ? 'Delivery fee will be included in your quotation based on the selected area.'
     : fulfillmentMethodDescription;
+  const quotationIsReferenceOnly = Boolean(
+    effectiveStatus &&
+      (effectiveStatus === 'cancelled' || getProgressIndex(effectiveStatus) >= getProgressIndex('payment_verified')),
+  );
 
   return (
     <div className="min-h-screen bg-white pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
@@ -670,25 +718,25 @@ export default function OrderDetail() {
         )}
 
         <section className="overflow-hidden rounded-[28px] bg-gray-950 text-white shadow-sm">
-          <div className="p-5">
+          <div className="p-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/50">{currentStatusTitle}</p>
-                <h2 className="mt-2 text-2xl font-black tracking-tight text-white">
+                <h2 className="mt-1.5 text-2xl font-black tracking-tight text-white">
                   {customerStageLabel(effectiveStatus ?? order.status)}
                 </h2>
-                <p className="mt-2 max-w-md text-sm leading-6 text-white/70">
+                <p className="mt-1.5 max-w-md text-sm leading-5 text-white/70">
                   {statusMessage(order, effectiveStatus ?? order.status)}
                 </p>
               </div>
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] bg-white shadow-sm">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-white shadow-sm">
                 {statusIcons[effectiveStatus ?? order.status] ?? (
                   <Package size={30} className="text-orange-500" strokeWidth={2} />
                 )}
               </span>
             </div>
 
-            <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-4">
+            <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/10 pt-3.5">
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/40">Next step</p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-white/80">{compactProgress.nextText}</p>
@@ -754,7 +802,7 @@ export default function OrderDetail() {
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">{progressTitle}</p>
-                <h3 className="mt-1.5 text-base font-black text-gray-950">{compactProgress.currentLabel}</h3>
+                <h3 className="mt-1.5 text-base font-black text-gray-950">{progressCardTitle}</h3>
                 <p className="mt-1 text-xs leading-5 text-gray-500">Tap to view every update in Bhutan Time.</p>
               </div>
               <span className="flex h-9 shrink-0 items-center gap-1 rounded-full bg-white px-3 text-[11px] font-black text-gray-700 shadow-sm ring-1 ring-gray-100">
@@ -820,7 +868,7 @@ export default function OrderDetail() {
                     <p className="mt-1.5 line-clamp-2 text-sm font-black leading-5 text-gray-950">{item.productName}</p>
                     <div className="mt-2 flex items-center justify-between gap-3">
                       <p className="text-sm font-black text-gray-950">
-                        {item.unitPrice > 0 ? money(item.unitPrice * item.quantity) : 'Price in quotation'}
+                        {itemDisplayPrice(order, item, index)}
                       </p>
                       {item.sourceUrl && /^https?:\/\//i.test(item.sourceUrl) && (
                         <a
@@ -981,7 +1029,7 @@ export default function OrderDetail() {
                   <div className="space-y-2.5 text-xs">
                     <div className="flex items-center justify-between gap-4">
                       <span className="font-semibold text-gray-500">Method</span>
-                      <span className="text-right font-black text-gray-950">{order.payment.method || 'Under review'}</span>
+                      <span className="text-right font-black text-gray-950">{formatPaymentMethod(order.payment.method)}</span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="font-semibold text-gray-500">Amount</span>
@@ -1024,18 +1072,37 @@ export default function OrderDetail() {
           <button
             type="button"
             onClick={() => navigate(`/quotation/${order.id}`)}
-            className="flex w-full items-center justify-between rounded-[22px] bg-violet-50 p-4 text-left ring-1 ring-violet-100 transition-transform active:scale-[0.99]"
+            className={`flex w-full items-center justify-between rounded-[22px] p-4 text-left ring-1 transition-transform active:scale-[0.99] ${
+              quotationIsReferenceOnly ? 'bg-white ring-gray-100' : 'bg-violet-50 ring-violet-100'
+            }`}
           >
             <div className="flex min-w-0 items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-violet-600 shadow-sm">
+              <span
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+                  quotationIsReferenceOnly
+                    ? 'bg-violet-50 text-violet-600'
+                    : 'bg-white text-violet-600 shadow-sm'
+                }`}
+              >
                 <FileText size={19} strokeWidth={2.4} />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-black text-violet-950">View quotation</p>
-                <p className="mt-0.5 text-xs font-semibold text-violet-700">Total: {money(order.quotation.totalAmount)}</p>
+                <p className={`text-sm font-black ${quotationIsReferenceOnly ? 'text-gray-900' : 'text-violet-950'}`}>
+                  {quotationIsReferenceOnly ? 'Quotation details' : 'View quotation'}
+                </p>
+                <p
+                  className={`mt-0.5 text-xs font-semibold ${
+                    quotationIsReferenceOnly ? 'text-gray-500' : 'text-violet-700'
+                  }`}
+                >
+                  Total: {money(order.quotation.totalAmount)}
+                </p>
               </div>
             </div>
-            <ChevronRight size={19} className="shrink-0 text-violet-500" />
+            <ChevronRight
+              size={19}
+              className={`shrink-0 ${quotationIsReferenceOnly ? 'text-gray-400' : 'text-violet-500'}`}
+            />
           </button>
         )}
       </main>
