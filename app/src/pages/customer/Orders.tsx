@@ -543,7 +543,7 @@ export default function Orders() {
 
   return (
     <div className="min-h-screen bg-white">
-      <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.8rem)] backdrop-blur-xl">
+      <header className="border-b border-slate-100 bg-white px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.8rem)]">
         <div className="mx-auto max-w-3xl">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
@@ -563,7 +563,7 @@ export default function Orders() {
             </button>
           </div>
 
-          <div className="mt-4 grid grid-cols-3 divide-x divide-slate-100 rounded-2xl border border-slate-100 bg-white py-3 shadow-[0_6px_18px_rgba(15,23,42,0.03)]">
+          <div className="mt-3.5 grid grid-cols-3 divide-x divide-slate-100 rounded-2xl border border-slate-100 bg-white py-2.5 shadow-[0_6px_18px_rgba(15,23,42,0.03)]">
             <div className="px-3 text-center">
               <p className="text-[20px] font-black text-slate-950">{activeCount}</p>
               <p className="mt-0.5 text-[11px] font-bold text-slate-400">Active</p>
@@ -612,7 +612,7 @@ export default function Orders() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-4">
+      <main className="mx-auto max-w-3xl px-4 py-3.5">
         {error && (
           <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium leading-5 text-red-700">
             {error}
