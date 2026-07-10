@@ -1,7 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, HeadphonesIcon, KeyRound, Mail, Phone } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle,
+  HeadphonesIcon,
+  KeyRound,
+  Loader2,
+  Mail,
+  Phone,
+  ShieldCheck,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import BrandLogo from '@/components/BrandLogo';
 
 const PHONE_ONLY_EMAIL_SUFFIX = '@phone.shop2bhutan.com';
 
@@ -45,6 +55,10 @@ export default function ForgotPassword() {
   const [adminNotified, setAdminNotified] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, []);
 
   const sendResetEmail = async (email: string) => {
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
@@ -154,36 +168,63 @@ export default function ForgotPassword() {
 
   if (submitted) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-white px-6 pb-8">
-        <div className="w-full max-w-sm text-center">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600">
-            <CheckCircle size={36} strokeWidth={2} />
+      <div className="flex min-h-[100dvh] flex-col bg-white px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))]">
+        <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
+          <div className="flex justify-center">
+            <div className="origin-center scale-[0.78]">
+              <BrandLogo variant="full" className="justify-center" />
+            </div>
           </div>
 
-          <h1 className="mt-6 text-2xl font-bold text-neutral-900">Check your email</h1>
-          <p className="mt-2 text-sm leading-relaxed text-neutral-500">
-            If a real email is linked to this account, we sent a password reset link. Open the latest email and follow the link to set a new password.
-          </p>
+          <div className="my-auto py-8">
+            <div className="rounded-[28px] border border-neutral-100 bg-white p-6 text-center shadow-[0_18px_55px_rgba(15,23,42,0.07)]">
+              <div className="mx-auto flex h-18 w-18 items-center justify-center rounded-[24px] bg-emerald-50 text-emerald-600">
+                <CheckCircle size={34} strokeWidth={2.1} />
+              </div>
 
-          <div
-            className={`mt-4 rounded-2xl px-4 py-3 text-sm ${
-              adminNotified
-                ? 'border border-emerald-100 bg-emerald-50 text-emerald-700'
-                : 'border border-amber-100 bg-amber-50 text-amber-700'
-            }`}
-          >
-            {adminNotified
-              ? 'Shop2Bhutan admin has also been notified about this reset request.'
-              : 'If you still need help, please contact Shop2Bhutan support.'}
+              <p className="mt-5 text-[11px] font-extrabold uppercase tracking-[0.18em] text-emerald-600">
+                Reset link requested
+              </p>
+              <h1 className="mt-2 text-2xl font-black tracking-tight text-neutral-950">
+                Check your email
+              </h1>
+              <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-neutral-500">
+                If a real email is linked to this account, we sent a password reset link. Open the latest email and follow it to create a new password.
+              </p>
+
+              <div
+                className={`mt-5 flex items-start gap-3 rounded-2xl border px-4 py-3 text-left ${
+                  adminNotified
+                    ? 'border-emerald-100 bg-emerald-50/70 text-emerald-700'
+                    : 'border-amber-100 bg-amber-50/70 text-amber-700'
+                }`}
+              >
+                {adminNotified ? (
+                  <CheckCircle size={18} className="mt-0.5 shrink-0" />
+                ) : (
+                  <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                )}
+                <p className="text-xs font-semibold leading-5">
+                  {adminNotified
+                    ? 'Shop2Bhutan admin has also been notified about this reset request.'
+                    : 'If you still need help, please contact Shop2Bhutan support.'}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate('/login')}
+                className="mt-6 flex h-[52px] w-full items-center justify-center rounded-2xl bg-orange-500 text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600 active:scale-[0.98]"
+              >
+                Back to Sign In
+              </button>
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => navigate('/login')}
-            className="mt-8 h-12 w-full rounded-2xl bg-orange-500 font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-[0.98]"
-          >
-            Back to Sign In
-          </button>
+          <div className="flex items-center justify-center gap-1.5 pb-1 text-[11px] font-medium text-neutral-400">
+            <ShieldCheck size={13} />
+            Secure account recovery
+          </div>
         </div>
       </div>
     );
@@ -191,130 +232,175 @@ export default function ForgotPassword() {
 
   if (supportReset) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-white px-6 pb-8">
-        <div className="w-full max-w-sm text-center">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-orange-500 shadow-lg shadow-orange-500/20">
-            <HeadphonesIcon size={36} className="text-white" strokeWidth={2} />
+      <div className="flex min-h-[100dvh] flex-col bg-white px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))]">
+        <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
+          <div className="flex justify-center">
+            <div className="origin-center scale-[0.78]">
+              <BrandLogo variant="full" className="justify-center" />
+            </div>
           </div>
 
-          <h1 className="mt-6 text-2xl font-bold text-neutral-900">Admin reset required</h1>
-          <p className="mt-2 text-sm leading-relaxed text-neutral-500">
-            Phone-only accounts can't reset passwords by email. Admin needs to create a temporary password for you.
-          </p>
+          <div className="my-auto py-8">
+            <div className="rounded-[28px] border border-neutral-100 bg-white p-6 text-center shadow-[0_18px_55px_rgba(15,23,42,0.07)]">
+              <div className="mx-auto flex h-18 w-18 items-center justify-center rounded-[24px] bg-orange-500 text-white shadow-lg shadow-orange-500/20">
+                <HeadphonesIcon size={34} strokeWidth={2.1} />
+              </div>
 
-          <div
-            className={`mt-4 rounded-2xl px-4 py-3 text-sm ${
-              adminNotified
-                ? 'border border-emerald-100 bg-emerald-50 text-emerald-700'
-                : 'border border-amber-100 bg-amber-50 text-amber-700'
-            }`}
-          >
-            {adminNotified
-              ? 'We have notified Shop2Bhutan admin. Please wait for a temporary password, or contact support if urgent.'
-              : 'We could not notify admin automatically. Please contact support directly.'}
+              <p className="mt-5 text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange-500">
+                Phone-only account
+              </p>
+              <h1 className="mt-2 text-2xl font-black tracking-tight text-neutral-950">
+                Admin reset required
+              </h1>
+              <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-neutral-500">
+                Phone-only accounts cannot receive password reset emails. Shop2Bhutan support must create a temporary password for you.
+              </p>
+
+              <div
+                className={`mt-5 flex items-start gap-3 rounded-2xl border px-4 py-3 text-left ${
+                  adminNotified
+                    ? 'border-emerald-100 bg-emerald-50/70 text-emerald-700'
+                    : 'border-amber-100 bg-amber-50/70 text-amber-700'
+                }`}
+              >
+                {adminNotified ? (
+                  <CheckCircle size={18} className="mt-0.5 shrink-0" />
+                ) : (
+                  <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                )}
+                <p className="text-xs font-semibold leading-5">
+                  {adminNotified
+                    ? 'We notified Shop2Bhutan admin. Contact support directly if your reset is urgent.'
+                    : 'We could not notify admin automatically. Please contact support directly.'}
+                </p>
+              </div>
+
+              <div className="mt-6 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => navigate('/support')}
+                  className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600 active:scale-[0.98]"
+                >
+                  <HeadphonesIcon size={18} />
+                  Contact Support
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  className="h-[52px] w-full rounded-2xl border border-neutral-200 bg-neutral-50 text-sm font-bold text-neutral-700 transition hover:bg-neutral-100 active:scale-[0.98]"
+                >
+                  Back to Login
+                </button>
+              </div>
+
+              <p className="mt-5 text-[11px] leading-5 text-neutral-400">
+                Admin can reset the password from Customers &gt; Reset Password.
+              </p>
+            </div>
           </div>
-
-          <div className="mt-8 space-y-3">
-            <button
-              type="button"
-              onClick={() => navigate('/support')}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-[0.98]"
-            >
-              <HeadphonesIcon size={18} />
-              Contact Support
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigate('/login')}
-              className="h-12 w-full rounded-2xl border border-neutral-200 bg-neutral-50 font-bold text-neutral-700 transition hover:bg-neutral-100 active:scale-[0.98]"
-            >
-              Back to Login
-            </button>
-          </div>
-
-          <p className="mt-6 text-xs text-neutral-400">
-            Admin can reset your password from Customers &gt; Reset Password
-          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white">
-        <div className="flex flex-col px-4 py-3">
-          <h1 className="text-lg font-bold text-neutral-900">Reset Password</h1>
-          <p className="text-xs text-neutral-500">Recover access to your account</p>
+    <div className="min-h-[100dvh] bg-white px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))]">
+      <div className="mx-auto w-full max-w-md">
+        <div className="flex justify-center">
+          <div className="origin-center scale-[0.78]">
+            <BrandLogo variant="full" className="justify-center" />
+          </div>
         </div>
-      </div>
 
-      <div className="flex flex-col items-center px-6 pt-8 pb-12">
-        <div className="w-full max-w-sm">
-          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-orange-500 shadow-lg shadow-orange-500/20">
-            <KeyRound size={36} className="text-white" strokeWidth={2} />
+        <div className="mt-5 overflow-hidden rounded-[30px] border border-neutral-100 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.07)]">
+          <div className="border-b border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 px-6 py-6">
+            <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-orange-500 text-white shadow-lg shadow-orange-500/20">
+              <KeyRound size={27} strokeWidth={2.1} />
+            </div>
+            <p className="mt-5 text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange-500">
+              Account recovery
+            </p>
+            <h1 className="mt-1 text-2xl font-black tracking-tight text-neutral-950">
+              Forgot your password?
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-neutral-500">
+              Enter your registered email or Bhutan mobile number. We will guide you through the correct recovery option.
+            </p>
           </div>
 
-          <h2 className="mt-5 text-2xl font-bold text-neutral-900">Reset password</h2>
-          <p className="mt-2 text-sm leading-relaxed text-neutral-500">
-            Enter your email or phone number to get help resetting your password
-          </p>
-
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            {error && (
-              <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
-            )}
-
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-neutral-700">
-                Email or phone number
-              </label>
-              <div className="relative">
-                <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400">
-                  {identifier.includes('@') ? (
-                    <Mail size={18} />
-                  ) : (
-                    <Phone size={18} />
-                  )}
+          <div className="p-6">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {error && (
+                <div className="flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-red-700">
+                  <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                  <p className="text-sm font-medium leading-5">{error}</p>
                 </div>
-                <input
-                  type="text"
-                  value={identifier}
-                  onChange={(event) => {
-                    setIdentifier(event.target.value);
-                    setError('');
-                    setSubmitted(false);
-                    setSupportReset(false);
-                    setAdminNotified(false);
-                  }}
-                  placeholder="your@email.com or 17123456"
-                  className="h-12 w-full rounded-2xl border border-neutral-200 bg-neutral-50 pl-11 pr-4 text-sm outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/10"
-                />
+              )}
+
+              <div>
+                <label
+                  htmlFor="reset-identifier"
+                  className="mb-2 block text-[13px] font-bold text-neutral-800"
+                >
+                  Email or phone number
+                </label>
+                <div className="relative">
+                  <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400">
+                    {identifier.includes('@') ? (
+                      <Mail size={18} strokeWidth={1.9} />
+                    ) : (
+                      <Phone size={18} strokeWidth={1.9} />
+                    )}
+                  </div>
+                  <input
+                    id="reset-identifier"
+                    type="text"
+                    value={identifier}
+                    autoComplete="username"
+                    inputMode={identifier.includes('@') ? 'email' : 'text'}
+                    onChange={(event) => {
+                      setIdentifier(event.target.value);
+                      setError('');
+                      setSubmitted(false);
+                      setSupportReset(false);
+                      setAdminNotified(false);
+                    }}
+                    placeholder="your@email.com or 17123456"
+                    className="h-[52px] w-full rounded-2xl border border-neutral-200 bg-neutral-50 pl-11 pr-4 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10"
+                  />
+                </div>
+                <p className="mt-2 text-xs leading-5 text-neutral-400">
+                  Bhutan mobile numbers must contain 8 digits and begin with 17 or 77.
+                </p>
               </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="h-12 w-full rounded-2xl bg-orange-500 font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
-            >
-              {submitting ? 'Checking account...' : 'Continue'}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
+              >
+                {submitting && <Loader2 size={18} className="animate-spin" />}
+                {submitting ? 'Checking account...' : 'Continue'}
+              </button>
+            </form>
 
-          <p className="mt-6 text-center text-sm text-neutral-500">
-            Remember your password?{' '}
-            <button
-              type="button"
-              onClick={() => navigate('/login')}
-              className="font-bold text-orange-500 transition hover:text-orange-600"
-            >
-              Sign in
-            </button>
-          </p>
+            <p className="mt-6 text-center text-sm text-neutral-500">
+              Remember your password?{' '}
+              <button
+                type="button"
+                onClick={() => navigate('/login')}
+                className="font-extrabold text-orange-500 transition hover:text-orange-600"
+              >
+                Sign in
+              </button>
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 flex items-center justify-center gap-1.5 text-[11px] font-medium text-neutral-400">
+          <ShieldCheck size={13} />
+          Secure account recovery
         </div>
       </div>
     </div>

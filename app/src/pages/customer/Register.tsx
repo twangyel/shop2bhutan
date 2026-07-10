@@ -14,6 +14,7 @@ import {
   ChevronDown,
   FileText,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -578,10 +579,11 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-[100dvh] bg-white pb-[calc(2rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))]">
       {toast && (
         <RegistrationToast toast={toast} onClose={() => setToast(null)} />
       )}
+
       {policyModalSlug && (
         <PolicyContentModal
           page={policyPage ?? getDefaultContentPage(policyModalSlug)}
@@ -591,346 +593,480 @@ export default function Register() {
         />
       )}
 
-      <div className="mx-auto max-w-sm px-6 pb-8 pt-4">
-        {/* Header */}
-        <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-2 scale-[0.78] origin-center">
+      <div className="mx-auto w-full max-w-md px-5">
+        <div className="flex justify-center">
+          <div className="origin-center scale-[0.78]">
             <BrandLogo variant="full" className="justify-center" />
           </div>
-          <h1 className="text-[22px] font-extrabold tracking-tight text-gray-900">
-            Create Account
-          </h1>
-          <p className="mt-1 text-[13px] font-medium text-gray-500">
-            Join Shop2Bhutan to start shopping
-          </p>
         </div>
 
-        {submitError && (
-          <div className="mb-5 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
-              <AlertCircle size={16} strokeWidth={2.5} />
-            </div>
-            <p className="text-sm font-medium leading-relaxed text-red-700">
-              {submitError}
-            </p>
-          </div>
-        )}
-
-        {successMessage && (
-          <div className="mb-5 flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-              <CheckCircle size={16} strokeWidth={2.5} />
-            </div>
-            <div>
-              <p className="text-sm font-medium leading-relaxed text-emerald-700">
-                {successMessage}
-              </p>
-              <button
-                type="button"
-                onClick={() => navigate("/login")}
-                className="mt-1 text-sm font-bold text-emerald-700 underline decoration-emerald-400 underline-offset-2"
-              >
-                Go to sign in
-              </button>
-            </div>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-[14px] font-semibold text-gray-800">
-              Full Name
-            </label>
-            <div className="relative">
-              <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
-                <User size={18} strokeWidth={1.8} />
+        <div className="mt-5 overflow-hidden rounded-[30px] border border-neutral-100 bg-white shadow-[0_22px_65px_rgba(15,23,42,0.08)]">
+          <div className="border-b border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 px-6 py-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange-500">
+                  New customer
+                </p>
+                <h1 className="mt-1 text-[26px] font-black tracking-tight text-neutral-950">
+                  Create your account
+                </h1>
+                <p className="mt-2 max-w-xs text-sm leading-6 text-neutral-500">
+                  Register once to request quotations, manage orders, save addresses, and receive updates.
+                </p>
               </div>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => update("name", e.target.value)}
-                placeholder="Your Full Name"
-                className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[15px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.name ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
-              />
+
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-white text-orange-500 shadow-sm ring-1 ring-orange-100">
+                <User size={24} strokeWidth={2.1} />
+              </div>
             </div>
-            {errors.name && (
-              <p className="mt-1 flex items-center gap-1 text-xs font-medium text-red-500">
-                <AlertCircle size={12} strokeWidth={2.5} />
-                {errors.name}
-              </p>
+          </div>
+
+          <div className="p-5 sm:p-6">
+            {submitError && (
+              <div className="mb-5 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                  <AlertCircle size={16} strokeWidth={2.5} />
+                </div>
+                <p className="text-sm font-medium leading-5 text-red-700">
+                  {submitError}
+                </p>
+              </div>
             )}
-          </div>
 
-          <div>
-            <div className="mb-1 flex items-center justify-between">
-              <label className="block text-[14px] font-semibold text-gray-800">
-                Email Address
-              </label>
-              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-bold text-gray-500">
-                Optional
-              </span>
-            </div>
-            <div className="relative">
-              <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
-                <Mail size={18} strokeWidth={1.8} />
+            {successMessage && (
+              <div className="mb-5 flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                  <CheckCircle size={16} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium leading-5 text-emerald-700">
+                    {successMessage}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/login")}
+                    className="mt-1 text-sm font-extrabold text-emerald-700 underline decoration-emerald-400 underline-offset-2"
+                  >
+                    Go to sign in
+                  </button>
+                </div>
               </div>
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => update("email", e.target.value)}
-                placeholder="your@email.com"
-                className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[15px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.email ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
-              />
-            </div>
-            {errors.email ? (
-              <p className="mt-1 flex items-center gap-1 text-xs font-medium text-red-500">
-                <AlertCircle size={12} strokeWidth={2.5} />
-                {errors.email}
-              </p>
-            ) : (
-              <p className="mt-1 text-[13px] font-medium leading-5 text-gray-400">
-                Recommended for password recovery and order updates.
-              </p>
             )}
-          </div>
 
-          <div>
-            <label className="mb-1 block text-[14px] font-semibold text-gray-800">
-              Phone Number
-            </label>
-            <div className="relative">
-              <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
-                <Phone size={18} strokeWidth={1.8} />
-              </div>
-              <input
-                type="tel"
-                value={form.phone}
-                onChange={(e) => update("phone", e.target.value)}
-                placeholder="17xxxxxx or 77xxxxxx"
-                className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[15px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.phone ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
-              />
-            </div>
-            {errors.phone ? (
-              <p className="mt-1 flex items-center gap-1 text-xs font-medium text-red-500">
-                <AlertCircle size={12} strokeWidth={2.5} />
-                {errors.phone}
-              </p>
-            ) : normalizedPreviewPhone ? (
-              <p className="mt-1 flex items-center gap-1 text-[13px] font-semibold text-emerald-600">
-                <CheckCircle size={12} strokeWidth={2.5} />
-                Will save as {normalizedPreviewPhone}
-              </p>
-            ) : (
-              <p className="mt-1 text-[13px] font-medium text-gray-400">
-                Must be 8 digits and start with 17 or 77.
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-[14px] font-semibold text-gray-800">
-              Dzongkhag
-            </label>
-            <div className="relative" ref={dzongkhagRef}>
-              <div className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-gray-400">
-                <MapPin size={18} strokeWidth={1.8} />
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsDzongkhagOpen(!isDzongkhagOpen)}
-                disabled={loadingDzongkhags}
-                className={`flex h-[52px] w-full items-center justify-between rounded-[14px] border bg-white pl-11 pr-4 text-[15px] outline-none transition-all focus:border-orange-500 focus:ring-[3px] focus:ring-orange-500/10 disabled:bg-gray-50 ${errors.dzongkhag ? "border-red-400 bg-red-50/50" : "border-gray-200"}`}
-              >
-                <span className={form.dzongkhag ? "font-medium text-gray-900" : "text-gray-400"}>
-                  {form.dzongkhag
-                    ? selectedDzongkhag?.name
-                    : loadingDzongkhags
-                      ? "Loading dzongkhags..."
-                      : "Select dzongkhag"}
-                </span>
-                <ChevronDown
-                  size={18}
-                  strokeWidth={2}
-                  className={`shrink-0 text-gray-400 transition-transform duration-200 ${isDzongkhagOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-              {isDzongkhagOpen && (
-                <div className="absolute z-20 mt-1.5 w-full overflow-hidden rounded-[14px] border border-gray-200 bg-white shadow-xl shadow-black/5">
-                  <div className="max-h-60 overflow-y-auto py-1">
-                    {dzongkhagOptions.map((d) => (
-                      <button
-                        key={d.id}
-                        type="button"
-                        onClick={() => {
-                          update("dzongkhag", d.id);
-                          setIsDzongkhagOpen(false);
-                        }}
-                        className={`flex w-full items-center px-4 py-2.5 text-left text-[15px] transition-colors hover:bg-orange-50 ${form.dzongkhag === d.id ? "font-semibold text-orange-600 bg-orange-50" : "text-gray-700"}`}
-                      >
-                        {form.dzongkhag === d.id && (
-                          <CheckCircle size={16} strokeWidth={2.5} className="mr-2.5 shrink-0 text-orange-500" />
-                        )}
-                        <span className={form.dzongkhag === d.id ? "ml-0" : "ml-[26px]"}>{d.name}</span>
-                      </button>
-                    ))}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <section className="rounded-[24px] border border-neutral-100 bg-neutral-50/60 p-4">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-500">
+                    <User size={19} strokeWidth={2.1} />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-extrabold text-neutral-900">
+                      Personal details
+                    </h2>
+                    <p className="text-xs text-neutral-400">
+                      Tell us how to identify and contact you.
+                    </p>
                   </div>
                 </div>
-              )}
-            </div>
-            {errors.dzongkhag ? (
-              <p className="mt-1 flex items-center gap-1 text-xs font-medium text-red-500">
-                <AlertCircle size={12} strokeWidth={2.5} />
-                {errors.dzongkhag}
-              </p>
-            ) : (
-              <p className="mt-1 text-[13px] font-medium leading-5 text-gray-400">
-                Select your dzongkhag for order records. Delivery/pickup is currently available in Thimphu, Paro, and Chhukha.
-              </p>
-            )}
-          </div>
 
-          <div>
-            <label className="mb-1 block text-[14px] font-semibold text-gray-800">
-              Password
-            </label>
-            <div className="relative">
-              <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
-                <Lock size={18} strokeWidth={1.8} />
+                <div className="space-y-4">
+                  <div>
+                    <label
+                      htmlFor="register-name"
+                      className="mb-2 block text-[13px] font-bold text-neutral-800"
+                    >
+                      Full name
+                    </label>
+                    <div className="relative">
+                      <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400">
+                        <User size={18} strokeWidth={1.9} />
+                      </div>
+                      <input
+                        id="register-name"
+                        type="text"
+                        value={form.name}
+                        autoComplete="name"
+                        onChange={(e) => update("name", e.target.value)}
+                        placeholder="Your full name"
+                        className={`h-[52px] w-full rounded-2xl border bg-white pl-11 pr-4 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:ring-[3px] ${
+                          errors.name
+                            ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10"
+                            : "border-neutral-200 focus:border-orange-500 focus:ring-orange-500/10"
+                        }`}
+                      />
+                    </div>
+                    {errors.name && (
+                      <p className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-red-500">
+                        <AlertCircle size={12} strokeWidth={2.5} />
+                        {errors.name}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <label
+                        htmlFor="register-email"
+                        className="text-[13px] font-bold text-neutral-800"
+                      >
+                        Email address
+                      </label>
+                      <span className="rounded-full bg-neutral-200/70 px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider text-neutral-500">
+                        Optional
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400">
+                        <Mail size={18} strokeWidth={1.9} />
+                      </div>
+                      <input
+                        id="register-email"
+                        type="email"
+                        value={form.email}
+                        autoComplete="email"
+                        onChange={(e) => update("email", e.target.value)}
+                        placeholder="your@email.com"
+                        className={`h-[52px] w-full rounded-2xl border bg-white pl-11 pr-4 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:ring-[3px] ${
+                          errors.email
+                            ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10"
+                            : "border-neutral-200 focus:border-orange-500 focus:ring-orange-500/10"
+                        }`}
+                      />
+                    </div>
+                    {errors.email ? (
+                      <p className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-red-500">
+                        <AlertCircle size={12} strokeWidth={2.5} />
+                        {errors.email}
+                      </p>
+                    ) : (
+                      <p className="mt-1.5 text-xs leading-5 text-neutral-400">
+                        Recommended for password recovery and order updates.
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="register-phone"
+                      className="mb-2 block text-[13px] font-bold text-neutral-800"
+                    >
+                      Bhutan mobile number
+                    </label>
+                    <div className="relative">
+                      <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400">
+                        <Phone size={18} strokeWidth={1.9} />
+                      </div>
+                      <input
+                        id="register-phone"
+                        type="tel"
+                        value={form.phone}
+                        autoComplete="tel"
+                        inputMode="numeric"
+                        onChange={(e) => update("phone", e.target.value)}
+                        placeholder="17xxxxxx or 77xxxxxx"
+                        className={`h-[52px] w-full rounded-2xl border bg-white pl-11 pr-4 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:ring-[3px] ${
+                          errors.phone
+                            ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10"
+                            : "border-neutral-200 focus:border-orange-500 focus:ring-orange-500/10"
+                        }`}
+                      />
+                    </div>
+                    {errors.phone ? (
+                      <p className="mt-1.5 flex items-start gap-1 text-xs font-semibold leading-5 text-red-500">
+                        <AlertCircle size={12} strokeWidth={2.5} className="mt-1 shrink-0" />
+                        {errors.phone}
+                      </p>
+                    ) : normalizedPreviewPhone ? (
+                      <p className="mt-1.5 flex items-center gap-1 text-xs font-bold text-emerald-600">
+                        <CheckCircle size={12} strokeWidth={2.5} />
+                        Valid number: {normalizedPreviewPhone}
+                      </p>
+                    ) : (
+                      <p className="mt-1.5 text-xs leading-5 text-neutral-400">
+                        Enter 8 digits beginning with 17 or 77.
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-[13px] font-bold text-neutral-800">
+                      Dzongkhag
+                    </label>
+                    <div className="relative" ref={dzongkhagRef}>
+                      <div className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-neutral-400">
+                        <MapPin size={18} strokeWidth={1.9} />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsDzongkhagOpen((current) => !current)}
+                        disabled={loadingDzongkhags}
+                        aria-expanded={isDzongkhagOpen}
+                        className={`flex h-[52px] w-full items-center justify-between rounded-2xl border bg-white pl-11 pr-4 text-[15px] outline-none transition focus:ring-[3px] disabled:bg-neutral-100 ${
+                          errors.dzongkhag
+                            ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10"
+                            : "border-neutral-200 focus:border-orange-500 focus:ring-orange-500/10"
+                        }`}
+                      >
+                        <span
+                          className={
+                            form.dzongkhag
+                              ? "truncate font-medium text-neutral-900"
+                              : "truncate text-neutral-400"
+                          }
+                        >
+                          {form.dzongkhag
+                            ? selectedDzongkhag?.name
+                            : loadingDzongkhags
+                              ? "Loading dzongkhags..."
+                              : "Select your dzongkhag"}
+                        </span>
+                        {loadingDzongkhags ? (
+                          <Loader2 size={17} className="shrink-0 animate-spin text-orange-500" />
+                        ) : (
+                          <ChevronDown
+                            size={18}
+                            strokeWidth={2}
+                            className={`shrink-0 text-neutral-400 transition-transform duration-200 ${
+                              isDzongkhagOpen ? "rotate-180" : ""
+                            }`}
+                          />
+                        )}
+                      </button>
+
+                      {isDzongkhagOpen && (
+                        <div className="absolute z-30 mt-2 w-full overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl shadow-black/10">
+                          <div className="max-h-64 overflow-y-auto p-1.5">
+                            {dzongkhagOptions.map((option) => {
+                              const selected = form.dzongkhag === option.id;
+                              return (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  onClick={() => {
+                                    update("dzongkhag", option.id);
+                                    setIsDzongkhagOpen(false);
+                                  }}
+                                  className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-3 text-left text-sm transition ${
+                                    selected
+                                      ? "bg-orange-50 font-bold text-orange-600"
+                                      : "font-medium text-neutral-700 hover:bg-neutral-50"
+                                  }`}
+                                >
+                                  <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                                    {selected && <CheckCircle size={16} strokeWidth={2.5} />}
+                                  </span>
+                                  {option.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {errors.dzongkhag ? (
+                      <p className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-red-500">
+                        <AlertCircle size={12} strokeWidth={2.5} />
+                        {errors.dzongkhag}
+                      </p>
+                    ) : (
+                      <p className="mt-1.5 text-xs leading-5 text-neutral-400">
+                        Used for your order records. Delivery and pickup currently operate in selected hubs.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-[24px] border border-neutral-100 bg-neutral-50/60 p-4">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-50 text-violet-500">
+                    <Lock size={19} strokeWidth={2.1} />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-extrabold text-neutral-900">
+                      Account security
+                    </h2>
+                    <p className="text-xs text-neutral-400">
+                      Create a password with at least 6 characters.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label
+                      htmlFor="register-password"
+                      className="mb-2 block text-[13px] font-bold text-neutral-800"
+                    >
+                      Password
+                    </label>
+                    <div className="relative">
+                      <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400">
+                        <Lock size={18} strokeWidth={1.9} />
+                      </div>
+                      <input
+                        id="register-password"
+                        type={showPassword ? "text" : "password"}
+                        value={form.password}
+                        autoComplete="new-password"
+                        onChange={(e) => update("password", e.target.value)}
+                        placeholder="Minimum 6 characters"
+                        className={`h-[52px] w-full rounded-2xl border bg-white pl-11 pr-12 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:ring-[3px] ${
+                          errors.password
+                            ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10"
+                            : "border-neutral-200 focus:border-orange-500 focus:ring-orange-500/10"
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((current) => !current)}
+                        className="absolute right-2.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 active:scale-95"
+                        aria-label={showPassword ? "Hide passwords" : "Show passwords"}
+                      >
+                        {showPassword ? (
+                          <EyeOff size={18} strokeWidth={1.9} />
+                        ) : (
+                          <Eye size={18} strokeWidth={1.9} />
+                        )}
+                      </button>
+                    </div>
+                    {errors.password && (
+                      <p className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-red-500">
+                        <AlertCircle size={12} strokeWidth={2.5} />
+                        {errors.password}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="register-confirm-password"
+                      className="mb-2 block text-[13px] font-bold text-neutral-800"
+                    >
+                      Confirm password
+                    </label>
+                    <div className="relative">
+                      <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400">
+                        <Lock size={18} strokeWidth={1.9} />
+                      </div>
+                      <input
+                        id="register-confirm-password"
+                        type={showPassword ? "text" : "password"}
+                        value={form.confirmPassword}
+                        autoComplete="new-password"
+                        onChange={(e) => update("confirmPassword", e.target.value)}
+                        placeholder="Re-enter your password"
+                        className={`h-[52px] w-full rounded-2xl border bg-white pl-11 pr-4 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:ring-[3px] ${
+                          errors.confirmPassword
+                            ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10"
+                            : "border-neutral-200 focus:border-orange-500 focus:ring-orange-500/10"
+                        }`}
+                      />
+                    </div>
+                    {errors.confirmPassword && (
+                      <p className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-red-500">
+                        <AlertCircle size={12} strokeWidth={2.5} />
+                        {errors.confirmPassword}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <div className={`rounded-2xl border p-4 ${
+                errors.agreed
+                  ? "border-red-200 bg-red-50/60"
+                  : "border-neutral-100 bg-white"
+              }`}>
+                <div className="flex items-start gap-3">
+                  <label htmlFor="terms-agreement" className="relative mt-0.5 flex shrink-0 cursor-pointer">
+                    <input
+                      id="terms-agreement"
+                      type="checkbox"
+                      checked={agreed}
+                      onChange={(e) => {
+                        setAgreed(e.target.checked);
+                        setErrors((previous) => ({ ...previous, agreed: "" }));
+                      }}
+                      className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border-[1.5px] border-neutral-300 bg-neutral-50 transition checked:border-orange-500 checked:bg-orange-500 focus:outline-none focus:ring-[3px] focus:ring-orange-500/20"
+                    />
+                    <svg
+                      className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 transition-opacity peer-checked:opacity-100"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </label>
+
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium leading-6 text-neutral-600">
+                      I agree to the{" "}
+                      <button
+                        type="button"
+                        onClick={() => setPolicyModalSlug("terms")}
+                        className="font-extrabold text-orange-500 underline decoration-orange-300 underline-offset-2 hover:text-orange-600"
+                      >
+                        Terms of Service
+                      </button>{" "}
+                      and{" "}
+                      <button
+                        type="button"
+                        onClick={() => setPolicyModalSlug("privacy")}
+                        className="font-extrabold text-orange-500 underline decoration-orange-300 underline-offset-2 hover:text-orange-600"
+                      >
+                        Privacy Policy
+                      </button>
+                      .
+                    </p>
+                    {errors.agreed && (
+                      <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-red-500">
+                        <AlertCircle size={12} strokeWidth={2.5} />
+                        {errors.agreed}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <input
-                type={showPassword ? "text" : "password"}
-                value={form.password}
-                onChange={(e) => update("password", e.target.value)}
-                placeholder="Min 6 characters"
-                className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-11 text-[15px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.password ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
-              />
+
               <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
+                type="submit"
+                disabled={submitting || loadingDzongkhags}
+                className="flex h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-[15px] font-extrabold text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600 hover:shadow-orange-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
               >
-                {showPassword ? <EyeOff size={18} strokeWidth={1.8} /> : <Eye size={18} strokeWidth={1.8} />}
+                {submitting && (
+                  <Loader2 size={18} strokeWidth={2.5} className="animate-spin" />
+                )}
+                {submitting ? "Creating account..." : "Create Account"}
               </button>
-            </div>
-            {errors.password && (
-              <p className="mt-1 flex items-center gap-1 text-xs font-medium text-red-500">
-                <AlertCircle size={12} strokeWidth={2.5} />
-                {errors.password}
-              </p>
-            )}
-          </div>
+            </form>
 
-          <div>
-            <label className="mb-1 block text-[14px] font-semibold text-gray-800">
-              Confirm Password
-            </label>
-            <div className="relative">
-              <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
-                <Lock size={18} strokeWidth={1.8} />
-              </div>
-              <input
-                type={showPassword ? "text" : "password"}
-                value={form.confirmPassword}
-                onChange={(e) => update("confirmPassword", e.target.value)}
-                placeholder="Confirm password"
-                className={`h-[52px] w-full rounded-[14px] border bg-gray-50 pl-11 pr-4 text-[15px] font-medium text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10 ${errors.confirmPassword ? "border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10" : "border-gray-200"}`}
-              />
-            </div>
-            {errors.confirmPassword && (
-              <p className="mt-1 flex items-center gap-1 text-xs font-medium text-red-500">
-                <AlertCircle size={12} strokeWidth={2.5} />
-                {errors.confirmPassword}
-              </p>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <div className="relative mt-0.5 flex shrink-0">
-                <input
-                  type="checkbox"
-                  checked={agreed}
-                  onChange={(e) => {
-                    setAgreed(e.target.checked);
-                    setErrors((prev) => ({ ...prev, agreed: "" }));
-                  }}
-                  className="peer h-5 w-5 cursor-pointer appearance-none rounded-[6px] border-[1.5px] border-gray-300 bg-gray-50 transition-all checked:border-orange-500 checked:bg-orange-500 focus:outline-none focus:ring-[3px] focus:ring-orange-500/20"
-                />
-                <svg
-                  className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 transition-opacity peer-checked:opacity-100"
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              </div>
-              <span className="text-[14px] font-medium leading-relaxed text-gray-600">
-                I agree to the{" "}
+            <div className="mt-5 rounded-2xl bg-orange-50/70 px-4 py-3 text-center">
+              <p className="text-sm font-medium text-neutral-600">
+                Already have an account?{" "}
                 <button
                   type="button"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    setPolicyModalSlug("terms");
-                  }}
-                  className="font-semibold text-orange-500 underline decoration-orange-300 underline-offset-2 hover:text-orange-600"
+                  onClick={() => navigate("/login")}
+                  className="font-extrabold text-orange-500 transition hover:text-orange-600"
                 >
-                  Terms of Service
-                </button>{" "}
-                and{" "}
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    setPolicyModalSlug("privacy");
-                  }}
-                  className="font-semibold text-orange-500 underline decoration-orange-300 underline-offset-2 hover:text-orange-600"
-                >
-                  Privacy Policy
+                  Sign in
                 </button>
-              </span>
-            </label>
-            {errors.agreed && (
-              <p className="ml-8 flex items-center gap-1 text-xs font-medium text-red-500">
-                <AlertCircle size={12} strokeWidth={2.5} />
-                {errors.agreed}
               </p>
-            )}
+            </div>
           </div>
+        </div>
 
-          <button
-            type="submit"
-            disabled={submitting || loadingDzongkhags}
-            className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[14px] bg-orange-500 text-[16px] font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 hover:shadow-orange-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
-          >
-            {submitting ? (
-              <>
-                <Loader2 size={18} strokeWidth={2.5} className="animate-spin" />
-                Creating account...
-              </>
-            ) : (
-              "Create Account"
-            )}
-          </button>
-        </form>
-
-        <p className="mt-5 text-center text-[14px] font-medium text-gray-500">
-          Already have an account?{" "}
-          <button
-            type="button"
-            onClick={() => navigate("/login")}
-            className="font-bold text-orange-500 transition-colors hover:text-orange-600"
-          >
-            Sign In
-          </button>
-        </p>
+        <div className="mt-5 flex items-center justify-center gap-1.5 text-[11px] font-medium text-neutral-400">
+          <ShieldCheck size={13} strokeWidth={2} />
+          Your information is protected
+        </div>
       </div>
     </div>
   );
