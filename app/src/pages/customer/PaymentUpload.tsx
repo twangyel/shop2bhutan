@@ -110,15 +110,6 @@ function savedAddressMainLine(address: CustomerSavedAddress) {
   return uniqueTextParts([address.village, address.town, address.gewog]).join(', ');
 }
 
-function savedAddressFullLine(address: CustomerSavedAddress) {
-  return uniqueTextParts([
-    savedAddressMainLine(address),
-    address.dzongkhag,
-    address.landmark ? `Landmark: ${address.landmark}` : '',
-    address.address_line,
-  ]).join(' • ');
-}
-
 function hasUsableSavedAddress(address: CustomerSavedAddress) {
   return Boolean(
     String(address.recipient_name ?? '').trim() &&
@@ -678,460 +669,501 @@ export default function PaymentUpload() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-28">
-      <div className="sticky top-0 z-30 border-b border-gray-100 bg-white/95 px-4 py-3 backdrop-blur">
-        <div className="mx-auto max-w-2xl">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-orange-500">Payment proof</p>
-          <h1 className="text-lg font-extrabold text-gray-900">Confirm & Pay</h1>
-          <p className="truncate text-xs font-medium text-gray-500">#{order.orderNumber}</p>
+    <div className="min-h-screen bg-white pb-[calc(12rem+env(safe-area-inset-bottom))]">
+      <header className="sticky top-0 z-30 border-b border-gray-100 bg-white/95 px-5 py-4 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-2xl items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-500">Payment</p>
+            <h1 className="mt-1 text-[22px] font-black tracking-tight text-gray-950">Confirm Payment</h1>
+            <p className="mt-0.5 truncate text-sm font-medium text-gray-400">#{order.orderNumber}</p>
+          </div>
+          <span className="mt-2 shrink-0 rounded-full bg-orange-50 px-3 py-1.5 text-[11px] font-black text-orange-700 ring-1 ring-orange-100">
+            Payment Pending
+          </span>
         </div>
-      </div>
+      </header>
 
-      <main className="mx-auto max-w-2xl space-y-4 px-4 py-4">
+      <main className="mx-auto max-w-2xl px-5 py-5">
         {error && (
-          <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm leading-6 text-red-600">
+          <div className="mb-5 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium leading-6 text-red-600">
             {error}
           </div>
         )}
 
-        <section className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] font-black uppercase tracking-wider text-orange-500">Payment amount</p>
-              <h2 className="mt-1 text-3xl font-black tracking-tight text-gray-950">{formatCurrency(amountPaidNumber)}</h2>
-              <p className="mt-1 max-w-[230px] text-xs leading-5 text-gray-500">
-                {isJaigaonPickup
-                  ? 'Pay Shop2Bhutan charges for Jaigaon pickup.'
-                  : paymentSelection === 'advance'
-                    ? `${minimumAdvancePercent}% advance selected. Balance remains visible.`
-                    : paymentSummary.isPartiallyPaid
-                      ? 'Remaining balance selected for this payment.'
-                      : 'Full payment selected for this order.'}
-              </p>
-            </div>
-
-            <span className="shrink-0 rounded-full bg-gray-50 px-3 py-1.5 text-[11px] font-bold text-gray-600 ring-1 ring-gray-100">
-              {paymentSummary.isPartiallyPaid ? 'Balance due' : 'Payment pending'}
-            </span>
-          </div>
-
-          <div className="mt-4 rounded-2xl bg-gray-50 px-3 py-3 ring-1 ring-gray-100">
-            <div className="grid grid-cols-3 divide-x divide-gray-200">
-              <div className="px-1 text-left">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Total</p>
-                <p className="mt-1 text-sm font-black text-gray-950">{formatCurrency(quotationTotal)}</p>
-              </div>
-              <div className="px-3 text-left">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Paid</p>
-                <p className="mt-1 text-sm font-black text-gray-950">{formatCurrency(paymentSummary.verifiedPaid)}</p>
-              </div>
-              <div className="px-3 text-left">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">After this</p>
-                <p className="mt-1 text-sm font-black text-gray-950">{formatCurrency(balanceAfterSelectedPayment)}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <PaymentStep number={1} label="Amount" />
-            <PaymentStep number={2} label="Method" />
-            <PaymentStep number={3} label="Proof" />
-          </div>
-        </section>
-
-        <section className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500 ring-1 ring-orange-100">
-                {requiresDeliveryAddress ? <MapPin size={18} /> : <Home size={18} />}
-              </span>
+        <section className="overflow-hidden rounded-[2.25rem] bg-[#050713] text-white shadow-[0_22px_55px_rgba(5,7,19,0.18)]">
+          <div className="p-6 pb-5">
+            <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-wider text-orange-500">
-                  {requiresDeliveryAddress ? 'Deliver to' : 'Pickup option'}
-                </p>
-                <h2 className="mt-0.5 text-base font-extrabold text-gray-950">
-                  {requiresDeliveryAddress ? selectedDeliveryAddress?.label || 'Choose saved address' : 'Self pickup selected'}
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/45">Amount to pay now</p>
+                <h2 className="mt-3 text-[34px] font-black tracking-[-0.04em] text-white">
+                  {formatCurrency(amountPaidNumber)}
                 </h2>
-                <p className="mt-0.5 text-xs leading-5 text-gray-500">
-                  {requiresDeliveryAddress
-                    ? `Quotation is locked for ${lockedDeliveryArea || 'the selected area'}. Choose a saved address from the same area.`
-                    : 'No delivery address is required for this order.'}
+                <p className="mt-2 max-w-[260px] text-sm font-medium leading-6 text-white/60">
+                  {isJaigaonPickup
+                    ? 'Pay the full Shop2Bhutan charges for this Jaigaon pickup order.'
+                    : paymentSelection === 'advance'
+                      ? `${minimumAdvancePercent}% advance selected. The remaining balance stays visible in your order.`
+                      : paymentSummary.isPartiallyPaid
+                        ? 'This payment clears the remaining verified balance.'
+                        : 'Full payment selected for this quotation.'}
                 </p>
               </div>
-            </div>
-            {requiresDeliveryAddress && (
-              <span className="shrink-0 rounded-full bg-gray-50 px-2.5 py-1 text-[10px] font-bold text-gray-500 ring-1 ring-gray-100">
-                {lockedDeliveryArea || 'Area locked'}
+
+              <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.6rem] bg-white text-orange-500 shadow-sm">
+                <CreditCard size={29} strokeWidth={2.2} />
               </span>
-            )}
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              <span className="rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-bold text-white/80 ring-1 ring-white/10">
+                {paymentSelection === 'advance'
+                  ? `${minimumAdvancePercent}% advance`
+                  : paymentSummary.isPartiallyPaid
+                    ? 'Remaining payment'
+                    : 'Full payment'}
+              </span>
+              <span className="rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-bold text-white/80 ring-1 ring-white/10">
+                {getItemCount(order)} {getItemCount(order) === 1 ? 'item' : 'items'}
+              </span>
+              {selectedPaymentMethod && (
+                <span className="max-w-[180px] truncate rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-bold text-white/80 ring-1 ring-white/10">
+                  {selectedPaymentMethod.name}
+                </span>
+              )}
+            </div>
           </div>
 
-          {requiresDeliveryAddress ? (
-            selectedDeliveryAddress ? (
-              <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-black text-gray-950">{selectedDeliveryAddress.recipient_name}</p>
-                    <p className="mt-0.5 text-xs font-semibold text-gray-500">{formatSavedAddressPhone(selectedDeliveryAddress.phone)}</p>
-                    <p className="mt-2 text-sm font-semibold leading-5 text-gray-800">{savedAddressMainLine(selectedDeliveryAddress)}</p>
-                    <p className="mt-1 text-xs leading-5 text-gray-500">{uniqueTextParts([selectedDeliveryAddress.dzongkhag, selectedDeliveryAddress.landmark, selectedDeliveryAddress.address_line]).join(' • ')}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddressPicker(true)}
-                    className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-orange-600 ring-1 ring-orange-100"
-                  >
-                    Change
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-orange-100 bg-orange-50/40 p-3">
-                <p className="text-sm font-bold text-gray-950">
-                  {addressesLoading ? 'Checking saved addresses...' : `No saved address found for ${lockedDeliveryArea || 'this delivery area'}`}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-gray-600">
-                  {hasSavedAddressForOtherArea
-                    ? `Your saved address is outside ${lockedDeliveryArea}. Add or choose an address in the quoted area to continue.`
-                    : 'Add a saved address first so checkout stays clear and professional.'}
-                </p>
-                <div className="mt-3 flex gap-2">
-                  {matchingSavedAddresses.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowAddressPicker(true)}
-                      className="h-10 flex-1 rounded-2xl bg-white text-sm font-bold text-gray-800 ring-1 ring-gray-200"
-                    >
-                      Choose address
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => navigate('/addresses')}
-                    className="h-10 flex-1 rounded-2xl bg-orange-500 text-sm font-bold text-white"
-                  >
-                    Add address
-                  </button>
-                </div>
-              </div>
-            )
-          ) : (
-            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3 text-sm font-semibold leading-5 text-gray-800">
-              {getDeliverySummary(order)}
+          <div className="grid grid-cols-3 divide-x divide-white/10 border-t border-white/10 bg-white/[0.035]">
+            <div className="px-4 py-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/35">Total</p>
+              <p className="mt-1.5 whitespace-nowrap text-sm font-black text-white">{formatCurrency(quotationTotal)}</p>
             </div>
-          )}
+            <div className="px-4 py-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/35">Verified</p>
+              <p className="mt-1.5 whitespace-nowrap text-sm font-black text-emerald-400">{formatCurrency(paymentSummary.verifiedPaid)}</p>
+            </div>
+            <div className="px-4 py-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/35">After this</p>
+              <p className="mt-1.5 whitespace-nowrap text-sm font-black text-white">{formatCurrency(balanceAfterSelectedPayment)}</p>
+            </div>
+          </div>
         </section>
 
-        <section className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center gap-2">
-            <CreditCard size={18} className="text-orange-500" />
-            <h2 className="text-sm font-extrabold text-gray-900">Select payment amount</h2>
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <PaymentStep number={1} label="Amount" />
+          <PaymentStep number={2} label="Method" />
+          <PaymentStep number={3} label="Proof" />
+        </div>
+
+        <section className="mt-8">
+          <div className="mb-3 flex items-end justify-between gap-3 px-1">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-500">Payment choice</p>
+              <h2 className="mt-1 text-[22px] font-black tracking-tight text-gray-950">Choose amount</h2>
+            </div>
+            <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-bold text-gray-500">Amount locked</span>
           </div>
 
-          <div className={`grid gap-2 ${isJaigaonPickup ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          <div className={`grid gap-3 ${isJaigaonPickup ? 'grid-cols-1' : 'grid-cols-2'}`}>
             <button
               type="button"
               onClick={() => selectPaymentAmount(paymentSummary.isPartiallyPaid ? 'remaining' : 'full')}
               aria-pressed={paymentSelection === 'full' || paymentSelection === 'remaining'}
-              className={`rounded-2xl border p-3 text-left transition active:scale-[0.98] ${
+              className={`min-h-[148px] rounded-[1.75rem] border p-4 text-left transition active:scale-[0.98] ${
                 paymentSelection === 'full' || paymentSelection === 'remaining'
-                  ? 'border-orange-400 bg-orange-50/40 ring-2 ring-orange-500/10'
-                  : 'border-gray-100 bg-white hover:bg-gray-50'
+                  ? 'border-orange-200 bg-orange-50/70 shadow-sm ring-2 ring-orange-500/10'
+                  : 'border-gray-100 bg-white shadow-sm'
               }`}
             >
-              <p className="text-xs font-bold text-gray-700">
-                {isJaigaonPickup ? 'Pay Shop2Bhutan charges' : paymentSummary.isPartiallyPaid ? 'Pay remaining' : 'Pay full balance'}
+              <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
+                paymentSelection === 'full' || paymentSelection === 'remaining'
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-gray-100 text-gray-500'
+              }`}>
+                <CreditCard size={18} />
+              </span>
+              <p className="mt-4 text-sm font-extrabold text-gray-900">
+                {isJaigaonPickup
+                  ? 'Full S2B charges'
+                  : paymentSummary.isPartiallyPaid
+                    ? 'Remaining balance'
+                    : 'Full payment'}
               </p>
-              <p className="mt-1 text-base font-black text-gray-950">{formatCurrency(fullPaymentAmount)}</p>
-              <p className="mt-1 text-[11px] font-semibold text-gray-400">
+              <p className="mt-1 text-xl font-black tracking-tight text-gray-950">{formatCurrency(fullPaymentAmount)}</p>
+              <p className="mt-2 text-[11px] font-bold text-gray-400">
                 {paymentSelection === 'full' || paymentSelection === 'remaining' ? 'Selected' : 'Tap to select'}
               </p>
             </button>
 
-            {!isJaigaonPickup && !paymentSummary.isPartiallyPaid && appSettings.partialPaymentEnabled && minimumAdvancePercent < 100 && minimumInitialPayment > 0 ? (
+            {!isJaigaonPickup && !paymentSummary.isPartiallyPaid && appSettings.partialPaymentEnabled && minimumAdvancePercent < 100 && minimumInitialPayment > 0 && (
               <button
                 type="button"
                 onClick={() => selectPaymentAmount('advance')}
                 aria-pressed={paymentSelection === 'advance'}
-                className={`rounded-2xl border p-3 text-left transition active:scale-[0.98] ${
+                className={`min-h-[148px] rounded-[1.75rem] border p-4 text-left transition active:scale-[0.98] ${
                   paymentSelection === 'advance'
-                    ? 'border-orange-400 bg-orange-50/40 ring-2 ring-orange-500/10'
-                    : 'border-gray-100 bg-white hover:bg-gray-50'
+                    ? 'border-violet-200 bg-violet-50/70 shadow-sm ring-2 ring-violet-500/10'
+                    : 'border-gray-100 bg-white shadow-sm'
                 }`}
               >
-                <p className="text-xs font-bold text-gray-700">Pay {minimumAdvancePercent}% advance</p>
-                <p className="mt-1 text-base font-black text-gray-950">{formatCurrency(advancePaymentAmount)}</p>
-                <p className="mt-1 text-[11px] font-semibold text-gray-400">
+                <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
+                  paymentSelection === 'advance' ? 'bg-violet-500 text-white' : 'bg-gray-100 text-gray-500'
+                }`}>
+                  <Wallet size={18} />
+                </span>
+                <p className="mt-4 text-sm font-extrabold text-gray-900">{minimumAdvancePercent}% advance</p>
+                <p className="mt-1 text-xl font-black tracking-tight text-gray-950">{formatCurrency(advancePaymentAmount)}</p>
+                <p className="mt-2 text-[11px] font-bold text-gray-400">
                   {paymentSelection === 'advance' ? 'Selected' : 'Tap to select'}
                 </p>
               </button>
-            ) : null}
+            )}
           </div>
 
-          <div className="mt-3 rounded-2xl bg-gray-50 p-3 text-xs leading-5 text-gray-500">
+          <div className="mt-3 rounded-2xl bg-gray-50 px-4 py-3 text-xs font-medium leading-5 text-gray-500 ring-1 ring-gray-100">
             {isJaigaonPickup ? (
               <>
-                Jaigaon pickup is charges-only. 50% advance is not available, and the selected amount is locked to the full Shop2Bhutan charges.
+                Jaigaon pickup requires the complete Shop2Bhutan charges. Advance payment is unavailable.
                 {productReferenceTotal > 0 && (
-                  <span className="mt-1 block">Product value reference: <span className="font-bold text-gray-700">{formatCurrency(productReferenceTotal)}</span>.</span>
+                  <span className="mt-1 block">
+                    Product value reference: <span className="font-black text-gray-700">{formatCurrency(productReferenceTotal)}</span>.
+                  </span>
                 )}
               </>
+            ) : paymentSummary.isPartiallyPaid ? (
+              <>Your verified payment has been deducted. Only the remaining balance can be submitted.</>
             ) : (
               <>
-                Minimum first payment: <span className="font-bold text-gray-700">{formatCurrency(minimumInitialPayment)}</span> ({minimumAdvancePercent}% advance). The selected amount is locked to avoid mismatch during verification.
+                The minimum first payment is <span className="font-black text-gray-700">{formatCurrency(minimumInitialPayment)}</span> ({minimumAdvancePercent}%).
               </>
             )}
           </div>
         </section>
 
-        <section className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center gap-2">
-            <ShieldCheck size={18} className="text-orange-500" />
-            <h2 className="text-sm font-extrabold text-gray-900">Order summary</h2>
+        <section className="mt-8">
+          <div className="mb-3 px-1">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-500">
+              {requiresDeliveryAddress ? 'Delivery details' : 'Fulfilment'}
+            </p>
+            <h2 className="mt-1 text-[22px] font-black tracking-tight text-gray-950">
+              {requiresDeliveryAddress ? 'Confirm destination' : 'Pickup arrangement'}
+            </h2>
           </div>
-          <div className="grid gap-2 text-sm sm:grid-cols-2">
-            <div className="rounded-2xl border border-gray-100 bg-white p-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Items</p>
-              <p className="mt-1 font-bold text-gray-900">{getItemCount(order)} item(s)</p>
-            </div>
-            {isJaigaonPickup && productReferenceTotal > 0 && (
-              <div className="rounded-2xl border border-gray-100 bg-white p-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Product value</p>
-                <p className="mt-1 font-bold text-gray-900">{formatCurrency(productReferenceTotal)}</p>
-                <p className="mt-1 text-[11px] leading-4 text-gray-400">Reference only</p>
+
+          <div className="rounded-[1.75rem] border border-gray-100 bg-white p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+                {requiresDeliveryAddress ? <MapPin size={19} /> : <Home size={19} />}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-gray-950">
+                      {requiresDeliveryAddress
+                        ? selectedDeliveryAddress?.label || 'Choose saved address'
+                        : 'Self pickup selected'}
+                    </p>
+                    <p className="mt-1 text-xs font-medium leading-5 text-gray-500">
+                      {requiresDeliveryAddress
+                        ? `This quotation is locked to ${lockedDeliveryArea || 'the selected delivery area'}.`
+                        : 'No delivery address is required for this order.'}
+                    </p>
+                  </div>
+                  {requiresDeliveryAddress && (
+                    <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-black text-gray-500">
+                      {lockedDeliveryArea || 'Area locked'}
+                    </span>
+                  )}
+                </div>
+
+                {requiresDeliveryAddress ? (
+                  selectedDeliveryAddress ? (
+                    <div className="mt-4 rounded-2xl bg-gray-50 p-3 ring-1 ring-gray-100">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-gray-950">{selectedDeliveryAddress.recipient_name}</p>
+                          <p className="mt-0.5 text-xs font-bold text-gray-500">{formatSavedAddressPhone(selectedDeliveryAddress.phone)}</p>
+                          <p className="mt-2 text-sm font-bold leading-5 text-gray-800">{savedAddressMainLine(selectedDeliveryAddress)}</p>
+                          <p className="mt-1 text-xs font-medium leading-5 text-gray-500">
+                            {uniqueTextParts([
+                              selectedDeliveryAddress.dzongkhag,
+                              selectedDeliveryAddress.landmark,
+                              selectedDeliveryAddress.address_line,
+                            ]).join(' • ')}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowAddressPicker(true)}
+                          className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-xs font-black text-orange-600 ring-1 ring-orange-100"
+                        >
+                          Change
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-2xl border border-orange-100 bg-orange-50/50 p-3">
+                      <p className="text-sm font-black text-gray-950">
+                        {addressesLoading
+                          ? 'Checking saved addresses...'
+                          : `No saved address found for ${lockedDeliveryArea || 'this area'}`}
+                      </p>
+                      <p className="mt-1 text-xs font-medium leading-5 text-gray-600">
+                        {hasSavedAddressForOtherArea
+                          ? `Your saved addresses are outside ${lockedDeliveryArea}. Add one in the quoted area to continue.`
+                          : 'Add a complete saved address before submitting payment.'}
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        {matchingSavedAddresses.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setShowAddressPicker(true)}
+                            className="h-10 flex-1 rounded-2xl bg-white text-sm font-black text-gray-800 ring-1 ring-gray-200"
+                          >
+                            Choose address
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => navigate('/addresses')}
+                          className="h-10 flex-1 rounded-2xl bg-orange-500 text-sm font-black text-white"
+                        >
+                          Add address
+                        </button>
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <div className="mt-4 rounded-2xl bg-gray-50 p-3 text-sm font-bold leading-6 text-gray-800 ring-1 ring-gray-100">
+                    {getDeliverySummary(order)}
+                  </div>
+                )}
               </div>
-            )}
-            <div className="rounded-2xl border border-gray-100 bg-white p-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Delivery / address</p>
-              <p className="mt-1 text-sm font-bold leading-5 text-gray-900">{selectedDeliveryAddress ? savedAddressFullLine(selectedDeliveryAddress) : getDeliverySummary(order)}</p>
             </div>
-          </div>
-          <div className="mt-3 rounded-2xl bg-gray-50 p-3 text-xs leading-5 text-gray-500">
-            Pay using one of the active methods below, then upload a clear screenshot showing the paid amount and transaction details.
           </div>
         </section>
 
-        <section className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center gap-2">
-            <Building2 size={18} className="text-orange-500" />
-            <h2 className="text-sm font-extrabold text-gray-900">Select payment method</h2>
+        <section className="mt-8">
+          <div className="mb-3 px-1">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-500">Payment method</p>
+            <h2 className="mt-1 text-[22px] font-black tracking-tight text-gray-950">Where to pay</h2>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             {paymentMethodsLoading ? (
               [1, 2].map((item) => (
-                <div key={item} className="h-24 animate-pulse rounded-2xl border border-gray-100 bg-gray-100" />
+                <div key={item} className="h-28 animate-pulse rounded-[1.75rem] bg-gray-100" />
               ))
             ) : paymentMethods.length === 0 ? (
-              <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+              <div className="rounded-[1.75rem] border border-gray-100 bg-gray-50 px-4 py-4 text-sm font-medium leading-6 text-gray-600">
                 No active payment methods are available. Please contact Shop2Bhutan support.
               </div>
             ) : (
-              paymentMethods.map((paymentMethod) => (
-                <button
-                  key={paymentMethod.id}
-                  type="button"
-                  onClick={() => setSelectedMethod(paymentMethod.id)}
-                  className={`w-full rounded-2xl border p-4 text-left transition active:scale-[0.99] ${
-                    selectedMethod === paymentMethod.id
-                      ? 'border-orange-400 bg-white shadow-sm ring-2 ring-orange-500/10'
-                      : 'border-gray-100 bg-white hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
-                        selectedMethod === paymentMethod.id ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
-                      {paymentMethod.type === 'bank_transfer' ? <Building2 size={18} /> : <Wallet size={18} />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-gray-900">{paymentMethod.name}</p>
-                      <p className="text-xs font-medium text-gray-400">{paymentMethodTypeLabel(paymentMethod.type)}</p>
-                    </div>
-                    <div
-                      className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
-                        selectedMethod === paymentMethod.id ? 'border-orange-500' : 'border-gray-200'
-                      }`}
-                    >
-                      {selectedMethod === paymentMethod.id && <div className="h-2.5 w-2.5 rounded-full bg-orange-500" />}
-                    </div>
-                  </div>
+              paymentMethods.map((paymentMethod) => {
+                const selected = selectedMethod === paymentMethod.id;
 
-                  {selectedMethod === paymentMethod.id && (
-                    <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-xs font-medium text-gray-400">Type</span>
-                        <span className="text-right text-sm font-semibold text-gray-900">{paymentMethodTypeLabel(paymentMethod.type)}</span>
+                return (
+                  <button
+                    key={paymentMethod.id}
+                    type="button"
+                    onClick={() => setSelectedMethod(paymentMethod.id)}
+                    className={`w-full overflow-hidden rounded-[1.75rem] border text-left transition active:scale-[0.99] ${
+                      selected
+                        ? 'border-orange-200 bg-white shadow-md shadow-orange-500/[0.06] ring-2 ring-orange-500/10'
+                        : 'border-gray-100 bg-white shadow-sm'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 p-4">
+                      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                        selected ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {paymentMethod.type === 'bank_transfer' ? <Building2 size={19} /> : <Wallet size={19} />}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-black text-gray-950">{paymentMethod.name}</p>
+                        <p className="mt-0.5 text-xs font-bold text-gray-400">{paymentMethodTypeLabel(paymentMethod.type)}</p>
                       </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-xs font-medium text-gray-400">Account Name</span>
-                        <span className="text-right text-sm font-semibold text-gray-900">{paymentMethod.accountName || '-'}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-xs font-medium text-gray-400">Account Number / Code</span>
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className="truncate text-right font-mono text-sm font-semibold text-gray-900">
-                            {paymentMethod.accountNumber || '-'}
-                          </span>
-                          {paymentMethod.accountNumber && (
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                void copyToClipboard(paymentMethod.accountNumber, `acc-${paymentMethod.id}`);
-                              }}
-                              className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                              aria-label="Copy account number or code"
-                            >
-                              {copiedField === `acc-${paymentMethod.id}` ? (
-                                <CheckCircle size={14} className="text-emerald-500" />
-                              ) : (
-                                <Copy size={14} />
+                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${
+                        selected ? 'border-orange-500 bg-orange-500 text-white' : 'border-gray-200'
+                      }`}>
+                        {selected && <CheckCircle size={14} strokeWidth={3} />}
+                      </span>
+                    </div>
+
+                    {selected && (
+                      <div className="border-t border-gray-100 bg-gray-50/70 px-4 py-4">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between gap-4">
+                            <span className="text-xs font-bold text-gray-400">Account name</span>
+                            <span className="text-right text-sm font-black text-gray-900">{paymentMethod.accountName || '-'}</span>
+                          </div>
+                          <div className="flex items-start justify-between gap-4">
+                            <span className="text-xs font-bold text-gray-400">Account / code</span>
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span className="truncate text-right font-mono text-sm font-black text-gray-900">
+                                {paymentMethod.accountNumber || '-'}
+                              </span>
+                              {paymentMethod.accountNumber && (
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    void copyToClipboard(paymentMethod.accountNumber, `acc-${paymentMethod.id}`);
+                                  }}
+                                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-gray-500 ring-1 ring-gray-200"
+                                  aria-label="Copy account number or code"
+                                >
+                                  {copiedField === `acc-${paymentMethod.id}` ? (
+                                    <CheckCircle size={15} className="text-emerald-500" />
+                                  ) : (
+                                    <Copy size={15} />
+                                  )}
+                                </button>
                               )}
-                            </button>
+                            </div>
+                          </div>
+                          {paymentMethod.bankName && (
+                            <div className="flex items-start justify-between gap-4">
+                              <span className="text-xs font-bold text-gray-400">Bank</span>
+                              <span className="text-right text-sm font-black text-gray-900">{paymentMethod.bankName}</span>
+                            </div>
+                          )}
+                          {paymentMethod.branch && (
+                            <div className="flex items-start justify-between gap-4">
+                              <span className="text-xs font-bold text-gray-400">Branch</span>
+                              <span className="text-right text-sm font-black text-gray-900">{paymentMethod.branch}</span>
+                            </div>
                           )}
                         </div>
+                        {paymentMethod.instructions && (
+                          <p className="mt-4 rounded-2xl bg-white p-3 text-xs font-medium leading-5 text-gray-500 ring-1 ring-gray-100">
+                            {paymentMethod.instructions}
+                          </p>
+                        )}
                       </div>
-                      {paymentMethod.bankName && (
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="text-xs font-medium text-gray-400">Bank</span>
-                          <span className="text-right text-sm font-semibold text-gray-900">{paymentMethod.bankName}</span>
-                        </div>
-                      )}
-                      {paymentMethod.branch && (
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="text-xs font-medium text-gray-400">Branch</span>
-                          <span className="text-right text-sm font-semibold text-gray-900">{paymentMethod.branch}</span>
-                        </div>
-                      )}
-                      {paymentMethod.instructions && (
-                        <p className="mt-2 rounded-2xl bg-gray-50 p-3 text-xs leading-5 text-gray-500">
-                          {paymentMethod.instructions}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </button>
-              ))
+                    )}
+                  </button>
+                );
+              })
             )}
           </div>
         </section>
 
-        <section className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center gap-2">
-            <FileText size={18} className="text-orange-500" />
-            <h2 className="text-sm font-extrabold text-gray-900">Payment details</h2>
+        <section className="mt-8">
+          <div className="mb-3 flex items-end justify-between gap-3 px-1">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-500">Payment proof</p>
+              <h2 className="mt-1 text-[22px] font-black tracking-tight text-gray-950">Upload screenshot</h2>
+            </div>
+            <span className="rounded-full bg-red-50 px-3 py-1 text-[11px] font-black text-red-600 ring-1 ring-red-100">Required</span>
           </div>
 
-          <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-                  {isJaigaonPickup ? 'Shop2Bhutan charges' : paymentSelection === 'advance' ? 'Advance payment' : paymentSelection === 'remaining' ? 'Remaining balance' : 'Full payment'}
-                </p>
-                <p className="mt-1 text-2xl font-black text-gray-950">{formatCurrency(amountPaidNumber)}</p>
+          <div className="rounded-[1.75rem] border border-gray-100 bg-white p-4 shadow-sm">
+            {!screenshotPreview ? (
+              <label className="flex min-h-[210px] w-full cursor-pointer flex-col items-center justify-center rounded-[1.5rem] border-2 border-dashed border-gray-200 bg-gray-50 px-5 text-center transition active:scale-[0.99]">
+                <span className="flex h-14 w-14 items-center justify-center rounded-[1.25rem] bg-white text-orange-500 shadow-sm ring-1 ring-gray-100">
+                  <Upload size={25} />
+                </span>
+                <p className="mt-4 text-sm font-black text-gray-800">Tap to upload payment screenshot</p>
+                <p className="mt-1.5 text-xs font-medium leading-5 text-gray-400">JPG, PNG or WEBP · Maximum 5MB</p>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </label>
+            ) : (
+              <div className="relative overflow-hidden rounded-[1.5rem] bg-gray-50 ring-1 ring-gray-100">
+                <img
+                  src={screenshotPreview}
+                  alt="Payment screenshot"
+                  className="max-h-[62vh] min-h-52 w-full object-contain p-2"
+                />
+                <span className="absolute bottom-3 left-3 rounded-xl bg-gray-950/75 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur">
+                  Screenshot ready
+                </span>
+                <button
+                  type="button"
+                  onClick={clearScreenshot}
+                  className="absolute right-3 top-3 rounded-xl bg-white px-3 py-1.5 text-xs font-black text-gray-700 shadow-sm ring-1 ring-gray-100"
+                >
+                  Change
+                </button>
               </div>
-              <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-gray-500 ring-1 ring-gray-200">
-                Locked
-              </span>
-            </div>
-          </div>
+            )}
 
-          <div className="mt-4 space-y-4">
-            <div>
-              <label className="text-sm font-bold text-gray-900">Transaction / Reference Number</label>
-              <input
-                type="text"
-                value={transactionId}
-                onChange={(event) => setTransactionId(event.target.value)}
-                placeholder="Optional, but recommended"
-                className="mt-1.5 h-12 w-full rounded-2xl border border-gray-200 px-4 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10"
-              />
-            </div>
+            <div className="mt-5 border-t border-gray-100 pt-5">
+              <div className="flex items-center gap-2">
+                <FileText size={17} className="text-orange-500" />
+                <h3 className="text-sm font-black text-gray-950">Optional payment details</h3>
+              </div>
 
-            <div>
-              <label className="text-sm font-bold text-gray-900">Note</label>
-              <textarea
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                placeholder="Optional note for Shop2Bhutan"
-                rows={3}
-                className="mt-1.5 w-full resize-none rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10"
-              />
+              <div className="mt-4 space-y-4">
+                <div>
+                  <label className="text-xs font-black text-gray-700">Transaction / Reference Number</label>
+                  <input
+                    type="text"
+                    value={transactionId}
+                    onChange={(event) => setTransactionId(event.target.value)}
+                    placeholder="Enter reference number"
+                    className="mt-2 h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 text-sm font-semibold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-500/10"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-black text-gray-700">Note for Shop2Bhutan</label>
+                  <textarea
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                    placeholder="Add a note only when needed"
+                    rows={3}
+                    className="mt-2 w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-500/10"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Upload size={18} className="text-orange-500" />
-              <h2 className="text-sm font-extrabold text-gray-900">Payment screenshot</h2>
-            </div>
-            <span className="rounded-full bg-gray-50 px-2.5 py-1 text-[11px] font-bold text-gray-500 ring-1 ring-gray-100">
-              Required
-            </span>
+        <section className="mt-5 flex items-start gap-3 rounded-[1.5rem] bg-emerald-50 px-4 py-4 ring-1 ring-emerald-100">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-600 ring-1 ring-emerald-100">
+            <ShieldCheck size={19} />
+          </span>
+          <div>
+            <p className="text-sm font-black text-emerald-950">Your proof is reviewed securely</p>
+            <p className="mt-1 text-xs font-medium leading-5 text-emerald-800/75">
+              Shop2Bhutan verifies the paid amount, payment method and transaction details before updating your order.
+            </p>
           </div>
-
-          {!screenshotPreview ? (
-            <label className="flex h-48 w-full cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gray-200 bg-gray-50 transition hover:border-orange-400 hover:bg-orange-50/30">
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm ring-1 ring-gray-100">
-                <Upload size={24} />
-              </span>
-              <p className="mt-3 text-sm font-bold text-gray-700">Tap to upload payment screenshot</p>
-              <p className="mt-1 text-xs font-medium text-gray-400">JPG, PNG, WEBP up to 5MB</p>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </label>
-          ) : (
-            <div className="relative overflow-hidden rounded-3xl border border-gray-100 bg-gray-50">
-              <img
-                src={screenshotPreview}
-                alt="Payment screenshot"
-                className="h-auto max-h-[65vh] min-h-48 w-full object-contain p-2"
-              />
-              <div className="absolute bottom-2 left-2 rounded-xl bg-black/60 px-2.5 py-1 text-[10px] font-semibold text-white">
-                Screenshot preview
-              </div>
-              <button
-                type="button"
-                onClick={clearScreenshot}
-                className="absolute right-2 top-2 rounded-xl border border-gray-100 bg-white px-3 py-1 text-xs font-bold text-gray-700 shadow-sm"
-              >
-                Change
-              </button>
-            </div>
-          )}
         </section>
       </main>
 
       {showAddressPicker && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/45 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-10 sm:items-center">
-          <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-gray-200">
-            <div className="flex items-start justify-between gap-3 border-b border-gray-100 p-4">
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-gray-950/45 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-10 backdrop-blur-[2px] sm:items-center">
+          <div className="w-full max-w-md overflow-hidden rounded-[2rem] bg-white shadow-2xl ring-1 ring-gray-200">
+            <div className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-gray-200 sm:hidden" />
+            <div className="flex items-start justify-between gap-3 border-b border-gray-100 p-5">
               <div>
-                <h3 className="text-base font-black text-gray-950">Choose delivery address</h3>
-                <p className="mt-1 text-xs leading-5 text-gray-500">Only addresses in {lockedDeliveryArea || 'the quoted area'} are shown.</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-500">Delivery address</p>
+                <h3 className="mt-1 text-lg font-black text-gray-950">Choose saved address</h3>
+                <p className="mt-1 text-xs font-medium leading-5 text-gray-500">
+                  Only addresses in {lockedDeliveryArea || 'the quoted area'} are shown.
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowAddressPicker(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gray-50 text-gray-500"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-gray-500"
                 aria-label="Close address picker"
               >
                 <X size={17} />
               </button>
             </div>
 
-            <div className="max-h-[60vh] space-y-2 overflow-y-auto p-4">
+            <div className="max-h-[58vh] space-y-3 overflow-y-auto p-4">
               {matchingSavedAddresses.length === 0 ? (
-                <div className="rounded-2xl bg-gray-50 p-4 text-sm leading-6 text-gray-600">
+                <div className="rounded-2xl bg-gray-50 p-4 text-sm font-medium leading-6 text-gray-600">
                   No saved address is available for {lockedDeliveryArea || 'this area'}.
                 </div>
               ) : (
@@ -1149,8 +1181,10 @@ export default function PaymentUpload() {
                         setShowAddressPicker(false);
                         setError('');
                       }}
-                      className={`w-full rounded-2xl border p-3 text-left transition active:scale-[0.99] disabled:opacity-60 ${
-                        selected ? 'border-orange-400 bg-orange-50/40 ring-2 ring-orange-500/10' : 'border-gray-100 bg-white hover:bg-gray-50'
+                      className={`w-full rounded-[1.5rem] border p-4 text-left transition active:scale-[0.99] disabled:opacity-60 ${
+                        selected
+                          ? 'border-orange-300 bg-orange-50/60 ring-2 ring-orange-500/10'
+                          : 'border-gray-100 bg-white shadow-sm'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -1171,11 +1205,13 @@ export default function PaymentUpload() {
                             )}
                           </div>
                           <p className="mt-2 text-sm font-black text-gray-950">{address.recipient_name || 'Recipient name missing'}</p>
-                          <p className="mt-0.5 text-xs font-semibold text-gray-500">{formatSavedAddressPhone(address.phone)}</p>
-                          <p className="mt-2 text-sm font-semibold leading-5 text-gray-800">{savedAddressMainLine(address) || 'Exact address missing'}</p>
-                          <p className="mt-1 text-xs leading-5 text-gray-500">{uniqueTextParts([address.dzongkhag, address.landmark, address.address_line]).join(' • ')}</p>
+                          <p className="mt-0.5 text-xs font-bold text-gray-500">{formatSavedAddressPhone(address.phone)}</p>
+                          <p className="mt-2 text-sm font-bold leading-5 text-gray-800">{savedAddressMainLine(address) || 'Exact address missing'}</p>
+                          <p className="mt-1 text-xs font-medium leading-5 text-gray-500">
+                            {uniqueTextParts([address.dzongkhag, address.landmark, address.address_line]).join(' • ')}
+                          </p>
                         </div>
-                        {selected && <CheckCircle size={18} className="mt-1 shrink-0 text-orange-500" />}
+                        {selected && <CheckCircle size={19} className="mt-1 shrink-0 text-orange-500" />}
                       </div>
                     </button>
                   );
@@ -1187,9 +1223,9 @@ export default function PaymentUpload() {
               <button
                 type="button"
                 onClick={() => navigate('/addresses')}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-white text-sm font-bold text-gray-800 ring-1 ring-gray-200"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white text-sm font-black text-gray-800 ring-1 ring-gray-200"
               >
-                <Plus size={16} />
+                <Plus size={17} />
                 Add or edit saved addresses
               </button>
             </div>
@@ -1197,15 +1233,16 @@ export default function PaymentUpload() {
         </div>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-100 bg-white p-4">
-        <div className="mx-auto max-w-2xl">
+      <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-0 right-0 z-40 px-4 sm:bottom-4">
+        <div className="mx-auto max-w-2xl rounded-[1.5rem] border border-gray-100 bg-white/95 p-2.5 shadow-[0_16px_45px_rgba(15,23,42,0.16)] backdrop-blur-xl">
           <button
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit || paymentMethodsLoading || addressesLoading}
-            className="h-12 w-full rounded-2xl bg-orange-500 font-bold text-white shadow-lg shadow-orange-500/20 transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300 disabled:shadow-none"
+            className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[1.1rem] bg-orange-500 px-4 text-sm font-black text-white transition active:scale-[0.99] hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300"
           >
-            {submitButtonLabel}
+            <Upload size={18} />
+            <span className="truncate">{submitButtonLabel}</span>
           </button>
         </div>
       </div>
