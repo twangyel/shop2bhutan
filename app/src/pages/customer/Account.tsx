@@ -22,7 +22,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { getUnreadNotificationCount } from '@/lib/customerOrders';
 import { deactivateMyAccount } from '@/lib/account';
-import VerificationBadge, { getVerificationBadgeLabel, getVerificationBadgeToneClass, normalizeVerificationBadge } from '@/components/shared/VerificationBadge';
+import VerificationBadge, {
+  getVerificationBadgeLabel,
+  getVerificationBadgeToneClass,
+  normalizeVerificationBadge,
+} from '@/components/shared/VerificationBadge';
 
 const PHONE_ONLY_EMAIL_SUFFIX = '@phone.shop2bhutan.com';
 
@@ -76,10 +80,13 @@ function getDisplayName(profile: ProfileLike | null, email?: string | null) {
 }
 
 function getProfileVerificationBadge(profile: ProfileLike | null) {
-  return normalizeVerificationBadge(profile?.verification_badge ?? profile?.verificationBadge);
+  return normalizeVerificationBadge(
+    profile?.verification_badge ?? profile?.verificationBadge,
+  );
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function normalizeDzongkhagOptions(data: unknown): DzongkhagOption[] {
   if (!Array.isArray(data)) return [];
@@ -95,7 +102,10 @@ function normalizeDzongkhagOptions(data: unknown): DzongkhagOption[] {
     .filter((item): item is DzongkhagOption => Boolean(item));
 }
 
-function getDzongkhagDisplayName(value: string | null | undefined, options: DzongkhagOption[]) {
+function getDzongkhagDisplayName(
+  value: string | null | undefined,
+  options: DzongkhagOption[],
+) {
   const cleanValue = value?.trim() || '';
   if (!cleanValue) return null;
   if (!UUID_RE.test(cleanValue)) return cleanValue;
@@ -106,22 +116,58 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
   {
     title: 'Orders & Delivery',
     items: [
-      { icon: ClipboardList, label: 'My Orders', description: 'View quotations, payments, and tracking', path: '/orders' },
-      { icon: Truck, label: 'My Parcels', description: 'Parcel requests and trip bookings', path: '/my-parcels' },
-      { icon: MapPin, label: 'Saved Addresses', description: 'Manage delivery addresses', path: '/addresses' },
-      { icon: Wallet, label: 'Payment History', description: 'View uploaded payment proofs and verification status', path: '/payment-history' },
+      {
+        icon: ClipboardList,
+        label: 'My Orders',
+        description: 'Quotations, payments, and tracking',
+        path: '/orders',
+      },
+      {
+        icon: Truck,
+        label: 'My Parcels',
+        description: 'Parcel requests and trip bookings',
+        path: '/my-parcels',
+      },
+      {
+        icon: MapPin,
+        label: 'Saved Addresses',
+        description: 'Manage your delivery destinations',
+        path: '/addresses',
+      },
+      {
+        icon: Wallet,
+        label: 'Payment History',
+        description: 'Uploaded proofs and verification status',
+        path: '/payment-history',
+      },
     ],
   },
   {
     title: 'Account',
     items: [
-      { icon: User, label: 'Profile', description: 'Name, phone, email, and photo', path: '/profile' },
-      { icon: KeyRound, label: 'Change Password', description: 'Update your login password', path: '/change-password' },
-      { icon: Bell, label: 'Notifications', description: 'Updates and account alerts', path: '/notifications', badge: true },
+      {
+        icon: User,
+        label: 'Profile',
+        description: 'Personal details and profile picture',
+        path: '/profile',
+      },
+      {
+        icon: KeyRound,
+        label: 'Change Password',
+        description: 'Update your login password',
+        path: '/change-password',
+      },
+      {
+        icon: Bell,
+        label: 'Notifications',
+        description: 'Order, parcel, and account updates',
+        path: '/notifications',
+        badge: true,
+      },
       {
         icon: AlertTriangle,
         label: 'Deactivate Account',
-        description: 'Disable your account and sign out',
+        description: 'Disable this account and sign out',
         action: 'deactivate_account',
         danger: true,
         realAccountOnly: true,
@@ -131,7 +177,12 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
   {
     title: 'Help',
     items: [
-      { icon: HeadphonesIcon, label: 'Support', description: 'Contact Shop2Bhutan support', path: '/support' },
+      {
+        icon: HeadphonesIcon,
+        label: 'Support',
+        description: 'Contact Shop2Bhutan support',
+        path: '/support',
+      },
     ],
   },
 ];
@@ -145,7 +196,6 @@ export default function Account() {
   const [deactivating, setDeactivating] = useState(false);
   const [deactivateError, setDeactivateError] = useState('');
   const [accountDeactivated, setAccountDeactivated] = useState(false);
-
   const [dzongkhagOptions, setDzongkhagOptions] = useState<DzongkhagOption[]>([]);
 
   const profile = (context?.profile ?? null) as ProfileLike | null;
@@ -153,21 +203,25 @@ export default function Account() {
   const isLoggedIn = Boolean(user && !isGuest);
 
   const rawEmail = context?.email || user?.email || '';
-  const displayName = hasGuestSession ? 'Guest Parcel User' : getDisplayName(profile, rawEmail);
+  const displayName = hasGuestSession
+    ? 'Guest Parcel User'
+    : getDisplayName(profile, rawEmail);
   const displayEmail = hasGuestSession
-    ? 'Guest parcel tracking on this device'
+    ? 'Tracking is saved on this device'
     : isLoggedIn
       ? getDisplayEmail(rawEmail)
-      : 'Sign in to manage your orders';
+      : 'Sign in to manage your Shop2Bhutan account';
   const displayPhone = profile?.phone?.trim() || null;
   const displayDzongkhag = getDzongkhagDisplayName(
     profile?.default_dzongkhag_id || profile?.dzongkhag,
-    dzongkhagOptions
+    dzongkhagOptions,
   );
   const avatarUrl = profile?.avatar_url?.trim() || null;
   const verificationBadge = getProfileVerificationBadge(profile);
   const emailAdded = displayEmail !== 'No email added' && isLoggedIn;
-  const canAccessAdmin = Boolean(context?.is_admin || context?.is_super_admin);
+  const canAccessAdmin = Boolean(
+    context?.is_admin || context?.is_super_admin,
+  );
 
   const refreshUnreadCount = useCallback(async () => {
     if (!user || isGuest) {
@@ -193,11 +247,17 @@ export default function Account() {
       void refreshUnreadCount();
     };
 
-    window.addEventListener('shop2bhutan:notifications-updated', handleNotificationsUpdated);
+    window.addEventListener(
+      'shop2bhutan:notifications-updated',
+      handleNotificationsUpdated,
+    );
     window.addEventListener('focus', handleNotificationsUpdated);
 
     return () => {
-      window.removeEventListener('shop2bhutan:notifications-updated', handleNotificationsUpdated);
+      window.removeEventListener(
+        'shop2bhutan:notifications-updated',
+        handleNotificationsUpdated,
+      );
       window.removeEventListener('focus', handleNotificationsUpdated);
     };
   }, [refreshUnreadCount]);
@@ -217,7 +277,7 @@ export default function Account() {
         },
         () => {
           void refreshUnreadCount();
-        }
+        },
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
@@ -245,7 +305,6 @@ export default function Account() {
       active = false;
     };
   }, []);
-
 
   const handleDeactivateAccount = async () => {
     if (!user || isGuest) return;
@@ -281,26 +340,27 @@ export default function Account() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white px-6 py-10">
         <div className="w-full max-w-sm text-center">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600">
-            <CheckCircle size={38} strokeWidth={2.4} />
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+            <CheckCircle size={31} strokeWidth={2.4} />
           </div>
 
-          <h1 className="mt-6 text-2xl font-extrabold text-gray-900">
+          <h1 className="mt-5 text-2xl font-black tracking-tight text-gray-950">
             Account deactivated
           </h1>
 
           <p className="mt-2 text-sm leading-6 text-gray-500">
-            Your Shop2Bhutan account has been deactivated successfully. You have been signed out, and your order, payment, and parcel records are kept safely for support and admin reference.
+            You have been signed out. Your order, payment, and parcel records
+            remain safely stored for support and admin reference.
           </p>
 
           <div className="mt-5 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-700">
-            Contact Shop2Bhutan support if you want to reactivate this account later.
+            Contact Shop2Bhutan support when you need this account reactivated.
           </div>
 
           <button
             type="button"
             onClick={() => navigate('/login', { replace: true })}
-            className="mt-7 h-12 w-full rounded-2xl bg-orange-500 text-sm font-bold text-white transition hover:bg-orange-600 active:scale-[0.98]"
+            className="mt-6 h-12 w-full rounded-2xl bg-orange-500 text-sm font-bold text-white transition active:scale-[0.98]"
           >
             Back to Sign In
           </button>
@@ -310,66 +370,108 @@ export default function Account() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-24">
-      <div className="mx-auto max-w-3xl px-4 pt-4">
-
-        {/* ===== Profile Header ===== */}
-        <div className="flex items-start gap-4">
-          <button
-            type="button"
-            onClick={() => isLoggedIn && navigate('/profile')}
-            className="relative shrink-0"
-          >
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={displayName}
-                className="h-24 w-24 rounded-full object-cover border-2 border-white shadow-md"
-              />
-            ) : (
-              <div className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-white bg-orange-100 shadow-md">
-                <span className="text-3xl font-extrabold text-orange-500">
-                  {displayName.charAt(0).toUpperCase()}
-                </span>
-              </div>
-            )}
-            {isLoggedIn && (
-              <span className="absolute -bottom-0.5 -right-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-orange-500 text-white shadow-md ring-2 ring-white">
-                <Pencil size={14} strokeWidth={2.5} />
-              </span>
-            )}
-          </button>
-
-          <div className="min-w-0 flex-1 pt-1">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <h1 className="truncate text-xl font-bold text-gray-900">{displayName}</h1>
-              <VerificationBadge badge={verificationBadge} size="sm" />
-            </div>
-            {verificationBadge !== 'none' && (
-              <p className={`mt-0.5 text-xs font-bold ${getVerificationBadgeToneClass(verificationBadge)}`}>
-                {getVerificationBadgeLabel(verificationBadge)}
-              </p>
-            )}
-            <p className="mt-0.5 truncate text-sm text-gray-500">{displayEmail}</p>
-            {displayPhone && <p className="text-sm text-gray-500">+975 {displayPhone}</p>}
-            {displayDzongkhag && <p className="text-xs text-gray-400">{displayDzongkhag}</p>}
-          </div>
+    <div className="min-h-screen bg-white pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
+      <header className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 backdrop-blur">
+        <div className="mx-auto max-w-3xl px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-orange-500">
+            Your account
+          </p>
+          <h1 className="mt-0.5 text-xl font-black tracking-tight text-gray-950">
+            Account
+          </h1>
         </div>
+      </header>
 
-        {/* ===== Auth Buttons ===== */}
+      <main className="mx-auto max-w-3xl px-4 py-4">
+        <section className="overflow-hidden rounded-3xl bg-gray-950 text-white shadow-sm">
+          <div className="flex items-center gap-4 p-4">
+            <button
+              type="button"
+              onClick={() => isLoggedIn && navigate('/profile')}
+              className="relative shrink-0"
+            >
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="h-20 w-20 rounded-3xl object-cover ring-2 ring-white/15"
+                />
+              ) : (
+                <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white/10 ring-1 ring-white/10">
+                  <span className="text-3xl font-black text-orange-400">
+                    {displayName.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
+
+              {isLoggedIn && (
+                <span className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-2xl bg-orange-500 text-white ring-2 ring-gray-950">
+                  <Pencil size={14} strokeWidth={2.5} />
+                </span>
+              )}
+            </button>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <h2 className="truncate text-xl font-black tracking-tight">
+                  {displayName}
+                </h2>
+                <VerificationBadge badge={verificationBadge} size="sm" />
+              </div>
+
+              {verificationBadge !== 'none' && (
+                <p
+                  className={`mt-0.5 text-xs font-bold ${getVerificationBadgeToneClass(
+                    verificationBadge,
+                  )}`}
+                >
+                  {getVerificationBadgeLabel(verificationBadge)}
+                </p>
+              )}
+
+              <p className="mt-1 truncate text-sm text-gray-300">
+                {displayEmail}
+              </p>
+
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-400">
+                {displayPhone && <span>+975 {displayPhone}</span>}
+                {displayDzongkhag && <span>{displayDzongkhag}</span>}
+              </div>
+            </div>
+
+            {isLoggedIn && (
+              <ChevronRight
+                size={18}
+                className="shrink-0 text-white/30"
+              />
+            )}
+          </div>
+
+          {isLoggedIn && (
+            <button
+              type="button"
+              onClick={() => navigate('/profile')}
+              className="flex w-full items-center justify-between border-t border-white/10 px-4 py-3 text-left text-xs font-bold text-gray-300 transition active:bg-white/5"
+            >
+              <span>View and edit personal details</span>
+              <span className="text-orange-400">Edit profile</span>
+            </button>
+          )}
+        </section>
+
         {!isLoggedIn && (
-          <div className="mt-5 grid grid-cols-2 gap-3">
+          <div className="mt-3 grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => navigate('/login')}
-              className="h-12 rounded-2xl bg-orange-500 text-sm font-bold text-white transition-colors hover:bg-orange-600"
+              className="h-11 rounded-2xl bg-orange-500 text-sm font-bold text-white transition active:scale-[0.98]"
             >
               Sign In
             </button>
             <button
               type="button"
               onClick={() => navigate('/register')}
-              className="h-12 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50"
+              className="h-11 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 transition active:scale-[0.98]"
             >
               Register
             </button>
@@ -380,173 +482,222 @@ export default function Account() {
           <button
             type="button"
             onClick={() => navigate('/my-parcels')}
-            className="mt-4 w-full rounded-2xl border border-blue-100 bg-blue-50 p-4 text-left"
+            className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-left"
           >
-            <p className="text-sm font-bold text-blue-900">Guest Parcel Tracking</p>
-            <p className="mt-0.5 text-xs leading-5 text-blue-700">
-              You are using a guest parcel session. Your parcel tracking is saved on this device only.
-            </p>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 ring-1 ring-blue-100">
+              <Truck size={18} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-blue-900">
+                Guest parcel tracking
+              </span>
+              <span className="mt-0.5 block text-xs leading-5 text-blue-700">
+                Saved on this device only
+              </span>
+            </span>
+            <ChevronRight size={17} className="text-blue-300" />
           </button>
         )}
 
-        {/* ===== Add Email Prompt ===== */}
         {isLoggedIn && !emailAdded && (
           <button
             type="button"
             onClick={() => navigate('/profile')}
-            className="mt-4 w-full rounded-2xl border border-gray-100 bg-white p-4 text-left border-l-4 border-l-orange-400"
+            className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-left"
           >
-            <p className="text-sm font-bold text-gray-900">Add email for recovery</p>
-            <p className="mt-0.5 text-xs leading-5 text-gray-500">
-              Email is optional, but adding one helps with password recovery and order updates.
-            </p>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-orange-500 ring-1 ring-orange-100">
+              <KeyRound size={18} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-gray-900">
+                Add email for recovery
+              </span>
+              <span className="mt-0.5 block text-xs leading-5 text-gray-600">
+                Helps with password recovery and important updates
+              </span>
+            </span>
+            <ChevronRight size={17} className="text-orange-300" />
           </button>
         )}
 
-        {/* ===== Admin Panel ===== */}
         {canAccessAdmin && (
           <button
             type="button"
             onClick={() => navigate('/admin')}
-            className="mt-4 w-full overflow-hidden rounded-2xl bg-gray-900 p-4 text-left text-white transition-colors hover:bg-gray-800"
+            className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 text-left shadow-sm"
           >
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-orange-400">
-                <LayoutDashboard size={22} strokeWidth={2} />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-950 text-orange-400">
+              <LayoutDashboard size={20} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-black text-gray-950">
+                Admin Panel
               </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-extrabold">Admin Panel</span>
-                <span className="mt-0.5 block text-xs leading-5 text-gray-400">
-                  Manage orders, quotations, payments, products, parcels, and settings.
-                </span>
+              <span className="mt-0.5 block truncate text-xs text-gray-500">
+                Manage Shop2Bhutan operations
               </span>
-              <ChevronRight size={18} className="text-gray-500" />
-            </div>
+            </span>
+            <ChevronRight size={17} className="text-gray-300" />
           </button>
         )}
 
-        {/* ===== Menu Groups ===== */}
         <div className="mt-5 space-y-5">
-          {menuGroups.map((group) => (
-            <div key={group.title}>
-              <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-gray-400">
-                {group.title}
-              </p>
+          {menuGroups.map((group) => {
+            const visibleItems = group.items.filter(
+              (item) => !item.realAccountOnly || isLoggedIn,
+            );
 
-              <div className="overflow-hidden rounded-2xl bg-white border border-gray-100">
-                {group.items
-                  .filter((item) => !item.realAccountOnly || isLoggedIn)
-                  .map((item, index, visibleItems) => {
-                  const Icon = item.icon;
-                  const isDanger = Boolean(item.danger);
+            return (
+              <section key={group.title}>
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <h2 className="text-[11px] font-black uppercase tracking-[0.12em] text-gray-400">
+                    {group.title}
+                  </h2>
+                  <span className="text-[10px] font-bold text-gray-300">
+                    {visibleItems.length}
+                  </span>
+                </div>
 
-                  return (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={() => {
-                        if (item.action === 'deactivate_account') {
-                          setDeactivateOpen(true);
-                          setDeactivateError('');
-                          return;
-                        }
+                <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white">
+                  {visibleItems.map((item, index) => {
+                    const Icon = item.icon;
+                    const isDanger = Boolean(item.danger);
 
-                        if (item.path) navigate(item.path);
-                      }}
-                      className={`flex w-full items-center gap-3 px-4 py-4 text-left transition-colors ${
-                        isDanger ? 'hover:bg-red-50' : 'hover:bg-gray-50'
-                      } ${index < visibleItems.length - 1 ? 'border-b border-gray-100' : ''}`}
-                    >
-                      <span
-                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-                          isDanger ? 'bg-red-50 text-red-500' : 'bg-gray-50 text-gray-500'
+                    return (
+                      <button
+                        key={item.label}
+                        type="button"
+                        onClick={() => {
+                          if (item.action === 'deactivate_account') {
+                            setDeactivateOpen(true);
+                            setDeactivateError('');
+                            return;
+                          }
+
+                          if (item.path) navigate(item.path);
+                        }}
+                        className={`flex w-full items-center gap-3 px-3.5 py-3 text-left transition active:scale-[0.995] ${
+                          isDanger ? 'active:bg-red-50' : 'active:bg-gray-50'
+                        } ${
+                          index < visibleItems.length - 1
+                            ? 'border-b border-gray-100'
+                            : ''
                         }`}
                       >
-                        <Icon size={19} strokeWidth={2} />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className={`block text-sm font-bold ${isDanger ? 'text-red-600' : 'text-gray-900'}`}>
-                          {item.label}
+                        <span
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+                            isDanger
+                              ? 'bg-red-50 text-red-500'
+                              : 'bg-gray-50 text-gray-600'
+                          }`}
+                        >
+                          <Icon size={18} strokeWidth={2.1} />
                         </span>
-                        {item.description && (
-                          <span className={`mt-0.5 block truncate text-xs ${isDanger ? 'text-red-400' : 'text-gray-500'}`}>
-                            {item.description}
+
+                        <span className="min-w-0 flex-1">
+                          <span
+                            className={`block text-sm font-bold ${
+                              isDanger ? 'text-red-600' : 'text-gray-900'
+                            }`}
+                          >
+                            {item.label}
+                          </span>
+                          {item.description && (
+                            <span
+                              className={`mt-0.5 block truncate text-xs ${
+                                isDanger ? 'text-red-400' : 'text-gray-500'
+                              }`}
+                            >
+                              {item.description}
+                            </span>
+                          )}
+                        </span>
+
+                        {item.badge && unreadCount > 0 && (
+                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                            {unreadCount}
                           </span>
                         )}
-                      </span>
-                      {item.badge && unreadCount > 0 && (
-                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
-                          {unreadCount}
-                        </span>
-                      )}
-                      <ChevronRight size={17} className={isDanger ? 'text-red-200' : 'text-gray-300'} />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+
+                        <ChevronRight
+                          size={17}
+                          className={
+                            isDanger ? 'text-red-200' : 'text-gray-300'
+                          }
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
         </div>
 
-        {/* ===== Logout ===== */}
         {isLoggedIn ? (
           <button
             type="button"
             onClick={handleLogout}
-            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50"
+            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 transition active:scale-[0.98]"
           >
             <LogOut size={18} strokeWidth={2} />
-            Logout
+            Log Out
           </button>
         ) : (
           <button
             type="button"
             onClick={() => navigate('/login')}
-            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white transition-colors hover:bg-orange-600"
+            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white transition active:scale-[0.98]"
           >
             Sign In to Continue
           </button>
         )}
-      </div>
+      </main>
 
       {deactivateOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center overflow-y-auto bg-black/40 px-4 py-4 sm:items-center">
-          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 px-3 pt-12 backdrop-blur-[2px] sm:items-center sm:p-4">
+          <div className="max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto rounded-t-[2rem] bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-3xl">
+            <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-gray-200 sm:hidden" />
+
             <div className="flex items-start gap-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-                <AlertTriangle size={22} />
+                <AlertTriangle size={21} />
               </span>
 
               <div className="min-w-0 flex-1">
-                <h2 className="text-base font-extrabold text-gray-900">Deactivate account?</h2>
+                <h2 className="text-lg font-black tracking-tight text-gray-950">
+                  Deactivate account?
+                </h2>
                 <p className="mt-1 text-sm leading-6 text-gray-500">
-                  Your account will be disabled and you will be signed out. Your orders,
-                  payments, and parcel history will be kept safely for support and admin records.
+                  You will be signed out, but your order, payment, and parcel
+                  records will remain safely stored.
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={() => !deactivating && setDeactivateOpen(false)}
-                className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-500"
                 disabled={deactivating}
+                aria-label="Close"
               >
-                <X size={18} />
+                <X size={17} />
               </button>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs leading-5 text-amber-700">
-              You will need Shop2Bhutan admin support to reactivate this account later.
+            <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-700">
+              Shop2Bhutan admin support will be required to reactivate this
+              account later.
             </div>
 
-            <label className="mt-4 block text-xs font-bold uppercase tracking-wider text-gray-500">
-              Reason optional
+            <label className="mt-4 block text-xs font-bold text-gray-700">
+              Reason <span className="font-medium text-gray-400">(optional)</span>
             </label>
             <textarea
               value={deactivationReason}
               onChange={(event) => setDeactivationReason(event.target.value)}
-              placeholder="Example: I no longer want to use this account"
-              className="mt-1.5 h-24 w-full resize-none rounded-2xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-500/10"
+              placeholder="Tell us why you are leaving"
+              className="mt-1.5 h-24 w-full resize-none rounded-2xl border border-gray-200 px-3 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-4 focus:ring-orange-500/10"
               disabled={deactivating}
             />
 
@@ -556,12 +707,12 @@ export default function Account() {
               </div>
             )}
 
-            <div className="sticky bottom-0 -mx-4 mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 bg-white px-4 pb-[env(safe-area-inset-bottom)] pt-3">
+            <div className="mt-4 grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setDeactivateOpen(false)}
                 disabled={deactivating}
-                className="h-11 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                className="h-11 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 disabled:opacity-60"
               >
                 Keep Account
               </button>
@@ -570,7 +721,7 @@ export default function Account() {
                 type="button"
                 onClick={handleDeactivateAccount}
                 disabled={deactivating}
-                className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-red-500 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-60"
+                className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-red-500 text-sm font-bold text-white disabled:opacity-60"
               >
                 {deactivating && <Loader2 size={16} className="animate-spin" />}
                 Deactivate
