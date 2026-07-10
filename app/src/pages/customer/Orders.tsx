@@ -510,11 +510,6 @@ export default function Orders() {
     [orders],
   );
   const actionCount = useMemo(() => orders.filter(needsCustomerAction).length, [orders]);
-  const completedCount = useMemo(
-    () => orders.filter((order) => order.status === 'delivered').length,
-    [orders],
-  );
-
   if (!authLoading && !user) {
     return (
       <div className="min-h-screen bg-white px-4 py-10">
@@ -560,19 +555,24 @@ export default function Orders() {
             </button>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-bold">
-            <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-50 px-3 text-slate-600 ring-1 ring-slate-100">
-              <span className="font-black text-slate-950">{activeCount}</span> Active
+          <div className="mt-3 flex items-center gap-2 text-[10.5px] font-bold">
+            <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-slate-50 px-2.5 text-slate-600 ring-1 ring-slate-100">
+              <span className="font-black text-slate-950">{activeCount}</span>
+              Active
             </span>
-            <span className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 ring-1 ${actionCount > 0 ? 'bg-orange-50 text-orange-700 ring-orange-100' : 'bg-slate-50 text-slate-600 ring-slate-100'}`}>
-              <span className="font-black">{actionCount}</span> Action
-            </span>
-            <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-50 px-3 text-slate-600 ring-1 ring-slate-100">
-              <span className="font-black text-slate-950">{completedCount}</span> Delivered
+            <span
+              className={`inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 ring-1 ${
+                actionCount > 0
+                  ? 'bg-orange-50 text-orange-700 ring-orange-100'
+                  : 'bg-slate-50 text-slate-600 ring-slate-100'
+              }`}
+            >
+              <span className="font-black">{actionCount}</span>
+              Needs action
             </span>
           </div>
 
-          <div className="scrollbar-hide -mx-4 mt-2.5 flex gap-2 overflow-x-auto px-4 pb-0.5">
+          <div className="scrollbar-hide -mx-4 mt-3 flex gap-1.5 overflow-x-auto px-4 pb-1">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.key;
               const Icon = tab.icon;
@@ -584,16 +584,16 @@ export default function Orders() {
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
                   aria-label={tab.label}
-                  className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-[11.5px] font-extrabold ring-1 transition active:scale-[0.97] ${
+                  className={`flex h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-extrabold ring-1 transition active:scale-[0.97] ${
                     isActive
                       ? 'bg-orange-500 text-white ring-orange-500 shadow-sm shadow-orange-500/20'
                       : 'bg-white text-slate-600 ring-slate-200 active:bg-slate-50'
                   }`}
                 >
-                  <Icon size={13} strokeWidth={isActive ? 2.6 : 2.1} />
+                  <Icon size={12.5} strokeWidth={isActive ? 2.6 : 2.1} />
                   <span>{tab.shortLabel}</span>
                   <span
-                    className={`flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[9px] font-black ${
+                    className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[8.5px] font-black ${
                       isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
                     }`}
                   >
