@@ -638,44 +638,64 @@ export default function OrderDetail() {
     : fulfillmentMethodDescription;
 
   return (
-    <div className="min-h-screen bg-white pb-28">
-      <div className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-3">
-        <div className="mx-auto max-w-2xl">
-          <h1 className="text-lg font-bold text-gray-900">{detailTitle}</h1>
-          <p className="truncate text-xs text-gray-500">#{order.orderNumber}</p>
+    <div className="min-h-screen bg-white pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
+      <header className="sticky top-0 z-30 border-b border-gray-100 bg-white/95 px-4 py-3 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-orange-500">
+              {quotationStage ? 'Request journey' : 'Order journey'}
+            </p>
+            <h1 className="mt-0.5 text-lg font-black tracking-tight text-gray-950">{detailTitle}</h1>
+            <p className="truncate text-xs font-medium text-gray-500">#{order.orderNumber}</p>
+          </div>
+          <CustomerStageBadge status={effectiveStatus ?? order.status} />
         </div>
-      </div>
+      </header>
 
-      <main className="mx-auto max-w-2xl space-y-4 px-4 py-4">
+      <main className="mx-auto max-w-2xl space-y-5 px-4 py-4">
         {waitingForQuotation && (
-          <section className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+          <section className="rounded-[24px] bg-emerald-50 px-4 py-3.5 ring-1 ring-emerald-100">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-600 shadow-sm ring-1 ring-emerald-100">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-600 shadow-sm ring-1 ring-emerald-100">
                 <CheckCircle size={20} strokeWidth={2.5} />
-              </div>
+              </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-extrabold text-emerald-950">Quotation request sent</p>
+                <p className="text-sm font-black text-emerald-950">Quotation request sent</p>
                 <p className="mt-1 text-xs leading-5 text-emerald-800">
-                  We’ll notify you once your quotation is ready. No payment is required until you approve the quotation.
+                  We’ll notify you once your quotation is ready. No payment is required until you approve it.
                 </p>
               </div>
             </div>
           </section>
         )}
 
-        <section className="overflow-hidden rounded-2xl bg-white border border-gray-100">
-          <div className="bg-white p-5">
+        <section className="overflow-hidden rounded-[28px] bg-gray-950 text-white shadow-sm">
+          <div className="p-5">
             <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/50">{currentStatusTitle}</p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight text-white">
+                  {customerStageLabel(effectiveStatus ?? order.status)}
+                </h2>
+                <p className="mt-2 max-w-md text-sm leading-6 text-white/70">
+                  {statusMessage(order, effectiveStatus ?? order.status)}
+                </p>
+              </div>
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] bg-white shadow-sm">
+                {statusIcons[effectiveStatus ?? order.status] ?? (
+                  <Package size={30} className="text-orange-500" strokeWidth={2} />
+                )}
+              </span>
+            </div>
+
+            <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-4">
               <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">{currentStatusTitle}</p>
-                <div className="mt-2 inline-flex">
-                  <CustomerStageBadge status={effectiveStatus ?? order.status} />
-                </div>
-                <p className="mt-3 text-sm leading-relaxed text-gray-600">{statusMessage(order, effectiveStatus ?? order.status)}</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/40">Next step</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-white/80">{compactProgress.nextText}</p>
               </div>
-              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-orange-50">
-                {statusIcons[effectiveStatus ?? order.status] ?? <Package size={30} className="text-orange-500" strokeWidth={2} />}
-              </div>
+              <span className="shrink-0 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-black text-white">
+                {compactProgress.progressPercent}%
+              </span>
             </div>
           </div>
 
@@ -683,21 +703,18 @@ export default function OrderDetail() {
             <button
               type="button"
               onClick={() => navigate(`/quotation/${order.id}`)}
-              className="w-full bg-violet-50 p-4 text-left transition-colors hover:bg-violet-100 border-t border-gray-100"
+              className="flex w-full items-center justify-between gap-3 border-t border-white/10 bg-violet-500 px-4 py-3.5 text-left transition-colors hover:bg-violet-600 active:bg-violet-600"
             >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white">
-                    <FileText size={22} strokeWidth={2} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-violet-950">Quotation ready</p>
-                    <p className="mt-0.5 text-xs text-violet-700">Review your final payable amount before payment.</p>
-                    <p className="mt-1 text-base font-bold text-violet-950">{money(order.quotation.totalAmount)}</p>
-                  </div>
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white">
+                  <FileText size={19} strokeWidth={2.4} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-white">Review quotation</p>
+                  <p className="mt-0.5 text-xs text-white/75">Final payable: {money(order.quotation.totalAmount)}</p>
                 </div>
-                <ChevronRight size={21} className="flex-shrink-0 text-violet-500" />
               </div>
+              <ChevronRight size={20} className="shrink-0 text-white" />
             </button>
           )}
 
@@ -705,257 +722,282 @@ export default function OrderDetail() {
             <button
               type="button"
               onClick={() => navigate(`/payment/${order.id}`)}
-              className="w-full bg-emerald-50 p-4 text-left transition-colors hover:bg-emerald-100 border-t border-gray-100"
+              className="flex w-full items-center justify-between gap-3 border-t border-white/10 bg-orange-500 px-4 py-3.5 text-left transition-colors hover:bg-orange-600 active:bg-orange-600"
             >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-white">
-                    <CreditCard size={22} strokeWidth={2} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-emerald-950">{paymentSummary.isPartiallyPaid ? 'Balance payment due' : 'Payment pending'}</p>
-                    <p className="text-xs text-emerald-700">
-                      {paymentSummary.isPartiallyPaid
-                        ? `Remaining balance: ${money(paymentSummary.balanceDue)}`
-                        : 'Upload your payment screenshot to continue.'}
-                    </p>
-                  </div>
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white">
+                  <CreditCard size={19} strokeWidth={2.4} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-white">
+                    {paymentSummary.isPartiallyPaid ? 'Pay remaining balance' : 'Upload payment proof'}
+                  </p>
+                  <p className="mt-0.5 text-xs text-white/75">
+                    {paymentSummary.isPartiallyPaid
+                      ? `${money(paymentSummary.balanceDue)} remaining`
+                      : 'Complete payment to continue your order.'}
+                  </p>
                 </div>
-                <ChevronRight size={21} className="text-emerald-500" />
               </div>
+              <ChevronRight size={20} className="shrink-0 text-white" />
             </button>
           )}
         </section>
 
-        <section className="overflow-hidden rounded-2xl bg-white border border-gray-100">
+        <section className="rounded-[26px] bg-gray-50/80 p-4 ring-1 ring-gray-100">
           <button
             type="button"
             onClick={() => setTimelineOpen((value) => !value)}
-            className="w-full p-4 text-left transition-colors hover:bg-gray-50"
+            className="w-full text-left"
             aria-expanded={timelineOpen}
           >
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <h3 className="text-base font-bold text-gray-900">{progressTitle}</h3>
-                <p className="mt-1 text-sm font-semibold text-gray-800">{compactProgress.currentLabel}</p>
-                <p className="mt-1 text-xs leading-relaxed text-gray-500">{compactProgress.nextText}</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">{progressTitle}</p>
+                <h3 className="mt-1.5 text-base font-black text-gray-950">{compactProgress.currentLabel}</h3>
+                <p className="mt-1 text-xs leading-5 text-gray-500">Tap to view every update in Bhutan Time.</p>
               </div>
-              <div className="flex shrink-0 items-center gap-1 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-700">
-                {timelineOpen ? 'Hide timeline' : 'View timeline'}
+              <span className="flex h-9 shrink-0 items-center gap-1 rounded-full bg-white px-3 text-[11px] font-black text-gray-700 shadow-sm ring-1 ring-gray-100">
+                {timelineOpen ? 'Hide' : 'Timeline'}
                 <ChevronDown size={15} className={`transition-transform ${timelineOpen ? 'rotate-180' : ''}`} />
-              </div>
+              </span>
             </div>
 
             <div className="mt-4">
-              <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+              <div className="h-2 overflow-hidden rounded-full bg-white ring-1 ring-gray-100">
                 <div
-                  className="h-full rounded-full bg-orange-500 transition-all"
+                  className={`h-full rounded-full transition-all ${effectiveStatus === 'cancelled' ? 'bg-red-500' : 'bg-orange-500'}`}
                   style={{ width: `${compactProgress.progressPercent}%` }}
                 />
               </div>
-              <div className="mt-2 flex justify-between text-[10px] font-bold uppercase tracking-wide text-gray-400">
-                <span>{quotationStage ? 'Request' : 'Received'}</span>
-                <span>{isSelfPickupOrder(order) ? 'Picked up' : 'Delivered'}</span>
+              <div className="mt-2 flex justify-between text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
+                <span>{quotationStage ? 'Requested' : 'Received'}</span>
+                <span>{isSelfPickup ? 'Picked up' : 'Delivered'}</span>
               </div>
             </div>
           </button>
 
           {timelineOpen && (
-            <div className="border-t border-gray-100 p-4">
+            <div className="mt-4 border-t border-gray-200 pt-4">
               <OrderProgressTimeline order={order} />
             </div>
           )}
         </section>
 
-        <section className="rounded-2xl bg-white p-4 border border-gray-100">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-base font-bold text-gray-900">{itemsTitle}</h3>
-            <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-bold text-gray-600">
+        <section>
+          <div className="mb-3 flex items-end justify-between gap-3 px-1">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">Products</p>
+              <h3 className="mt-1 text-lg font-black tracking-tight text-gray-950">{itemsTitle}</h3>
+            </div>
+            <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-black text-gray-600">
               {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
             </span>
           </div>
-          <div className="space-y-3">
-            {order.items.map((item) => (
-              <div key={item.id} className="rounded-2xl border border-gray-100 bg-gray-50/80 p-3">
+
+          <div className="overflow-hidden rounded-[26px] bg-white ring-1 ring-gray-100">
+            {order.items.map((item, index) => (
+              <div
+                key={item.id}
+                className={`p-3.5 ${index < order.items.length - 1 ? 'border-b border-gray-100' : ''}`}
+              >
                 <div className="flex gap-3">
                   <img
                     src={item.productImage}
-                    alt=""
-                    className="h-20 w-20 flex-shrink-0 rounded-2xl bg-white object-cover border border-gray-100"
+                    alt={item.productName || 'Order item'}
+                    className="h-[76px] w-[76px] shrink-0 rounded-[20px] bg-gray-50 object-cover ring-1 ring-gray-100"
                     loading="lazy"
                   />
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 py-0.5">
                     <div className="flex flex-wrap items-center gap-2">
                       {item.sourcePlatform && (
-                        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-600 border border-gray-100">
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-gray-600">
                           {item.sourcePlatform}
                         </span>
                       )}
-                      <span className="text-xs text-gray-500">Qty: {item.quantity}</span>
+                      <span className="text-[11px] font-semibold text-gray-400">Qty {item.quantity}</span>
                     </div>
-                    <p className="mt-1 line-clamp-2 text-sm font-bold leading-snug text-gray-900">{item.productName}</p>
-                    {item.unitPrice > 0 && (
-                      <p className="mt-2 text-sm font-bold text-gray-900">
-                        {money(item.unitPrice * item.quantity)}
+                    <p className="mt-1.5 line-clamp-2 text-sm font-black leading-5 text-gray-950">{item.productName}</p>
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <p className="text-sm font-black text-gray-950">
+                        {item.unitPrice > 0 ? money(item.unitPrice * item.quantity) : 'Price in quotation'}
                       </p>
-                    )}
+                      {item.sourceUrl && /^https?:\/\//i.test(item.sourceUrl) && (
+                        <a
+                          href={item.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex shrink-0 items-center gap-1 text-[11px] font-black text-blue-600"
+                        >
+                          Source <ExternalLink size={12} strokeWidth={2.5} />
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
-                {item.sourceUrl && /^https?:\/\//i.test(item.sourceUrl) && (
-                  <a
-                    href={item.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600 transition-colors hover:bg-blue-100"
-                  >
-                    <ExternalLink size={13} strokeWidth={2.5} /> View product source
-                  </a>
-                )}
               </div>
             ))}
           </div>
         </section>
 
-        <section className="rounded-3xl bg-white p-4 border border-gray-100 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="text-base font-bold text-gray-900">{quotationStage ? 'Quotation details' : 'Fulfillment details'}</h3>
-            <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${fulfillmentDisplay.badgeClass}`}>
-              {fulfillmentDisplay.label}
-            </span>
+        <section>
+          <div className="mb-3 px-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">Fulfillment</p>
+            <h3 className="mt-1 text-lg font-black tracking-tight text-gray-950">
+              {quotationStage ? 'Quotation details' : 'Delivery details'}
+            </h3>
           </div>
 
-          <div className="space-y-3">
-            <div className="rounded-2xl border border-orange-100 bg-orange-50/40 p-3">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm ring-1 ring-orange-100">
-                  <MapPin size={18} strokeWidth={2.4} />
+          <div className="overflow-hidden rounded-[26px] bg-white ring-1 ring-gray-100">
+            <div className="flex items-start gap-3 p-4">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
+                <MapPin size={18} strokeWidth={2.4} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">{contactTitle}</p>
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${fulfillmentDisplay.badgeClass}`}>
+                    {fulfillmentDisplay.label}
+                  </span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-orange-600">
-                    {contactTitle}
-                  </p>
-                  <p className="mt-1 text-sm font-extrabold text-gray-900">
-                    {order.shippingAddress.recipientName || 'Customer'}
-                  </p>
-                  {order.shippingAddress.phone && (
-                    <p className="mt-0.5 text-xs font-semibold text-gray-500">
-                      {order.shippingAddress.phone}
-                    </p>
-                  )}
-                  <p className="mt-1.5 text-xs leading-5 text-gray-600">{safeAddress(order)}</p>
-                </div>
+                <p className="mt-1.5 text-sm font-black text-gray-950">
+                  {order.shippingAddress.recipientName || 'Customer'}
+                </p>
+                {order.shippingAddress.phone && (
+                  <p className="mt-0.5 text-xs font-semibold text-gray-500">{order.shippingAddress.phone}</p>
+                )}
+                <p className="mt-1.5 text-xs leading-5 text-gray-600">{safeAddress(order)}</p>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-3">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-600 shadow-sm ring-1 ring-emerald-100">
-                  <Truck size={18} strokeWidth={2.4} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">
-                    {methodTitle}
-                  </p>
-                  <p className="mt-1 text-sm font-extrabold text-gray-900">
-                    {quotationFulfillmentMethodTitle}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-gray-600">
-                    {quotationFulfillmentDescription}
-                  </p>
-                </div>
+            <div className="flex items-start gap-3 border-t border-gray-100 p-4">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                <Truck size={18} strokeWidth={2.4} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">{methodTitle}</p>
+                <p className="mt-1.5 text-sm font-black text-gray-950">{quotationFulfillmentMethodTitle}</p>
+                <p className="mt-1 text-xs leading-5 text-gray-600">{quotationFulfillmentDescription}</p>
               </div>
             </div>
           </div>
         </section>
 
         {order.quotation && (
-          <section className="rounded-2xl bg-white p-4 border border-gray-100">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-base font-bold text-gray-900">Payment summary</h3>
+          <section>
+            <div className="mb-3 flex items-end justify-between gap-3 px-1">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">Payment</p>
+                <h3 className="mt-1 text-lg font-black tracking-tight text-gray-950">Payment summary</h3>
+              </div>
               <span
-                className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
                   paymentSummary.isFullyPaid
-                    ? 'bg-emerald-50 text-emerald-600'
+                    ? 'bg-emerald-50 text-emerald-700'
                     : paymentSummary.isPartiallyPaid
-                      ? 'bg-blue-50 text-blue-600'
+                      ? 'bg-blue-50 text-blue-700'
                       : hasPendingPayment
-                        ? 'bg-orange-50 text-orange-600'
+                        ? 'bg-orange-50 text-orange-700'
                         : 'bg-gray-100 text-gray-600'
                 }`}
               >
                 {paymentSummary.isFullyPaid
                   ? 'Fully paid'
                   : paymentSummary.isPartiallyPaid
-                    ? 'Partial paid'
+                    ? 'Partially paid'
                     : hasPendingPayment
                       ? 'Under review'
                       : 'Payment due'}
               </span>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-2xl bg-gray-50 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Total</p>
-                <p className="mt-1 text-xs font-black text-gray-950">{money(paymentSummary.totalPayable)}</p>
-              </div>
-              <div className="rounded-2xl bg-emerald-50 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600">Paid</p>
-                <p className="mt-1 text-xs font-black text-emerald-700">{money(paymentSummary.verifiedPaid)}</p>
-              </div>
-              <div className="rounded-2xl bg-amber-50 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600">Balance</p>
-                <p className="mt-1 text-xs font-black text-amber-700">{money(paymentSummary.balanceDue)}</p>
-              </div>
-            </div>
-            {paymentSummary.balanceDue > 0 && !hasPendingPayment && order.quotation.status === 'approved' && (
-              <button
-                type="button"
-                onClick={() => navigate(`/payment/${order.id}`)}
-                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white active:scale-[0.98]"
-              >
-                {paymentSummary.isPartiallyPaid ? 'Upload Remaining Payment' : 'Upload Payment'}
-                <ChevronRight size={17} />
-              </button>
-            )}
-            {hasPendingPayment && (
-              <p className="mt-3 rounded-2xl bg-orange-50 p-3 text-xs leading-5 text-orange-700">
-                A payment proof is under review. Balance will update after admin verification.
-              </p>
-            )}
-          </section>
-        )}
 
-        {order.payment && (
-          <section className="rounded-2xl bg-white p-4 border border-gray-100">
-            <h3 className="mb-3 text-base font-bold text-gray-900">Latest payment details</h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between gap-4">
-                <span className="text-gray-600">Method</span>
-                <span className="font-bold text-gray-900">{order.payment.method || 'Under review'}</span>
+            <div className="overflow-hidden rounded-[26px] bg-white ring-1 ring-gray-100">
+              <div className="p-4">
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">Total payable</p>
+                    <p className="mt-1 text-2xl font-black tracking-tight text-gray-950">
+                      {money(paymentSummary.totalPayable)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">Balance</p>
+                    <p className={`mt-1 text-base font-black ${paymentSummary.balanceDue > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>
+                      {money(paymentSummary.balanceDue)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-gray-50 p-1 ring-1 ring-gray-100">
+                  <div className="rounded-xl bg-white px-3 py-2.5 shadow-sm">
+                    <p className="text-[9px] font-black uppercase tracking-[0.12em] text-gray-400">Verified paid</p>
+                    <p className="mt-1 text-sm font-black text-emerald-600">{money(paymentSummary.verifiedPaid)}</p>
+                  </div>
+                  <div className="px-3 py-2.5">
+                    <p className="text-[9px] font-black uppercase tracking-[0.12em] text-gray-400">Pending review</p>
+                    <p className="mt-1 text-sm font-black text-gray-950">{money(paymentSummary.pendingAmount)}</p>
+                  </div>
+                </div>
+
+                {paymentSummary.balanceDue > 0 && !hasPendingPayment && order.quotation.status === 'approved' && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/payment/${order.id}`)}
+                    className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-black text-white shadow-sm transition-transform active:scale-[0.98]"
+                  >
+                    {paymentSummary.isPartiallyPaid ? 'Upload Remaining Payment' : 'Upload Payment Proof'}
+                    <ChevronRight size={17} />
+                  </button>
+                )}
+
+                {hasPendingPayment && (
+                  <p className="mt-4 rounded-2xl bg-orange-50 px-3 py-2.5 text-xs font-semibold leading-5 text-orange-700">
+                    A payment proof is under review. Your balance will update after verification.
+                  </p>
+                )}
               </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-gray-600">Amount</span>
-                <span className="font-bold text-gray-900">{money(order.payment.amount)}</span>
-              </div>
-              {order.payment.transactionId && (
-                <div className="flex justify-between gap-4">
-                  <span className="text-gray-600">Transaction ID</span>
-                  <span className="break-all text-right font-mono text-xs text-gray-900">{order.payment.transactionId}</span>
+
+              {order.payment && (
+                <div className="border-t border-gray-100 bg-gray-50/70 p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <p className="text-sm font-black text-gray-950">Latest payment</p>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
+                        order.payment.status === 'verified'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : order.payment.status === 'rejected'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-orange-100 text-orange-700'
+                      }`}
+                    >
+                      {order.payment.status === 'verified'
+                        ? 'Verified'
+                        : order.payment.status === 'rejected'
+                          ? 'Rejected'
+                          : 'Pending'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5 text-xs">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="font-semibold text-gray-500">Method</span>
+                      <span className="text-right font-black text-gray-950">{order.payment.method || 'Under review'}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="font-semibold text-gray-500">Amount</span>
+                      <span className="font-black text-gray-950">{money(order.payment.amount)}</span>
+                    </div>
+                    {order.payment.transactionId && (
+                      <div className="flex items-start justify-between gap-4">
+                        <span className="shrink-0 font-semibold text-gray-500">Transaction ID</span>
+                        <span className="break-all text-right font-mono text-[11px] text-gray-950">
+                          {order.payment.transactionId}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
-              <div className="flex justify-between gap-4">
-                <span className="text-gray-600">Status</span>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                    order.payment.status === 'verified'
-                      ? 'bg-emerald-50 text-emerald-600'
-                      : order.payment.status === 'rejected'
-                        ? 'bg-red-50 text-red-600'
-                        : 'bg-orange-50 text-orange-600'
-                  }`}
-                >
-                  {order.payment.status === 'verified' ? 'Verified' : order.payment.status === 'rejected' ? 'Rejected' : 'Pending'}
-                </span>
-              </div>
             </div>
           </section>
         )}
@@ -965,13 +1007,13 @@ export default function OrderDetail() {
             <button
               type="button"
               onClick={() => navigate('/shop')}
-              className="h-12 rounded-2xl bg-orange-500 text-sm font-bold text-white transition-colors hover:bg-orange-600"
+              className="h-12 rounded-2xl bg-orange-500 text-sm font-black text-white transition-transform active:scale-[0.98]"
             >
               Order Again
             </button>
             <button
               type="button"
-              className="h-12 rounded-2xl bg-white text-sm font-bold text-gray-700 border border-gray-200 transition-colors hover:bg-gray-50"
+              className="h-12 rounded-2xl bg-gray-100 text-sm font-black text-gray-800 transition-transform active:scale-[0.98]"
             >
               Write Review
             </button>
@@ -982,18 +1024,18 @@ export default function OrderDetail() {
           <button
             type="button"
             onClick={() => navigate(`/quotation/${order.id}`)}
-            className="flex w-full items-center justify-between rounded-2xl bg-white p-4 text-left border border-gray-100 transition-all hover:bg-gray-50"
+            className="flex w-full items-center justify-between rounded-[22px] bg-violet-50 p-4 text-left ring-1 ring-violet-100 transition-transform active:scale-[0.99]"
           >
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
-                <FileText size={20} strokeWidth={2.5} />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-gray-900">View quotation</p>
-                <p className="text-xs text-gray-500">Total: {money(order.quotation.totalAmount)}</p>
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-violet-600 shadow-sm">
+                <FileText size={19} strokeWidth={2.4} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-black text-violet-950">View quotation</p>
+                <p className="mt-0.5 text-xs font-semibold text-violet-700">Total: {money(order.quotation.totalAmount)}</p>
               </div>
             </div>
-            <ChevronRight size={18} className="text-gray-400" />
+            <ChevronRight size={19} className="shrink-0 text-violet-500" />
           </button>
         )}
       </main>
