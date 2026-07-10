@@ -168,31 +168,41 @@ export default function Parcel() {
   )
 
   return (
-    <div className="min-h-screen bg-white pb-24">
+    <div className="min-h-screen bg-white pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div>
-            <h1 className="text-lg font-bold text-neutral-900">
-              Parcel Pickup and Drop
-            </h1>
-            <p className="text-xs text-neutral-500">
-              Thimphu to Phuentsholing and vice versa
-            </p>
+      <div className="sticky top-0 z-20 border-b border-neutral-100 bg-white/95 backdrop-blur">
+        <div className="px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-500">
+            Parcel service
+          </p>
+          <div className="mt-1 flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-xl font-extrabold tracking-tight text-neutral-950">
+                Parcel Pickup & Drop
+              </h1>
+              <p className="mt-0.5 text-xs font-medium text-neutral-500">
+                Thimphu ↔ Phuentsholing
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-orange-50 px-3 py-1.5 text-[11px] font-bold text-orange-700 ring-1 ring-orange-100">
+              Scheduled trips
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="space-y-5 px-4 py-4">
+      <div className="space-y-6 px-4 py-4">
         {/* Info Banner */}
-        <div className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
-          <div className="mt-0.5 shrink-0 text-blue-500">
-            <Info size={18} />
+        <div className="flex items-start gap-3 rounded-3xl border border-blue-100 bg-blue-50/70 p-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-600 ring-1 ring-blue-100">
+            <Info size={17} />
           </div>
-          <p className="text-xs leading-relaxed text-blue-700">
-            Book documents, small electronics, or permitted medicines for an admin-scheduled trip date. A parcel photo and declaration are required before submission.
-
-          </p>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-blue-950">Lightweight parcel service</p>
+            <p className="mt-1 text-xs leading-relaxed text-blue-700">
+              Book documents, small electronics, or permitted medicines for an admin-scheduled trip. A parcel photo and declaration are required.
+            </p>
+          </div>
         </div>
 
         {error && (
@@ -204,10 +214,13 @@ export default function Parcel() {
         {/* Active Parcels */}
         {activeRequests.length > 0 && (
           <section>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold text-neutral-900">
-                Active Parcels
-              </h2>
+            <div className="mb-3 flex items-end justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-orange-500">Tracking</p>
+                <h2 className="mt-1 text-lg font-extrabold tracking-tight text-neutral-950">
+                  Active parcels
+                </h2>
+              </div>
 
               <button
                 onClick={() => navigate('/my-parcels?view=active')}
@@ -223,10 +236,10 @@ export default function Parcel() {
                 <button
                   key={request.id}
                   onClick={() => navigate('/my-parcels?view=active')}
-                  className="flex w-full items-center gap-3 rounded-3xl border border-neutral-100 bg-white p-4 text-left shadow-sm transition active:scale-[0.99]"
+                  className="flex w-full items-center gap-3 rounded-2xl border border-neutral-100 bg-white p-3.5 text-left shadow-sm transition active:scale-[0.99]"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                    <Package size={22} />
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+                    <Package size={20} />
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -256,11 +269,12 @@ export default function Parcel() {
         {/* Available Trips */}
         <section>
           <div className="mb-3">
-            <h2 className="text-base font-bold text-neutral-900">
-              Available Routes & Dates
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-orange-500">Book a parcel</p>
+            <h2 className="mt-1 text-lg font-extrabold tracking-tight text-neutral-950">
+              Available trips
             </h2>
-            <p className="text-xs text-neutral-500">
-              Select the correct route and date to book your parcel
+            <p className="mt-1 text-xs text-neutral-500">
+              Select the route and scheduled date that works for you.
             </p>
           </div>
 
@@ -293,7 +307,7 @@ export default function Parcel() {
                 <button
                   key={trip.id}
                   onClick={() => navigate(`/parcel-booking/${trip.id}`)}
-                  className="w-full overflow-hidden rounded-3xl border border-neutral-100 bg-white text-left shadow-sm transition hover:border-orange-200 active:scale-[0.99]"
+                  className="w-full overflow-hidden rounded-[28px] border border-neutral-100 bg-white text-left shadow-sm transition hover:border-orange-200 active:scale-[0.99]"
                 >
                   {/* Card Header */}
                   <div className="p-4 pb-0">
@@ -309,7 +323,7 @@ export default function Parcel() {
                           </span>
                           <span className="flex items-center gap-1">
                             <MapPin size={12} />
-                            Documents, small electronics, medicine only
+                            Documents, electronics, permitted medicine
                           </span>
                         </div>
                       </div>
@@ -321,8 +335,8 @@ export default function Parcel() {
                   </div>
 
                   {/* Route Visual */}
-                  <div className="mt-4 px-4">
-                    <div className="flex items-center gap-3 rounded-2xl bg-neutral-50 p-4">
+                  <div className="mt-3 px-4">
+                    <div className="flex items-center gap-3 rounded-2xl bg-neutral-50 p-3.5 ring-1 ring-neutral-100">
                       <div className="flex flex-col items-center">
                         <span className="h-3 w-3 rounded-full bg-emerald-500" />
                         <span className="my-1 h-8 w-px bg-neutral-300" />
@@ -357,7 +371,7 @@ export default function Parcel() {
                   <div className="flex items-center justify-between border-t border-neutral-50 px-4 py-3">
                     <span className="flex items-center gap-1.5 text-xs text-neutral-500">
                       <Clock size={13} />
-                      Admin fixed trip date
+                      Scheduled trip date
                     </span>
                     <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
                       Booking Open

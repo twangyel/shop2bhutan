@@ -18,7 +18,6 @@ import {
   FileText,
   Smartphone,
   Pill,
-  Box,
   Upload,
 } from 'lucide-react'
 import {
@@ -36,11 +35,6 @@ const allowedParcelTypes: { key: ParcelType; label: string }[] = [
   { key: 'medicine', label: 'Medicine / Health Items' },
 ]
 
-const allowedParcelSizes: { key: ParcelSize; label: string }[] = [
-  { key: 'document_envelope', label: 'Document Envelope' },
-  { key: 'small_packet', label: 'Small Packet' },
-  { key: 'small_box', label: 'Small Box' },
-]
 
 const parcelTypeIcons: Record<string, React.ElementType> = {
   documents: FileText,
@@ -48,11 +42,6 @@ const parcelTypeIcons: Record<string, React.ElementType> = {
   medicine: Pill,
 }
 
-const parcelSizeIcons: Record<string, React.ElementType> = {
-  document_envelope: FileText,
-  small_packet: Package,
-  small_box: Box,
-}
 
 function formatDate(value?: string | null) {
   if (!value) return 'Date not fixed'
@@ -298,7 +287,6 @@ export default function ParcelBooking() {
     if (!form.dropoffAddress.trim()) nextErrors.dropoffAddress = 'Required'
 
     if (!form.parcelType) nextErrors.parcelType = 'Required'
-    if (!form.parcelSize) nextErrors.parcelSize = 'Required'
 
     if (form.packageDescription.trim().length < 3) {
       nextErrors.packageDescription = 'Add a clear parcel description'
@@ -429,15 +417,31 @@ export default function ParcelBooking() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white">
+      <div className="sticky top-0 z-20 border-b border-neutral-100 bg-white/95 backdrop-blur">
         <div className="px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
-          <h1 className="text-lg font-bold text-neutral-900">Book Parcel</h1>
-          <p className="text-xs text-neutral-500">Pickup and drop-off details</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-500">
+            Parcel booking
+          </p>
+          <div className="mt-1 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-xl font-extrabold tracking-tight text-neutral-950">Confirm Parcel</h1>
+              <p className="mt-0.5 truncate text-xs font-medium text-neutral-500">
+                {trip ? tripDisplayTitle(trip) : 'Pickup and drop-off details'}
+              </p>
+            </div>
+            <span className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-bold ring-1 ${
+              bookingClosed
+                ? 'bg-amber-50 text-amber-700 ring-amber-100'
+                : 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+            }`}>
+              {bookingClosed ? 'Booking Closed' : 'Booking Open'}
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Step Indicator */}
-      <div className="px-4 pt-4 pb-2">
+      <div className="px-4 pb-1 pt-4">
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 text-white">
             <CheckCircle2 size={14} />
@@ -458,7 +462,7 @@ export default function ParcelBooking() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5 px-4 py-4 pb-28">
+      <form onSubmit={handleSubmit} className="space-y-5 px-4 py-4 pb-[calc(7rem+env(safe-area-inset-bottom))]">
         {error && (
           <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
@@ -473,7 +477,7 @@ export default function ParcelBooking() {
 
         {/* Trip Route Card */}
         {trip && (
-          <div className="overflow-hidden rounded-3xl border border-neutral-100 bg-white">
+          <div className="overflow-hidden rounded-[28px] border border-neutral-100 bg-white shadow-sm">
             <div className="p-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white">
@@ -616,8 +620,8 @@ export default function ParcelBooking() {
               <Package size={16} />
             </div>
             <div>
-              <p className="text-sm font-bold text-neutral-900">Parcel Details</p>
-              <p className="text-[11px] text-neutral-400">Only lightweight items accepted</p>
+              <p className="text-sm font-bold text-neutral-900">Parcel contents</p>
+              <p className="text-[11px] text-neutral-400">Choose one allowed parcel type</p>
             </div>
           </div>
 
@@ -635,16 +639,16 @@ export default function ParcelBooking() {
                     key={item.key}
                     type="button"
                     onClick={() => update('parcelType', item.key)}
-                    className={`flex flex-col items-center gap-2 rounded-2xl border p-3 text-center transition ${
+                    className={`flex min-h-[112px] flex-col items-center justify-center gap-2 rounded-2xl border p-2.5 text-center transition ${
                       isSelected
                         ? 'border-orange-400 bg-orange-50'
                         : 'border-neutral-200 bg-white hover:border-neutral-300'
                     }`}
                   >
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                    <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${
                       isSelected ? 'bg-orange-500 text-white' : 'bg-neutral-100 text-neutral-400'
                     }`}>
-                      <Icon size={20} />
+                      <Icon size={18} />
                     </div>
                     <p className={`text-xs font-bold leading-tight ${
                       isSelected ? 'text-orange-700' : 'text-neutral-700'
@@ -660,41 +664,6 @@ export default function ParcelBooking() {
             )}
           </div>
 
-          {/* Parcel Size */}
-          <div className="mb-4">
-            <label className="mb-2 block text-sm font-semibold text-neutral-700">
-              Parcel Size
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {allowedParcelSizes.map((item) => {
-                const Icon = parcelSizeIcons[item.key] || Package
-                const isSelected = form.parcelSize === item.key
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => update('parcelSize', item.key)}
-                    className={`flex flex-col items-center gap-2 rounded-2xl border p-3 text-center transition ${
-                      isSelected
-                        ? 'border-orange-400 bg-orange-50'
-                        : 'border-neutral-200 bg-white hover:border-neutral-300'
-                    }`}
-                  >
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-                      isSelected ? 'bg-orange-500 text-white' : 'bg-neutral-100 text-neutral-400'
-                    }`}>
-                      <Icon size={20} />
-                    </div>
-                    <p className={`text-xs font-bold leading-tight ${
-                      isSelected ? 'text-orange-700' : 'text-neutral-700'
-                    }`}>
-                      {item.label}
-                    </p>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
 
           {/* Description */}
           <IconTextArea
@@ -726,7 +695,7 @@ export default function ParcelBooking() {
                     <img
                       src={photoPreviewUrl}
                       alt="Selected parcel preview"
-                      className="h-48 w-full object-contain"
+                      className="h-44 w-full object-contain"
                     />
                     <div className="absolute right-2 top-2 rounded-full bg-black/50 px-2.5 py-1 text-[10px] font-bold text-white">
                       Tap to change
@@ -748,7 +717,7 @@ export default function ParcelBooking() {
                   </div>
                 </div>
               ) : (
-                <div className="flex min-h-32 flex-col items-center justify-center p-5 text-center">
+                <div className="flex min-h-28 flex-col items-center justify-center p-4 text-center">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-100 text-neutral-400">
                     <Upload size={24} />
                   </div>
@@ -825,23 +794,25 @@ export default function ParcelBooking() {
             </p>
           )}
         </div>
-      </form>
 
-      {/* Sticky Bottom Button */}
-      <div className="fixed bottom-0 left-0 right-0 border-t border-neutral-100 bg-white p-4">
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={submitting || bookingClosed}
-          className="h-12 w-full rounded-2xl bg-orange-500 font-bold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
-        >
-          {bookingClosed
-            ? 'Booking Closed'
-            : submitting
-              ? 'Submitting...'
-              : 'Confirm Parcel Request'}
-        </button>
-      </div>
+        {/* Submit Action */}
+        <div className="pt-1">
+          <button
+            type="submit"
+            disabled={submitting || bookingClosed}
+            className="h-12 w-full rounded-2xl bg-orange-500 px-4 py-3.5 text-sm font-bold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
+          >
+            {bookingClosed
+              ? 'Booking Closed'
+              : submitting
+                ? 'Submitting...'
+                : 'Confirm Parcel Request'}
+          </button>
+          <p className="mt-2 text-center text-[11px] leading-5 text-neutral-400">
+            Your parcel photo and declaration will be submitted for admin review.
+          </p>
+        </div>
+      </form>
     </div>
   )
 }
