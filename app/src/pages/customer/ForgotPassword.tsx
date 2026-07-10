@@ -314,7 +314,7 @@ export default function ForgotPassword() {
         </div>
 
         <div className="mt-5 overflow-hidden rounded-[30px] border border-neutral-100 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.07)]">
-          <div className="border-b border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 px-6 py-6">
+          <div className="border-b border-neutral-100 bg-white px-6 py-6">
             <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-orange-500 text-white shadow-lg shadow-orange-500/20">
               <KeyRound size={27} strokeWidth={2.1} />
             </div>
@@ -367,7 +367,7 @@ export default function ForgotPassword() {
                       setAdminNotified(false);
                     }}
                     placeholder="your@email.com or 17123456"
-                    className="h-[52px] w-full rounded-2xl border border-neutral-200 bg-neutral-50 pl-11 pr-4 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10"
+                    className="h-[52px] w-full rounded-2xl border border-neutral-200 bg-white pl-11 pr-4 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10"
                   />
                 </div>
                 <p className="mt-2 text-xs leading-5 text-neutral-400">

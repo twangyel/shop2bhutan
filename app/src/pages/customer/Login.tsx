@@ -281,10 +281,7 @@ export default function Login() {
 
 
   return (
-    <div className="relative min-h-[100dvh] overflow-hidden bg-white px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))]">
-      <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-orange-100/45 blur-3xl" />
-      <div className="pointer-events-none absolute -left-28 bottom-16 h-60 w-60 rounded-full bg-amber-50 blur-3xl" />
-
+    <div className="min-h-[100dvh] bg-white px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))]">
       <div className="relative mx-auto flex min-h-[calc(100dvh-3.25rem)] w-full max-w-md flex-col">
         <div className="flex justify-center">
           <div className="origin-center scale-[0.8]">
@@ -293,7 +290,7 @@ export default function Login() {
         </div>
 
         <div className="mt-5 overflow-hidden rounded-[30px] border border-neutral-100 bg-white shadow-[0_22px_65px_rgba(15,23,42,0.08)]">
-          <div className="border-b border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 px-6 py-6">
+          <div className="border-b border-neutral-100 bg-white px-6 py-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange-500">
@@ -358,7 +355,7 @@ export default function Login() {
                       setSubmitError('');
                     }}
                     placeholder="Email address or 17/77 mobile number"
-                    className={`h-[52px] w-full rounded-2xl border bg-neutral-50 pl-11 pr-4 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:bg-white focus:ring-[3px] ${
+                    className={`h-[52px] w-full rounded-2xl border bg-white pl-11 pr-4 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:bg-white focus:ring-[3px] ${
                       errors.identifier
                         ? 'border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10'
                         : 'border-neutral-200 focus:border-orange-500 focus:ring-orange-500/10'
@@ -395,7 +392,7 @@ export default function Login() {
                       setSubmitError('');
                     }}
                     placeholder="Enter your password"
-                    className={`h-[52px] w-full rounded-2xl border bg-neutral-50 pl-11 pr-12 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:bg-white focus:ring-[3px] ${
+                    className={`h-[52px] w-full rounded-2xl border bg-white pl-11 pr-12 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:bg-white focus:ring-[3px] ${
                       errors.password
                         ? 'border-red-400 bg-red-50/50 focus:border-red-400 focus:ring-red-500/10'
                         : 'border-neutral-200 focus:border-orange-500 focus:ring-orange-500/10'
@@ -497,7 +494,7 @@ export default function Login() {
                   Continue as Guest
                 </button>
 
-                <div className="mt-6 rounded-2xl bg-orange-50/70 px-4 py-3 text-center">
+                <div className="mt-6 rounded-2xl border border-neutral-100 bg-white px-4 py-3 text-center">
                   <p className="text-sm font-medium text-neutral-600">
                     New to Shop2Bhutan?{' '}
                     <button

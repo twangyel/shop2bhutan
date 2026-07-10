@@ -234,300 +234,395 @@ export default function PasteLink() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="mx-auto max-w-3xl">
-
-        {/* ═══════════════ HEADER ═══════════════ */}
-        <header className="sticky top-0 z-40 bg-white border-b border-gray-100">
-          <div className="px-4 pb-3 pt-3">
-            <div>
-              <h1 className="text-lg font-bold text-black">Add Product to Request Bag</h1>
-              <p className="text-sm leading-5 text-gray-500">Paste an accepted store link or upload a screenshot. Add products first, then request one quotation.</p>
-            </div>
-
-            <div className="mt-2.5 inline-flex items-center gap-2 rounded-full bg-orange-50 border border-orange-100 px-3 py-1">
-              <CheckCircle size={13} className="text-orange-500" />
-              <span className="text-xs font-medium text-orange-700">No payment required now</span>
-            </div>
+    <div className="min-h-[100dvh] bg-white">
+      <div className="mx-auto w-full max-w-3xl">
+        <header className="sticky top-0 z-40 border-b border-neutral-100 bg-white/95 backdrop-blur">
+          <div className="px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+            <h1 className="text-lg font-extrabold tracking-tight text-neutral-950">
+              Add a product
+            </h1>
+            <p className="mt-0.5 text-xs leading-5 text-neutral-500">
+              Paste a supported store link or upload a screenshot.
+            </p>
           </div>
         </header>
 
-        {/* ═══════════════ STEP FLOW BAR ═══════════════ */}
-        <div className="mx-4 mt-4">
-          <div className="rounded-2xl bg-white border border-gray-100 p-3.5">
-            <div className="relative flex justify-between items-start">
-              {/* Connector line */}
-              <div className="absolute top-[18px] left-[18px] right-[18px] h-px bg-gray-200" />
+        <main className="px-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-4">
+          <section className="overflow-hidden rounded-[1.6rem] border border-neutral-100 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.06)]">
+            <div className="border-b border-neutral-100 px-5 py-5">
+              <div className="flex items-start gap-3">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-orange-50 text-orange-500">
+                  <ShoppingBag size={23} strokeWidth={2.2} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-orange-500">
+                    Request Bag
+                  </p>
+                  <h2 className="mt-1 text-xl font-black tracking-tight text-neutral-950">
+                    Add products first
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-neutral-500">
+                    Add one or more products, then submit the complete bag for a single quotation.
+                  </p>
+                </div>
+              </div>
 
-              {stepsFlow.map((step) => {
-                const Icon = step.icon;
-                const isActive = step.status === 'active';
-                return (
-                  <div key={step.label} className="relative z-10 flex flex-col items-center gap-1.5">
-                    <span className={`flex h-9 w-9 items-center justify-center rounded-full text-white ${isActive ? 'bg-orange-500' : 'bg-gray-200'}`}>
-                      <Icon size={16} strokeWidth={2.5} />
-                    </span>
-                    <span className={`text-[0.55rem] font-bold uppercase tracking-wider ${isActive ? 'text-orange-600' : 'text-gray-400'}`}>
-                      {step.label}
-                    </span>
-                  </div>
-                );
-              })}
+              <div className="mt-4 flex items-center gap-2 rounded-2xl bg-emerald-50 px-3.5 py-3 text-emerald-700">
+                <CheckCircle size={17} className="shrink-0" strokeWidth={2.4} />
+                <p className="text-xs font-bold leading-5">
+                  No payment is required until you review and accept our quotation.
+                </p>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* ═══════════════ MAIN CONTENT ═══════════════ */}
-        <div className="px-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-5">
+            <div className="px-5 py-4">
+              <div className="relative flex items-start justify-between">
+                <div className="absolute left-[16%] right-[16%] top-[18px] h-px bg-neutral-200" />
+                {stepsFlow.map((step) => {
+                  const Icon = step.icon;
+                  const isActive = step.status === 'active';
 
-          {/* ----- Platform Selector ----- */}
-          <div>
-            <p className="mb-3 px-0.5 text-xs font-bold uppercase tracking-wider text-gray-400">
-              Accepted Stores
-            </p>
-            <div className="grid grid-cols-4 gap-2.5">
-              {visiblePlatforms.map((p) => (
-                <a
-                  key={p.name}
-                  href={p.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => selectPlatform(p.key)}
-                  className="group flex flex-col items-center gap-2 rounded-2xl p-3 transition-all hover:bg-gray-50 active:scale-95"
-                >
-                  <div className="h-12 w-12 flex items-center justify-center">
-                    <img 
-                      src={p.logo} 
-                      alt={p.name} 
-                      className="h-full w-full object-contain" 
-                      loading="lazy"
-                    />
-                  </div>
-                  <span className="text-xs font-semibold text-gray-600">{p.name}</span>
-                </a>
-              ))}
+                  return (
+                    <div
+                      key={step.label}
+                      className="relative z-10 flex w-1/3 flex-col items-center gap-2 text-center"
+                    >
+                      <span
+                        className={`flex h-9 w-9 items-center justify-center rounded-full ring-4 ring-white ${
+                          isActive
+                            ? 'bg-orange-500 text-white'
+                            : 'bg-neutral-100 text-neutral-400'
+                        }`}
+                      >
+                        <Icon size={16} strokeWidth={2.4} />
+                      </span>
+                      <span
+                        className={`text-[10px] font-extrabold uppercase tracking-wide ${
+                          isActive ? 'text-orange-600' : 'text-neutral-400'
+                        }`}
+                      >
+                        {step.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          </section>
 
-          {/* ----- URL Input ----- */}
-          <div className="mt-5">
-            <p className="mb-3 px-0.5 text-xs font-bold uppercase tracking-wider text-gray-400">
-              Product Link
-            </p>
-            <div className="relative">
-              <Link2 size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" strokeWidth={2} />
+          {visiblePlatforms.length > 0 && (
+            <section className="mt-6">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-orange-500">
+                    Accepted stores
+                  </p>
+                  <h2 className="mt-1 text-base font-extrabold text-neutral-950">
+                    Order from these platforms
+                  </h2>
+                </div>
+                <span className="text-[11px] font-semibold text-neutral-400">
+                  Opens official site
+                </span>
+              </div>
+
+              <div className="mt-3 grid grid-cols-4 gap-2">
+                {visiblePlatforms.map((platform) => (
+                  <a
+                    key={platform.name}
+                    href={platform.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => selectPlatform(platform.key)}
+                    className="flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-[1.2rem] border border-neutral-100 bg-white px-2 py-3 text-center transition active:scale-95 active:bg-neutral-50"
+                  >
+                    <span className="flex h-10 w-10 items-center justify-center">
+                      <img
+                        src={platform.logo}
+                        alt={platform.name}
+                        className="h-full w-full object-contain"
+                        loading="lazy"
+                      />
+                    </span>
+                    <span className="text-[11.5px] font-bold text-neutral-700">
+                      {platform.name}
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="mt-6 rounded-[1.5rem] border border-neutral-100 bg-white p-4 shadow-[0_10px_32px_rgba(15,23,42,0.045)]">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
+                <Link2 size={19} strokeWidth={2.2} />
+              </span>
+              <div>
+                <h2 className="text-sm font-extrabold text-neutral-950">
+                  Paste product link
+                </h2>
+                <p className="text-xs text-neutral-400">
+                  Amazon, Flipkart, Myntra, or Meesho
+                </p>
+              </div>
+            </div>
+
+            <div className="relative mt-4">
+              <Link2
+                size={18}
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400"
+                strokeWidth={2}
+              />
               <input
                 type="url"
                 value={url}
-                onChange={(e) => { setUrl(e.target.value); setError(''); setSuccessMessage(''); }}
-                onKeyDown={(e) => { if (e.key === 'Enter') void addToRequestBag(); }}
-                placeholder="Paste Amazon, Flipkart, Myntra or Meesho link..."
-                className="h-14 w-full rounded-2xl border-2 border-gray-200 bg-white pl-12 pr-11 text-sm text-gray-900 placeholder:text-gray-400 shadow-sm transition-all focus:border-orange-500 focus:outline-none focus:ring-4 focus:ring-orange-500/10"
+                inputMode="url"
+                autoCapitalize="none"
+                autoCorrect="off"
+                onChange={(event) => {
+                  setUrl(event.target.value);
+                  setError('');
+                  setSuccessMessage('');
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') void addToRequestBag();
+                }}
+                placeholder="Paste the full product link here"
+                className="h-14 w-full rounded-2xl border border-neutral-200 bg-neutral-50 pl-12 pr-12 text-sm font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-orange-500 focus:bg-white focus:ring-[3px] focus:ring-orange-500/10"
               />
+
               {url ? (
                 <button
                   type="button"
-                  onClick={() => { setUrl(''); setPreview(emptyPreview); }}
-                  className="absolute right-3.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-gray-200"
+                  onClick={() => {
+                    setUrl('');
+                    setPreview(emptyPreview);
+                  }}
+                  className="absolute right-2.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl bg-white text-neutral-400 shadow-sm ring-1 ring-neutral-200 transition active:scale-95"
+                  aria-label="Clear product link"
                 >
-                  <X size={15} strokeWidth={2.5} />
+                  <X size={16} strokeWidth={2.4} />
                 </button>
               ) : (
-                <ScanLine size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" strokeWidth={2} />
+                <ScanLine
+                  size={18}
+                  className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-neutral-300"
+                  strokeWidth={2}
+                />
               )}
             </div>
-          </div>
 
-          {/* ----- Screenshot Upload ----- */}
-          <div className="mt-3">
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleScreenshotChange} className="hidden" />
+            <div className="my-4 flex items-center gap-3">
+              <div className="h-px flex-1 bg-neutral-100" />
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-neutral-400">
+                or
+              </span>
+              <div className="h-px flex-1 bg-neutral-100" />
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleScreenshotChange}
+              className="hidden"
+            />
 
             {!screenshotFile ? (
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex h-20 w-full items-center gap-4 rounded-2xl border-2 border-dashed border-gray-300 bg-white px-5 shadow-sm transition-all hover:border-orange-400 hover:bg-orange-50/30 active:border-orange-500"
+                className="flex min-h-[88px] w-full items-center gap-4 rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 px-4 text-left transition active:scale-[0.99] active:border-orange-400 active:bg-orange-50/40"
               >
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
-                  <Camera size={22} strokeWidth={2} />
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm ring-1 ring-neutral-100">
+                  <Camera size={22} strokeWidth={2.1} />
                 </span>
-                <div className="text-left">
-                  <p className="text-sm font-bold text-gray-900">Upload a screenshot</p>
-                  <p className="text-xs leading-relaxed text-gray-400">
-                    Use this if the product link is not available
-                  </p>
-                </div>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-extrabold text-neutral-900">
+                    Upload product screenshot
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-neutral-400">
+                    Use a screenshot when a shareable product link is unavailable.
+                  </span>
+                </span>
+                <Plus size={18} className="shrink-0 text-neutral-400" />
               </button>
             ) : (
-              <div className="relative overflow-hidden rounded-2xl border-2 border-orange-200 bg-white shadow-sm">
-                <div className="flex min-h-[220px] max-h-[360px] items-center justify-center bg-gray-50">
+              <div className="overflow-hidden rounded-2xl border border-orange-200 bg-white">
+                <div className="relative flex min-h-[210px] max-h-[360px] items-center justify-center bg-neutral-50">
                   <img
                     src={screenshotPreview}
-                    alt="Preview"
+                    alt="Uploaded product screenshot"
                     className="max-h-[360px] w-full object-contain"
                   />
+                  <button
+                    type="button"
+                    onClick={clearScreenshot}
+                    className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white text-neutral-500 shadow-lg ring-1 ring-neutral-200 transition active:scale-95"
+                    aria-label="Remove screenshot"
+                  >
+                    <X size={16} strokeWidth={2.4} />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={clearScreenshot}
-                  className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-600 shadow-lg ring-1 ring-gray-200 transition-colors hover:bg-gray-50"
-                >
-                  <X size={16} strokeWidth={2.5} />
-                </button>
                 <div className="flex items-center gap-2 px-4 py-3">
-                  <CheckCircle size={15} className="text-emerald-500" strokeWidth={2.5} />
-                  <p className="truncate text-xs font-medium text-gray-600">{screenshotFile.name}</p>
+                  <CheckCircle
+                    size={15}
+                    className="shrink-0 text-emerald-500"
+                    strokeWidth={2.5}
+                  />
+                  <p className="truncate text-xs font-semibold text-neutral-600">
+                    {screenshotFile.name}
+                  </p>
                 </div>
               </div>
             )}
-          </div>
+          </section>
 
-          {/* ----- Preview Loading ----- */}
           {preview.loading && (
-            <div className="mt-4 flex items-center gap-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
-                <Loader2 size={22} className="animate-spin" strokeWidth={2.5} />
+            <section className="mt-4 flex items-center gap-4 rounded-[1.3rem] border border-neutral-100 bg-white p-4 shadow-sm">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
+                <Loader2 size={22} className="animate-spin" strokeWidth={2.4} />
               </span>
               <div>
-                <p className="text-sm font-bold text-gray-900">Fetching product info...</p>
-                <p className="text-xs text-gray-500">Hang tight while we check the link</p>
+                <p className="text-sm font-extrabold text-neutral-900">
+                  Checking the product link
+                </p>
+                <p className="mt-0.5 text-xs text-neutral-400">
+                  Product details may take a moment to appear.
+                </p>
               </div>
-            </div>
+            </section>
           )}
 
-          {/* ----- Preview Result ----- */}
           {!preview.loading && preview.data && cleanUrl && (
-            <div className="mt-4 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <section className="mt-4 overflow-hidden rounded-[1.3rem] border border-neutral-100 bg-white shadow-sm">
               <div className="flex gap-4 p-4">
                 {preview.data.image ? (
-                  <img src={preview.data.image} alt="" className="h-20 w-20 flex-shrink-0 rounded-xl bg-gray-100 object-cover" />
+                  <img
+                    src={preview.data.image}
+                    alt=""
+                    className="h-20 w-20 shrink-0 rounded-2xl bg-neutral-100 object-cover"
+                  />
                 ) : (
-                  <span className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl bg-orange-50">
-                    <Package size={26} className="text-orange-400" strokeWidth={2} />
+                  <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-orange-50">
+                    <Package size={27} className="text-orange-400" strokeWidth={2} />
                   </span>
                 )}
+
                 <div className="min-w-0 flex-1">
-                  <div className="mb-1.5 flex items-center gap-2">
-                    <span className="rounded-full bg-orange-50 px-2.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-orange-600">
-                      {preview.data.platform}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-orange-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-orange-600">
+                      {platformLabel(preview.data.platform)}
                     </span>
                     {preview.data.price ? (
-                      <span className="text-sm font-bold text-orange-600">
+                      <span className="text-sm font-extrabold text-orange-600">
                         {formatPrice(preview.data.price, preview.data.currency)}
                       </span>
                     ) : (
-                      <span className="text-xs font-medium text-gray-400">Price TBD</span>
+                      <span className="text-xs font-semibold text-neutral-400">
+                        Price to be verified
+                      </span>
                     )}
                   </div>
-                  <p className="text-sm font-semibold leading-snug text-gray-900 line-clamp-2">
-                    {preview.data.fetched ? preview.data.title : manualPreviewTitle(preview.data)}
+
+                  <p className="mt-2 line-clamp-2 text-sm font-bold leading-5 text-neutral-900">
+                    {preview.data.fetched
+                      ? preview.data.title
+                      : manualPreviewTitle(preview.data)}
                   </p>
+
                   {!preview.data.fetched && (
-                    <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                      We will verify this product manually before quotation.
+                    <p className="mt-1 text-xs leading-5 text-neutral-500">
+                      Shop2Bhutan will verify this product manually before preparing your quotation.
                     </p>
                   )}
                 </div>
               </div>
-            </div>
+            </section>
           )}
 
-          {/* ----- Success ----- */}
           {successMessage && (
-            <div className="mt-4 overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <section className="mt-4 rounded-[1.3rem] border border-emerald-100 bg-emerald-50 p-4">
               <div className="flex gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-emerald-600 shadow-sm">
                   <CheckCircle size={20} strokeWidth={2.5} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-emerald-900">Saved to Request Bag</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-emerald-700">{successMessage}</p>
+                  <p className="text-sm font-extrabold text-emerald-950">
+                    Added to Request Bag
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-emerald-700">
+                    {successMessage}
+                  </p>
                   <button
                     type="button"
                     onClick={() => navigate('/request-bag')}
-                    className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-bold text-white transition-colors hover:bg-emerald-600 active:bg-emerald-700"
+                    className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-extrabold text-white transition active:scale-95"
                   >
-                    Open Request Bag <ShoppingBag size={16} strokeWidth={2.5} />
+                    Open Request Bag
+                    <ShoppingBag size={16} strokeWidth={2.4} />
                   </button>
                 </div>
               </div>
-            </div>
+            </section>
           )}
 
-          {/* ----- Error ----- */}
           {error && (
-            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3.5">
-              <p className="flex items-start gap-2.5 text-sm font-medium text-red-700">
-                <X size={16} className="mt-0.5 shrink-0" strokeWidth={2.5} />
-                <span>{error}</span>
-              </p>
-            </div>
+            <section className="mt-4 rounded-[1.3rem] border border-red-100 bg-red-50 px-4 py-3.5">
+              <div className="flex items-start gap-2.5 text-red-700">
+                <X size={17} className="mt-0.5 shrink-0" strokeWidth={2.5} />
+                <p className="text-sm font-medium leading-5">{error}</p>
+              </div>
+            </section>
           )}
 
-          {/* ----- ADD TO REQUEST BAG CTA ----- */}
           <button
             type="button"
             onClick={addToRequestBag}
             disabled={!hasRequestInput || preview.loading || adding}
-            className="mt-5 flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-orange-500 px-3 text-center text-sm font-bold text-white transition-colors hover:bg-orange-600 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-orange-200 disabled:active:scale-100"
+            className="mt-5 flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-orange-500 px-4 text-center text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-orange-200 disabled:shadow-none disabled:active:scale-100"
           >
             {adding ? (
-              <><Loader2 size={20} className="animate-spin" strokeWidth={2.5} /> Adding...</>
+              <>
+                <Loader2 size={20} className="animate-spin" strokeWidth={2.5} />
+                Adding to Request Bag...
+              </>
             ) : hasRequestInput ? (
-              <><Plus size={20} strokeWidth={2.5} /> Add to Request Bag</>
+              <>
+                <Plus size={20} strokeWidth={2.5} />
+                Add to Request Bag
+              </>
             ) : (
-              <span>Paste link or upload screenshot first</span>
+              'Paste a link or upload a screenshot'
             )}
           </button>
 
-          {/* ═══════════════ BOTTOM SECTIONS ═══════════════ */}
-          <div className="mt-6 space-y-4">
-
-            {/* Tip card */}
-            <div className="rounded-2xl bg-white border border-gray-100 p-4">
-              <div className="flex items-start gap-3.5">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
-                  <Sparkles size={18} strokeWidth={2.5} />
-                </span>
-                <div>
-                  <p className="text-sm font-bold text-gray-900">Pro tip</p>
-                  <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                    Add all products to your bag first, then request one quotation for everything together. This saves time and can reduce delivery cost.
-                  </p>
-                </div>
+          <section className="mt-6 rounded-[1.35rem] border border-blue-100 bg-blue-50 p-4">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-500 shadow-sm">
+                <Sparkles size={18} strokeWidth={2.4} />
+              </span>
+              <div>
+                <h2 className="text-sm font-extrabold text-blue-950">
+                  Add everything before requesting a quote
+                </h2>
+                <p className="mt-1 text-xs leading-5 text-blue-800/75">
+                  You can add multiple products to one Request Bag. Review the bag when finished, then submit all items together.
+                </p>
               </div>
             </div>
+          </section>
 
-            {/* How it works — numbered steps */}
-            <div className="rounded-2xl bg-white border border-gray-100 p-4">
-              <p className="mb-3.5 text-sm font-bold text-gray-900">How this page works</p>
-              <div className="space-y-3">
-                {[
-                  { num: '1', text: 'Paste a product link or upload screenshot', accent: 'bg-orange-50 text-orange-600' },
-                  { num: '2', text: 'Add one or more products to your Request Bag', accent: 'bg-violet-50 text-violet-600' },
-                  { num: '3', text: 'Open Request Bag and review your items', accent: 'bg-blue-50 text-blue-600' },
-                  { num: '4', text: 'Request quotation, then pay only after approval', accent: 'bg-emerald-50 text-emerald-600' },
-                ].map((s) => (
-                  <div key={s.num} className="flex items-center gap-3">
-                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${s.accent}`}>
-                      {s.num}
-                    </span>
-                    <p className="text-xs text-gray-600">{s.text}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Open Request Bag */}
-            <button
-              type="button"
-              onClick={() => navigate('/request-bag')}
-              className="flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl border border-orange-200 bg-orange-50 text-sm font-bold text-orange-700 transition-all hover:bg-orange-100 active:scale-[0.98]"
-            >
-              Open Request Bag <ExternalLink size={17} strokeWidth={2.5} />
-            </button>
-          </div>
-        </div>
+          <button
+            type="button"
+            onClick={() => navigate('/request-bag')}
+            className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-white text-sm font-bold text-neutral-700 transition active:scale-[0.98] active:bg-neutral-50"
+          >
+            Open Request Bag
+            <ExternalLink size={16} strokeWidth={2.4} />
+          </button>
+        </main>
       </div>
     </div>
   );

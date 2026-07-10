@@ -7,13 +7,11 @@ import {
   ChevronDown,
   ChevronRight,
   Headphones,
-  Link2,
   ShoppingBag,
   LogIn,
   MapPin,
   Megaphone,
   Package,
-  Search,
   ShieldCheck,
   Sparkles,
   Truck,
@@ -842,7 +840,15 @@ export default function Home() {
 
           <div className="mt-3">
             <p className="text-[14px] font-medium text-slate-500">
-              {customerFirstName ? `${greeting}, ${customerFirstName}` : greeting}
+              {greeting}
+              {customerFirstName && (
+                <>
+                  {', '}
+                  <span className="font-extrabold text-slate-900">
+                    {customerFirstName}
+                  </span>
+                </>
+              )}
             </p>
             <h1 className="mt-1 max-w-[17rem] text-[1.45rem] font-extrabold leading-[1.18] tracking-tight text-slate-950">
               What would you like to shop?
@@ -864,20 +870,8 @@ export default function Home() {
       </header>
 
       <main className="px-4 pb-[calc(1.75rem+env(safe-area-inset-bottom))] pt-2">
-        <button
-          type="button"
-          onClick={() => navigate('/paste-link')}
-          className="flex h-[52px] w-full items-center gap-3 rounded-full bg-slate-100 px-4 text-left transition active:scale-[0.99] active:bg-slate-200"
-        >
-          <Search size={19} strokeWidth={2} className="shrink-0 text-slate-400" />
-          <span className="min-w-0 flex-1 truncate text-[14px] text-slate-500">
-            Paste or search a product link
-          </span>
-          <Link2 size={17} strokeWidth={2.2} className="shrink-0 text-orange-500" />
-        </button>
-
         {appSettings.homeAnnouncementEnabled && appSettings.homeAnnouncementText && (
-          <section className="mt-4 flex items-start gap-3 rounded-[1.2rem] bg-blue-50 px-4 py-3 text-blue-900">
+          <section className="mt-2 flex items-start gap-3 rounded-[1.2rem] bg-blue-50 px-4 py-3 text-blue-900">
             <Megaphone size={18} className="mt-0.5 shrink-0 text-blue-600" />
             <p className="text-[13px] font-medium leading-5">
               {appSettings.homeAnnouncementText}
@@ -897,19 +891,19 @@ export default function Home() {
             backgroundPosition: '62% center',
           }}
         >
-          <div className="relative z-10 flex min-h-[205px] max-w-[76%] flex-col justify-center p-[22px]">
+          <div className="relative z-10 flex min-h-[190px] max-w-[79%] flex-col justify-center p-5">
             <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1.5 text-[11.5px] font-extrabold uppercase tracking-wider text-white backdrop-blur-md">
               <Sparkles size={12} />
-              Shop without an Indian card
+              Order from trusted Indian stores
             </span>
 
             <h2 className="mt-3 text-[1.5rem] font-extrabold leading-[1.12] tracking-tight text-white">
-              India’s online stores,
-              <span className="block text-orange-300">delivered to Bhutan.</span>
+              Shop Amazon, Flipkart,
+              <span className="block text-orange-300">Myntra &amp; Meesho.</span>
             </h2>
 
             <p className="mt-2.5 text-[14px] leading-[1.55] text-white/[0.85]">
-              Share the link. Review our quotation. We handle the rest.
+              Paste the product link or upload a screenshot. We send a quotation before you pay.
             </p>
 
             <button
@@ -917,25 +911,30 @@ export default function Home() {
               onClick={() => navigate('/paste-link')}
               className="mt-4 inline-flex h-11 w-fit items-center gap-2 rounded-[0.9rem] bg-orange-500 px-[18px] text-[14px] font-extrabold text-white shadow-lg shadow-orange-950/20 transition active:scale-95 active:bg-orange-600"
             >
-              Paste product link
+              Start shopping
               <ArrowRight size={15} strokeWidth={2.5} />
             </button>
           </div>
         </section>
 
         {visibleStores.length > 0 && (
-          <section className="mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {visibleStores.map((store) => (
-              <button
-                key={store.name}
-                type="button"
-                onClick={() => window.open(store.url, '_blank', 'noopener,noreferrer')}
-                className="shrink-0 min-h-9 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-[12.5px] font-bold text-slate-700 transition active:scale-95 active:bg-slate-50"
-                aria-label={`Open ${store.name} website`}
-              >
-                {store.name}
-              </button>
-            ))}
+          <section className="mt-3">
+            <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-400">
+              We currently accept orders from
+            </p>
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              {visibleStores.map((store) => (
+                <button
+                  key={store.name}
+                  type="button"
+                  onClick={() => window.open(store.url, '_blank', 'noopener,noreferrer')}
+                  className="shrink-0 min-h-9 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-[12.5px] font-bold text-slate-700 transition active:scale-95 active:bg-slate-50"
+                  aria-label={`Open ${store.name} website`}
+                >
+                  {store.name}
+                </button>
+              ))}
+            </div>
           </section>
         )}
 

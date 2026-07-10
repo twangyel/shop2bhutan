@@ -601,7 +601,7 @@ export default function Register() {
         </div>
 
         <div className="mt-5 overflow-hidden rounded-[30px] border border-neutral-100 bg-white shadow-[0_22px_65px_rgba(15,23,42,0.08)]">
-          <div className="border-b border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 px-6 py-6">
+          <div className="border-b border-neutral-100 bg-white px-6 py-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange-500">
@@ -654,7 +654,7 @@ export default function Register() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
-              <section className="rounded-[24px] border border-neutral-100 bg-neutral-50/60 p-4">
+              <section className="rounded-[24px] border border-neutral-100 bg-white p-4">
                 <div className="mb-4 flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-500">
                     <User size={19} strokeWidth={2.1} />
@@ -878,7 +878,7 @@ export default function Register() {
                 </div>
               </section>
 
-              <section className="rounded-[24px] border border-neutral-100 bg-neutral-50/60 p-4">
+              <section className="rounded-[24px] border border-neutral-100 bg-white p-4">
                 <div className="mb-4 flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-50 text-violet-500">
                     <Lock size={19} strokeWidth={2.1} />
@@ -1048,7 +1048,7 @@ export default function Register() {
               </button>
             </form>
 
-            <div className="mt-5 rounded-2xl bg-orange-50/70 px-4 py-3 text-center">
+            <div className="mt-5 rounded-2xl border border-neutral-100 bg-white px-4 py-3 text-center">
               <p className="text-sm font-medium text-neutral-600">
                 Already have an account?{" "}
                 <button
