@@ -669,7 +669,7 @@ export default function PaymentUpload() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-[calc(12rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-screen bg-white pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white/95 px-5 py-4 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-start justify-between gap-4">
           <div className="min-w-0">
@@ -769,28 +769,28 @@ export default function PaymentUpload() {
               type="button"
               onClick={() => selectPaymentAmount(paymentSummary.isPartiallyPaid ? 'remaining' : 'full')}
               aria-pressed={paymentSelection === 'full' || paymentSelection === 'remaining'}
-              className={`min-h-[148px] rounded-[1.75rem] border p-4 text-left transition active:scale-[0.98] ${
+              className={`min-h-[112px] rounded-[1.5rem] border p-3 text-left transition active:scale-[0.98] ${
                 paymentSelection === 'full' || paymentSelection === 'remaining'
                   ? 'border-orange-200 bg-orange-50/70 shadow-sm ring-2 ring-orange-500/10'
                   : 'border-gray-100 bg-white shadow-sm'
               }`}
             >
-              <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
+              <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${
                 paymentSelection === 'full' || paymentSelection === 'remaining'
                   ? 'bg-orange-500 text-white'
                   : 'bg-gray-100 text-gray-500'
               }`}>
-                <CreditCard size={18} />
+                <CreditCard size={17} />
               </span>
-              <p className="mt-4 text-sm font-extrabold text-gray-900">
+              <p className="mt-2.5 text-[13px] font-extrabold text-gray-900">
                 {isJaigaonPickup
                   ? 'Full S2B charges'
                   : paymentSummary.isPartiallyPaid
                     ? 'Remaining balance'
                     : 'Full payment'}
               </p>
-              <p className="mt-1 text-xl font-black tracking-tight text-gray-950">{formatCurrency(fullPaymentAmount)}</p>
-              <p className="mt-2 text-[11px] font-bold text-gray-400">
+              <p className="mt-0.5 text-lg font-black tracking-tight text-gray-950">{formatCurrency(fullPaymentAmount)}</p>
+              <p className="mt-1.5 text-[10px] font-bold text-gray-400">
                 {paymentSelection === 'full' || paymentSelection === 'remaining' ? 'Selected' : 'Tap to select'}
               </p>
             </button>
@@ -800,20 +800,20 @@ export default function PaymentUpload() {
                 type="button"
                 onClick={() => selectPaymentAmount('advance')}
                 aria-pressed={paymentSelection === 'advance'}
-                className={`min-h-[148px] rounded-[1.75rem] border p-4 text-left transition active:scale-[0.98] ${
+                className={`min-h-[112px] rounded-[1.5rem] border p-3 text-left transition active:scale-[0.98] ${
                   paymentSelection === 'advance'
                     ? 'border-violet-200 bg-violet-50/70 shadow-sm ring-2 ring-violet-500/10'
                     : 'border-gray-100 bg-white shadow-sm'
                 }`}
               >
-                <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
+                <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${
                   paymentSelection === 'advance' ? 'bg-violet-500 text-white' : 'bg-gray-100 text-gray-500'
                 }`}>
-                  <Wallet size={18} />
+                  <Wallet size={17} />
                 </span>
-                <p className="mt-4 text-sm font-extrabold text-gray-900">{minimumAdvancePercent}% advance</p>
-                <p className="mt-1 text-xl font-black tracking-tight text-gray-950">{formatCurrency(advancePaymentAmount)}</p>
-                <p className="mt-2 text-[11px] font-bold text-gray-400">
+                <p className="mt-2.5 text-[13px] font-extrabold text-gray-900">{minimumAdvancePercent}% advance</p>
+                <p className="mt-0.5 text-lg font-black tracking-tight text-gray-950">{formatCurrency(advancePaymentAmount)}</p>
+                <p className="mt-1.5 text-[10px] font-bold text-gray-400">
                   {paymentSelection === 'advance' ? 'Selected' : 'Tap to select'}
                 </p>
               </button>
@@ -850,27 +850,27 @@ export default function PaymentUpload() {
             </h2>
           </div>
 
-          <div className="rounded-[1.75rem] border border-gray-100 bg-white p-4 shadow-sm">
-            <div className="flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
-                {requiresDeliveryAddress ? <MapPin size={19} /> : <Home size={19} />}
+          <div className="rounded-[1.5rem] border border-gray-100 bg-white p-3 shadow-sm">
+            <div className="flex items-start gap-2.5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+                {requiresDeliveryAddress ? <MapPin size={18} /> : <Home size={18} />}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-sm font-black text-gray-950">
+                    <p className="text-[13px] font-black text-gray-950">
                       {requiresDeliveryAddress
                         ? selectedDeliveryAddress?.label || 'Choose saved address'
                         : 'Self pickup selected'}
                     </p>
-                    <p className="mt-1 text-xs font-medium leading-5 text-gray-500">
+                    <p className="mt-0.5 text-[11px] font-medium leading-4 text-gray-500">
                       {requiresDeliveryAddress
-                        ? `This quotation is locked to ${lockedDeliveryArea || 'the selected delivery area'}.`
-                        : 'No delivery address is required for this order.'}
+                        ? `Locked to ${lockedDeliveryArea || 'the selected delivery area'}.`
+                        : 'No delivery address is required.'}
                     </p>
                   </div>
                   {requiresDeliveryAddress && (
-                    <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-black text-gray-500">
+                    <span className="shrink-0 rounded-full bg-gray-100 px-2 py-1 text-[9px] font-black text-gray-500">
                       {lockedDeliveryArea || 'Area locked'}
                     </span>
                   )}
@@ -878,13 +878,13 @@ export default function PaymentUpload() {
 
                 {requiresDeliveryAddress ? (
                   selectedDeliveryAddress ? (
-                    <div className="mt-4 rounded-2xl bg-gray-50 p-3 ring-1 ring-gray-100">
-                      <div className="flex items-start justify-between gap-3">
+                    <div className="mt-3 rounded-xl bg-gray-50 p-2.5 ring-1 ring-gray-100">
+                      <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-sm font-black text-gray-950">{selectedDeliveryAddress.recipient_name}</p>
-                          <p className="mt-0.5 text-xs font-bold text-gray-500">{formatSavedAddressPhone(selectedDeliveryAddress.phone)}</p>
-                          <p className="mt-2 text-sm font-bold leading-5 text-gray-800">{savedAddressMainLine(selectedDeliveryAddress)}</p>
-                          <p className="mt-1 text-xs font-medium leading-5 text-gray-500">
+                          <p className="text-[13px] font-black text-gray-950">{selectedDeliveryAddress.recipient_name}</p>
+                          <p className="mt-0.5 text-[11px] font-bold text-gray-500">{formatSavedAddressPhone(selectedDeliveryAddress.phone)}</p>
+                          <p className="mt-1.5 text-[13px] font-bold leading-4 text-gray-800">{savedAddressMainLine(selectedDeliveryAddress)}</p>
+                          <p className="mt-0.5 text-[10.5px] font-medium leading-4 text-gray-500">
                             {uniqueTextParts([
                               selectedDeliveryAddress.dzongkhag,
                               selectedDeliveryAddress.landmark,
@@ -895,7 +895,7 @@ export default function PaymentUpload() {
                         <button
                           type="button"
                           onClick={() => setShowAddressPicker(true)}
-                          className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-xs font-black text-orange-600 ring-1 ring-orange-100"
+                          className="shrink-0 rounded-xl bg-white px-2.5 py-1.5 text-[10px] font-black text-orange-600 ring-1 ring-orange-100"
                         >
                           Change
                         </button>
@@ -1137,6 +1137,23 @@ export default function PaymentUpload() {
             </p>
           </div>
         </section>
+
+        <section className="mt-5 rounded-[1.75rem] border border-gray-100 bg-white p-2.5 shadow-sm">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!canSubmit || paymentMethodsLoading || addressesLoading}
+            className="flex h-[54px] w-full items-center justify-center gap-2 rounded-[1.2rem] bg-orange-500 px-4 text-sm font-black text-white transition active:scale-[0.99] hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300"
+          >
+            <Upload size={18} />
+            <span className="truncate">{submitButtonLabel}</span>
+          </button>
+          {!screenshotFile && (
+            <p className="px-3 pb-1 pt-2 text-center text-[11px] font-semibold leading-5 text-gray-400">
+              Upload a clear payment screenshot above to enable submission.
+            </p>
+          )}
+        </section>
       </main>
 
       {showAddressPicker && (
@@ -1233,19 +1250,6 @@ export default function PaymentUpload() {
         </div>
       )}
 
-      <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-0 right-0 z-40 px-4 sm:bottom-4">
-        <div className="mx-auto max-w-2xl rounded-[1.5rem] border border-gray-100 bg-white/95 p-2.5 shadow-[0_16px_45px_rgba(15,23,42,0.16)] backdrop-blur-xl">
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!canSubmit || paymentMethodsLoading || addressesLoading}
-            className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[1.1rem] bg-orange-500 px-4 text-sm font-black text-white transition active:scale-[0.99] hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300"
-          >
-            <Upload size={18} />
-            <span className="truncate">{submitButtonLabel}</span>
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
