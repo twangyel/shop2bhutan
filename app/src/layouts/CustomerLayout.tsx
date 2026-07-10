@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertTriangle,
   Bell,
@@ -465,85 +466,98 @@ export default function CustomerLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-slate-900">
+    <div className="mx-auto min-h-dvh w-full max-w-lg bg-white text-slate-900 sm:shadow-[0_0_40px_rgba(15,23,42,0.08)]">
+      {appSettings.maintenanceEnabled && (
+        <div className="border-b border-amber-100 bg-amber-50 px-4 py-3 text-amber-900">
+          <div className="mx-auto flex items-start gap-2.5 text-sm leading-5">
+            <AlertTriangle size={17} className="mt-0.5 shrink-0 text-amber-600" />
+            <span>{appSettings.maintenanceMessage}</span>
+          </div>
+        </div>
+      )}
+
       <main
         className={
           shouldHideTabBar
-            ? 'transition-opacity duration-200 ease-out'
-            : 'pb-[calc(7.5rem+env(safe-area-inset-bottom))] transition-opacity duration-200 ease-out'
+            ? 'min-h-dvh'
+            : 'min-h-dvh pb-[calc(4.7rem+env(safe-area-inset-bottom))]'
         }
       >
-        {appSettings.maintenanceEnabled && (
-          <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
-            <div className="mx-auto flex max-w-3xl items-start gap-2 text-sm">
-              <AlertTriangle size={17} className="mt-0.5 shrink-0" />
-              <span>{appSettings.maintenanceMessage}</span>
-            </div>
-          </div>
-        )}
-        <Outlet />
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={`${location.pathname}${location.search}`}
+            initial={{ opacity: 0, y: 7 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+          >
+            <Outlet />
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {showNotificationPrompt && !shouldHideTabBar && (
-        <div className="fixed left-0 right-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[90] px-4">
-          <div className="relative mx-auto max-w-lg overflow-hidden rounded-3xl bg-slate-950 p-4 text-white shadow-2xl shadow-slate-900/30 ring-1 ring-white/10">
-            <div className="absolute inset-x-0 top-0 h-1 bg-blue-500" />
+        <div className="fixed left-0 right-0 top-[calc(env(safe-area-inset-top)+0.65rem)] z-[90] px-4">
+          <div className="mx-auto max-w-lg">
+            <div className="relative overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white p-4 shadow-[0_16px_45px_rgba(15,23,42,0.16)]">
+              <div className="absolute inset-x-0 top-0 h-1 bg-orange-500" />
 
-            <div className="flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-blue-300 ring-1 ring-white/10">
-                <Bell size={20} strokeWidth={2.4} />
-              </span>
+              <div className="flex items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
+                  <Bell size={19} strokeWidth={2.3} />
+                </span>
 
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-extrabold text-white">
-                  Turn on app notifications
-                </p>
-                <p className="mt-1 text-xs leading-5 text-slate-300">
-                  Get instant alerts for quotations, payments, orders, and parcels.
-                </p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-extrabold text-slate-950">
+                    Turn on notifications
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Receive quotations, payment, order and parcel updates instantly.
+                  </p>
 
-                <div className="mt-3 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={handleEnableNativeNotifications}
-                    disabled={requestingNotificationPermission}
-                    className="h-9 rounded-2xl bg-white px-4 text-xs font-extrabold text-blue-700 transition active:scale-[0.98] disabled:opacity-60"
-                  >
-                    {requestingNotificationPermission ? 'Checking...' : 'Enable'}
-                  </button>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleEnableNativeNotifications}
+                      disabled={requestingNotificationPermission}
+                      className="h-9 rounded-xl bg-orange-500 px-4 text-xs font-extrabold text-white transition active:scale-95 disabled:opacity-60"
+                    >
+                      {requestingNotificationPermission ? 'Checking...' : 'Enable'}
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={handleDismissNotificationPrompt}
-                    className="h-9 rounded-2xl border border-white/15 bg-white/10 px-4 text-xs font-bold text-white transition active:scale-[0.98]"
-                  >
-                    Later
-                  </button>
+                    <button
+                      type="button"
+                      onClick={handleDismissNotificationPrompt}
+                      className="h-9 rounded-xl bg-slate-100 px-4 text-xs font-bold text-slate-600 transition active:scale-95"
+                    >
+                      Later
+                    </button>
+                  </div>
+
+                  {nativeNotificationPermission === 'denied' && (
+                    <p className="mt-2 text-[11px] leading-4 text-slate-500">
+                      Notifications may need to be enabled from Android app settings.
+                    </p>
+                  )}
                 </div>
 
-                {nativeNotificationPermission === 'denied' && (
-                  <p className="mt-2 text-[11px] leading-4 text-blue-200">
-                    If Android says notifications are blocked, enable them from app settings.
-                  </p>
-                )}
+                <button
+                  type="button"
+                  onClick={handleDismissNotificationPrompt}
+                  className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition active:bg-slate-100"
+                  aria-label="Dismiss notification prompt"
+                >
+                  <X size={16} />
+                </button>
               </div>
-
-              <button
-                type="button"
-                onClick={handleDismissNotificationPrompt}
-                className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-300 active:bg-white/10"
-                aria-label="Dismiss notification prompt"
-              >
-                <X size={16} />
-              </button>
             </div>
           </div>
         </div>
       )}
 
       {!shouldHideTabBar && (
-        <nav className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+0.12rem)] left-0 right-0 z-50 px-3 transition-transform duration-200 ease-out">
-          <div className="pointer-events-auto mx-auto flex h-[64px] max-w-lg items-center justify-around rounded-[1.75rem] border border-neutral-200/80 bg-white/95 px-1.5 shadow-[0_14px_34px_rgba(15,23,42,0.14)] backdrop-blur-xl">
+        <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50">
+          <div className="pointer-events-auto mx-auto flex h-[calc(66px+env(safe-area-inset-bottom))] w-full max-w-lg items-start border-t border-slate-200/80 bg-white/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:shadow-[0_-10px_30px_rgba(15,23,42,0.06)]">
             {tabs.map((tab) => {
               const isActive = isTabActive(location.pathname, tab.path)
               const Icon = tab.icon
@@ -564,12 +578,6 @@ export default function CustomerLayout() {
               const showBadge =
                 showBagBadge || showParcelBadge || showNotificationBadge
               const isCountBadge = showBagBadge || showNotificationBadge
-              const badgeClass = isCountBadge
-                ? 'bg-red-500 text-white'
-                : 'bg-emerald-500 text-white'
-              const badgeSizeClass = isCountBadge
-                ? 'h-4 min-w-4 px-1 text-[8px]'
-                : 'h-4 min-w-[1.75rem] px-1.5 text-[8px]'
 
               return (
                 <button
@@ -577,31 +585,45 @@ export default function CustomerLayout() {
                   type="button"
                   onClick={() => handleTabPress(tab.path)}
                   aria-current={isActive ? 'page' : undefined}
-                  className={`relative flex h-[52px] flex-1 flex-col items-center justify-center gap-1 rounded-[1.25rem] text-center transition active:scale-[0.98] ${
-                    isActive
-                      ? 'bg-amber-50 text-amber-600 shadow-sm ring-1 ring-amber-100'
-                      : 'text-neutral-400 active:bg-neutral-50'
+                  className={`relative flex h-[66px] flex-1 flex-col items-center justify-center gap-1 transition active:scale-95 ${
+                    isActive ? 'text-orange-600' : 'text-slate-400'
                   }`}
                 >
-                  <span className="relative flex h-7 w-7 items-center justify-center">
+                  <span className="relative flex h-7 w-8 items-center justify-center">
                     <Icon
                       size={isActive ? 24 : 22}
-                      strokeWidth={isActive ? 2.45 : 1.85}
-                      className="transition-colors"
+                      strokeWidth={isActive ? 2.45 : 1.7}
+                      className="transition-all duration-150"
                     />
+
                     {showBadge && (
                       <span
-                        className={`absolute -right-1.5 -top-1.5 flex items-center justify-center rounded-full font-bold leading-none shadow-sm ring-2 ring-white ${badgeClass} ${badgeSizeClass}`}
+                        className={`absolute -right-1 -top-1 flex h-4 items-center justify-center rounded-full px-1 text-[8px] font-black leading-none text-white shadow-sm ring-2 ring-white ${
+                          isCountBadge
+                            ? 'min-w-4 bg-red-500'
+                            : 'min-w-[1.75rem] bg-emerald-500'
+                        }`}
                       >
                         {badgeLabel}
                       </span>
                     )}
                   </span>
+
                   <span
-                    className={`block text-[10.5px] leading-none ${isActive ? 'font-extrabold text-amber-700' : 'font-semibold text-neutral-400'}`}
+                    className={`text-[10.5px] leading-none ${
+                      isActive ? 'font-extrabold' : 'font-medium'
+                    }`}
                   >
                     {tab.label}
                   </span>
+
+                  {isActive && (
+                    <motion.span
+                      layoutId="customer-active-tab"
+                      className="absolute bottom-1 h-1 w-1 rounded-full bg-orange-500"
+                      transition={{ type: 'spring', stiffness: 520, damping: 34 }}
+                    />
+                  )}
                 </button>
               )
             })}
