@@ -358,25 +358,26 @@ export default function Addresses() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-24">
-      <div className="sticky top-0 z-20 border-b border-gray-100 bg-white px-4 py-3">
-        <div className="mx-auto flex max-w-md items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">Saved Addresses</h1>
-            <p className="text-xs text-gray-500">Manage your delivery locations</p>
+    <div className="min-h-screen bg-white pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
+      <header className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-orange-500">Delivery details</p>
+            <h1 className="mt-0.5 text-xl font-black tracking-tight text-gray-950">Saved Addresses</h1>
+            <p className="mt-0.5 truncate text-xs text-gray-500">Manage locations used during checkout</p>
           </div>
           <button
             type="button"
             onClick={showForm ? resetForm : openAddForm}
-            className="flex h-10 items-center gap-1.5 rounded-2xl bg-orange-500 px-3 text-sm font-bold text-white hover:bg-orange-600"
+            className="flex h-10 shrink-0 items-center gap-1.5 rounded-2xl bg-orange-500 px-3.5 text-sm font-bold text-white transition active:scale-[0.97]"
           >
             {showForm ? <X size={16} /> : <Plus size={16} />}
             {showForm ? 'Close' : 'Add'}
           </button>
         </div>
-      </div>
+      </header>
 
-      <div className="mx-auto max-w-md px-4 py-4">
+      <main className="mx-auto max-w-md px-4 py-4">
         {error && (
           <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
             {error}
@@ -391,13 +392,13 @@ export default function Addresses() {
         )}
 
         {showForm && (
-          <form onSubmit={saveAddress} className="mb-4 space-y-4 rounded-2xl border border-gray-100 bg-white p-4">
+          <form onSubmit={saveAddress} className="mb-4 space-y-4 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-base font-bold text-gray-900">{editingId ? 'Edit Address' : 'Add Address'}</h2>
+                <h2 className="text-base font-black text-gray-950">{editingId ? 'Edit Address' : 'Add Address'}</h2>
                 <p className="text-xs text-gray-500">Save a delivery location for faster checkout.</p>
               </div>
-              <Home size={22} className="text-orange-500" strokeWidth={2} />
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-50 text-orange-500 ring-1 ring-orange-100"><Home size={19} strokeWidth={2.2} /></span>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -432,7 +433,9 @@ export default function Addresses() {
               <input
                 type="tel"
                 value={form.phone}
-                onChange={(event) => update('phone', event.target.value)}
+                onChange={(event) => update('phone', event.target.value.replace(/\D/g, '').slice(0, 8))}
+                inputMode="numeric"
+                maxLength={8}
                 placeholder="17123456"
                 className="h-11 w-full rounded-2xl border border-gray-200 px-3 text-sm outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"
               />
@@ -496,14 +499,14 @@ export default function Addresses() {
               <button
                 type="button"
                 onClick={resetForm}
-                className="h-12 rounded-2xl bg-gray-100 font-bold text-gray-700 hover:bg-gray-200"
+                className="h-11 rounded-2xl bg-gray-100 text-sm font-bold text-gray-700 transition active:scale-[0.98]"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-orange-500 font-bold text-white hover:bg-orange-600 disabled:opacity-60"
+                className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white transition active:scale-[0.98] disabled:opacity-60"
               >
                 {saving ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} strokeWidth={2.5} />}
                 Save
@@ -517,7 +520,7 @@ export default function Addresses() {
             <Loader2 size={22} className="mr-2 animate-spin" /> Loading addresses...
           </div>
         ) : !hasAddresses ? (
-          <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center">
+          <div className="rounded-3xl border border-gray-100 bg-gray-50 px-6 py-10 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-50">
               <MapPin size={25} className="text-orange-500" strokeWidth={2} />
             </div>
@@ -536,7 +539,7 @@ export default function Addresses() {
         ) : (
           <div className="space-y-3">
             {addresses.map((address) => (
-              <div key={address.id} className="rounded-2xl border border-gray-100 bg-white p-4">
+              <article key={address.id} className={`rounded-3xl border bg-white p-4 shadow-sm ${address.is_default ? 'border-orange-100 ring-1 ring-orange-50' : 'border-gray-100'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -550,20 +553,27 @@ export default function Addresses() {
                       )}
                     </div>
 
-                    <p className="mt-3 text-sm font-bold text-gray-900">{address.recipient_name}</p>
+                    <div className="mt-3 flex items-start gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gray-50 text-gray-500 ring-1 ring-gray-100">
+                        <MapPin size={18} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-black text-gray-950">{address.recipient_name}</p>
                     <p className="text-xs font-medium text-gray-500">{formatPhone(address.phone)}</p>
                     <p className="mt-2 text-sm leading-5 text-gray-700">
                       {[address.village, address.town, address.dzongkhag].filter(Boolean).join(', ')}
                     </p>
                     {address.address_line && <p className="mt-1 text-xs leading-5 text-gray-500">{address.address_line}</p>}
-                    {address.landmark && <p className="mt-1 text-xs text-gray-400">Landmark: {address.landmark}</p>}
+                        {address.landmark && <p className="mt-1 text-xs text-gray-400">Landmark: {address.landmark}</p>}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex shrink-0 gap-1">
                     <button
                       type="button"
                       onClick={() => openEditForm(address)}
-                      className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gray-50 text-gray-500 hover:bg-gray-100"
+                      className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gray-50 text-gray-500 transition active:scale-95"
                       aria-label="Edit address"
                     >
                       <Pencil size={16} strokeWidth={2} />
@@ -571,7 +581,7 @@ export default function Addresses() {
                     <button
                       type="button"
                       onClick={() => void deleteAddress(address)}
-                      className="flex h-9 w-9 items-center justify-center rounded-2xl bg-red-50 text-red-500 hover:bg-red-100"
+                      className="flex h-9 w-9 items-center justify-center rounded-2xl bg-red-50 text-red-500 transition active:scale-95"
                       aria-label="Delete address"
                     >
                       <Trash2 size={16} strokeWidth={2} />
@@ -583,17 +593,17 @@ export default function Addresses() {
                   <button
                     type="button"
                     onClick={() => void setDefaultAddress(address.id)}
-                    className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 hover:bg-gray-50"
+                    className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-2xl bg-gray-50 text-sm font-bold text-gray-700 ring-1 ring-gray-100 transition active:scale-[0.99]"
                   >
                     <Star size={15} strokeWidth={2} />
                     Set as Default
                   </button>
                 )}
-              </div>
+              </article>
             ))}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

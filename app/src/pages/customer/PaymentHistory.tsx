@@ -115,25 +115,25 @@ function CompactSummary({
   history: CustomerPaymentHistoryResult;
 }) {
   return (
-    <section className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+    <section className="overflow-hidden rounded-3xl bg-gray-950 p-4 text-white shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-black uppercase tracking-wider text-gray-400">
-            Total verified paid
+            Verified collections
           </p>
-          <p className="mt-1 text-2xl font-black tracking-tight text-gray-950">
+          <p className="mt-1 text-3xl font-black tracking-tight text-white">
             {formatCurrency(history.summary.verifiedPaid)}
           </p>
         </div>
 
         <div className="grid grid-cols-2 gap-2 text-right">
-          <div className="rounded-2xl bg-orange-50 px-3 py-2">
-            <p className="text-base font-black text-orange-700">{history.summary.pendingCount}</p>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-orange-600">Pending</p>
+          <div className="rounded-2xl bg-white/10 px-3 py-2 ring-1 ring-white/10">
+            <p className="text-base font-black text-orange-400">{history.summary.pendingCount}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Pending</p>
           </div>
-          <div className="rounded-2xl bg-red-50 px-3 py-2">
-            <p className="text-base font-black text-red-700">{history.summary.rejectedCount}</p>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-red-600">Issue</p>
+          <div className="rounded-2xl bg-white/10 px-3 py-2 ring-1 ring-white/10">
+            <p className="text-base font-black text-red-400">{history.summary.rejectedCount}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Issue</p>
           </div>
         </div>
       </div>
@@ -157,7 +157,7 @@ function PaymentCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-xs font-bold text-gray-400">Order #{payment.orderNumber}</p>
-          <p className="mt-1 text-2xl font-black tracking-tight text-gray-950">
+          <p className="mt-1 text-xl font-black tracking-tight text-gray-950">
             {formatCurrency(payment.amount)}
           </p>
         </div>
@@ -177,12 +177,12 @@ function PaymentCard({
         </span>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 rounded-2xl bg-gray-50 p-3">
-        <div>
+      <div className="mt-3 grid grid-cols-2 divide-x divide-gray-200 rounded-2xl bg-gray-50 px-3 py-2.5 ring-1 ring-gray-100">
+        <div className="pr-3">
           <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Submitted</p>
           <p className="mt-0.5 text-xs font-bold text-gray-700">{formatDateTime(payment.submittedAt || payment.createdAt)}</p>
         </div>
-        <div>
+        <div className="pl-3">
           <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
             {payment.status === 'verified' ? 'Verified' : payment.status === 'rejected' ? 'Reviewed' : 'Status'}
           </p>
@@ -289,11 +289,12 @@ export default function PaymentHistory() {
   };
 
   return (
-    <div className="min-h-screen bg-white pb-24">
-      <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/95 backdrop-blur">
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
+    <div className="min-h-screen bg-white pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
+      <header className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
           <div className="min-w-0">
-            <h1 className="text-lg font-black text-gray-950">Payment History</h1>
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-orange-500">Payments</p>
+            <h1 className="mt-0.5 text-xl font-black tracking-tight text-gray-950">Payment History</h1>
             <p className="truncate text-xs font-medium text-gray-500">
               Proofs, verification status, and related orders
             </p>
@@ -302,15 +303,15 @@ export default function PaymentHistory() {
             type="button"
             onClick={() => loadHistory({ silent: true })}
             disabled={loading || refreshing}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-gray-100 bg-white text-gray-500 shadow-sm disabled:opacity-60"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-gray-600 transition active:scale-95 disabled:opacity-60"
             aria-label="Refresh payment history"
           >
             {refreshing ? <Loader2 size={17} className="animate-spin" /> : <RefreshCw size={17} />}
           </button>
         </div>
-      </div>
+      </header>
 
-      <div className="mx-auto max-w-3xl space-y-3 px-4 py-4">
+      <main className="mx-auto max-w-3xl space-y-3 px-4 py-4">
         <CompactSummary history={history} />
 
         <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -379,7 +380,7 @@ export default function PaymentHistory() {
         <p className="px-1 text-center text-[11px] leading-5 text-gray-400">
           Payment proofs are private and used only by Shop2Bhutan admin for verification and support.
         </p>
-      </div>
+      </main>
     </div>
   );
 }

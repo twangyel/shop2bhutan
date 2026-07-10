@@ -306,12 +306,13 @@ export default function ChangePassword() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white pb-[calc(2rem+env(safe-area-inset-bottom))]">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white">
-        <div className="flex items-center gap-3 px-4 py-3">
+      <header className="sticky top-0 z-20 border-b border-neutral-100 bg-white/95 backdrop-blur">
+        <div className="mx-auto max-w-md px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
           <div>
-            <h1 className="text-lg font-bold text-neutral-900">
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-orange-500">Account security</p>
+            <h1 className="mt-0.5 text-xl font-black tracking-tight text-neutral-950">
               {forced ? 'Update Password' : 'Change Password'}
             </h1>
             <p className="text-xs text-neutral-500">
@@ -321,9 +322,23 @@ export default function ChangePassword() {
             </p>
           </div>
         </div>
-      </div>
+      </header>
 
-      <form id="change-password-form" onSubmit={handleSubmit} className="space-y-5 px-4 py-4 pb-28">
+      <form id="change-password-form" onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 px-4 py-4">
+        <section className="rounded-3xl bg-neutral-950 p-4 text-white">
+          <div className="flex items-start gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-orange-400 ring-1 ring-white/10">
+              <ShieldCheck size={21} />
+            </span>
+            <div>
+              <h2 className="text-base font-black">Protect your account</h2>
+              <p className="mt-1 text-xs leading-5 text-neutral-400">
+                Use a password you do not use for other apps or services.
+              </p>
+            </div>
+          </div>
+        </section>
+
         {/* Security Notice */}
         {forced && (
           <div className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
@@ -343,7 +358,7 @@ export default function ChangePassword() {
         )}
 
         {/* Password Fields */}
-        <div className="space-y-4">
+        <section className="space-y-4 rounded-3xl border border-neutral-100 bg-white p-4 shadow-sm">
           {!forced && (
             <PasswordField
               label="Current Password"
@@ -381,24 +396,20 @@ export default function ChangePassword() {
             showPassword={showPassword}
             onToggleShow={() => setShowPassword((v) => !v)}
           />
-        </div>
+        </section>
 
         {/* Password Tip */}
-        <div className="rounded-2xl bg-neutral-50 p-4">
+        <div className="rounded-2xl bg-neutral-50 p-3.5 ring-1 ring-neutral-100">
           <p className="text-xs font-bold text-neutral-700">Password tip</p>
           <p className="mt-1 text-xs leading-relaxed text-neutral-500">
             Use a password that is hard to guess and different from other apps.
           </p>
         </div>
-      </form>
 
-      {/* Sticky Bottom Button */}
-      <div className="fixed bottom-0 left-0 right-0 border-t border-neutral-100 bg-white p-4">
         <button
           type="submit"
-          form="change-password-form"
           disabled={submitting}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 font-bold text-white transition active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
         >
           {submitting ? (
             <>
@@ -412,7 +423,7 @@ export default function ChangePassword() {
             </>
           )}
         </button>
-      </div>
+      </form>
     </div>
   );
 }
@@ -446,7 +457,7 @@ function PasswordField({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
-          className="h-12 w-full rounded-2xl border border-neutral-200 bg-neutral-50 pl-11 pr-11 text-sm outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/10"
+          className="h-11 w-full rounded-2xl border border-neutral-200 bg-white pl-11 pr-11 text-sm outline-none transition focus:border-orange-400 focus:ring-4 focus:ring-orange-500/10"
         />
         <button
           type="button"

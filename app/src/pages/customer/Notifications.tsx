@@ -271,13 +271,13 @@ function SwipeableNotification({
       >
         <div
           onClick={handleCardClick}
-          className="w-full rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition-shadow duration-200 active:shadow-md"
+          className="w-full rounded-3xl bg-white p-3.5 shadow-sm ring-1 ring-gray-100 transition-shadow duration-200 active:shadow-md"
         >
           <div className="flex gap-3">
             <div
-              className={`mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl ${style.bg} ${style.text}`}
+              className={`mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl ${style.bg} ${style.text}`}
             >
-              <Icon size={20} strokeWidth={2} />
+              <Icon size={18} strokeWidth={2.1} />
             </div>
 
             <div className="min-w-0 flex-1">
@@ -321,7 +321,7 @@ function SwipeableNotification({
                 </p>
               )}
 
-              <p className="mt-3 text-xs font-medium text-gray-400">
+              <p className="mt-2 text-[11px] font-medium text-gray-400">
                 {formattedTime || 'Just now'}
               </p>
             </div>
@@ -504,23 +504,22 @@ export default function Notifications() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-24">
-      <div className="sticky top-0 z-20 border-b border-gray-100 bg-white px-4 py-3">
-        <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="min-w-0">
-              <h1 className="truncate text-base font-bold text-gray-900">Notifications</h1>
+    <div className="min-h-screen bg-white pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
+      <header className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+          <div className="min-w-0">
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-orange-500">Activity</p>
+              <h1 className="mt-0.5 truncate text-xl font-black tracking-tight text-gray-950">Notifications</h1>
               <p className="truncate text-xs text-gray-500">
                 {unreadCount > 0 ? `${unreadCount} unread` : notifications.length > 0 ? `${notifications.length} updates` : 'You are all caught up'}
               </p>
-            </div>
           </div>
 
           <div className="flex flex-shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={() => loadNotifications()}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-600 active:scale-95"
+              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gray-100 text-gray-600 active:scale-95"
               aria-label="Refresh notifications"
             >
               <RefreshCw size={18} />
@@ -530,7 +529,7 @@ export default function Notifications() {
                 type="button"
                 disabled={busy}
                 onClick={handleMarkAllRead}
-                className="flex h-10 items-center gap-1.5 rounded-full bg-orange-500 px-3 text-xs font-bold text-white shadow-sm active:scale-95 disabled:opacity-60"
+                className="flex h-10 items-center gap-1.5 rounded-2xl bg-orange-500 px-3 text-xs font-bold text-white shadow-sm active:scale-95 disabled:opacity-60"
                 aria-label="Mark all as read"
               >
                 {busy ? <Loader2 size={16} className="animate-spin" /> : <CheckCheck size={16} />}
@@ -539,11 +538,11 @@ export default function Notifications() {
             )}
           </div>
         </div>
-      </div>
+      </header>
 
       <main className="mx-auto max-w-lg px-4 py-4">
         {isNativeNotificationsAvailable() && nativePermission !== 'granted' && (
-          <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-4 rounded-3xl border border-blue-100 bg-blue-50 p-4">
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                 <Bell size={19} strokeWidth={2.4} />
@@ -584,7 +583,7 @@ export default function Notifications() {
         )}
 
         {notifications.length === 0 ? (
-          <div className="rounded-2xl border border-gray-100 bg-white px-6 py-10 text-center">
+          <div className="rounded-3xl border border-gray-100 bg-gray-50 px-6 py-10 text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-orange-50 text-orange-500">
               <ShieldCheck size={28} strokeWidth={2} />
             </div>
@@ -601,7 +600,12 @@ export default function Notifications() {
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <>
+            <div className="mb-3 flex items-center justify-between px-1">
+              <p className="text-[11px] font-black uppercase tracking-[0.12em] text-gray-400">Recent updates</p>
+              <p className="text-[11px] font-medium text-gray-400">Swipe left to delete</p>
+            </div>
+            <div className="space-y-3">
             {notifications.map((notification) => (
               <SwipeableNotification
                 key={notification.id}
@@ -610,7 +614,8 @@ export default function Notifications() {
                 onDelete={() => handleDelete(notification.id)}
               />
             ))}
-          </div>
+            </div>
+          </>
         )}
       </main>
     </div>
