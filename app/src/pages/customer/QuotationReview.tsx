@@ -91,7 +91,7 @@ function quotationDisplay(quotation: Quotation) {
       quotation.status === 'pending'
         ? 'Shop2Bhutan is finalizing your product and delivery charges.'
         : 'Check the items and complete price breakdown before accepting.',
-    statusLabel: quotation.status === 'pending' ? 'Pending' : 'Ready',
+    statusLabel: quotation.status === 'pending' ? 'Pending' : 'Awaiting approval',
     iconClass: quotation.status === 'pending' ? 'text-amber-500' : 'text-violet-500',
     icon:
       quotation.status === 'pending' ? (
@@ -108,6 +108,7 @@ function sourceForItem(order: Order, item: QuotationItem) {
   return {
     sourceUrl: item.sourceUrl || fromOrder?.sourceUrl || '',
     sourcePlatform: item.sourcePlatform || fromOrder?.sourcePlatform || '',
+    productImage: item.productImage || fromOrder?.productImage || '',
     screenshotUrl: item.screenshotUrl || fromOrder?.screenshotUrl || '',
   };
 }
@@ -284,7 +285,7 @@ export default function QuotationReview() {
       ];
 
   return (
-    <div className="min-h-screen bg-white pb-[calc(12rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-screen bg-white pb-[calc(13rem+env(safe-area-inset-bottom))]">
       <header className="border-b border-gray-100 bg-white px-5 py-4">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-4">
           <div className="min-w-0">
@@ -305,41 +306,41 @@ export default function QuotationReview() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-5 py-5">
+      <main className="mx-auto max-w-2xl px-5 py-5 scroll-pb-44">
         {error && (
           <div className="mb-5 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm leading-6 text-red-600">
             {error}
           </div>
         )}
 
-        <section className="overflow-hidden rounded-[2rem] bg-[#050713] text-white shadow-[0_18px_42px_rgba(5,7,19,0.16)]">
-          <div className="px-6 pb-5 pt-6">
-            <div className="flex items-start justify-between gap-5">
+        <section className="overflow-hidden rounded-[1.85rem] bg-[#050713] text-white shadow-[0_18px_42px_rgba(5,7,19,0.16)]">
+          <div className="px-5 pb-4 pt-5">
+            <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500">
                   {display.eyebrow}
                 </p>
-                <h2 className="mt-3 text-[1.65rem] font-black tracking-tight text-white">
+                <h2 className="mt-2.5 max-w-[13rem] text-[1.5rem] font-black leading-tight tracking-tight text-white">
                   {display.title}
                 </h2>
-                <p className="mt-3 max-w-[17rem] text-sm leading-6 text-gray-400">
+                <p className="mt-2.5 max-w-[16rem] text-[13px] leading-[1.4rem] text-gray-400">
                   {display.subtitle}
                 </p>
               </div>
 
               <span
-                className={`flex h-[4.75rem] w-[4.75rem] shrink-0 items-center justify-center rounded-[1.55rem] bg-white ${display.iconClass}`}
+                className={`flex h-[4.2rem] w-[4.2rem] shrink-0 items-center justify-center rounded-[1.4rem] bg-white ${display.iconClass}`}
               >
                 {display.icon}
               </span>
             </div>
 
-            <div className="mt-6 border-t border-white/10 pt-5">
+            <div className="mt-5 border-t border-white/10 pt-4">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-500">
                 {isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total payable'}
               </p>
               <div className="mt-2 flex items-end justify-between gap-4">
-                <p className="text-[2.05rem] font-black tracking-tight text-white">
+                <p className="text-[1.9rem] font-black tracking-tight text-white">
                   {money(quotation.totalAmount)}
                 </p>
                 <span className="mb-1 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-bold text-gray-200 ring-1 ring-white/10">
@@ -350,11 +351,11 @@ export default function QuotationReview() {
           </div>
 
           <div className="grid grid-cols-2 border-t border-white/10 bg-white/[0.04]">
-            <div className="px-6 py-4">
+            <div className="px-5 py-3.5">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">Status</p>
               <p className="mt-1 text-sm font-bold text-white">{display.statusLabel}</p>
             </div>
-            <div className="border-l border-white/10 px-6 py-4">
+            <div className="border-l border-white/10 px-5 py-3.5">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">
                 Valid until
               </p>
@@ -459,7 +460,7 @@ export default function QuotationReview() {
               const source = sourceForItem(order, item);
               const hasSourceLink = canShowSourceLink(source.sourceUrl);
               const displayImageUrl =
-                [item.productImage, source.screenshotUrl].find((url) => canShowImageUrl(url)) ||
+                [item.productImage, source.productImage, source.screenshotUrl].find((url) => canShowImageUrl(url)) ||
                 QUOTATION_IMAGE_FALLBACK;
 
               return (
@@ -543,35 +544,37 @@ export default function QuotationReview() {
             <h2 className="mt-1 text-xl font-black tracking-tight text-gray-950">How you can pay</h2>
           </div>
 
-          <div className={`grid gap-3 ${isJaigaonPickup ? 'grid-cols-1' : 'grid-cols-2'}`}>
-            <div className="rounded-[1.55rem] border border-orange-100 bg-orange-50/60 p-4 ring-1 ring-orange-50">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-orange-500 shadow-sm ring-1 ring-orange-100">
-                <CreditCard size={17} />
+          <div className={`grid gap-2.5 ${isJaigaonPickup ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            <div className="rounded-[1.35rem] border border-orange-100 bg-orange-50/60 p-3 ring-1 ring-orange-50">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-orange-500 ring-1 ring-orange-100">
+                  <CreditCard size={15.5} />
+                </span>
+                <p className="text-[11px] font-extrabold leading-4 text-gray-600">
+                  {isJaigaonPickup ? 'Full charges' : 'Full payment'}
+                </p>
               </div>
-              <p className="mt-4 text-xs font-extrabold text-gray-600">
-                {isJaigaonPickup ? 'Full charges payment' : 'Full payment'}
-              </p>
-              <p className="mt-1 text-lg font-black tracking-tight text-gray-950">
+              <p className="mt-2.5 text-base font-black tracking-tight text-gray-950">
                 {money(quotation.totalAmount)}
               </p>
-              <p className="mt-2 text-[11px] leading-5 text-gray-500">
-                {isJaigaonPickup
-                  ? 'Required for direct Jaigaon pickup.'
-                  : 'Clear the complete quotation now.'}
+              <p className="mt-1 text-[10px] leading-4 text-gray-500">
+                {isJaigaonPickup ? 'Required for Jaigaon pickup.' : 'Pay the complete quotation now.'}
               </p>
             </div>
 
             {!isJaigaonPickup && (
-              <div className="rounded-[1.55rem] border border-violet-100 bg-violet-50/60 p-4 ring-1 ring-violet-50">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-violet-500 shadow-sm ring-1 ring-violet-100">
-                  <CreditCard size={17} />
+              <div className="rounded-[1.35rem] border border-violet-100 bg-violet-50/60 p-3 ring-1 ring-violet-50">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-violet-500 ring-1 ring-violet-100">
+                    <CreditCard size={15.5} />
+                  </span>
+                  <p className="text-[11px] font-extrabold leading-4 text-gray-600">50% advance</p>
                 </div>
-                <p className="mt-4 text-xs font-extrabold text-gray-600">50% advance</p>
-                <p className="mt-1 text-lg font-black tracking-tight text-gray-950">
+                <p className="mt-2.5 text-base font-black tracking-tight text-gray-950">
                   {money(advanceAmount)}
                 </p>
-                <p className="mt-2 text-[11px] leading-5 text-gray-500">
-                  Start fulfillment after verification and pay the balance later.
+                <p className="mt-1 text-[10px] leading-4 text-gray-500">
+                  Start after verification; pay the balance later.
                 </p>
               </div>
             )}
@@ -660,20 +663,20 @@ export default function QuotationReview() {
 
       {canRespond && !showRejectDialog && (
         <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-0 right-0 z-40 px-4">
-          <div className="mx-auto flex max-w-2xl gap-3 rounded-[1.5rem] border border-gray-100 bg-white/95 p-2.5 shadow-[0_16px_42px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+          <div className="mx-auto flex max-w-2xl gap-2 rounded-[1.35rem] border border-gray-100 bg-white/95 p-2 shadow-[0_14px_34px_rgba(15,23,42,0.16)] backdrop-blur-xl">
             <button
               type="button"
               onClick={handleReject}
               disabled={submitting}
-              className="h-12 flex-1 rounded-2xl bg-gray-100 px-3 text-sm font-extrabold text-gray-700 transition active:scale-[0.98] disabled:opacity-50"
+              className="h-11 flex-1 rounded-[1rem] bg-gray-100 px-2.5 text-[13px] font-extrabold text-gray-700 transition active:scale-[0.98] disabled:opacity-50"
             >
-              Need Changes
+              Decline
             </button>
             <button
               type="button"
               onClick={handleAccept}
               disabled={submitting}
-              className="flex h-12 flex-[1.45] items-center justify-center gap-2 rounded-2xl bg-orange-500 px-3 text-sm font-extrabold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50"
+              className="flex h-11 flex-[1.55] items-center justify-center gap-1.5 rounded-[1rem] bg-orange-500 px-3 text-[13px] font-extrabold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50"
             >
               {submitting ? 'Processing...' : 'Accept & Continue'}
               {!submitting && <ChevronRight size={17} />}
@@ -684,11 +687,11 @@ export default function QuotationReview() {
 
       {isApproved && (
         <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-0 right-0 z-40 px-4">
-          <div className="mx-auto max-w-2xl rounded-[1.5rem] border border-gray-100 bg-white/95 p-2.5 shadow-[0_16px_42px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+          <div className="mx-auto max-w-2xl rounded-[1.35rem] border border-gray-100 bg-white/95 p-2 shadow-[0_14px_34px_rgba(15,23,42,0.16)] backdrop-blur-xl">
             <button
               type="button"
               onClick={() => navigate(`/payment/${order.id}`)}
-              className="flex h-12 w-full items-center justify-between rounded-2xl bg-orange-500 px-4 text-sm font-extrabold text-white transition active:scale-[0.99]"
+              className="flex h-11 w-full items-center justify-between rounded-[1rem] bg-orange-500 px-4 text-[13px] font-extrabold text-white transition active:scale-[0.99]"
             >
               <span>Continue to Payment</span>
               <ChevronRight size={18} />
@@ -708,15 +711,15 @@ export default function QuotationReview() {
                   <AlertTriangle size={23} />
                 </span>
                 <div>
-                  <h3 className="text-xl font-black tracking-tight text-gray-950">Need changes?</h3>
+                  <h3 className="text-xl font-black tracking-tight text-gray-950">Decline quotation?</h3>
                   <p className="mt-1.5 text-sm leading-6 text-gray-500">
-                    Mark this quotation as needing changes when the price or product details are not suitable.
+                    Decline this quotation when the price or product details are not suitable.
                   </p>
                 </div>
               </div>
 
               <div className="mt-5 rounded-2xl bg-gray-50 px-4 py-3 text-xs leading-5 text-gray-500 ring-1 ring-gray-100">
-                The quotation will be recorded as rejected. Your request remains available in your account for reference.
+                This quotation will be recorded as declined. Your request will remain available in your account for reference.
               </div>
             </div>
 
