@@ -395,10 +395,10 @@ export default function Account() {
                 <img
                   src={avatarUrl}
                   alt={displayName}
-                  className="h-[68px] w-[68px] rounded-[20px] object-cover ring-2 ring-white/15"
+                  className="h-[68px] w-[68px] rounded-full object-cover ring-2 ring-white/15"
                 />
               ) : (
-                <div className="flex h-[68px] w-[68px] items-center justify-center rounded-[20px] bg-white/10 ring-1 ring-white/10">
+                <div className="flex h-[68px] w-[68px] items-center justify-center rounded-full bg-white/10 ring-1 ring-white/10">
                   <span className="text-3xl font-black text-orange-400">
                     {displayName.charAt(0).toUpperCase()}
                   </span>
@@ -417,7 +417,9 @@ export default function Account() {
                 <h2 className="truncate text-lg font-black tracking-tight">
                   {displayName}
                 </h2>
-                <VerificationBadge badge={verificationBadge} size="xs" />
+                <span className="[&>*]:ring-0 [&>*]:border-0 [&>*]:shadow-none">
+                  <VerificationBadge badge={verificationBadge} size="xs" />
+                </span>
               </div>
 
               {verificationBadge !== 'none' && (
