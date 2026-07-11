@@ -31,22 +31,11 @@
                     android:host="login" />
             </intent-filter>
 
-            <!-- Receive product links shared from Amazon, Flipkart, Myntra,
-                 Meesho, browsers, and other Android apps. -->
+            <!-- Receive product links shared from shopping apps and browsers. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
-            </intent-filter>
-
-            <!-- Internal deep link used by the Android share receiver. -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="com.shop2bhutan.app"
-                    android:host="share" />
             </intent-filter>
 
         </activity>

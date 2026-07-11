@@ -14,72 +14,71 @@ import java.util.regex.Pattern;
 public class MainActivity extends BridgeActivity {
 
     private static final String TAG = "Shop2BhutanShare";
-    private static final String APP_SCHEME = "com.shop2bhutan.app";
 
     private static final Pattern WEB_URL_PATTERN =
         Pattern.compile("https?://[^\\s]+", Pattern.CASE_INSENSITIVE);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        Intent launchIntent = getIntent();
-        prepareIncomingShare(launchIntent);
+        // Capacitor requires local plugins to be registered before super.
+        registerPlugin(ShareReceiverPlugin.class);
 
-        // BridgeActivity reads getIntent() during startup. Persist the converted
-        // ACTION_VIEW intent so Capacitor App.getLaunchUrl() can see it.
-        setIntent(launchIntent);
-
+        storeIncomingShare(getIntent());
         super.onCreate(savedInstanceState);
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
-        prepareIncomingShare(intent);
+        storeIncomingShare(intent);
 
-        // Required for singleTask activities so getIntent() no longer points to
-        // the old launcher intent.
+        // Keep getIntent() current for singleTask activity launches.
         setIntent(intent);
-
         super.onNewIntent(intent);
     }
 
-    /**
-     * Converts Android ACTION_SEND content into a Shop2Bhutan deep link:
-     * com.shop2bhutan.app://share?url=<encoded-url>&title=<optional-title>
-     */
-    private void prepareIncomingShare(Intent intent) {
-        if (intent == null || !Intent.ACTION_SEND.equals(intent.getAction())) {
+    private void storeIncomingShare(Intent intent) {
+        if (
+            intent == null ||
+            !Intent.ACTION_SEND.equals(intent.getAction())
+        ) {
+            return;
+        }
+
+        String mimeType = intent.getType();
+
+        if (mimeType == null || !mimeType.startsWith("text/")) {
+            Log.w(TAG, "Ignored non-text Android share.");
             return;
         }
 
         String productUrl = extractSharedWebUrl(intent);
 
         if (productUrl.isEmpty()) {
-            Log.w(TAG, "Share intent received, but no HTTP/HTTPS URL was found.");
+            Log.w(TAG, "Share received, but no HTTP/HTTPS URL was found.");
             return;
         }
 
-        String sharedTitle = safeString(
+        String title = safeString(
             intent.getStringExtra(Intent.EXTRA_SUBJECT)
         );
 
-        Uri.Builder deepLinkBuilder = new Uri.Builder()
-            .scheme(APP_SCHEME)
-            .authority("share")
-            .appendQueryParameter("url", productUrl);
+        ShareReceiverPlugin.storePendingShare(
+            getApplicationContext(),
+            productUrl,
+            title
+        );
 
-        if (!sharedTitle.isEmpty()) {
-            deepLinkBuilder.appendQueryParameter("title", sharedTitle);
-        }
+        Log.d(TAG, "Stored shared product URL: " + productUrl);
 
-        Uri deepLink = deepLinkBuilder.build();
-
-        Log.d(TAG, "Converted Android share to: " + deepLink);
-
-        intent.setAction(Intent.ACTION_VIEW);
-        intent.setData(deepLink);
+        // The share is handled by ShareReceiverPlugin, not by the App
+        // deep-link plugin. Sanitizing prevents it being mistaken for a
+        // normal launcher/deep-link intent.
+        intent.setAction(Intent.ACTION_MAIN);
+        intent.setData(null);
         intent.setType(null);
         intent.removeExtra(Intent.EXTRA_TEXT);
         intent.removeExtra(Intent.EXTRA_SUBJECT);
+        intent.setClipData(null);
     }
 
     private String extractSharedWebUrl(Intent intent) {
@@ -96,6 +95,7 @@ public class MainActivity extends BridgeActivity {
         );
 
         Uri data = intent.getData();
+
         if (data != null) {
             appendCandidate(candidates, data.toString());
         }
@@ -103,7 +103,11 @@ public class MainActivity extends BridgeActivity {
         ClipData clipData = intent.getClipData();
 
         if (clipData != null) {
-            for (int index = 0; index < clipData.getItemCount(); index++) {
+            for (
+                int index = 0;
+                index < clipData.getItemCount();
+                index++
+            ) {
                 ClipData.Item item = clipData.getItemAt(index);
 
                 if (item.getText() != null) {
@@ -111,7 +115,10 @@ public class MainActivity extends BridgeActivity {
                 }
 
                 if (item.getUri() != null) {
-                    appendCandidate(candidates, item.getUri().toString());
+                    appendCandidate(
+                        candidates,
+                        item.getUri().toString()
+                    );
                 }
             }
         }
@@ -141,11 +148,8 @@ public class MainActivity extends BridgeActivity {
     }
 
     private String extractFirstWebUrl(String sharedText) {
-        if (sharedText == null) {
-            return "";
-        }
-
-        Matcher matcher = WEB_URL_PATTERN.matcher(sharedText.trim());
+        Matcher matcher =
+            WEB_URL_PATTERN.matcher(safeString(sharedText));
 
         if (!matcher.find()) {
             return "";
@@ -153,7 +157,7 @@ public class MainActivity extends BridgeActivity {
 
         String url = safeString(matcher.group());
 
-        // Shopping apps sometimes append sentence punctuation after the URL.
+        // Remove punctuation that sharing apps may append after the URL.
         while (!url.isEmpty()) {
             char last = url.charAt(url.length() - 1);
 

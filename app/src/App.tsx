@@ -13,6 +13,7 @@ import {
   registerPushDeviceForUser,
   type PushPermissionState,
 } from '@/lib/pushNotifications';
+import { consumePendingNativeShare } from '@/lib/nativeShareReceiver';
 
 // Layouts
 import CustomerLayout from '@/layouts/CustomerLayout';
@@ -684,77 +685,38 @@ function GoogleProfileCompletionGate({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-const NATIVE_APP_SCHEME = 'com.shop2bhutan.app:';
-
-function replaceCurrentRoute(pathname: string, searchParams?: URLSearchParams) {
-  const search = searchParams?.toString();
-  const target = search ? `${pathname}?${search}` : pathname;
-
-  window.history.replaceState({}, '', target);
-  window.dispatchEvent(new PopStateEvent('popstate'));
-}
+const NATIVE_AUTH_SCHEME = 'com.shop2bhutan.app:';
 
 function navigateToNativeGoogleCallback(
   errorMessage?: string,
   returnTo?: string | null,
 ) {
-  const searchParams = new URLSearchParams();
-  searchParams.set('oauth', 'google');
+  const callbackUrl = new URL('/login', window.location.origin);
+  callbackUrl.searchParams.set('oauth', 'google');
 
   if (returnTo?.startsWith('/') && !returnTo.startsWith('//')) {
-    searchParams.set('returnTo', returnTo);
+    callbackUrl.searchParams.set('returnTo', returnTo);
   }
 
   if (errorMessage) {
-    searchParams.set('error_description', errorMessage);
+    callbackUrl.searchParams.set('error_description', errorMessage);
   }
 
-  replaceCurrentRoute('/login', searchParams);
+  window.history.replaceState(
+    {},
+    '',
+    `${callbackUrl.pathname}${callbackUrl.search}`,
+  );
+  window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
-function navigateToSharedProduct(
-  sharedUrl: string,
-  sharedTitle?: string | null,
-) {
-  const cleanUrl = sharedUrl.trim();
-  if (!/^https?:\/\//i.test(cleanUrl)) return false;
+async function handleNativeAuthUrl(url: string) {
+  if (!url.startsWith(NATIVE_AUTH_SCHEME)) return false;
 
-  const searchParams = new URLSearchParams();
-  searchParams.set('source', 'android-share');
-  searchParams.set('url', cleanUrl);
-
-  const cleanTitle = String(sharedTitle ?? '').trim();
-  if (cleanTitle) {
-    searchParams.set('title', cleanTitle);
-  }
-
-  replaceCurrentRoute('/paste-link', searchParams);
-  return true;
-}
-
-async function handleNativeAppUrl(url: string) {
-  if (!url.startsWith(NATIVE_APP_SCHEME)) return false;
-
-  let parsedUrl: URL;
-
-  try {
-    parsedUrl = new URL(url);
-  } catch {
-    return false;
-  }
-
-  if (parsedUrl.hostname === 'share') {
-    return navigateToSharedProduct(
-      parsedUrl.searchParams.get('url') ?? '',
-      parsedUrl.searchParams.get('title'),
-    );
-  }
-
+  const parsedUrl = new URL(url);
   if (parsedUrl.hostname !== 'login') return false;
 
-  const hashParams = new URLSearchParams(
-    parsedUrl.hash.replace(/^#/, ''),
-  );
+  const hashParams = new URLSearchParams(parsedUrl.hash.replace(/^#/, ''));
   const queryParams = parsedUrl.searchParams;
   const returnTo = queryParams.get('returnTo');
 
@@ -790,15 +752,12 @@ async function handleNativeAppUrl(url: string) {
       });
       if (error) throw error;
     } else {
-      throw new Error(
-        'Google did not return a valid Shop2Bhutan session.',
-      );
+      throw new Error('Google did not return a valid Shop2Bhutan session.');
     }
 
     navigateToNativeGoogleCallback(undefined, returnTo);
   } catch (error) {
     console.error('[Shop2Bhutan] Native Google OAuth failed:', error);
-
     navigateToNativeGoogleCallback(
       error instanceof Error
         ? error.message
@@ -810,32 +769,15 @@ async function handleNativeAppUrl(url: string) {
   return true;
 }
 
-function NativeAppUrlBridge() {
-  const lastHandledUrlRef = useRef('');
-
+function NativeGoogleOAuthBridge() {
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return undefined;
 
     let active = true;
     let removeListener: (() => Promise<void>) | undefined;
 
-    const handleOnce = (url?: string | null) => {
-      const cleanUrl = String(url ?? '').trim();
-
-      if (
-        !active ||
-        !cleanUrl ||
-        lastHandledUrlRef.current === cleanUrl
-      ) {
-        return;
-      }
-
-      lastHandledUrlRef.current = cleanUrl;
-      void handleNativeAppUrl(cleanUrl);
-    };
-
     void CapacitorApp.addListener('appUrlOpen', ({ url }) => {
-      handleOnce(url);
+      if (active) void handleNativeAuthUrl(url);
     }).then((listener) => {
       if (!active) {
         void listener.remove();
@@ -846,7 +788,9 @@ function NativeAppUrlBridge() {
     });
 
     void CapacitorApp.getLaunchUrl().then((launch) => {
-      handleOnce(launch?.url);
+      if (active && launch?.url) {
+        void handleNativeAuthUrl(launch.url);
+      }
     });
 
     return () => {
@@ -854,6 +798,95 @@ function NativeAppUrlBridge() {
       void removeListener?.();
     };
   }, []);
+
+  return null;
+}
+
+
+function NativeShareBridge() {
+  const navigate = useNavigate();
+  const checkingRef = useRef(false);
+  const activeRef = useRef(true);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return undefined;
+
+    activeRef.current = true;
+    let removeResume: (() => Promise<void>) | undefined;
+    let removeStateChange: (() => Promise<void>) | undefined;
+
+    const openPendingShare = async () => {
+      if (checkingRef.current) return;
+
+      checkingRef.current = true;
+
+      try {
+        const sharedProduct =
+          await consumePendingNativeShare();
+
+        if (!activeRef.current || !sharedProduct) return;
+
+        navigate('/paste-link', {
+          state: {
+            initialUrl: sharedProduct.url,
+            sharedTitle: sharedProduct.title,
+            source: 'android-share',
+            receivedAt: sharedProduct.receivedAt,
+          },
+        });
+      } finally {
+        checkingRef.current = false;
+      }
+    };
+
+    // Cold start: consume the share saved by MainActivity.
+    void openPendingShare();
+
+    // Warm start: Android resumes Shop2Bhutan after the share sheet.
+    void CapacitorApp.addListener('resume', () => {
+      void openPendingShare();
+    }).then((listener) => {
+      if (!activeRef.current) {
+        void listener.remove();
+        return;
+      }
+
+      removeResume = () => listener.remove();
+    });
+
+    void CapacitorApp.addListener(
+      'appStateChange',
+      ({ isActive }) => {
+        if (isActive) void openPendingShare();
+      },
+    ).then((listener) => {
+      if (!activeRef.current) {
+        void listener.remove();
+        return;
+      }
+
+      removeStateChange = () => listener.remove();
+    });
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) void openPendingShare();
+    };
+
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityChange,
+    );
+
+    return () => {
+      activeRef.current = false;
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange,
+      );
+      void removeResume?.();
+      void removeStateChange?.();
+    };
+  }, [navigate]);
 
   return null;
 }
@@ -972,7 +1005,8 @@ function PasswordChangeGate({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <AppProvider>
-      <NativeAppUrlBridge />
+      <NativeGoogleOAuthBridge />
+      <NativeShareBridge />
       <PushNotificationBridge />
       <RouteScrollToTop />
       <PwaInstallBanner />

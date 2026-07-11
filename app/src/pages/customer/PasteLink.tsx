@@ -157,25 +157,17 @@ export default function PasteLink() {
   const locationState = location.state as {
     initialUrl?: string;
     sourcePlatform?: string;
+    sharedTitle?: string;
+    source?: string;
+    receivedAt?: number;
   } | null;
 
-  const incomingShare = useMemo(() => {
-    const params = new URLSearchParams(location.search);
-
-    return {
-      source: params.get('source') ?? '',
-      url: params.get('url') ?? '',
-      title: params.get('title') ?? '',
-    };
-  }, [location.search]);
-
-  const initialUrl =
-    locationState?.initialUrl ?? incomingShare.url ?? '';
-
   const [mode, setMode] = useState<InputMode>('link');
-  const [url, setUrl] = useState(initialUrl);
+  const [url, setUrl] = useState(locationState?.initialUrl ?? '');
   const [preview, setPreview] = useState<PreviewState>(emptyPreview);
-  const [linkProductName, setLinkProductName] = useState('');
+  const [linkProductName, setLinkProductName] = useState(
+    locationState?.sharedTitle ?? '',
+  );
   const [screenshotProductName, setScreenshotProductName] = useState('');
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState('');
@@ -190,8 +182,10 @@ export default function PasteLink() {
   const resultRef = useRef<HTMLDivElement>(null);
   const noticeTimerRef = useRef<number | null>(null);
   const lastNotifiedUrlRef = useRef('');
-  const lastHandledShareUrlRef = useRef('');
-  const linkNameEditedRef = useRef(false);
+  const lastHandledShareKeyRef = useRef('');
+  const linkNameEditedRef = useRef(
+    Boolean(locationState?.sharedTitle?.trim()),
+  );
 
   const cleanUrl = useMemo(() => normalizeProductUrl(url), [url]);
   const canTryPreview =
@@ -256,24 +250,30 @@ export default function PasteLink() {
   }, []);
 
   useEffect(() => {
-    const sharedUrl = normalizeProductUrl(incomingShare.url);
+    const sharedUrl = normalizeProductUrl(
+      locationState?.initialUrl ?? '',
+    );
 
     if (
-      incomingShare.source !== 'android-share' ||
+      locationState?.source !== 'android-share' ||
       !sharedUrl ||
-      lastHandledShareUrlRef.current === sharedUrl
+      lastHandledShareKeyRef.current === location.key
     ) {
       return;
     }
 
-    lastHandledShareUrlRef.current = sharedUrl;
-    linkNameEditedRef.current = Boolean(incomingShare.title.trim());
+    lastHandledShareKeyRef.current = location.key;
     lastNotifiedUrlRef.current = '';
+    linkNameEditedRef.current = Boolean(
+      locationState.sharedTitle?.trim(),
+    );
 
     setMode('link');
     setUrl(sharedUrl);
     setPreview(emptyPreview);
-    setLinkProductName(incomingShare.title.trim());
+    setLinkProductName(
+      String(locationState.sharedTitle ?? '').trim(),
+    );
     setScreenshotProductName('');
     setScreenshotFile(null);
     setScreenshotPreview('');
@@ -290,7 +290,12 @@ export default function PasteLink() {
       title: 'Product shared to Shop2Bhutan',
       message: 'Checking the product name, photo, and price now.',
     });
-  }, [incomingShare.source, incomingShare.title, incomingShare.url]);
+  }, [
+    location.key,
+    locationState?.initialUrl,
+    locationState?.sharedTitle,
+    locationState?.source,
+  ]);
 
   useEffect(() => {
     if (!canTryPreview) {
