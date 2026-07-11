@@ -178,6 +178,17 @@ function platformStyles(platform?: string) {
   return { bg: 'bg-gray-100', text: 'text-gray-400', initial: null };
 }
 
+function platformLogo(platform?: string) {
+  const p = String(platform ?? '').toLowerCase();
+
+  if (p === 'amazon') return '/store-logos/amazon.png';
+  if (p === 'flipkart') return '/store-logos/flipkart.png';
+  if (p === 'myntra') return '/store-logos/myntra.png';
+  if (p === 'meesho') return '/store-logos/meesho.png';
+
+  return '';
+}
+
 type SelfPickupOption = {
   id: string;
   name: string;
@@ -328,8 +339,11 @@ function BagItemCard({
   onRemove: (itemId: string) => void;
 }) {
   const ps = platformStyles(item.sourcePlatform);
+  const storeLogo = platformLogo(item.sourcePlatform);
   const hasSourceUrl = Boolean(item.sourceUrl);
   const hasScreenshot = Boolean(item.screenshotUrl);
+  const previewImage = item.productImage || item.screenshotUrl || '';
+  const previewIsScreenshot = Boolean(!item.productImage && item.screenshotUrl);
   const itemTypeLabel = hasSourceUrl ? 'Product link' : 'Screenshot request';
   const domain = extractDomain(item.sourceUrl);
   const safeQuantity = Math.max(1, Number(item.quantity) || 1);
@@ -374,18 +388,30 @@ function BagItemCard({
 
       <div className="p-4">
         <div className="flex gap-3.5">
-          {item.productImage ? (
+          {previewImage ? (
             <img
-              src={item.productImage}
-              alt=""
-              className="h-[80px] w-[80px] shrink-0 rounded-2xl bg-slate-100 object-cover ring-1 ring-slate-100"
+              src={previewImage}
+              alt={item.productName || 'Product preview'}
+              className={`h-[80px] w-[80px] shrink-0 rounded-2xl bg-slate-50 ring-1 ring-slate-100 ${
+                previewIsScreenshot ? 'object-contain' : 'object-cover'
+              }`}
             />
+          ) : storeLogo ? (
+            <div className="flex h-[80px] w-[80px] shrink-0 items-center justify-center rounded-2xl bg-white p-4 ring-1 ring-slate-100">
+              <img
+                src={storeLogo}
+                alt={`${platformLabel(item.sourcePlatform)} logo`}
+                className="h-full w-full object-contain"
+              />
+            </div>
           ) : (
             <div
               className={`flex h-[80px] w-[80px] shrink-0 items-center justify-center rounded-2xl ring-1 ring-slate-100 ${ps.bg}`}
             >
               {ps.initial ? (
-                <span className={`text-lg font-black ${ps.text}`}>{ps.initial}</span>
+                <span className={`text-lg font-black ${ps.text}`}>
+                  {ps.initial}
+                </span>
               ) : (
                 <ImageIcon size={24} className={ps.text} />
               )}
