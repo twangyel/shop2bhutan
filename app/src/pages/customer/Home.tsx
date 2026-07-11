@@ -54,32 +54,32 @@ const quickActions = [
     icon: ShoppingBag,
     label: 'Request Bag',
     path: '/request-bag',
-    iconClass: 'bg-orange-50 text-orange-600',
+    iconClass: 'bg-orange-100 text-orange-600',
   },
   {
     icon: Package,
     label: 'My Orders',
     path: '/orders',
-    iconClass: 'bg-blue-50 text-blue-600',
+    iconClass: 'bg-blue-100 text-blue-600',
   },
   {
     icon: Truck,
     label: 'Parcel',
     path: '/parcel',
-    iconClass: 'bg-emerald-50 text-emerald-600',
+    iconClass: 'bg-emerald-100 text-emerald-600',
   },
   {
     icon: Headphones,
     label: 'Support',
     path: '/support',
-    iconClass: 'bg-violet-50 text-violet-600',
+    iconClass: 'bg-violet-100 text-violet-600',
   },
 ] as const;
 
 const trustBadges = [
   { icon: MapPin, label: 'All 20 dzongkhags' },
-  { icon: Activity, label: 'Live order tracking' },
-  { icon: ShieldCheck, label: 'Quote before payment' },
+  { icon: Activity, label: 'Live tracking' },
+  { icon: ShieldCheck, label: 'Quote before pay' },
 ] as const;
 
 const howItWorks = [
@@ -186,8 +186,6 @@ function resolveDeliveryLabel({
   return firstValue;
 }
 
-
-
 const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
 
 function readableHomeDate(value?: string | null) {
@@ -206,7 +204,7 @@ function etaRangeLabel(from?: unknown, to?: unknown) {
   const fromText = readableHomeDate(cleanString(from));
   const toText = readableHomeDate(cleanString(to));
 
-  if (fromText && toText && fromText !== toText) return `${fromText} – ${toText}`;
+  if (fromText && toText && fromText !== toText) return `${fromText} \u2013 ${toText}`;
   return fromText || toText || '';
 }
 
@@ -317,7 +315,6 @@ function makeActivityId(row: ActivityRow) {
   return cleanString(row.id) ?? '';
 }
 
-
 function isActiveParcelRow(row: ActivityRow) {
   const status = normalizeStatus(row.status);
   return Boolean(makeActivityId(row)) && !inactiveParcelStatuses.has(status);
@@ -408,7 +405,6 @@ async function fetchLatestActiveOrder(userId: string, email = ''): Promise<Activ
   }
 }
 
-
 async function fetchParcelTripEta(tripId?: unknown) {
   const id = cleanString(tripId);
   if (!id) return '';
@@ -428,7 +424,7 @@ async function fetchParcelTripEta(tripId?: unknown) {
   const goingDate = readableHomeDate(cleanString(row.going_date));
   const returnDate = readableHomeDate(cleanString(row.return_date));
 
-  if (goingDate && returnDate && goingDate !== returnDate) return `Trip ${goingDate} – ${returnDate}`;
+  if (goingDate && returnDate && goingDate !== returnDate) return `Trip ${goingDate} \u2013 ${returnDate}`;
   if (goingDate) return `Trip ${goingDate}`;
   return '';
 }
@@ -458,77 +454,63 @@ async function fetchLatestActiveParcel(userId: string): Promise<ActiveUpdate | n
   };
 }
 
-function ActivityMiniCard({
+/* ─────────── Full-width active update card (app feel) ─────────── */
+
+function ActivityCard({
   update,
-  fullWidth,
   onNavigate,
 }: {
   update: ActiveUpdate;
-  fullWidth: boolean;
   onNavigate: (path: string) => void;
 }) {
   const isOrder = update.kind === 'order';
+  const Icon = isOrder ? Package : Truck;
+
+  const iconBg = isOrder ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600';
+  const badgeBg = isOrder ? 'bg-orange-50 text-orange-700' : 'bg-emerald-50 text-emerald-700';
+  const etaColor = isOrder ? 'text-orange-600' : 'text-emerald-600';
 
   return (
     <button
       type="button"
       onClick={() => onNavigate(update.path)}
-      className={`rounded-[1.35rem] border border-slate-100 bg-slate-50/80 p-4 text-left transition active:scale-[0.98] ${
-        fullWidth ? 'col-span-2' : ''
-      }`}
+      className="flex w-full items-center gap-4 rounded-2xl bg-white p-4 text-left shadow-sm shadow-slate-100 ring-1 ring-slate-100 transition active:scale-[0.98]"
     >
-      <div className="flex items-start justify-between gap-3">
-        <span
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
-            isOrder
-              ? 'bg-orange-50 text-orange-600'
-              : 'bg-emerald-50 text-emerald-600'
-          }`}
-        >
-          {isOrder ? (
-            <Package size={19} strokeWidth={2.2} />
-          ) : (
-            <Truck size={19} strokeWidth={2.2} />
-          )}
-        </span>
+      <span
+        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${iconBg}`}
+      >
+        <Icon size={22} strokeWidth={2.2} />
+      </span>
 
-        <span
-          className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${
-            isOrder
-              ? 'bg-orange-50 text-orange-700'
-              : 'bg-emerald-50 text-emerald-700'
-          }`}
-        >
-          {update.statusLabel}
-        </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <h3 className="truncate text-sm font-extrabold text-slate-950">
+            {update.title}
+          </h3>
+          <span
+            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${badgeBg}`}
+          >
+            {update.statusLabel}
+          </span>
+        </div>
+        <p className="mt-0.5 truncate text-[12.5px] leading-[1.5] text-slate-500">
+          {update.description}
+        </p>
+        {update.etaLabel && (
+          <p className={`mt-1 text-[12px] font-bold ${etaColor}`}>
+            {update.etaLabel}
+          </p>
+        )}
       </div>
 
-      <h3 className="mt-3 line-clamp-1 text-sm font-extrabold text-slate-950">
-        {update.title}
-      </h3>
-      <p className="mt-1 line-clamp-2 text-[12px] leading-[1.45] text-slate-500">
-        {update.description}
-      </p>
-
-      {update.etaLabel && (
-        <p
-          className={`mt-2 text-[12px] font-bold ${
-            isOrder ? 'text-orange-600' : 'text-emerald-600'
-          }`}
-        >
-          {update.etaLabel}
-        </p>
-      )}
-
-      <span className="mt-3 flex items-center justify-between text-[12px] font-bold text-slate-700">
-        {isOrder ? 'View order' : 'View parcel'}
-        <ArrowRight size={14} strokeWidth={2.5} />
-      </span>
+      <ChevronRight size={18} className="shrink-0 text-slate-300" />
     </button>
   );
 }
 
-function SectionHeading({
+/* ─────────── Section header (app style) ─────────── */
+
+function SectionHeader({
   eyebrow,
   title,
   action,
@@ -540,14 +522,14 @@ function SectionHeading({
   onAction?: () => void;
 }) {
   return (
-    <div className="flex items-end justify-between gap-3">
-      <div>
+    <div className="flex items-end justify-between gap-3 px-4">
+      <div className="min-w-0">
         {eyebrow && (
-          <p className="text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
             {eyebrow}
           </p>
         )}
-        <h2 className="mt-1 text-[1.18rem] font-extrabold tracking-tight text-slate-950">
+        <h2 className="mt-0.5 text-lg font-extrabold tracking-tight text-slate-950">
           {title}
         </h2>
       </div>
@@ -556,7 +538,7 @@ function SectionHeading({
         <button
           type="button"
           onClick={onAction}
-          className="flex items-center gap-0.5 text-[13px] font-bold text-orange-600 transition active:scale-95"
+          className="flex shrink-0 items-center gap-0.5 text-[13px] font-bold text-orange-600 transition active:scale-95"
         >
           {action}
           <ChevronRight size={15} strokeWidth={2.3} />
@@ -566,7 +548,9 @@ function SectionHeading({
   );
 }
 
-function ContinueTrackingCard({
+/* ─────────── Active updates / How it works ─────────── */
+
+function ActiveUpdatesSection({
   updates,
   loading,
   onNavigate,
@@ -578,10 +562,12 @@ function ContinueTrackingCard({
   if (loading) {
     return (
       <section className="mt-6">
-        <div className="h-4 w-36 animate-pulse rounded-full bg-slate-100" />
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <div className="h-40 animate-pulse rounded-[1.35rem] bg-slate-100" />
-          <div className="h-40 animate-pulse rounded-[1.35rem] bg-slate-100" />
+        <div className="px-4">
+          <div className="h-4 w-36 animate-pulse rounded-full bg-slate-200" />
+        </div>
+        <div className="mt-3 space-y-3 px-4">
+          <div className="h-[88px] animate-pulse rounded-2xl bg-slate-200" />
+          <div className="h-[88px] animate-pulse rounded-2xl bg-slate-200" />
         </div>
       </section>
     );
@@ -590,21 +576,21 @@ function ContinueTrackingCard({
   if (updates.length === 0) {
     return (
       <section className="mt-7">
-        <SectionHeading eyebrow="Simple process" title="How Shop2Bhutan works" />
+        <SectionHeader eyebrow="Simple process" title="How Shop2Bhutan works" />
 
-        <div className="mt-3 grid grid-cols-2 gap-2.5">
+        <div className="mt-3 flex gap-3 overflow-x-auto px-4 pb-1 scrollbar-hide">
           {howItWorks.map((item) => (
             <div
               key={item.step}
-              className="min-h-[128px] rounded-[1.25rem] border border-slate-100 bg-slate-50/80 p-4"
+              className="flex w-[200px] shrink-0 flex-col rounded-2xl bg-white p-4 shadow-sm shadow-slate-100 ring-1 ring-slate-100"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[13px] font-black text-orange-600 shadow-sm ring-1 ring-orange-100">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-50 text-[13px] font-black text-orange-600 ring-1 ring-orange-100">
                 {item.step}
               </span>
-              <p className="mt-2.5 text-[14px] font-extrabold text-slate-900">
+              <p className="mt-3 text-sm font-extrabold text-slate-900">
                 {item.title}
               </p>
-              <p className="mt-1.5 text-[12.5px] leading-[1.5] text-slate-500">
+              <p className="mt-1.5 flex-1 text-[12.5px] leading-[1.5] text-slate-500">
                 {item.description}
               </p>
             </div>
@@ -614,24 +600,20 @@ function ContinueTrackingCard({
     );
   }
 
-  const visibleUpdates = updates.slice(0, 2);
-  const fullWidth = visibleUpdates.length === 1;
-
   return (
     <section className="mt-7">
-      <SectionHeading
+      <SectionHeader
         eyebrow="Continue tracking"
         title="Active updates"
-        action="View all"
-        onAction={() => onNavigate('/orders')}
+        action={updates.length > 1 ? 'View all' : undefined}
+        onAction={updates.length > 1 ? () => onNavigate('/orders') : undefined}
       />
 
-      <div className="mt-3 grid grid-cols-2 gap-3">
-        {visibleUpdates.map((update) => (
-          <ActivityMiniCard
+      <div className="mt-3 space-y-3 px-4">
+        {updates.slice(0, 2).map((update) => (
+          <ActivityCard
             key={`${update.kind}-${update.id}`}
             update={update}
-            fullWidth={fullWidth}
             onNavigate={onNavigate}
           />
         ))}
@@ -639,6 +621,10 @@ function ContinueTrackingCard({
     </section>
   );
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   MAIN HOME COMPONENT
+   ═══════════════════════════════════════════════════════════════════ */
 
 export default function Home() {
   const navigate = useNavigate();
@@ -836,16 +822,17 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-dvh bg-white">
+    <div className="min-h-dvh bg-neutral-50">
+      {/* ═══════════════ HEADER ═══════════════ */}
       <header className="bg-white">
-        <div className="px-4 pb-2 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+        <div className="px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
           <div className="flex items-center justify-between gap-3">
             <Logo size="sm" className="min-w-0" />
 
             <button
               type="button"
               onClick={() => navigate('/notifications')}
-              className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-700 transition active:scale-95 active:bg-slate-100"
+              className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition active:scale-95"
               aria-label="Notifications"
             >
               <Bell size={19} strokeWidth={1.9} />
@@ -858,7 +845,7 @@ export default function Home() {
           </div>
 
           <div className="mt-3">
-            <p className="text-[14px] font-medium text-slate-500">
+            <p className="text-sm font-medium text-slate-500">
               {greeting}
               {customerFirstName && (
                 <>
@@ -872,110 +859,78 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setLocationSheetOpen(true)}
-              className="mt-1.5 inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full text-left text-orange-600 transition active:scale-95"
+              className="mt-1.5 inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full bg-orange-50 px-3 py-1.5 text-left text-orange-600 transition active:scale-95"
             >
-              <MapPin size={17} strokeWidth={2.3} className="shrink-0" />
-              <span className="truncate text-[14px] font-bold">
+              <MapPin size={16} strokeWidth={2.3} className="shrink-0" />
+              <span className="truncate text-[13px] font-bold">
                 {deliveryLabel ? `Delivering to ${deliveryLabel}` : 'Set delivery location'}
               </span>
-              <ChevronDown size={14} className="shrink-0" />
+              <ChevronDown size={13} className="shrink-0" />
             </button>
           </div>
         </div>
       </header>
 
-      <main className="px-4 pb-[calc(1.75rem+env(safe-area-inset-bottom))] pt-2">
+      {/* ═══════════════ MAIN CONTENT ═══════════════ */}
+      <main className="pb-[calc(1.75rem+env(safe-area-inset-bottom))]">
+
+        {/* Hide scrollbar for horizontal scroll areas */}
+        <style>{`
+          .scrollbar-hide::-webkit-scrollbar { display: none; }
+          .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        `}</style>
+
+        {/* ── Announcement banner ── */}
         {appSettings.homeAnnouncementEnabled && appSettings.homeAnnouncementText && (
-          <section className="mt-2 flex items-start gap-3 rounded-[1.2rem] bg-blue-50 px-4 py-3 text-blue-900">
-            <Megaphone size={18} className="mt-0.5 shrink-0 text-blue-600" />
-            <p className="text-[13px] font-medium leading-5">
-              {appSettings.homeAnnouncementText}
-            </p>
+          <section className="bg-white px-4 pb-3">
+            <div className="flex items-start gap-3 rounded-xl bg-blue-50 px-4 py-3 text-blue-900">
+              <Megaphone size={17} className="mt-0.5 shrink-0 text-blue-600" />
+              <p className="text-[13px] font-medium leading-5">
+                {appSettings.homeAnnouncementText}
+              </p>
+            </div>
           </section>
         )}
 
-        <section
-          className="relative mt-4 min-h-[205px] overflow-hidden rounded-[1.55rem] bg-slate-900 shadow-[0_14px_35px_rgba(15,23,42,0.12)]"
-          style={{
-            backgroundImage: `
-              linear-gradient(90deg, rgba(15,23,42,0.82) 0%, rgba(15,23,42,0.52) 52%, rgba(15,23,42,0.10) 100%),
-              linear-gradient(to top, rgba(15,23,42,0.40), rgba(15,23,42,0.01)),
-              url('/home-banner-bg.jpg')
-            `,
-            backgroundSize: 'cover',
-            backgroundPosition: '62% center',
-          }}
-        >
-          <div className="relative z-10 flex min-h-[166px] max-w-[79%] flex-col justify-center p-5">
-            <h2 className="text-[1.38rem] font-extrabold leading-[1.13] tracking-tight text-white">
-              Shop Amazon, Flipkart,
-              <span className="block text-orange-300">Myntra &amp; Meesho.</span>
-            </h2>
+        {/* ── Hero banner (edge-to-edge, app style) ── */}
+        <section className="bg-white px-4 pb-4">
+          <div
+            className="relative overflow-hidden rounded-3xl"
+            style={{
+              backgroundImage: `
+                linear-gradient(90deg, rgba(15,23,42,0.88) 0%, rgba(15,23,42,0.55) 55%, rgba(15,23,42,0.08) 100%),
+                linear-gradient(to top, rgba(15,23,42,0.50), rgba(15,23,42,0.02)),
+                url('/home-banner-bg.jpg')
+              `,
+              backgroundSize: 'cover',
+              backgroundPosition: '62% center',
+            }}
+          >
+            <div className="relative z-10 flex min-h-[180px] max-w-[80%] flex-col justify-center p-5">
+              <h2 className="text-[1.4rem] font-extrabold leading-[1.12] tracking-tight text-white">
+                Shop Amazon, Flipkart,
+                <span className="block text-orange-300">Myntra &amp; Meesho</span>
+              </h2>
 
-            <p className="mt-2 text-[13px] leading-[1.5] text-white/[0.88]">
-              Paste the product link or upload a screenshot. We send a quotation before you pay.
-            </p>
+              <p className="mt-2.5 text-[13px] leading-[1.5] text-white/85">
+                Paste a product link or upload a screenshot. We send a quotation before you pay.
+              </p>
 
-            <button
-              type="button"
-              onClick={() => navigate('/paste-link')}
-              className="mt-4 inline-flex h-11 w-fit items-center gap-2 rounded-[0.9rem] bg-orange-500 px-[18px] text-[14px] font-extrabold text-white shadow-lg shadow-orange-950/20 transition active:scale-95 active:bg-orange-600"
-            >
-              Start shopping
-              <ArrowRight size={15} strokeWidth={2.5} />
-            </button>
+              <button
+                type="button"
+                onClick={() => navigate('/paste-link')}
+                className="mt-4 inline-flex h-11 w-fit items-center gap-2 rounded-xl bg-orange-500 px-5 text-sm font-extrabold text-white shadow-lg shadow-orange-950/25 transition active:scale-95 active:bg-orange-600"
+              >
+                Start shopping
+                <ArrowRight size={15} strokeWidth={2.5} />
+              </button>
+            </div>
           </div>
         </section>
 
-        {visibleStores.length > 0 && (
-          <section className="mt-4">
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
-                  Accepted stores
-                </p>
-                <h2 className="mt-1 text-[15px] font-extrabold text-slate-950">
-                  Shop from these platforms
-                </h2>
-              </div>
-              <span className="text-[10px] font-semibold text-slate-400">
-                Opens official site
-              </span>
-            </div>
-
-            <div className="mt-3 grid grid-cols-4 gap-2">
-              {visibleStores.map((store) => (
-                <button
-                  key={store.name}
-                  type="button"
-                  onClick={() => window.open(store.url, '_blank', 'noopener,noreferrer')}
-                  className="flex min-h-[86px] flex-col items-center justify-center gap-2 rounded-[1.15rem] border border-slate-100 bg-white px-2 py-3 text-center shadow-[0_6px_20px_rgba(15,23,42,0.045)] transition active:scale-95 active:bg-slate-50"
-                  aria-label={`Open ${store.name} website`}
-                >
-                  <span className="flex h-9 w-9 items-center justify-center">
-                    <img
-                      src={store.logo}
-                      alt={store.name}
-                      className="h-full w-full object-contain"
-                      loading="lazy"
-                    />
-                  </span>
-                  <span className="text-[11.5px] font-extrabold text-slate-700">
-                    {store.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <section className="mt-7">
-          <SectionHeading
-            eyebrow="Everything in one place"
-            title="Quick actions"
-          />
-
-          <div className="mt-3 grid grid-cols-4 gap-2">
+        {/* ── Quick Actions (4-up grid, app style) ── */}
+        <section className="bg-white px-4 pb-5 pt-1">
+          <div className="grid grid-cols-4 gap-2">
             {quickActions.map((action) => {
               const Icon = action.icon;
 
@@ -984,14 +939,14 @@ export default function Home() {
                   key={action.label}
                   type="button"
                   onClick={() => navigate(action.path)}
-                  className="flex min-h-[94px] flex-col items-center justify-center gap-2.5 rounded-[1.25rem] bg-slate-50 px-1.5 py-3 text-center transition active:scale-95 active:bg-slate-100"
+                  className="flex flex-col items-center gap-2 rounded-2xl bg-neutral-50 py-4 transition active:scale-95 active:bg-slate-100"
                 >
                   <span
-                    className={`flex h-11 w-11 items-center justify-center rounded-2xl ${action.iconClass}`}
+                    className={`flex h-12 w-12 items-center justify-center rounded-xl ${action.iconClass}`}
                   >
-                    <Icon size={20} strokeWidth={2.15} />
+                    <Icon size={22} strokeWidth={2.1} />
                   </span>
-                  <span className="text-[12.5px] font-bold leading-[1.2] text-slate-700">
+                  <span className="text-[11.5px] font-bold leading-tight text-slate-700">
                     {action.label}
                   </span>
                 </button>
@@ -1000,46 +955,95 @@ export default function Home() {
           </div>
         </section>
 
-        <ContinueTrackingCard
+        {/* ── Accepted Stores (horizontal scroll, app style) ── */}
+        {visibleStores.length > 0 && (
+          <section className="mt-2 bg-white py-5">
+            <div className="flex items-end justify-between gap-3 px-4">
+              <div>
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
+                  Accepted stores
+                </p>
+                <h2 className="mt-0.5 text-lg font-extrabold tracking-tight text-slate-950">
+                  Shop from these platforms
+                </h2>
+              </div>
+              <span className="text-[10px] font-semibold text-slate-400">
+                Opens in browser
+              </span>
+            </div>
+
+            <div className="mt-3 flex gap-3 overflow-x-auto px-4 pb-1 scrollbar-hide">
+              {visibleStores.map((store) => (
+                <button
+                  key={store.name}
+                  type="button"
+                  onClick={() => window.open(store.url, '_blank', 'noopener,noreferrer')}
+                  className="flex w-[110px] shrink-0 flex-col items-center gap-2.5 rounded-2xl bg-white py-4 shadow-sm shadow-slate-100 ring-1 ring-slate-100 transition active:scale-95"
+                  aria-label={`Open ${store.name} website`}
+                >
+                  <span className="flex h-11 w-11 items-center justify-center">
+                    <img
+                      src={store.logo}
+                      alt={store.name}
+                      className="h-full w-full object-contain"
+                      loading="lazy"
+                    />
+                  </span>
+                  <span className="text-[12px] font-extrabold text-slate-700">
+                    {store.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Active Updates (full-width cards) ── */}
+        <ActiveUpdatesSection
           updates={activeUpdates}
           loading={activeUpdateLoading}
           onNavigate={(path) => navigate(path)}
         />
 
-        <section className="mt-7">
+        {/* ── Parcel CTA (full-width card) ── */}
+        <section className="mt-6 px-4">
           <button
             type="button"
             onClick={() => navigate('/parcel')}
-            className="flex w-full items-center gap-3 rounded-[1.35rem] bg-emerald-50 p-4 text-left transition active:scale-[0.98]"
+            className="flex w-full items-center gap-4 rounded-2xl bg-emerald-500 p-4 text-left text-white shadow-md shadow-emerald-200 transition active:scale-[0.98]"
           >
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-600 shadow-sm">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/20">
               <Truck size={22} strokeWidth={2.1} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[15px] font-extrabold text-emerald-950">
+              <span className="block text-[15px] font-extrabold leading-tight">
                 Sending a small parcel?
               </span>
-              <span className="mt-1 block text-[13.5px] leading-[1.55] text-emerald-800/75">
+              <span className="mt-1 block text-[13px] leading-[1.5] text-white/80">
                 Book documents, medicine or small electronics on an available trip.
               </span>
             </span>
-            <ChevronRight size={19} className="shrink-0 text-emerald-600" />
+            <ChevronRight size={20} className="shrink-0 text-white/60" />
           </button>
         </section>
 
-        <section className="mt-7">
-          <SectionHeading eyebrow="Shop confidently" title="Why customers trust us" />
+        {/* ── Trust Badges (compact row) ── */}
+        <section className="mt-7 bg-white py-5">
+          <SectionHeader eyebrow="Shop confidently" title="Why customers trust us" />
 
-          <div className="mt-3 divide-y divide-slate-100 rounded-[1.35rem] border border-slate-100 bg-white">
+          <div className="mt-3 flex gap-3 px-4">
             {trustBadges.map((badge) => {
               const Icon = badge.icon;
 
               return (
-                <div key={badge.label} className="flex items-center gap-3 px-4 py-3.5">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                <div
+                  key={badge.label}
+                  className="flex flex-1 flex-col items-center gap-2.5 rounded-2xl bg-neutral-50 py-4 text-center"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-600">
                     <Icon size={17} strokeWidth={2.1} />
                   </span>
-                  <span className="text-[13.5px] font-bold text-slate-700">
+                  <span className="px-2 text-[11.5px] font-bold leading-tight text-slate-600">
                     {badge.label}
                   </span>
                 </div>
@@ -1047,17 +1051,21 @@ export default function Home() {
             })}
           </div>
         </section>
+
+        {/* ── Bottom padding ── */}
+        <div className="h-4" />
       </main>
 
+      {/* ═══════════════ LOCATION BOTTOM SHEET ═══════════════ */}
       {locationSheetOpen && (
         <div
-          className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/35 backdrop-blur-[2px]"
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/40 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           onClick={() => setLocationSheetOpen(false)}
         >
           <div
-            className="customer-bottom-sheet w-full max-w-lg rounded-t-[2rem] bg-white shadow-[0_-18px_55px_rgba(15,23,42,0.16)]"
+            className="customer-bottom-sheet w-full max-w-lg rounded-t-[2rem] bg-white shadow-[0_-18px_55px_rgba(15,23,42,0.18)]"
             style={{
               animation: isDragging ? undefined : 's2b-sheet-up 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
               transform: sheetDragY > 0 ? `translateY(${sheetDragY}px)` : undefined,
