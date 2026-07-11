@@ -39,6 +39,16 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
 
+            <!-- Internal deep link used by the Android share receiver. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="com.shop2bhutan.app"
+                    android:host="share" />
+            </intent-filter>
+
         </activity>
 
         <provider
