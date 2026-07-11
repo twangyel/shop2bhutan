@@ -323,7 +323,7 @@ function WebPushPermissionBanner() {
 
       if (active) {
         setPermissionState(state);
-        setEnabled(state === 'granted');
+        setEnabled(false);
         setChecking(false);
       }
     }
@@ -351,7 +351,10 @@ function WebPushPermissionBanner() {
 
       if (registered && nextState === 'granted') {
         setEnabled(true);
-        window.setTimeout(() => setEnabled(false), 2200);
+        window.setTimeout(() => {
+          setEnabled(false);
+          setPermissionState('granted');
+        }, 2200);
         return;
       }
 
@@ -389,9 +392,51 @@ function WebPushPermissionBanner() {
     dismissed ||
     permissionState === 'unsupported' ||
     permissionState === 'unconfigured' ||
-    permissionState === 'denied'
+    (permissionState === 'granted' && !enabled)
   ) {
     return null;
+  }
+
+
+  if (permissionState === 'denied') {
+    return (
+      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] left-0 right-0 z-[94] px-4 md:bottom-4">
+        <div className="mx-auto max-w-md rounded-3xl border border-red-100 bg-white p-4 shadow-2xl shadow-slate-900/15">
+          <div className="flex items-start gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+              <BellRing size={21} strokeWidth={2.3} />
+            </span>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-extrabold text-slate-950">
+                Notifications are blocked
+              </p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Open this site’s browser settings, change Notifications to Allow,
+                then reload Shop2Bhutan.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="mt-3 h-9 rounded-2xl bg-slate-950 px-4 text-xs font-extrabold text-white transition active:scale-[0.98]"
+              >
+                Reload after allowing
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleDismiss}
+              className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 active:bg-slate-100"
+              aria-label="Dismiss notification warning"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (enabled) {

@@ -329,9 +329,22 @@ async function registerNativePush(
 async function registerWebPush(
   options: RegisterPushDeviceOptions,
 ) {
-  const context = await getWebMessagingContext()
-  if (!context) return false
+  if (
+    typeof window === 'undefined' ||
+    !window.isSecureContext ||
+    !('Notification' in window)
+  ) {
+    console.warn(
+      '[pushNotifications] Web push requires a secure browser context.',
+    )
+    return false
+  }
 
+  /*
+   * Ask for permission immediately from the button click before importing
+   * Firebase or registering the service worker. Browsers can reject or suppress
+   * permission prompts when the original user gesture has already been lost.
+   */
   let permission = Notification.permission
 
   if (permission === 'default' && options.requestPermission) {
@@ -343,7 +356,20 @@ async function registerWebPush(
       console.info(
         '[pushNotifications] Web permission is waiting for user action.',
       )
+    } else {
+      console.warn(
+        `[pushNotifications] Web notification permission result: ${permission}`,
+      )
     }
+    return false
+  }
+
+  const context = await getWebMessagingContext()
+
+  if (!context) {
+    console.warn(
+      '[pushNotifications] Firebase Messaging is unavailable or not configured.',
+    )
     return false
   }
 
@@ -384,6 +410,7 @@ export async function getPushPermissionState(): Promise<PushPermissionState> {
 
   if (
     typeof window === 'undefined' ||
+    !window.isSecureContext ||
     !('Notification' in window) ||
     !('serviceWorker' in navigator)
   ) {
