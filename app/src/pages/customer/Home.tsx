@@ -987,16 +987,16 @@ export default function Home() {
               </span>
             </div>
 
-            <div className="mt-3 flex gap-3 overflow-x-auto px-4 pb-1 scrollbar-hide">
+            <div className="mt-3 grid grid-cols-4 gap-2 px-4">
               {visibleStores.map((store) => (
                 <button
                   key={store.name}
                   type="button"
                   onClick={() => window.open(store.url, '_blank', 'noopener,noreferrer')}
-                  className="flex w-[110px] shrink-0 flex-col items-center gap-2.5 rounded-2xl bg-white py-4 shadow-sm shadow-slate-100 ring-1 ring-slate-100 transition active:scale-95"
+                  className="flex min-w-0 flex-col items-center gap-2 rounded-xl bg-white px-1 py-3 ring-1 ring-slate-100 transition active:scale-95 active:bg-slate-50"
                   aria-label={`Open ${store.name} website`}
                 >
-                  <span className="flex h-11 w-11 items-center justify-center">
+                  <span className="flex h-9 w-9 items-center justify-center">
                     <img
                       src={store.logo}
                       alt={store.name}
@@ -1004,7 +1004,7 @@ export default function Home() {
                       loading="lazy"
                     />
                   </span>
-                  <span className="text-[12px] font-extrabold text-slate-700">
+                  <span className="w-full truncate text-center text-[10.5px] font-extrabold text-slate-700">
                     {store.name}
                   </span>
                 </button>

@@ -284,17 +284,17 @@ export default function PasteLink() {
 
         {/* ── Accepted stores (compact horizontal scroll) ── */}
         {visiblePlatforms.length > 0 && (
-          <section className="mt-3">
-            <div className="flex items-center justify-between px-1">
+          <section className="mt-3 text-center">
+            <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-orange-500">
                 Accepted stores
               </p>
-              <span className="text-[10px] font-medium text-slate-400">
+              <span className="mt-0.5 block text-[10px] font-medium text-slate-400">
                 Tap to open
               </span>
             </div>
 
-            <div className="mt-2 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            <div className="mx-auto mt-2 flex max-w-sm flex-wrap justify-center gap-2 pb-1">
               {visiblePlatforms.map((platform) => (
                 <a
                   key={platform.name}
