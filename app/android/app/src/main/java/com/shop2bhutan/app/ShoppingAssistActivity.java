@@ -158,10 +158,10 @@ public class ShoppingAssistActivity extends AppCompatActivity {
     ) {
         super.onCreate(savedInstanceState);
 
-        configureSystemBars();
         setContentView(
             R.layout.activity_shopping_assist
         );
+        configureSystemBars();
 
         store =
             safeString(
@@ -202,12 +202,14 @@ public class ShoppingAssistActivity extends AppCompatActivity {
 
     private void configureSystemBars() {
         Window window = getWindow();
+        View decorView = window.getDecorView();
+
         window.setStatusBarColor(Color.WHITE);
         window.setNavigationBarColor(Color.WHITE);
 
         if (Build.VERSION.SDK_INT >= 30) {
             WindowInsetsController controller =
-                window.getInsetsController();
+                decorView.getWindowInsetsController();
 
             if (controller != null) {
                 controller.setSystemBarsAppearance(
@@ -222,7 +224,7 @@ public class ShoppingAssistActivity extends AppCompatActivity {
                 );
             }
         } else {
-            window.getDecorView().setSystemUiVisibility(
+            decorView.setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
             );
         }
