@@ -344,11 +344,11 @@ export default function Account() {
             <CheckCircle size={31} strokeWidth={2.4} />
           </div>
 
-          <h1 className="mt-5 text-2xl font-black tracking-tight text-gray-950">
+          <h1 className="mt-5 text-2xl font-black tracking-tight text-slate-950">
             Account deactivated
           </h1>
 
-          <p className="mt-2 text-sm leading-6 text-gray-500">
+          <p className="mt-2 text-sm leading-6 text-slate-500">
             You have been signed out. Your order, payment, and parcel records
             remain safely stored for support and admin reference.
           </p>
@@ -371,19 +371,20 @@ export default function Account() {
 
   return (
     <div className="min-h-screen bg-white pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
-      <header className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-slate-100 bg-white/95 backdrop-blur-xl">
         <div className="mx-auto max-w-3xl px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
-          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-orange-500">
-            Your account
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-500">
+            Your Account
           </p>
-          <h1 className="mt-0.5 text-xl font-black tracking-tight text-gray-950">
+          <h1 className="mt-0.5 text-xl font-black tracking-tight text-slate-950">
             Account
           </h1>
         </div>
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-4">
-        <section className="overflow-hidden rounded-3xl bg-gray-950 text-white shadow-sm">
+        {/* Profile Card */}
+        <section className="overflow-hidden rounded-[22px] bg-slate-900 text-white shadow-lg shadow-slate-900/10">
           <div className="flex items-center gap-4 p-4">
             <button
               type="button"
@@ -394,10 +395,10 @@ export default function Account() {
                 <img
                   src={avatarUrl}
                   alt={displayName}
-                  className="h-20 w-20 rounded-3xl object-cover ring-2 ring-white/15"
+                  className="h-[68px] w-[68px] rounded-[20px] object-cover ring-2 ring-white/15"
                 />
               ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white/10 ring-1 ring-white/10">
+                <div className="flex h-[68px] w-[68px] items-center justify-center rounded-[20px] bg-white/10 ring-1 ring-white/10">
                   <span className="text-3xl font-black text-orange-400">
                     {displayName.charAt(0).toUpperCase()}
                   </span>
@@ -405,15 +406,15 @@ export default function Account() {
               )}
 
               {isLoggedIn && (
-                <span className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-2xl bg-orange-500 text-white ring-2 ring-gray-950">
-                  <Pencil size={14} strokeWidth={2.5} />
+                <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-xl bg-orange-500 text-white ring-2 ring-slate-900">
+                  <Pencil size={13} strokeWidth={2.5} />
                 </span>
               )}
             </button>
 
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-1">
-                <h2 className="truncate text-xl font-black tracking-tight">
+                <h2 className="truncate text-lg font-black tracking-tight">
                   {displayName}
                 </h2>
                 <VerificationBadge badge={verificationBadge} size="xs" />
@@ -429,11 +430,11 @@ export default function Account() {
                 </p>
               )}
 
-              <p className="mt-1 truncate text-sm text-gray-300">
+              <p className={`mt-1 truncate text-sm ${emailAdded ? 'text-slate-300' : 'text-slate-500'}`}>
                 {displayEmail}
               </p>
 
-              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-400">
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400">
                 {displayPhone && <span>+975 {displayPhone}</span>}
                 {displayDzongkhag && <span>{displayDzongkhag}</span>}
               </div>
@@ -451,10 +452,10 @@ export default function Account() {
             <button
               type="button"
               onClick={() => navigate('/profile')}
-              className="flex w-full items-center justify-between border-t border-white/10 px-4 py-3 text-left text-xs font-bold text-gray-300 transition active:bg-white/5"
+              className="flex w-full items-center justify-between border-t border-white/10 px-4 py-2.5 text-left active:bg-white/5 transition"
             >
-              <span>View and edit personal details</span>
-              <span className="text-orange-400">Edit profile</span>
+              <span className="text-xs font-semibold text-slate-400">View and edit personal details</span>
+              <span className="text-xs font-extrabold text-orange-400">Edit profile</span>
             </button>
           )}
         </section>
@@ -471,7 +472,7 @@ export default function Account() {
             <button
               type="button"
               onClick={() => navigate('/register')}
-              className="h-11 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 transition active:scale-[0.98]"
+              className="h-11 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition active:scale-[0.98]"
             >
               Register
             </button>
@@ -482,10 +483,10 @@ export default function Account() {
           <button
             type="button"
             onClick={() => navigate('/my-parcels')}
-            className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-left"
+            className="mt-3 flex w-full items-center gap-3 rounded-[18px] bg-blue-50 px-4 py-3 text-left ring-1 ring-blue-100 active:scale-[0.99] transition"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 ring-1 ring-blue-100">
-              <Truck size={18} />
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm ring-1 ring-blue-100">
+              <Truck size={18} strokeWidth={2} />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-bold text-blue-900">
@@ -495,7 +496,7 @@ export default function Account() {
                 Saved on this device only
               </span>
             </span>
-            <ChevronRight size={17} className="text-blue-300" />
+            <ChevronRight size={17} className="text-blue-300 shrink-0" />
           </button>
         )}
 
@@ -503,20 +504,20 @@ export default function Account() {
           <button
             type="button"
             onClick={() => navigate('/profile')}
-            className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-left"
+            className="mt-3 flex w-full items-center gap-3 rounded-[18px] bg-amber-50/70 px-4 py-3 text-left ring-1 ring-amber-100 active:scale-[0.99] transition"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-orange-500 ring-1 ring-orange-100">
-              <KeyRound size={18} />
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-amber-500 shadow-sm ring-1 ring-amber-100">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-bold text-gray-900">
+              <span className="block text-sm font-bold text-slate-900">
                 Add email for recovery
               </span>
-              <span className="mt-0.5 block text-xs leading-5 text-gray-600">
-                Helps with password recovery and important updates
+              <span className="mt-0.5 block text-xs leading-5 text-slate-500">
+                For password recovery and important updates
               </span>
             </span>
-            <ChevronRight size={17} className="text-orange-300" />
+            <ChevronRight size={17} className="text-slate-400 shrink-0" />
           </button>
         )}
 
@@ -524,23 +525,24 @@ export default function Account() {
           <button
             type="button"
             onClick={() => navigate('/admin')}
-            className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 text-left shadow-sm"
+            className="mt-3 flex w-full items-center gap-3 rounded-[18px] bg-white px-4 py-3 text-left ring-1 ring-slate-100 shadow-sm active:scale-[0.99] transition"
           >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-950 text-orange-400">
-              <LayoutDashboard size={20} />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-orange-400">
+              <LayoutDashboard size={20} strokeWidth={2} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-black text-gray-950">
+              <span className="block text-sm font-black text-slate-950">
                 Admin Panel
               </span>
-              <span className="mt-0.5 block truncate text-xs text-gray-500">
+              <span className="mt-0.5 block truncate text-xs text-slate-500">
                 Manage Shop2Bhutan operations
               </span>
             </span>
-            <ChevronRight size={17} className="text-gray-300" />
+            <ChevronRight size={17} className="text-slate-300 shrink-0" />
           </button>
         )}
 
+        {/* Menu Groups — neutral icons */}
         <div className="mt-5 space-y-5">
           {menuGroups.map((group) => {
             const visibleItems = group.items.filter(
@@ -550,15 +552,15 @@ export default function Account() {
             return (
               <section key={group.title}>
                 <div className="mb-2 flex items-center justify-between px-1">
-                  <h2 className="text-[11px] font-black uppercase tracking-[0.12em] text-gray-400">
+                  <h2 className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
                     {group.title}
                   </h2>
-                  <span className="text-[10px] font-bold text-gray-300">
+                  <span className="text-[10px] font-bold text-slate-300">
                     {visibleItems.length}
                   </span>
                 </div>
 
-                <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white">
+                <div className="overflow-hidden rounded-[18px] bg-white ring-1 ring-slate-100">
                   {visibleItems.map((item, index) => {
                     const Icon = item.icon;
                     const isDanger = Boolean(item.danger);
@@ -576,19 +578,20 @@ export default function Account() {
 
                           if (item.path) navigate(item.path);
                         }}
-                        className={`flex w-full items-center gap-3 px-3.5 py-3 text-left transition active:scale-[0.995] ${
-                          isDanger ? 'active:bg-red-50' : 'active:bg-gray-50'
+                        className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition active:scale-[0.995] ${
+                          isDanger ? 'active:bg-red-50' : 'active:bg-slate-50'
                         } ${
                           index < visibleItems.length - 1
-                            ? 'border-b border-gray-100'
+                            ? 'border-b border-slate-100'
                             : ''
                         }`}
                       >
+                        {/* Neutral icon background — no colors */}
                         <span
-                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
                             isDanger
                               ? 'bg-red-50 text-red-500'
-                              : 'bg-gray-50 text-gray-600'
+                              : 'bg-slate-100 text-slate-500'
                           }`}
                         >
                           <Icon size={18} strokeWidth={2.1} />
@@ -597,7 +600,7 @@ export default function Account() {
                         <span className="min-w-0 flex-1">
                           <span
                             className={`block text-sm font-bold ${
-                              isDanger ? 'text-red-600' : 'text-gray-900'
+                              isDanger ? 'text-red-600' : 'text-slate-900'
                             }`}
                           >
                             {item.label}
@@ -605,7 +608,7 @@ export default function Account() {
                           {item.description && (
                             <span
                               className={`mt-0.5 block truncate text-xs ${
-                                isDanger ? 'text-red-400' : 'text-gray-500'
+                                isDanger ? 'text-red-400' : 'text-slate-400'
                               }`}
                             >
                               {item.description}
@@ -622,7 +625,7 @@ export default function Account() {
                         <ChevronRight
                           size={17}
                           className={
-                            isDanger ? 'text-red-200' : 'text-gray-300'
+                            isDanger ? 'text-red-200 shrink-0' : 'text-slate-300 shrink-0'
                           }
                         />
                       </button>
@@ -638,7 +641,7 @@ export default function Account() {
           <button
             type="button"
             onClick={handleLogout}
-            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 transition active:scale-[0.98]"
+            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-[18px] bg-white text-sm font-bold text-slate-700 ring-1 ring-slate-200 transition active:scale-[0.98]"
           >
             <LogOut size={18} strokeWidth={2} />
             Log Out
@@ -647,7 +650,7 @@ export default function Account() {
           <button
             type="button"
             onClick={() => navigate('/login')}
-            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white transition active:scale-[0.98]"
+            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-[18px] bg-orange-500 text-sm font-bold text-white transition active:scale-[0.98]"
           >
             Sign In to Continue
           </button>
@@ -656,19 +659,19 @@ export default function Account() {
 
       {deactivateOpen && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 px-3 pt-12 backdrop-blur-[2px] sm:items-center sm:p-4">
-          <div className="max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto rounded-t-[2rem] bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-3xl">
-            <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-gray-200 sm:hidden" />
+          <div className="max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto rounded-t-[22px] bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[22px]">
+            <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-slate-200 sm:hidden" />
 
             <div className="flex items-start gap-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-                <AlertTriangle size={21} />
+                <AlertTriangle size={21} strokeWidth={2} />
               </span>
 
               <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-black tracking-tight text-gray-950">
+                <h2 className="text-lg font-black tracking-tight text-slate-950">
                   Deactivate account?
                 </h2>
-                <p className="mt-1 text-sm leading-6 text-gray-500">
+                <p className="mt-1 text-sm leading-6 text-slate-500">
                   You will be signed out, but your order, payment, and parcel
                   records will remain safely stored.
                 </p>
@@ -677,11 +680,11 @@ export default function Account() {
               <button
                 type="button"
                 onClick={() => !deactivating && setDeactivateOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-500"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition active:scale-95"
                 disabled={deactivating}
                 aria-label="Close"
               >
-                <X size={17} />
+                <X size={17} strokeWidth={2} />
               </button>
             </div>
 
@@ -690,14 +693,14 @@ export default function Account() {
               account later.
             </div>
 
-            <label className="mt-4 block text-xs font-bold text-gray-700">
-              Reason <span className="font-medium text-gray-400">(optional)</span>
+            <label className="mt-4 block text-xs font-bold text-slate-700">
+              Reason <span className="font-medium text-slate-400">(optional)</span>
             </label>
             <textarea
               value={deactivationReason}
               onChange={(event) => setDeactivationReason(event.target.value)}
               placeholder="Tell us why you are leaving"
-              className="mt-1.5 h-24 w-full resize-none rounded-2xl border border-gray-200 px-3 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-4 focus:ring-orange-500/10"
+              className="mt-1.5 h-24 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-500/10"
               disabled={deactivating}
             />
 
@@ -712,7 +715,7 @@ export default function Account() {
                 type="button"
                 onClick={() => setDeactivateOpen(false)}
                 disabled={deactivating}
-                className="h-11 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 disabled:opacity-60"
+                className="h-11 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition active:scale-95 disabled:opacity-60"
               >
                 Keep Account
               </button>
@@ -721,7 +724,7 @@ export default function Account() {
                 type="button"
                 onClick={handleDeactivateAccount}
                 disabled={deactivating}
-                className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-red-500 text-sm font-bold text-white disabled:opacity-60"
+                className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-red-500 text-sm font-bold text-white transition active:scale-95 disabled:opacity-60"
               >
                 {deactivating && <Loader2 size={16} className="animate-spin" />}
                 Deactivate
