@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Camera,
   CheckCircle,
@@ -110,6 +110,19 @@ function getDzongkhagName(
   return options.find((item) => item.id === value)?.name || '';
 }
 
+function getSafeReturnTo(value: unknown) {
+  if (typeof value !== 'string') return '/';
+  if (!value.startsWith('/') || value.startsWith('//')) return '/';
+  if (
+    value.startsWith('/login') ||
+    value.startsWith('/register') ||
+    value.startsWith('/profile')
+  ) {
+    return '/';
+  }
+  return value;
+}
+
 function getProfileVerificationBadge(profile: ProfileLike | null) {
   return normalizeVerificationBadge(
     profile?.verification_badge ?? profile?.verificationBadge,
@@ -118,7 +131,15 @@ function getProfileVerificationBadge(profile: ProfileLike | null) {
 
 export default function Profile() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, context, refreshContext, signOut } = useAuth();
+
+  const searchParams = new URLSearchParams(location.search);
+  const isGoogleSetup = searchParams.get('setup') === 'google';
+  const googleSetupReturnTo = getSafeReturnTo(
+    searchParams.get('returnTo') ??
+      (location.state as { returnTo?: string } | null)?.returnTo,
+  );
 
   const profile = context?.profile as ProfileLike | null;
   const currentRealEmail = getRealEmail(context?.email || user?.email);
@@ -369,7 +390,9 @@ export default function Profile() {
       showError(
         emailExists
           ? 'This email is already linked to another account.'
-          : 'This phone number is already linked to another account.',
+          : isGoogleSetup
+            ? 'This phone number already belongs to another Shop2Bhutan account. Log out and sign in with that phone number instead.'
+            : 'This phone number is already linked to another account.',
       );
       return;
     }
@@ -407,6 +430,15 @@ export default function Profile() {
 
     setPhone(normalizedPhone);
     await refreshContext();
+
+    if (isGoogleSetup) {
+      setSuccess('Profile completed. Opening Shop2Bhutan...');
+      window.setTimeout(() => {
+        navigate(googleSetupReturnTo, { replace: true });
+      }, 350);
+      return;
+    }
+
     setSuccess(
       emailChanged
         ? 'Profile updated. Email saved for recovery.'
@@ -517,6 +549,24 @@ export default function Profile() {
             </div>
           </div>
         </section>
+
+        {isGoogleSetup && (
+          <section className="mt-4 rounded-3xl border border-blue-100 bg-blue-50 px-4 py-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-600 ring-1 ring-blue-100">
+                <CheckCircle size={19} strokeWidth={2.4} />
+              </div>
+              <div>
+                <h2 className="text-sm font-black text-gray-950">
+                  Complete your Google account
+                </h2>
+                <p className="mt-1 text-xs leading-5 text-gray-600">
+                  Confirm your Bhutan mobile number and registered dzongkhag once. These details are required for quotations, delivery, and account support.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
 
         <form onSubmit={handleSave} className="mt-4 space-y-4">
           {error && (

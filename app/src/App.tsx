@@ -625,6 +625,7 @@ function mustChangePassword(profile: unknown) {
   return Boolean(row.must_change_password ?? row.mustChangePassword ?? false);
 }
 
+
 function isGoogleAuthUser(user: unknown) {
   const row = (user ?? {}) as {
     app_metadata?: { provider?: string | null; providers?: string[] | null };
@@ -638,12 +639,21 @@ function isGoogleAuthUser(user: unknown) {
   );
 }
 
-function hasBhutanPhone(profile: unknown) {
-  const row = (profile ?? {}) as { phone?: string | null };
+function hasCompletedGoogleProfile(profile: unknown) {
+  const row = (profile ?? {}) as {
+    phone?: string | null;
+    default_dzongkhag_id?: string | null;
+    dzongkhag?: string | null;
+  };
+
   const digits = String(row.phone ?? '').replace(/\D/g, '');
   const phone8 = digits.startsWith('975') ? digits.slice(3) : digits;
+  const hasPhone = /^(17|77)\d{6}$/.test(phone8);
+  const hasDzongkhag = Boolean(
+    String(row.default_dzongkhag_id ?? row.dzongkhag ?? '').trim(),
+  );
 
-  return /^(17|77)\d{6}$/.test(phone8);
+  return hasPhone && hasDzongkhag;
 }
 
 function GoogleProfileCompletionGate({ children }: { children: ReactNode }) {
@@ -657,7 +667,7 @@ function GoogleProfileCompletionGate({ children }: { children: ReactNode }) {
     !isAdmin &&
     Boolean(user?.id) &&
     isGoogleAuthUser(user) &&
-    !hasBhutanPhone(context?.profile);
+    !hasCompletedGoogleProfile(context?.profile);
 
   if (requiresGoogleProfile && location.pathname !== '/profile') {
     const returnTo = `${location.pathname}${location.search}`;
@@ -666,17 +676,13 @@ function GoogleProfileCompletionGate({ children }: { children: ReactNode }) {
       <Navigate
         to={`/profile?setup=google&returnTo=${encodeURIComponent(returnTo)}`}
         replace
-        state={{
-          forcedGoogleProfile: true,
-          returnTo,
-        }}
+        state={{ forcedGoogleProfile: true, returnTo }}
       />
     );
   }
 
   return <>{children}</>;
 }
-
 
 const NATIVE_AUTH_SCHEME = 'com.shop2bhutan.app:';
 
@@ -707,7 +713,6 @@ async function handleNativeAuthUrl(url: string) {
   if (!url.startsWith(NATIVE_AUTH_SCHEME)) return false;
 
   const parsedUrl = new URL(url);
-
   if (parsedUrl.hostname !== 'login') return false;
 
   const hashParams = new URLSearchParams(parsedUrl.hash.replace(/^#/, ''));
