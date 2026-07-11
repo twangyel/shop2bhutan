@@ -555,48 +555,55 @@ export default function PasteLink() {
           </section>
         )}
 
-        {/* ── Tip card (subtle) ── */}
-        <section className="mt-4 flex items-start gap-3 rounded-2xl bg-blue-50 px-4 py-3.5">
-          <Sparkles size={16} className="mt-0.5 shrink-0 text-blue-500" strokeWidth={2.2} />
-          <p className="text-[12px] leading-[1.6] text-blue-800">
-            <span className="font-extrabold text-blue-950">Pro tip:</span> Add multiple products to your bag, then request one quotation for everything together.
-          </p>
-        </section>
-
-        {/* ── Open Request Bag (secondary) ── */}
-        <button
-          type="button"
-          onClick={() => navigate('/request-bag')}
-          className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition active:scale-[0.98] active:bg-slate-50"
-        >
-          Open Request Bag
-          <ExternalLink size={15} strokeWidth={2.4} />
-        </button>
-      </main>
-
-      {/* ═══════════════ STICKY BOTTOM CTA ═══════════════ */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-100 bg-white/95 px-4 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-sm">
+        {/* ── Add to Request Bag (inline) ── */}
         <button
           type="button"
           onClick={addToRequestBag}
           disabled={!hasRequestInput || preview.loading || adding}
-          className="flex h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:active:scale-100"
+          className="mt-5 flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-orange-500 px-4 text-center text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-orange-200 disabled:shadow-none disabled:active:scale-100"
         >
           {adding ? (
             <>
-              <Loader2 size={18} className="animate-spin" strokeWidth={2.5} />
-              Adding...
+              <Loader2 size={20} className="animate-spin" strokeWidth={2.5} />
+              Adding to Request Bag...
             </>
           ) : hasRequestInput ? (
             <>
-              <Plus size={18} strokeWidth={2.5} />
+              <Plus size={20} strokeWidth={2.5} />
               Add to Request Bag
             </>
           ) : (
             'Paste a link or upload a screenshot'
           )}
         </button>
-      </div>
+
+        {/* ── Tip card ── */}
+        <section className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-500 shadow-sm">
+              <Sparkles size={18} strokeWidth={2.4} />
+            </span>
+            <div>
+              <h2 className="text-sm font-extrabold text-blue-950">
+                Add everything before requesting a quote
+              </h2>
+              <p className="mt-1 text-xs leading-5 text-blue-800/75">
+                You can add multiple products to one Request Bag. Review the bag when finished, then submit all items together.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Open Request Bag ── */}
+        <button
+          type="button"
+          onClick={() => navigate('/request-bag')}
+          className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition active:scale-[0.98] active:bg-slate-50"
+        >
+          Open Request Bag
+          <ExternalLink size={16} strokeWidth={2.4} />
+        </button>
+      </main>
     </div>
   );
 }
