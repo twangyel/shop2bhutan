@@ -1,8 +1,12 @@
 import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { BellRing, CheckCircle2, Download, Loader2, X } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import { AppProvider } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import {
   getPushPermissionState,
   isNativePushRuntime,
@@ -621,6 +625,176 @@ function mustChangePassword(profile: unknown) {
   return Boolean(row.must_change_password ?? row.mustChangePassword ?? false);
 }
 
+function isGoogleAuthUser(user: unknown) {
+  const row = (user ?? {}) as {
+    app_metadata?: { provider?: string | null; providers?: string[] | null };
+    identities?: Array<{ provider?: string | null }> | null;
+  };
+
+  return Boolean(
+    row.app_metadata?.provider === 'google' ||
+      row.app_metadata?.providers?.includes('google') ||
+      row.identities?.some((identity) => identity.provider === 'google'),
+  );
+}
+
+function hasBhutanPhone(profile: unknown) {
+  const row = (profile ?? {}) as { phone?: string | null };
+  const digits = String(row.phone ?? '').replace(/\D/g, '');
+  const phone8 = digits.startsWith('975') ? digits.slice(3) : digits;
+
+  return /^(17|77)\d{6}$/.test(phone8);
+}
+
+function GoogleProfileCompletionGate({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const { loading, user, context, isGuest } = useAuth();
+
+  const isAdmin = Boolean(context?.is_admin || context?.is_super_admin);
+  const requiresGoogleProfile =
+    !loading &&
+    !isGuest &&
+    !isAdmin &&
+    Boolean(user?.id) &&
+    isGoogleAuthUser(user) &&
+    !hasBhutanPhone(context?.profile);
+
+  if (requiresGoogleProfile && location.pathname !== '/profile') {
+    const returnTo = `${location.pathname}${location.search}`;
+
+    return (
+      <Navigate
+        to={`/profile?setup=google&returnTo=${encodeURIComponent(returnTo)}`}
+        replace
+        state={{
+          forcedGoogleProfile: true,
+          returnTo,
+        }}
+      />
+    );
+  }
+
+  return <>{children}</>;
+}
+
+
+const NATIVE_AUTH_SCHEME = 'com.shop2bhutan.app:';
+
+function navigateToNativeGoogleCallback(
+  errorMessage?: string,
+  returnTo?: string | null,
+) {
+  const callbackUrl = new URL('/login', window.location.origin);
+  callbackUrl.searchParams.set('oauth', 'google');
+
+  if (returnTo?.startsWith('/') && !returnTo.startsWith('//')) {
+    callbackUrl.searchParams.set('returnTo', returnTo);
+  }
+
+  if (errorMessage) {
+    callbackUrl.searchParams.set('error_description', errorMessage);
+  }
+
+  window.history.replaceState(
+    {},
+    '',
+    `${callbackUrl.pathname}${callbackUrl.search}`,
+  );
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
+
+async function handleNativeAuthUrl(url: string) {
+  if (!url.startsWith(NATIVE_AUTH_SCHEME)) return false;
+
+  const parsedUrl = new URL(url);
+
+  if (parsedUrl.hostname !== 'login') return false;
+
+  const hashParams = new URLSearchParams(parsedUrl.hash.replace(/^#/, ''));
+  const queryParams = parsedUrl.searchParams;
+  const returnTo = queryParams.get('returnTo');
+
+  const oauthError =
+    queryParams.get('error_description') ??
+    queryParams.get('error') ??
+    hashParams.get('error_description') ??
+    hashParams.get('error');
+
+  try {
+    await Browser.close();
+  } catch {
+    // The browser may already be closed.
+  }
+
+  if (oauthError) {
+    navigateToNativeGoogleCallback(oauthError, returnTo);
+    return true;
+  }
+
+  const code = queryParams.get('code');
+  const accessToken = hashParams.get('access_token');
+  const refreshToken = hashParams.get('refresh_token');
+
+  try {
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error) throw error;
+    } else if (accessToken && refreshToken) {
+      const { error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+      if (error) throw error;
+    } else {
+      throw new Error('Google did not return a valid Shop2Bhutan session.');
+    }
+
+    navigateToNativeGoogleCallback(undefined, returnTo);
+  } catch (error) {
+    console.error('[Shop2Bhutan] Native Google OAuth failed:', error);
+    navigateToNativeGoogleCallback(
+      error instanceof Error
+        ? error.message
+        : 'Google sign-in could not be completed.',
+      returnTo,
+    );
+  }
+
+  return true;
+}
+
+function NativeGoogleOAuthBridge() {
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return undefined;
+
+    let active = true;
+    let removeListener: (() => Promise<void>) | undefined;
+
+    void CapacitorApp.addListener('appUrlOpen', ({ url }) => {
+      if (active) void handleNativeAuthUrl(url);
+    }).then((listener) => {
+      if (!active) {
+        void listener.remove();
+        return;
+      }
+
+      removeListener = () => listener.remove();
+    });
+
+    void CapacitorApp.getLaunchUrl().then((launch) => {
+      if (active && launch?.url) {
+        void handleNativeAuthUrl(launch.url);
+      }
+    });
+
+    return () => {
+      active = false;
+      void removeListener?.();
+    };
+  }, []);
+
+  return null;
+}
 
 function PushNotificationBridge() {
   const navigate = useNavigate();
@@ -736,6 +910,7 @@ function PasswordChangeGate({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <AppProvider>
+      <NativeGoogleOAuthBridge />
       <PushNotificationBridge />
       <RouteScrollToTop />
       <PwaInstallBanner />
@@ -748,7 +923,15 @@ export default function App() {
         <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Customer Routes */}
-        <Route element={<PasswordChangeGate><CustomerLayout /></PasswordChangeGate>}>
+        <Route
+          element={
+            <PasswordChangeGate>
+              <GoogleProfileCompletionGate>
+                <CustomerLayout />
+              </GoogleProfileCompletionGate>
+            </PasswordChangeGate>
+          }
+        >
           {/* Public browsing routes */}
           <Route path="/" element={<Home />} />
           <Route path="/catalog" element={<Catalog />} />

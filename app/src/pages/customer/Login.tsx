@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import { AlertCircle, Loader2, Mail, Lock, Eye, EyeOff, User, Phone, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,6 +9,8 @@ import BrandLogo from '@/components/BrandLogo';
 
 
 const AUTH_MESSAGE_STORAGE_KEY = 'shop2bhutan:auth-message';
+const GOOGLE_OAUTH_PENDING_KEY = 'shop2bhutan:google-oauth-pending';
+const GOOGLE_OAUTH_RETURN_TO_KEY = 'shop2bhutan:google-oauth-return-to';
 const DEACTIVATED_ACCOUNT_MESSAGE =
   'Your account is deactivated. Please contact Shop2Bhutan admin to reactivate it.';
 
@@ -39,6 +43,31 @@ function getSafeReturnTo(value: unknown) {
   if (!value.startsWith('/') || value.startsWith('//')) return '/';
   if (value.startsWith('/login') || value.startsWith('/register')) return '/';
   return value;
+}
+
+function getOAuthErrorMessage() {
+  if (typeof window === 'undefined') return '';
+
+  const queryParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+
+  const message =
+    queryParams.get('error_description') ??
+    queryParams.get('error') ??
+    hashParams.get('error_description') ??
+    hashParams.get('error');
+
+  return message ? message.replace(/\+/g, ' ') : '';
+}
+
+function getGoogleRedirectUrl(returnTo: string) {
+  const callbackUrl = Capacitor.isNativePlatform()
+    ? new URL('com.shop2bhutan.app://login')
+    : new URL('/login', window.location.origin);
+
+  callbackUrl.searchParams.set('oauth', 'google');
+  callbackUrl.searchParams.set('returnTo', returnTo);
+  return callbackUrl.toString();
 }
 
 async function isLoginEmailDeactivated(loginEmail: string) {
@@ -113,7 +142,13 @@ async function getPostLoginDestination(returnTo: string) {
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { refreshContext, ensureGuestSession } = useAuth();
+  const {
+    loading: authLoading,
+    user,
+    isGuest,
+    refreshContext,
+    ensureGuestSession,
+  } = useAuth();
 
   const routeState = location.state as LoginRouteState;
   const queryReturnTo = new URLSearchParams(location.search).get('returnTo');
@@ -127,7 +162,10 @@ export default function Login() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [transitionMessage, setTransitionMessage] = useState('');
+  const oauthHandledRef = useRef(false);
+  const busy = submitting || googleSubmitting;
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -141,6 +179,87 @@ export default function Login() {
     window.sessionStorage.removeItem(AUTH_MESSAGE_STORAGE_KEY);
     setSubmitError(storedMessage);
   }, []);
+
+  useEffect(() => {
+    const oauthError = getOAuthErrorMessage();
+
+    if (!oauthError) return;
+
+    window.sessionStorage.removeItem(GOOGLE_OAUTH_PENDING_KEY);
+    window.sessionStorage.removeItem(GOOGLE_OAUTH_RETURN_TO_KEY);
+    setGoogleSubmitting(false);
+    setTransitionMessage('');
+    setSubmitError(`Google sign-in failed: ${oauthError}`);
+  }, []);
+
+  useEffect(() => {
+    if (authLoading || !user?.id || isGuest || oauthHandledRef.current) return;
+
+    const queryParams = new URLSearchParams(location.search);
+    const isGoogleCallback =
+      queryParams.get('oauth') === 'google' ||
+      window.sessionStorage.getItem(GOOGLE_OAUTH_PENDING_KEY) === 'true';
+
+    if (!isGoogleCallback) return;
+
+    oauthHandledRef.current = true;
+    setGoogleSubmitting(true);
+    setTransitionMessage('Finishing Google sign in...');
+    setSubmitError('');
+
+    void (async () => {
+      try {
+        const deactivated = await isDeactivatedLoginUser(user.id);
+
+        if (deactivated) {
+          await supabase.auth.signOut();
+          window.sessionStorage.removeItem(GOOGLE_OAUTH_PENDING_KEY);
+          window.sessionStorage.removeItem(GOOGLE_OAUTH_RETURN_TO_KEY);
+          setGoogleSubmitting(false);
+          setTransitionMessage('');
+          setSubmitError(DEACTIVATED_ACCOUNT_MESSAGE);
+          oauthHandledRef.current = false;
+          return;
+        }
+
+        await refreshContext();
+
+        const savedReturnTo = getSafeReturnTo(
+          window.sessionStorage.getItem(GOOGLE_OAUTH_RETURN_TO_KEY),
+        );
+        const requestedReturnTo =
+          savedReturnTo !== '/' ? savedReturnTo : returnTo;
+        const destination = await getPostLoginDestination(requestedReturnTo);
+
+        window.sessionStorage.removeItem(GOOGLE_OAUTH_PENDING_KEY);
+        window.sessionStorage.removeItem(GOOGLE_OAUTH_RETURN_TO_KEY);
+
+        setTransitionMessage(
+          destination.startsWith('/admin')
+            ? 'Opening admin panel...'
+            : 'Welcome to Shop2Bhutan',
+        );
+        await wait(180);
+        navigate(destination, { replace: true });
+      } catch (error) {
+        console.error('[Login] Google sign-in completion failed:', error);
+        window.sessionStorage.removeItem(GOOGLE_OAUTH_PENDING_KEY);
+        window.sessionStorage.removeItem(GOOGLE_OAUTH_RETURN_TO_KEY);
+        setGoogleSubmitting(false);
+        setTransitionMessage('');
+        setSubmitError('Google sign-in could not be completed. Please try again.');
+        oauthHandledRef.current = false;
+      }
+    })();
+  }, [
+    authLoading,
+    isGuest,
+    location.search,
+    navigate,
+    refreshContext,
+    returnTo,
+    user?.id,
+  ]);
 
   const resolveLoginEmail = async (cleanIdentifier: string) => {
     if (isEmailIdentifier(cleanIdentifier)) {
@@ -168,6 +287,67 @@ export default function Login() {
     }
 
     return String(data).toLowerCase();
+  };
+
+
+  const handleGoogleLogin = async () => {
+    if (busy) return;
+
+    setGoogleSubmitting(true);
+    setTransitionMessage('Opening Google sign in...');
+    setSubmitError('');
+
+    try {
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession();
+
+      const isAnonymousSession = Boolean(
+        (currentSession?.user as { is_anonymous?: boolean } | undefined)
+          ?.is_anonymous,
+      );
+
+      if (isAnonymousSession) {
+        await supabase.auth.signOut();
+      }
+
+      window.sessionStorage.setItem(GOOGLE_OAUTH_PENDING_KEY, 'true');
+      window.sessionStorage.setItem(GOOGLE_OAUTH_RETURN_TO_KEY, returnTo);
+
+      const isNative = Capacitor.isNativePlatform();
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: getGoogleRedirectUrl(returnTo),
+          skipBrowserRedirect: isNative,
+          queryParams: {
+            prompt: 'select_account',
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      if (isNative) {
+        if (!data.url) {
+          throw new Error('Google sign-in URL was not created.');
+        }
+
+        await Browser.open({ url: data.url });
+      }
+    } catch (error) {
+      console.error('[Login] Google sign-in failed:', error);
+      window.sessionStorage.removeItem(GOOGLE_OAUTH_PENDING_KEY);
+      window.sessionStorage.removeItem(GOOGLE_OAUTH_RETURN_TO_KEY);
+      setGoogleSubmitting(false);
+      setTransitionMessage('');
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to open Google sign-in. Please try again.',
+      );
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -329,6 +509,58 @@ export default function Login() {
                 </div>
               )}
 
+              {!isAdminLogin && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    disabled={busy}
+                    className="flex h-[52px] w-full items-center justify-center gap-3 rounded-2xl border border-neutral-200 bg-white text-[15px] font-extrabold text-neutral-800 shadow-sm transition hover:bg-neutral-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {googleSubmitting ? (
+                      <Loader2
+                        size={19}
+                        strokeWidth={2.4}
+                        className="animate-spin text-neutral-500"
+                      />
+                    ) : (
+                      <svg
+                        width="19"
+                        height="19"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fill="#4285F4"
+                          d="M21.35 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.24a4.48 4.48 0 0 1-1.94 2.94v2.52h3.14c1.84-1.69 2.91-4.18 2.91-7.29Z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 21.75c2.62 0 4.82-.87 6.43-2.36l-3.14-2.52c-.87.58-1.99.93-3.29.93-2.53 0-4.68-1.71-5.45-4.01H3.31v2.6A9.72 9.72 0 0 0 12 21.75Z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M6.55 13.79A5.84 5.84 0 0 1 6.25 12c0-.62.11-1.22.3-1.79v-2.6H3.31A9.75 9.75 0 0 0 2.25 12c0 1.57.38 3.05 1.06 4.39l3.24-2.6Z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 6.2c1.43 0 2.72.49 3.73 1.45l2.79-2.79A9.37 9.37 0 0 0 12 2.25a9.72 9.72 0 0 0-8.69 5.36l3.24 2.6C7.32 7.91 9.47 6.2 12 6.2Z"
+                        />
+                      </svg>
+                    )}
+                    {googleSubmitting ? 'Connecting to Google...' : 'Continue with Google'}
+                  </button>
+
+                  <div className="flex items-center gap-3">
+                    <div className="h-px flex-1 bg-neutral-200" />
+                    <span className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-neutral-400">
+                      or sign in with email or phone
+                    </span>
+                    <div className="h-px flex-1 bg-neutral-200" />
+                  </div>
+                </>
+              )}
+
               <div>
                 <label
                   htmlFor="login-identifier"
@@ -458,7 +690,7 @@ export default function Login() {
 
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={busy}
                 className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-[15px] font-extrabold text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600 hover:shadow-orange-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
               >
                 {submitting && <Loader2 size={18} strokeWidth={2.5} className="animate-spin" />}
@@ -483,7 +715,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={handleGuestContinue}
-                  disabled={submitting}
+                  disabled={busy}
                   className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 text-sm font-bold text-neutral-700 transition hover:bg-neutral-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {submitting ? (
@@ -517,7 +749,7 @@ export default function Login() {
         </div>
       </div>
 
-      {submitting && transitionMessage && (
+      {busy && transitionMessage && (
         <div
           className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/95 px-6 backdrop-blur-sm"
           role="status"
@@ -539,6 +771,12 @@ export default function Login() {
           <p className="mt-1 text-center text-[13px] font-medium text-neutral-400">
             {transitionMessage === 'Welcome back'
               ? 'Good to see you again'
+              : transitionMessage === 'Welcome to Shop2Bhutan'
+                ? 'Your account is ready'
+              : transitionMessage === 'Finishing Google sign in...'
+                ? 'Securely preparing your account'
+              : transitionMessage === 'Opening Google sign in...'
+                ? 'Choose your Google account'
               : transitionMessage === 'Opening admin panel...'
                 ? 'Taking you to your dashboard'
                 : transitionMessage === 'Opening Shop2Bhutan...'
