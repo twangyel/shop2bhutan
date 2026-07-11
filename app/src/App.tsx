@@ -262,7 +262,7 @@ function PwaInstallBanner() {
 }
 
 
-const WEB_PUSH_DISMISS_KEY = 'shop2bhutan:web-push-dismissed-until:v1';
+const WEB_PUSH_DISMISS_KEY = 'shop2bhutan:web-push-dismissed-until:v2';
 const WEB_PUSH_DISMISS_DAYS = 3;
 
 function getWebPushDismissedUntil() {
@@ -285,6 +285,20 @@ function dismissWebPushBanner() {
   } catch {
     // Ignore storage failures.
   }
+}
+
+function isIosDeviceForWebPush() {
+  if (typeof window === 'undefined') return false;
+  return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+}
+
+function isStandaloneWebApp() {
+  if (typeof window === 'undefined') return false;
+
+  return (
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+  );
 }
 
 function WebPushPermissionBanner() {
@@ -322,6 +336,13 @@ function WebPushPermissionBanner() {
       const state = await getPushPermissionState();
 
       if (active) {
+        console.info('[WebPushPermissionBanner] Permission state:', state, {
+          secureContext: window.isSecureContext,
+          standalone: isStandaloneWebApp(),
+          notificationApi: 'Notification' in window,
+          serviceWorkerApi: 'serviceWorker' in navigator,
+        });
+
         setPermissionState(state);
         setEnabled(false);
         setChecking(false);
@@ -390,17 +411,91 @@ function WebPushPermissionBanner() {
     hiddenRoute ||
     isNativePushRuntime() ||
     dismissed ||
-    permissionState === 'unsupported' ||
-    permissionState === 'unconfigured' ||
     (permissionState === 'granted' && !enabled)
   ) {
     return null;
   }
 
+  const topBannerClass =
+    'fixed left-0 right-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[110] px-3 sm:px-4';
+
+  if (permissionState === 'unconfigured') {
+    return (
+      <div className={topBannerClass}>
+        <div className="mx-auto max-w-md rounded-3xl border border-amber-100 bg-white p-4 shadow-2xl shadow-slate-900/15">
+          <div className="flex items-start gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+              <BellRing size={21} strokeWidth={2.3} />
+            </span>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-extrabold text-slate-950">
+                Web notifications need deployment setup
+              </p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Add the Firebase VITE variables to this deployed environment,
+                rebuild the app, and reload it.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleDismiss}
+              className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 active:bg-slate-100"
+              aria-label="Dismiss notification setup message"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (permissionState === 'unsupported') {
+    const iosNeedsHomeScreen =
+      isIosDeviceForWebPush() && !isStandaloneWebApp();
+    const insecurePage =
+      typeof window !== 'undefined' && !window.isSecureContext;
+
+    return (
+      <div className={topBannerClass}>
+        <div className="mx-auto max-w-md rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-900/15">
+          <div className="flex items-start gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+              <BellRing size={21} strokeWidth={2.3} />
+            </span>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-extrabold text-slate-950">
+                Notifications unavailable here
+              </p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                {iosNeedsHomeScreen
+                  ? 'On iPhone or iPad, add Shop2Bhutan to the Home Screen and open the installed app before enabling notifications.'
+                  : insecurePage
+                    ? 'Open Shop2Bhutan through its secure HTTPS address to enable browser notifications.'
+                    : 'Use the latest Chrome, Edge, or a supported installed PWA, then reload Shop2Bhutan.'}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleDismiss}
+              className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 active:bg-slate-100"
+              aria-label="Dismiss notification compatibility message"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (permissionState === 'denied') {
     return (
-      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] left-0 right-0 z-[94] px-4 md:bottom-4">
+      <div className={topBannerClass}>
         <div className="mx-auto max-w-md rounded-3xl border border-red-100 bg-white p-4 shadow-2xl shadow-slate-900/15">
           <div className="flex items-start gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600">
@@ -441,7 +536,7 @@ function WebPushPermissionBanner() {
 
   if (enabled) {
     return (
-      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] left-0 right-0 z-[94] px-4 md:bottom-4">
+      <div className={topBannerClass}>
         <div className="mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-4 shadow-2xl shadow-slate-900/15">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
             <CheckCircle2 size={20} strokeWidth={2.4} />
@@ -460,7 +555,7 @@ function WebPushPermissionBanner() {
   }
 
   return (
-    <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] left-0 right-0 z-[94] px-4 md:bottom-4">
+    <div className={topBannerClass}>
       <div className="mx-auto max-w-md overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-2xl shadow-slate-900/15">
         <div className="flex items-start gap-3 p-4">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
