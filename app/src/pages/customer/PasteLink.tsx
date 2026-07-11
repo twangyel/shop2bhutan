@@ -27,6 +27,7 @@ import {
   addItemToRequestBag,
   detectSourcePlatformFromUrl,
   fetchProductLinkPreview,
+  inferProductNameFromUrl,
   normalizeProductUrl,
   type ProductLinkPreview,
 } from '@/lib/customerOrders';
@@ -118,7 +119,7 @@ function makeLocalFallbackPreview(cleanUrl: string): ProductLinkPreview {
   return {
     url: cleanUrl,
     platform,
-    title: makeProductName(platform),
+    title: inferProductNameFromUrl(cleanUrl, platform),
     image: '',
     price: 0,
     currency: 'INR',
@@ -257,11 +258,17 @@ export default function PasteLink() {
     let cancelled = false;
     const activeUrl = cleanUrl;
 
+    const localPreview = makeLocalFallbackPreview(activeUrl);
+
     setPreview({
       url: activeUrl,
       loading: true,
-      data: null,
+      data: localPreview,
     });
+
+    if (!linkNameEditedRef.current) {
+      setLinkProductName(resolvePreviewTitle(localPreview));
+    }
 
     const timer = window.setTimeout(async () => {
       let nextPreview: ProductLinkPreview;
@@ -801,7 +808,7 @@ export default function PasteLink() {
                   </div>
                 )}
 
-                {!preview.loading && preview.data && cleanUrl && (
+                {preview.data && cleanUrl && (
                   <div
                     ref={resultRef}
                     className="mt-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-3"

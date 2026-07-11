@@ -4919,6 +4919,7 @@ export function normalizeProductUrl(value: string) {
 
   try {
     const url = new URL(withProtocol)
+    url.hash = ''
     return url.toString()
   } catch {
     return ''
@@ -4928,8 +4929,8 @@ export function normalizeProductUrl(value: string) {
 export function detectSourcePlatformFromUrl(url: string) {
   const raw = String(url ?? '').toLowerCase()
 
-  if (raw.includes('amazon.')) return 'amazon'
-  if (raw.includes('flipkart.')) return 'flipkart'
+  if (raw.includes('amazon.') || raw.includes('amzn.')) return 'amazon'
+  if (raw.includes('flipkart.') || raw.includes('fkrt.')) return 'flipkart'
   if (raw.includes('myntra.')) return 'myntra'
   if (raw.includes('meesho.')) return 'meesho'
 
@@ -4939,8 +4940,8 @@ export function detectSourcePlatformFromUrl(url: string) {
 function platformToDbValue(platformOrUrl: string | undefined) {
   const raw = String(platformOrUrl ?? '').toLowerCase()
 
-  if (raw === 'amazon' || raw.includes('amazon.')) return 'amazon'
-  if (raw === 'flipkart' || raw.includes('flipkart.')) return 'flipkart'
+  if (raw === 'amazon' || raw.includes('amazon.') || raw.includes('amzn.')) return 'amazon'
+  if (raw === 'flipkart' || raw.includes('flipkart.') || raw.includes('fkrt.')) return 'flipkart'
   if (raw === 'myntra' || raw.includes('myntra.')) return 'myntra'
   if (raw === 'meesho' || raw.includes('meesho.')) return 'meesho'
 
@@ -4952,16 +4953,132 @@ function productNameFromPlatform(platform: string) {
   return `Product from ${platform.charAt(0).toUpperCase()}${platform.slice(1)}`
 }
 
+function safeDecodeUrlPart(value: string) {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
+function prettifyProductSlug(value: string) {
+  const clean = safeDecodeUrlPart(value)
+    .replace(/\.(html?|aspx?)$/i, '')
+    .replace(/[-_+]+/g, ' ')
+    .replace(/\bmen women\b/gi, 'men and women')
+    .replace(/\boil free\b/gi, 'oil-free')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!clean || clean.length < 4) return ''
+
+  return clean
+    .split(' ')
+    .map((word) => {
+      if (!word) return word
+      if (/^[A-Z0-9]{2,}$/.test(word)) return word
+      if (/^\d+(?:\.\d+)?$/.test(word)) return word
+      if (/^[a-z]\d+$/i.test(word)) return word.toUpperCase()
+      if (['and', 'for', 'with', 'of', 'to', 'in', 'on'].includes(word.toLowerCase())) {
+        return word.toLowerCase()
+      }
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    })
+    .join(' ')
+    .replace(/^./, (letter) => letter.toUpperCase())
+}
+
+function productSlugCandidateScore(value: string) {
+  const decoded = safeDecodeUrlPart(value).toLowerCase()
+  if (!decoded || decoded.length < 5) return -1
+  if (/^(p|dp|gp|product|products|buy|dl|item|s|share|mobile|www)$/.test(decoded)) return -1
+  if (/^[a-z0-9]{8,}$/i.test(decoded) && !decoded.includes('-')) return -1
+
+  let score = decoded.length
+  if (decoded.includes('-') || decoded.includes('_')) score += 30
+  if (/\d/.test(decoded)) score += 4
+  if (decoded.split(/[-_+]/).length >= 3) score += 25
+  return score
+}
+
+export function inferProductNameFromUrl(value: string, platformHint?: string) {
+  const normalizedUrl = normalizeProductUrl(value)
+  const platform = platformHint || detectSourcePlatformFromUrl(normalizedUrl || value)
+  const genericTitle = productNameFromPlatform(platform)
+
+  if (!normalizedUrl) return genericTitle
+
+  try {
+    const parsed = new URL(normalizedUrl)
+    const segments = parsed.pathname
+      .split('/')
+      .map((segment) => safeDecodeUrlPart(segment).trim())
+      .filter(Boolean)
+
+    const candidates: string[] = []
+
+    const addBeforeMarker = (marker: string) => {
+      const index = segments.findIndex((segment) => segment.toLowerCase() === marker)
+      if (index > 0) candidates.push(segments[index - 1])
+    }
+
+    if (platform === 'flipkart' || platform === 'meesho') {
+      addBeforeMarker('p')
+    }
+
+    if (platform === 'amazon') {
+      addBeforeMarker('dp')
+      const productIndex = segments.findIndex(
+        (segment, index) =>
+          segment.toLowerCase() === 'product' &&
+          index > 0 &&
+          segments[index - 1]?.toLowerCase() === 'gp'
+      )
+      if (productIndex > 0) candidates.push(segments[productIndex - 2] || '')
+    }
+
+    if (platform === 'myntra') {
+      const buyIndex = segments.findIndex((segment) => segment.toLowerCase() === 'buy')
+      if (buyIndex > 1) candidates.push(segments[buyIndex - 2])
+
+      const numericIndex = segments.findIndex((segment) => /^\d{5,}$/.test(segment))
+      if (numericIndex > 0) candidates.push(segments[numericIndex - 1])
+    }
+
+    candidates.push(...segments)
+
+    const best = candidates
+      .filter(Boolean)
+      .map((candidate) => ({
+        candidate,
+        score: productSlugCandidateScore(candidate),
+      }))
+      .filter((entry) => entry.score >= 0)
+      .sort((a, b) => b.score - a.score)[0]?.candidate
+
+    const inferred = best ? prettifyProductSlug(best) : ''
+    return inferred || genericTitle
+  } catch {
+    return genericTitle
+  }
+}
+
 function fallbackProductPreview(url: string, message?: string): ProductLinkPreview {
   const normalizedUrl = normalizeProductUrl(url) || cleanText(url)
   const platform = detectSourcePlatformFromUrl(normalizedUrl)
+  const title = inferProductNameFromUrl(normalizedUrl, platform)
+  const genericTitle = productNameFromPlatform(platform)
 
   return {
     url: normalizedUrl,
     platform,
-    title: productNameFromPlatform(platform),
-    fetched: false,
-    message: message || 'Shop2Bhutan will verify this product manually before quotation.',
+    title,
+    fetched: title !== genericTitle,
+    message:
+      message ||
+      (title !== genericTitle
+        ? 'Product name detected from the link. Shop2Bhutan will verify the photo and price before quotation.'
+        : 'Shop2Bhutan will verify this product manually before quotation.'),
   }
 }
 
@@ -4991,18 +5108,26 @@ function normalizePreviewPayload(payload: unknown, requestedUrl: string): Produc
   const preview = pickPreviewObject(raw)
   const rawUrl = preview.url || preview.sourceUrl || preview.productUrl || raw.url
   const normalizedUrl = normalizeProductUrl(String(rawUrl ?? requestedUrl)) || requestedUrl
-  const platform = cleanText(preview.platform || preview.sourcePlatform || raw.platform) || detectSourcePlatformFromUrl(normalizedUrl)
+  const platform =
+    cleanText(preview.platform || preview.sourcePlatform || raw.platform) ||
+    detectSourcePlatformFromUrl(normalizedUrl)
+
+  const genericTitle = productNameFromPlatform(platform)
+  const urlTitle = inferProductNameFromUrl(normalizedUrl, platform)
+  const responseTitle = cleanText(
+    preview.title ||
+      preview.name ||
+      preview.productName ||
+      preview.product_title ||
+      preview.item_name ||
+      raw.title ||
+      raw.name
+  )
 
   const title =
-    cleanText(
-      preview.title ||
-        preview.name ||
-        preview.productName ||
-        preview.product_title ||
-        preview.item_name ||
-        raw.title ||
-        raw.name
-    ) || productNameFromPlatform(platform)
+    responseTitle && responseTitle !== genericTitle
+      ? responseTitle
+      : urlTitle || responseTitle || genericTitle
 
   const image = cleanText(
     preview.image ||
@@ -5027,11 +5152,16 @@ function normalizePreviewPayload(payload: unknown, requestedUrl: string): Produc
       raw.amount
   )
 
+  const detectedDetails =
+    Boolean(title && title !== genericTitle) ||
+    Boolean(image) ||
+    Boolean(price)
+
   const fetchedFlag = preview.fetched ?? raw.fetched ?? raw.ok ?? raw.success
   const fetched =
     typeof fetchedFlag === 'boolean'
-      ? fetchedFlag
-      : Boolean(title && title !== productNameFromPlatform(platform)) || Boolean(image) || Boolean(price)
+      ? fetchedFlag || detectedDetails
+      : detectedDetails
 
   return {
     url: normalizedUrl,
@@ -5039,7 +5169,9 @@ function normalizePreviewPayload(payload: unknown, requestedUrl: string): Produc
     title,
     image: image || undefined,
     price,
-    currency: cleanText(preview.currency || preview.priceCurrency || raw.currency) || undefined,
+    currency:
+      cleanText(preview.currency || preview.priceCurrency || raw.currency) ||
+      undefined,
     fetched,
     message: cleanText(preview.message || raw.message || raw.error),
   }
@@ -5059,7 +5191,7 @@ export async function fetchProductLinkPreview(url: string): Promise<ProductLinkP
           data: null,
           error: new Error('Product preview was not available in time.'),
         })
-      }, 8000)
+      }, 10000)
     })
 
     const { data, error } = await Promise.race([invokePromise, timeoutPromise])

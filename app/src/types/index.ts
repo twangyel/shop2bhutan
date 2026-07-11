@@ -354,7 +354,6 @@ export interface PaymentMethod {
   updatedAt?: string;
 }
 
-
 export type AcceptedPlatformKey = 'amazon' | 'flipkart' | 'myntra' | 'meesho';
 
 export type AcceptedPlatformSettings = Record<AcceptedPlatformKey, boolean>;
