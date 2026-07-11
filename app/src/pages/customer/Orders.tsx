@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchCustomerOrdersSummary } from '@/lib/customerOrders';
+import { supabase } from '@/lib/supabase';
 import type { Order, OrderItem } from '@/types';
 
 type FilterTab = 'all' | 'pending' | 'quoted' | 'in_transit' | 'delivered';
@@ -126,6 +127,102 @@ function primaryItem(order: Order): OrderItem {
       unitPrice: 0,
       attributes: {},
     }
+  );
+}
+
+type PreviewableOrderItem = OrderItem & {
+  screenshotUrl?: string;
+  attachmentPath?: string;
+};
+
+function isDirectImageUrl(value?: string | null) {
+  return Boolean(value && /^(https?:|data:|blob:)/i.test(value.trim()));
+}
+
+function isGeneratedFallbackImage(value?: string | null) {
+  const cleanValue = value?.trim() || '';
+  return cleanValue.startsWith('data:image/svg+xml') && cleanValue.includes('S2B');
+}
+
+function OrderItemPreviewImage({ item }: { item: PreviewableOrderItem }) {
+  const initialImage =
+    (isDirectImageUrl(item.screenshotUrl) && item.screenshotUrl) ||
+    (item.productImage && !isGeneratedFallbackImage(item.productImage)
+      ? item.productImage
+      : fallbackImage());
+
+  const [imageSrc, setImageSrc] = useState(initialImage);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadScreenshotPreview() {
+      const screenshotUrl = item.screenshotUrl?.trim() || '';
+      const attachmentPath = item.attachmentPath?.trim() || '';
+
+      if (isDirectImageUrl(screenshotUrl)) {
+        if (active) setImageSrc(screenshotUrl);
+        return;
+      }
+
+      if (!attachmentPath) {
+        if (
+          active &&
+          item.productImage &&
+          !isGeneratedFallbackImage(item.productImage)
+        ) {
+          setImageSrc(item.productImage);
+        }
+        return;
+      }
+
+      if (isDirectImageUrl(attachmentPath)) {
+        if (active) setImageSrc(attachmentPath);
+        return;
+      }
+
+      const { data, error } = await supabase.storage
+        .from('order-screenshots')
+        .createSignedUrl(attachmentPath, 60 * 30);
+
+      if (!active) return;
+
+      if (error) {
+        console.warn(
+          '[Orders] Product screenshot preview skipped:',
+          error.message,
+        );
+        return;
+      }
+
+      if (data?.signedUrl) {
+        setImageSrc(data.signedUrl);
+      }
+    }
+
+    void loadScreenshotPreview();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    item.attachmentPath,
+    item.productImage,
+    item.screenshotUrl,
+  ]);
+
+  return (
+    <img
+      src={imageSrc || fallbackImage()}
+      alt={item.productName || 'Product preview'}
+      className="h-[72px] w-[72px] rounded-[18px] border border-slate-100 bg-slate-50 object-cover"
+      loading="lazy"
+      onError={(event) => {
+        if (event.currentTarget.src !== fallbackImage()) {
+          event.currentTarget.src = fallbackImage();
+        }
+      }}
+    />
   );
 }
 
@@ -306,11 +403,8 @@ function CustomerOrderCard({ order }: { order: Order }) {
 
         <div className="mt-3 flex gap-3">
           <div className="relative shrink-0">
-            <img
-              src={item.productImage || fallbackImage()}
-              alt=""
-              className="h-[72px] w-[72px] rounded-[18px] border border-slate-100 bg-slate-50 object-cover"
-              loading="lazy"
+            <OrderItemPreviewImage
+              item={item as PreviewableOrderItem}
             />
             {extraItems > 0 && (
               <span className="absolute -bottom-1 -right-1 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-slate-900 px-1 text-[9px] font-black text-white">

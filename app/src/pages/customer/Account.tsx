@@ -412,11 +412,11 @@ export default function Account() {
             </button>
 
             <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-1.5">
+              <div className="flex min-w-0 items-center gap-1">
                 <h2 className="truncate text-xl font-black tracking-tight">
                   {displayName}
                 </h2>
-                <VerificationBadge badge={verificationBadge} size="sm" />
+                <VerificationBadge badge={verificationBadge} size="xs" />
               </div>
 
               {verificationBadge !== 'none' && (

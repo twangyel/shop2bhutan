@@ -102,23 +102,65 @@ function quotationDisplay(quotation: Quotation) {
   };
 }
 
-function sourceForItem(order: Order, item: QuotationItem) {
-  const fromOrder = order.items.find((orderItem) => orderItem.id === item.orderItemId);
+type PreviewableQuotationItem = QuotationItem & {
+  attachmentPath?: string;
+};
+
+type PreviewableOrderItem = Order['items'][number] & {
+  screenshotUrl?: string;
+  attachmentPath?: string;
+};
+
+type QuotationItemSource = {
+  sourceUrl: string;
+  sourcePlatform: string;
+  productImage: string;
+  screenshotUrl: string;
+  attachmentPath: string;
+};
+
+function sourceForItem(
+  order: Order,
+  item: PreviewableQuotationItem,
+  index: number,
+): QuotationItemSource {
+  const exactOrderItem = order.items.find(
+    (orderItem) => orderItem.id === item.orderItemId,
+  ) as PreviewableOrderItem | undefined;
+  const indexedOrderItem = order.items[index] as PreviewableOrderItem | undefined;
+  const fromOrder = exactOrderItem ?? indexedOrderItem;
+
+  const itemProductImage = item.productImage?.trim() || '';
+  const originalProductImage = fromOrder?.productImage?.trim() || '';
 
   return {
     sourceUrl: item.sourceUrl || fromOrder?.sourceUrl || '',
     sourcePlatform: item.sourcePlatform || fromOrder?.sourcePlatform || '',
-    productImage: item.productImage || fromOrder?.productImage || '',
+    productImage:
+      itemProductImage && !isGeneratedFallbackImage(itemProductImage)
+        ? itemProductImage
+        : originalProductImage || itemProductImage,
     screenshotUrl: item.screenshotUrl || fromOrder?.screenshotUrl || '',
+    attachmentPath: item.attachmentPath || fromOrder?.attachmentPath || '',
   };
 }
 
 function canShowSourceLink(url?: string) {
-  return Boolean(url && /^https?:\/\//i.test(url));
+  return Boolean(url && /^https?:\/\//i.test(url.trim()));
 }
 
 function canShowImageUrl(url?: string) {
-  return Boolean(url && /^(https?:|data:|blob:)/i.test(url));
+  return Boolean(url && /^(https?:|data:|blob:)/i.test(url.trim()));
+}
+
+function isGeneratedFallbackImage(url?: string) {
+  const cleanUrl = url?.trim() || '';
+  return cleanUrl.startsWith('data:image/svg+xml') && cleanUrl.includes('S2B');
+}
+
+function cleanStoragePath(value?: string) {
+  const cleanValue = value?.trim().replace(/^\/+/, '') || '';
+  return cleanValue.replace(/^order-screenshots\//i, '');
 }
 
 const QUOTATION_IMAGE_FALLBACK =
@@ -126,6 +168,98 @@ const QUOTATION_IMAGE_FALLBACK =
   encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" rx="22" fill="#f9fafb"/><rect x="32" y="36" width="96" height="88" rx="18" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/><path d="M56 94l18-20 14 15 9-10 18 21" fill="none" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="61" cy="59" r="7" fill="#fdba74"/><text x="80" y="139" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#94a3b8">S2B</text></svg>`,
   );
+
+function QuotationItemPreviewImage({
+  source,
+  productName,
+}: {
+  source: QuotationItemSource;
+  productName: string;
+}) {
+  const initialImage =
+    [source.screenshotUrl, source.productImage].find(
+      (url) => canShowImageUrl(url) && !isGeneratedFallbackImage(url),
+    ) || QUOTATION_IMAGE_FALLBACK;
+  const [imageSrc, setImageSrc] = useState(initialImage);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadPreview() {
+      const directScreenshot = canShowImageUrl(source.screenshotUrl)
+        ? source.screenshotUrl.trim()
+        : '';
+      const directProductImage =
+        canShowImageUrl(source.productImage) &&
+        !isGeneratedFallbackImage(source.productImage)
+          ? source.productImage.trim()
+          : '';
+
+      if (directScreenshot) {
+        if (active) setImageSrc(directScreenshot);
+        return;
+      }
+
+      const rawStoragePath =
+        source.attachmentPath ||
+        (!canShowImageUrl(source.screenshotUrl) ? source.screenshotUrl : '') ||
+        (!canShowImageUrl(source.productImage) &&
+        !isGeneratedFallbackImage(source.productImage)
+          ? source.productImage
+          : '');
+      const storagePath = cleanStoragePath(rawStoragePath);
+
+      if (storagePath) {
+        const { data, error: signedUrlError } = await supabase.storage
+          .from('order-screenshots')
+          .createSignedUrl(storagePath, 60 * 30);
+
+        if (!active) return;
+
+        if (!signedUrlError && data?.signedUrl) {
+          setImageSrc(data.signedUrl);
+          return;
+        }
+
+        if (signedUrlError) {
+          console.warn(
+            '[QuotationReview] Product screenshot preview skipped:',
+            signedUrlError.message,
+          );
+        }
+      }
+
+      if (active) {
+        setImageSrc(directProductImage || QUOTATION_IMAGE_FALLBACK);
+      }
+    }
+
+    void loadPreview();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    source.attachmentPath,
+    source.productImage,
+    source.screenshotUrl,
+  ]);
+
+  return (
+    <img
+      src={imageSrc || QUOTATION_IMAGE_FALLBACK}
+      alt={productName || 'Quoted product'}
+      className="h-[5.25rem] w-[5.25rem] shrink-0 rounded-[1.45rem] bg-gray-50 object-cover ring-1 ring-gray-100"
+      loading="lazy"
+      onError={(event) => {
+        const image = event.currentTarget;
+        if (image.src !== QUOTATION_IMAGE_FALLBACK) {
+          image.src = QUOTATION_IMAGE_FALLBACK;
+        }
+      }}
+    />
+  );
+}
 
 export default function QuotationReview() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -476,11 +610,8 @@ export default function QuotationReview() {
 
           <div className="overflow-hidden rounded-[1.75rem] border border-gray-100 bg-white shadow-sm">
             {quotation.items.map((item, index) => {
-              const source = sourceForItem(order, item);
+              const source = sourceForItem(order, item, index);
               const hasSourceLink = canShowSourceLink(source.sourceUrl);
-              const displayImageUrl =
-                [item.productImage, source.productImage, source.screenshotUrl].find((url) => canShowImageUrl(url)) ||
-                QUOTATION_IMAGE_FALLBACK;
 
               return (
                 <div
@@ -488,17 +619,9 @@ export default function QuotationReview() {
                   className={`p-4 ${index > 0 ? 'border-t border-gray-100' : ''}`}
                 >
                   <div className="flex gap-3.5">
-                    <img
-                      src={displayImageUrl}
-                      alt={item.productName || 'Quoted product'}
-                      className="h-[5.25rem] w-[5.25rem] shrink-0 rounded-[1.45rem] bg-gray-50 object-cover ring-1 ring-gray-100"
-                      loading="lazy"
-                      onError={(event) => {
-                        const image = event.currentTarget;
-                        if (image.src !== QUOTATION_IMAGE_FALLBACK) {
-                          image.src = QUOTATION_IMAGE_FALLBACK;
-                        }
-                      }}
+                    <QuotationItemPreviewImage
+                      source={source}
+                      productName={item.productName}
                     />
 
                     <div className="min-w-0 flex-1 py-0.5">

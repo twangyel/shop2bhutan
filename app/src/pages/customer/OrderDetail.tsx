@@ -209,6 +209,15 @@ function itemDisplayPrice(order: Order, item: Order['items'][number], index: num
   return 'Price in quotation';
 }
 
+function fallbackImage() {
+  return (
+    'data:image/svg+xml;utf8,' +
+    encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180"><rect width="180" height="180" rx="28" fill="#f8fafc"/><rect x="40" y="42" width="100" height="96" rx="24" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/><path d="M67 76h46M67 92h34M67 108h40" stroke="#cbd5e1" stroke-width="7" stroke-linecap="round"/><text x="90" y="157" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="15" font-weight="700" fill="#94a3b8">S2B</text></svg>`,
+    )
+  );
+}
+
 function statusMessage(order: Order, status = getEffectiveOrderStatus(order)) {
   if (isSelfPickupOrder(order)) {
     if (status === 'delivered') return 'Your order has been picked up successfully.';
@@ -586,12 +595,18 @@ export default function OrderDetail() {
 
   if (!authLoading && !user) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center bg-white">
-        <p className="mb-4 text-gray-500">Please sign in to view your order.</p>
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center bg-slate-50">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-orange-50 text-orange-500 ring-1 ring-orange-100">
+          <Package size={29} strokeWidth={2.1} />
+        </div>
+        <h1 className="mt-5 text-xl font-black text-slate-950">Sign in to view</h1>
+        <p className="mt-2 text-sm text-slate-500">
+          Your order details are securely linked to your account.
+        </p>
         <button
           type="button"
           onClick={() => navigate('/login')}
-          className="h-11 rounded-xl bg-orange-500 px-5 text-sm font-semibold text-white hover:bg-orange-600"
+          className="mt-6 h-12 rounded-2xl bg-orange-500 px-6 text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98]"
         >
           Sign In
         </button>
@@ -601,15 +616,16 @@ export default function OrderDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white">
-        <div className="border-b border-gray-100 bg-white px-4 py-3">
+      <div className="min-h-screen bg-slate-50">
+        <div className="border-b border-slate-100 bg-white px-4 py-3">
           <div className="mx-auto max-w-2xl">
-            <h1 className="text-lg font-semibold text-gray-900">Order Details</h1>
+            <div className="h-5 w-40 animate-pulse rounded-full bg-slate-200" />
+            <div className="mt-2 h-4 w-24 animate-pulse rounded-full bg-slate-200" />
           </div>
         </div>
         <div className="mx-auto max-w-2xl space-y-4 px-4 py-4">
           {[1, 2, 3, 4].map((item) => (
-            <div key={item} className="h-32 rounded-3xl bg-gray-100 animate-pulse" />
+            <div key={item} className="h-32 rounded-[22px] bg-white animate-pulse shadow-sm" />
           ))}
         </div>
       </div>
@@ -618,12 +634,16 @@ export default function OrderDetail() {
 
   if (error || !order || !compactProgress) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center bg-white">
-        <p className="mb-4 text-gray-500">{error || 'Order not found'}</p>
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center bg-slate-50">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-red-50 text-red-500 ring-1 ring-red-100">
+          <XCircle size={29} strokeWidth={2.1} />
+        </div>
+        <h1 className="mt-5 text-xl font-black text-slate-950">Order not found</h1>
+        <p className="mt-2 text-sm text-slate-500">{error || 'We could not find this order.'}</p>
         <button
           type="button"
           onClick={() => navigate('/orders')}
-          className="h-11 rounded-xl bg-orange-500 px-5 text-sm font-semibold text-white hover:bg-orange-600"
+          className="mt-6 h-12 rounded-2xl bg-orange-500 px-6 text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98]"
         >
           Back to Orders
         </button>
@@ -686,23 +706,23 @@ export default function OrderDetail() {
   );
 
   return (
-    <div className="min-h-screen bg-white pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
-      <header className="sticky top-0 z-30 border-b border-gray-100 bg-white/95 px-4 py-3 backdrop-blur-xl">
+    <div className="min-h-screen bg-slate-50 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
+      <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-orange-500">
               {quotationStage ? 'Request journey' : 'Order journey'}
             </p>
-            <h1 className="mt-0.5 text-lg font-black tracking-tight text-gray-950">{detailTitle}</h1>
-            <p className="truncate text-xs font-medium text-gray-500">#{order.orderNumber}</p>
+            <h1 className="mt-0.5 text-lg font-black tracking-tight text-slate-950">{detailTitle}</h1>
+            <p className="truncate text-xs font-medium text-slate-500">#{order.orderNumber}</p>
           </div>
           <CustomerStageBadge status={effectiveStatus ?? order.status} />
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl space-y-5 px-4 py-4">
+      <main className="mx-auto max-w-2xl space-y-4 px-4 py-4">
         {waitingForQuotation && (
-          <section className="rounded-[24px] bg-emerald-50 px-4 py-3.5 ring-1 ring-emerald-100">
+          <section className="rounded-[22px] bg-emerald-50 px-4 py-3.5 ring-1 ring-emerald-100 shadow-sm">
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-600 shadow-sm ring-1 ring-emerald-100">
                 <CheckCircle size={20} strokeWidth={2.5} />
@@ -710,14 +730,14 @@ export default function OrderDetail() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-black text-emerald-950">Quotation request sent</p>
                 <p className="mt-1 text-xs leading-5 text-emerald-800">
-                  We’ll notify you once your quotation is ready. No payment is required until you approve it.
+                  We&apos;ll notify you once your quotation is ready. No payment is required until you approve it.
                 </p>
               </div>
             </div>
           </section>
         )}
 
-        <section className="overflow-hidden rounded-[28px] bg-gray-950 text-white shadow-sm">
+        <section className="overflow-hidden rounded-[22px] bg-slate-900 text-white shadow-lg shadow-slate-900/10">
           <div className="p-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
@@ -729,7 +749,7 @@ export default function OrderDetail() {
                   {statusMessage(order, effectiveStatus ?? order.status)}
                 </p>
               </div>
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-white shadow-sm">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-white shadow-sm">
                 {statusIcons[effectiveStatus ?? order.status] ?? (
                   <Package size={30} className="text-orange-500" strokeWidth={2} />
                 )}
@@ -741,7 +761,7 @@ export default function OrderDetail() {
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/40">Next step</p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-white/80">{compactProgress.nextText}</p>
               </div>
-              <span className="shrink-0 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-black text-white">
+              <span className="shrink-0 rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-black text-white backdrop-blur-sm">
                 {compactProgress.progressPercent}%
               </span>
             </div>
@@ -751,7 +771,7 @@ export default function OrderDetail() {
             <button
               type="button"
               onClick={() => navigate(`/quotation/${order.id}`)}
-              className="flex w-full items-center justify-between gap-3 border-t border-white/10 bg-violet-500 px-4 py-3.5 text-left transition-colors hover:bg-violet-600 active:bg-violet-600"
+              className="flex w-full items-center justify-between gap-3 border-t border-white/10 bg-violet-500 px-4 py-3.5 text-left transition active:bg-violet-600"
             >
               <div className="flex min-w-0 items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white">
@@ -770,7 +790,7 @@ export default function OrderDetail() {
             <button
               type="button"
               onClick={() => navigate(`/payment/${order.id}`)}
-              className="flex w-full items-center justify-between gap-3 border-t border-white/10 bg-orange-500 px-4 py-3.5 text-left transition-colors hover:bg-orange-600 active:bg-orange-600"
+              className="flex w-full items-center justify-between gap-3 border-t border-white/10 bg-orange-500 px-4 py-3.5 text-left transition active:bg-orange-600"
             >
               <div className="flex min-w-0 items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white">
@@ -792,7 +812,7 @@ export default function OrderDetail() {
           )}
         </section>
 
-        <section className="rounded-[26px] bg-gray-50/80 p-4 ring-1 ring-gray-100">
+        <section className="overflow-hidden rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-slate-100">
           <button
             type="button"
             onClick={() => setTimelineOpen((value) => !value)}
@@ -801,24 +821,24 @@ export default function OrderDetail() {
           >
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">{progressTitle}</p>
-                <h3 className="mt-1.5 text-base font-black text-gray-950">{progressCardTitle}</h3>
-                <p className="mt-1 text-xs leading-5 text-gray-500">Tap to view every update in Bhutan Time.</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">{progressTitle}</p>
+                <h3 className="mt-1 text-base font-black text-slate-950">{progressCardTitle}</h3>
+                <p className="mt-1 text-xs leading-5 text-slate-500">Tap to view every update in Bhutan Time.</p>
               </div>
-              <span className="flex h-9 shrink-0 items-center gap-1 rounded-full bg-white px-3 text-[11px] font-black text-gray-700 shadow-sm ring-1 ring-gray-100">
+              <span className="flex h-9 shrink-0 items-center gap-1 rounded-full bg-slate-100 px-3 text-[11px] font-black text-slate-700">
                 {timelineOpen ? 'Hide' : 'Timeline'}
                 <ChevronDown size={15} className={`transition-transform ${timelineOpen ? 'rotate-180' : ''}`} />
               </span>
             </div>
 
             <div className="mt-4">
-              <div className="h-2 overflow-hidden rounded-full bg-white ring-1 ring-gray-100">
+              <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                 <div
                   className={`h-full rounded-full transition-all ${effectiveStatus === 'cancelled' ? 'bg-red-500' : 'bg-orange-500'}`}
                   style={{ width: `${compactProgress.progressPercent}%` }}
                 />
               </div>
-              <div className="mt-2 flex justify-between text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
+              <div className="mt-2 flex justify-between text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
                 <span>{quotationStage ? 'Requested' : 'Received'}</span>
                 <span>{isSelfPickup ? 'Picked up' : 'Delivered'}</span>
               </div>
@@ -826,7 +846,7 @@ export default function OrderDetail() {
           </button>
 
           {timelineOpen && (
-            <div className="mt-4 border-t border-gray-200 pt-4">
+            <div className="mt-4 border-t border-slate-100 pt-4">
               <OrderProgressTimeline order={order} />
             </div>
           )}
@@ -836,38 +856,39 @@ export default function OrderDetail() {
           <div className="mb-3 flex items-end justify-between gap-3 px-1">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">Products</p>
-              <h3 className="mt-1 text-lg font-black tracking-tight text-gray-950">{itemsTitle}</h3>
+              <h3 className="mt-1 text-lg font-black tracking-tight text-slate-950">{itemsTitle}</h3>
             </div>
-            <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-black text-gray-600">
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-600">
               {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
             </span>
           </div>
 
-          <div className="overflow-hidden rounded-[26px] bg-white ring-1 ring-gray-100">
+          <div className="overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-slate-100">
             {order.items.map((item, index) => (
               <div
                 key={item.id}
-                className={`p-3.5 ${index < order.items.length - 1 ? 'border-b border-gray-100' : ''}`}
+                className={`p-3.5 ${index < order.items.length - 1 ? 'border-b border-slate-100' : ''}`}
               >
                 <div className="flex gap-3">
                   <img
-                    src={item.productImage}
+                    src={item.productImage || fallbackImage()}
                     alt={item.productName || 'Order item'}
-                    className="h-[76px] w-[76px] shrink-0 rounded-[20px] bg-gray-50 object-cover ring-1 ring-gray-100"
+                    className="h-[76px] w-[76px] shrink-0 rounded-[18px] bg-slate-50 object-cover ring-1 ring-slate-100"
                     loading="lazy"
+                    onError={(e) => { (e.target as HTMLImageElement).src = fallbackImage(); }}
                   />
                   <div className="min-w-0 flex-1 py-0.5">
                     <div className="flex flex-wrap items-center gap-2">
                       {item.sourcePlatform && (
-                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-gray-600">
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-600">
                           {item.sourcePlatform}
                         </span>
                       )}
-                      <span className="text-[11px] font-semibold text-gray-400">Qty {item.quantity}</span>
+                      <span className="text-[11px] font-semibold text-slate-400">Qty {item.quantity}</span>
                     </div>
-                    <p className="mt-1.5 line-clamp-2 text-sm font-black leading-5 text-gray-950">{item.productName}</p>
+                    <p className="mt-1.5 line-clamp-2 text-sm font-black leading-5 text-slate-950">{item.productName}</p>
                     <div className="mt-2 flex items-center justify-between gap-3">
-                      <p className="text-sm font-black text-gray-950">
+                      <p className="text-sm font-black text-slate-950">
                         {itemDisplayPrice(order, item, index)}
                       </p>
                       {item.sourceUrl && /^https?:\/\//i.test(item.sourceUrl) && (
@@ -891,41 +912,41 @@ export default function OrderDetail() {
         <section>
           <div className="mb-3 px-1">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">Fulfillment</p>
-            <h3 className="mt-1 text-lg font-black tracking-tight text-gray-950">
+            <h3 className="mt-1 text-lg font-black tracking-tight text-slate-950">
               {quotationStage ? 'Quotation details' : 'Delivery details'}
             </h3>
           </div>
 
-          <div className="overflow-hidden rounded-[26px] bg-white ring-1 ring-gray-100">
+          <div className="overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-slate-100">
             <div className="flex items-start gap-3 p-4">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
                 <MapPin size={18} strokeWidth={2.4} />
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">{contactTitle}</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{contactTitle}</p>
                   <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${fulfillmentDisplay.badgeClass}`}>
                     {fulfillmentDisplay.label}
                   </span>
                 </div>
-                <p className="mt-1.5 text-sm font-black text-gray-950">
+                <p className="mt-1.5 text-sm font-black text-slate-950">
                   {order.shippingAddress.recipientName || 'Customer'}
                 </p>
                 {order.shippingAddress.phone && (
-                  <p className="mt-0.5 text-xs font-semibold text-gray-500">{order.shippingAddress.phone}</p>
+                  <p className="mt-0.5 text-xs font-semibold text-slate-500">{order.shippingAddress.phone}</p>
                 )}
-                <p className="mt-1.5 text-xs leading-5 text-gray-600">{safeAddress(order)}</p>
+                <p className="mt-1.5 text-xs leading-5 text-slate-600">{safeAddress(order)}</p>
               </div>
             </div>
 
-            <div className="flex items-start gap-3 border-t border-gray-100 p-4">
+            <div className="flex items-start gap-3 border-t border-slate-100 p-4">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
                 <Truck size={18} strokeWidth={2.4} />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">{methodTitle}</p>
-                <p className="mt-1.5 text-sm font-black text-gray-950">{quotationFulfillmentMethodTitle}</p>
-                <p className="mt-1 text-xs leading-5 text-gray-600">{quotationFulfillmentDescription}</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{methodTitle}</p>
+                <p className="mt-1.5 text-sm font-black text-slate-950">{quotationFulfillmentMethodTitle}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">{quotationFulfillmentDescription}</p>
               </div>
             </div>
           </div>
@@ -936,17 +957,17 @@ export default function OrderDetail() {
             <div className="mb-3 flex items-end justify-between gap-3 px-1">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">Payment</p>
-                <h3 className="mt-1 text-lg font-black tracking-tight text-gray-950">Payment summary</h3>
+                <h3 className="mt-1 text-lg font-black tracking-tight text-slate-950">Payment summary</h3>
               </div>
               <span
                 className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
                   paymentSummary.isFullyPaid
-                    ? 'bg-emerald-50 text-emerald-700'
+                    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
                     : paymentSummary.isPartiallyPaid
-                      ? 'bg-blue-50 text-blue-700'
+                      ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-100'
                       : hasPendingPayment
-                        ? 'bg-orange-50 text-orange-700'
-                        : 'bg-gray-100 text-gray-600'
+                        ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-100'
+                        : 'bg-slate-100 text-slate-600 ring-1 ring-slate-100'
                 }`}
               >
                 {paymentSummary.isFullyPaid
@@ -959,31 +980,31 @@ export default function OrderDetail() {
               </span>
             </div>
 
-            <div className="overflow-hidden rounded-[26px] bg-white ring-1 ring-gray-100">
+            <div className="overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-slate-100">
               <div className="p-4">
                 <div className="flex items-end justify-between gap-4">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">Total payable</p>
-                    <p className="mt-1 text-2xl font-black tracking-tight text-gray-950">
+                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Total payable</p>
+                    <p className="mt-1 text-2xl font-black tracking-tight text-slate-950">
                       {money(paymentSummary.totalPayable)}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">Balance</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Balance</p>
                     <p className={`mt-1 text-base font-black ${paymentSummary.balanceDue > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>
                       {money(paymentSummary.balanceDue)}
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-gray-50 p-1 ring-1 ring-gray-100">
+                <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-slate-50 p-1.5 ring-1 ring-slate-100">
                   <div className="rounded-xl bg-white px-3 py-2.5 shadow-sm">
-                    <p className="text-[9px] font-black uppercase tracking-[0.12em] text-gray-400">Verified paid</p>
+                    <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Verified paid</p>
                     <p className="mt-1 text-sm font-black text-emerald-600">{money(paymentSummary.verifiedPaid)}</p>
                   </div>
-                  <div className="px-3 py-2.5">
-                    <p className="text-[9px] font-black uppercase tracking-[0.12em] text-gray-400">Pending review</p>
-                    <p className="mt-1 text-sm font-black text-gray-950">{money(paymentSummary.pendingAmount)}</p>
+                  <div className="rounded-xl bg-white px-3 py-2.5 shadow-sm">
+                    <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Pending review</p>
+                    <p className="mt-1 text-sm font-black text-slate-950">{money(paymentSummary.pendingAmount)}</p>
                   </div>
                 </div>
 
@@ -991,7 +1012,7 @@ export default function OrderDetail() {
                   <button
                     type="button"
                     onClick={() => navigate(`/payment/${order.id}`)}
-                    className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-black text-white shadow-sm transition-transform active:scale-[0.98]"
+                    className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-black text-white shadow-md shadow-orange-500/15 transition-transform active:scale-[0.98]"
                   >
                     {paymentSummary.isPartiallyPaid ? 'Upload Remaining Payment' : 'Upload Payment Proof'}
                     <ChevronRight size={17} />
@@ -999,16 +1020,16 @@ export default function OrderDetail() {
                 )}
 
                 {hasPendingPayment && (
-                  <p className="mt-4 rounded-2xl bg-orange-50 px-3 py-2.5 text-xs font-semibold leading-5 text-orange-700">
+                  <p className="mt-4 rounded-2xl bg-orange-50 px-3 py-2.5 text-xs font-semibold leading-5 text-orange-700 ring-1 ring-orange-100">
                     A payment proof is under review. Your balance will update after verification.
                   </p>
                 )}
               </div>
 
               {order.payment && (
-                <div className="border-t border-gray-100 bg-gray-50/70 p-4">
+                <div className="border-t border-slate-100 bg-slate-50/70 p-4">
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <p className="text-sm font-black text-gray-950">Latest payment</p>
+                    <p className="text-sm font-black text-slate-950">Latest payment</p>
                     <span
                       className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
                         order.payment.status === 'verified'
@@ -1028,17 +1049,17 @@ export default function OrderDetail() {
 
                   <div className="space-y-2.5 text-xs">
                     <div className="flex items-center justify-between gap-4">
-                      <span className="font-semibold text-gray-500">Method</span>
-                      <span className="text-right font-black text-gray-950">{formatPaymentMethod(order.payment.method)}</span>
+                      <span className="font-semibold text-slate-500">Method</span>
+                      <span className="text-right font-black text-slate-950">{formatPaymentMethod(order.payment.method)}</span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="font-semibold text-gray-500">Amount</span>
-                      <span className="font-black text-gray-950">{money(order.payment.amount)}</span>
+                      <span className="font-semibold text-slate-500">Amount</span>
+                      <span className="font-black text-slate-950">{money(order.payment.amount)}</span>
                     </div>
                     {order.payment.transactionId && (
                       <div className="flex items-start justify-between gap-4">
-                        <span className="shrink-0 font-semibold text-gray-500">Transaction ID</span>
-                        <span className="break-all text-right font-mono text-[11px] text-gray-950">
+                        <span className="shrink-0 font-semibold text-slate-500">Transaction ID</span>
+                        <span className="break-all text-right font-mono text-[11px] text-slate-950">
                           {order.payment.transactionId}
                         </span>
                       </div>
@@ -1055,13 +1076,14 @@ export default function OrderDetail() {
             <button
               type="button"
               onClick={() => navigate('/shop')}
-              className="h-12 rounded-2xl bg-orange-500 text-sm font-black text-white transition-transform active:scale-[0.98]"
+              className="h-12 rounded-2xl bg-orange-500 text-sm font-black text-white shadow-md shadow-orange-500/15 transition-transform active:scale-[0.98]"
             >
               Order Again
             </button>
             <button
               type="button"
-              className="h-12 rounded-2xl bg-gray-100 text-sm font-black text-gray-800 transition-transform active:scale-[0.98]"
+              onClick={() => alert('Reviews coming soon!')}
+              className="h-12 rounded-2xl bg-white text-sm font-black text-slate-800 shadow-sm ring-1 ring-slate-200 transition-transform active:scale-[0.98]"
             >
               Write Review
             </button>
@@ -1072,8 +1094,8 @@ export default function OrderDetail() {
           <button
             type="button"
             onClick={() => navigate(`/quotation/${order.id}`)}
-            className={`flex w-full items-center justify-between rounded-[22px] p-4 text-left ring-1 transition-transform active:scale-[0.99] ${
-              quotationIsReferenceOnly ? 'bg-white ring-gray-100' : 'bg-violet-50 ring-violet-100'
+            className={`flex w-full items-center justify-between rounded-[22px] p-4 text-left shadow-sm ring-1 transition-transform active:scale-[0.99] ${
+              quotationIsReferenceOnly ? 'bg-white ring-slate-100' : 'bg-violet-50 ring-violet-100'
             }`}
           >
             <div className="flex min-w-0 items-center gap-3">
@@ -1087,12 +1109,12 @@ export default function OrderDetail() {
                 <FileText size={19} strokeWidth={2.4} />
               </span>
               <div className="min-w-0">
-                <p className={`text-sm font-black ${quotationIsReferenceOnly ? 'text-gray-900' : 'text-violet-950'}`}>
+                <p className={`text-sm font-black ${quotationIsReferenceOnly ? 'text-slate-900' : 'text-violet-950'}`}>
                   {quotationIsReferenceOnly ? 'Quotation details' : 'View quotation'}
                 </p>
                 <p
                   className={`mt-0.5 text-xs font-semibold ${
-                    quotationIsReferenceOnly ? 'text-gray-500' : 'text-violet-700'
+                    quotationIsReferenceOnly ? 'text-slate-500' : 'text-violet-700'
                   }`}
                 >
                   Total: {money(order.quotation.totalAmount)}
@@ -1101,7 +1123,7 @@ export default function OrderDetail() {
             </div>
             <ChevronRight
               size={19}
-              className={`shrink-0 ${quotationIsReferenceOnly ? 'text-gray-400' : 'text-violet-500'}`}
+              className={`shrink-0 ${quotationIsReferenceOnly ? 'text-slate-400' : 'text-violet-500'}`}
             />
           </button>
         )}
