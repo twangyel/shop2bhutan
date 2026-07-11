@@ -1,9 +1,14 @@
 import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { Download, X } from 'lucide-react';
+import { BellRing, CheckCircle2, Download, Loader2, X } from 'lucide-react';
 import { AppProvider } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { registerPushDeviceForUser } from '@/lib/pushNotifications';
+import {
+  getPushPermissionState,
+  isNativePushRuntime,
+  registerPushDeviceForUser,
+  type PushPermissionState,
+} from '@/lib/pushNotifications';
 
 // Layouts
 import CustomerLayout from '@/layouts/CustomerLayout';
@@ -257,6 +262,216 @@ function PwaInstallBanner() {
 }
 
 
+const WEB_PUSH_DISMISS_KEY = 'shop2bhutan:web-push-dismissed-until:v1';
+const WEB_PUSH_DISMISS_DAYS = 3;
+
+function getWebPushDismissedUntil() {
+  if (typeof window === 'undefined') return 0;
+
+  try {
+    return Number(window.localStorage.getItem(WEB_PUSH_DISMISS_KEY) || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function dismissWebPushBanner() {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const until =
+      Date.now() + WEB_PUSH_DISMISS_DAYS * 24 * 60 * 60 * 1000;
+    window.localStorage.setItem(WEB_PUSH_DISMISS_KEY, String(until));
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function WebPushPermissionBanner() {
+  const location = useLocation();
+  const { loading, user, isGuest } = useAuth();
+  const [permissionState, setPermissionState] =
+    useState<PushPermissionState>('unsupported');
+  const [checking, setChecking] = useState(true);
+  const [enabling, setEnabling] = useState(false);
+  const [enabled, setEnabled] = useState(false);
+  const [error, setError] = useState('');
+
+  const hiddenRoute =
+    location.pathname.startsWith('/admin') ||
+    location.pathname === '/login' ||
+    location.pathname === '/register' ||
+    location.pathname === '/forgot-password' ||
+    location.pathname === '/reset-password';
+
+  useEffect(() => {
+    let active = true;
+
+    async function checkPermission() {
+      if (
+        loading ||
+        isGuest ||
+        !user?.id ||
+        hiddenRoute ||
+        isNativePushRuntime()
+      ) {
+        if (active) setChecking(false);
+        return;
+      }
+
+      const state = await getPushPermissionState();
+
+      if (active) {
+        setPermissionState(state);
+        setEnabled(state === 'granted');
+        setChecking(false);
+      }
+    }
+
+    void checkPermission();
+
+    return () => {
+      active = false;
+    };
+  }, [hiddenRoute, isGuest, loading, user?.id]);
+
+  const handleEnable = async () => {
+    if (!user?.id || enabling) return;
+
+    setEnabling(true);
+    setError('');
+
+    try {
+      const registered = await registerPushDeviceForUser(user.id, {
+        requestPermission: true,
+      });
+
+      const nextState = await getPushPermissionState();
+      setPermissionState(nextState);
+
+      if (registered && nextState === 'granted') {
+        setEnabled(true);
+        window.setTimeout(() => setEnabled(false), 2200);
+        return;
+      }
+
+      if (nextState === 'denied') {
+        setError(
+          'Notifications are blocked. Enable them from this app or browser’s notification settings.',
+        );
+      } else {
+        setError(
+          'Notifications could not be enabled. Please check your connection and try again.',
+        );
+      }
+    } catch (enableError) {
+      console.warn('[WebPushPermissionBanner] Enable skipped:', enableError);
+      setError('Unable to enable notifications right now. Please try again.');
+    } finally {
+      setEnabling(false);
+    }
+  };
+
+  const handleDismiss = () => {
+    dismissWebPushBanner();
+    setPermissionState('unsupported');
+  };
+
+  const dismissed = getWebPushDismissedUntil() > Date.now();
+
+  if (
+    checking ||
+    loading ||
+    isGuest ||
+    !user?.id ||
+    hiddenRoute ||
+    isNativePushRuntime() ||
+    dismissed ||
+    permissionState === 'unsupported' ||
+    permissionState === 'unconfigured' ||
+    permissionState === 'denied'
+  ) {
+    return null;
+  }
+
+  if (enabled) {
+    return (
+      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] left-0 right-0 z-[94] px-4 md:bottom-4">
+        <div className="mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-4 shadow-2xl shadow-slate-900/15">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+            <CheckCircle2 size={20} strokeWidth={2.4} />
+          </span>
+          <div>
+            <p className="text-sm font-extrabold text-slate-950">
+              Notifications enabled
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              You’ll receive quotation, payment, order, and parcel updates.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] left-0 right-0 z-[94] px-4 md:bottom-4">
+      <div className="mx-auto max-w-md overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-2xl shadow-slate-900/15">
+        <div className="flex items-start gap-3 p-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+            <BellRing size={21} strokeWidth={2.3} />
+          </span>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-extrabold text-slate-950">
+              Stay updated
+            </p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Enable notifications for quotations, payments, orders, and parcel updates—even when the PWA is closed.
+            </p>
+
+            {error && (
+              <p className="mt-2 text-xs font-semibold leading-5 text-red-600">
+                {error}
+              </p>
+            )}
+
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={handleEnable}
+                disabled={enabling}
+                className="flex h-9 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-xs font-extrabold text-white transition active:scale-[0.98] disabled:opacity-60"
+              >
+                {enabling && <Loader2 size={14} className="animate-spin" />}
+                {enabling ? 'Enabling...' : 'Enable Notifications'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDismiss}
+                className="h-9 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 transition active:scale-[0.98]"
+              >
+                Later
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDismiss}
+            className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 active:bg-slate-100"
+            aria-label="Dismiss notification banner"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function mustChangePassword(profile: unknown) {
   const row = (profile ?? {}) as {
     must_change_password?: boolean | null;
@@ -267,7 +482,7 @@ function mustChangePassword(profile: unknown) {
 }
 
 
-function NativePushBridge() {
+function PushNotificationBridge() {
   const navigate = useNavigate();
   const location = useLocation();
   const { loading, user, isGuest } = useAuth();
@@ -277,6 +492,38 @@ function NativePushBridge() {
 
     void registerPushDeviceForUser(user.id);
   }, [loading, isGuest, user?.id]);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return undefined;
+
+    const handleServiceWorkerMessage = (
+      event: MessageEvent<{ type?: string; link?: string }>,
+    ) => {
+      if (event.data?.type !== 'SHOP2BHUTAN_PUSH_OPEN') return;
+
+      const link = String(event.data.link || '');
+
+      if (link.startsWith('/') && !link.startsWith('//')) {
+        window.dispatchEvent(
+          new CustomEvent('shop2bhutan:push-notification-opened', {
+            detail: { link },
+          }),
+        );
+      }
+    };
+
+    navigator.serviceWorker.addEventListener(
+      'message',
+      handleServiceWorkerMessage,
+    );
+
+    return () => {
+      navigator.serviceWorker.removeEventListener(
+        'message',
+        handleServiceWorkerMessage,
+      );
+    };
+  }, []);
 
   useEffect(() => {
     const handlePushNotificationOpened = (event: Event) => {
@@ -349,9 +596,10 @@ function PasswordChangeGate({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <AppProvider>
-      <NativePushBridge />
+      <PushNotificationBridge />
       <RouteScrollToTop />
       <PwaInstallBanner />
+      <WebPushPermissionBanner />
       <Routes>
         {/* Auth Routes - No Layout */}
         <Route path="/login" element={<Login />} />
