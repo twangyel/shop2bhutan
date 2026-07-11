@@ -10,15 +10,14 @@ import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   Bell,
+  BellOff,
   CheckCheck,
-  ChevronRight,
   CreditCard,
   FileText,
   Loader2,
   Megaphone,
   Package,
   RefreshCw,
-  ShieldCheck,
   Truck,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,17 +46,42 @@ const SWIPE_DELETE_THRESHOLD_MAX = 230;
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-function formatBhutanDateTime(value?: string) {
+
+function formatRelativeTime(value?: string) {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  const dateText = new Intl.DateTimeFormat('en-US', {
+
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: BHUTAN_TIME_ZONE, hour: 'numeric', minute: '2-digit', hour12: true,
+    }).format(date);
+  }
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: BHUTAN_TIME_ZONE, weekday: 'short',
+    }).format(date);
+  }
+  return new Intl.DateTimeFormat('en-US', {
     timeZone: BHUTAN_TIME_ZONE, month: 'short', day: 'numeric',
   }).format(date);
-  const timeText = new Intl.DateTimeFormat('en-US', {
-    timeZone: BHUTAN_TIME_ZONE, hour: 'numeric', minute: '2-digit', hour12: true,
-  }).format(date);
-  return `${dateText}, ${timeText} BTT`;
+}
+
+function isToday(value?: string) {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  const now = new Date();
+  return (
+    date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear()
+  );
 }
 
 function getNotificationStyle(type: NotificationType, title: string) {
@@ -72,7 +96,7 @@ function getNotificationStyle(type: NotificationType, title: string) {
   if (type === 'payment') return { icon: CreditCard, bg: 'bg-emerald-50', text: 'text-emerald-600' };
   if (type === 'quotation') return { icon: FileText, bg: 'bg-violet-50', text: 'text-violet-600' };
   if (type === 'promotion') return { icon: Megaphone, bg: 'bg-purple-50', text: 'text-purple-600' };
-  return { icon: Bell, bg: 'bg-gray-50', text: 'text-gray-600' };
+  return { icon: Bell, bg: 'bg-slate-100', text: 'text-slate-500' };
 }
 
 function notificationTypeLabel(type: NotificationType) {
@@ -84,17 +108,19 @@ function notificationTypeLabel(type: NotificationType) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Swipeable Notification Card                                        */
+/*  Swipeable Notification Row                                         */
 /* ------------------------------------------------------------------ */
 
 function SwipeableNotification({
   notification,
   onClick,
   onDelete,
+  isLast,
 }: {
   notification: AppNotification;
   onClick: () => void;
   onDelete: () => Promise<boolean> | boolean;
+  isLast?: boolean;
 }) {
   const [offset, setOffset] = useState(0);
   const [deleting, setDeleting] = useState(false);
@@ -108,8 +134,6 @@ function SwipeableNotification({
 
   const style = getNotificationStyle(notification.type, notification.title);
   const Icon = style.icon;
-  const formattedTime = formatBhutanDateTime(notification.createdAt);
-  const hasLink = Boolean(notification.link);
   const isRead = notification.isRead;
 
   const getCardWidth = () => cardRef.current?.offsetWidth || window.innerWidth || 360;
@@ -135,7 +159,6 @@ function SwipeableNotification({
     setDeleting(true);
     setOffset(-(width + 56));
 
-    // Let the swipe-out animation complete before removing from the list.
     await new Promise((resolve) => window.setTimeout(resolve, 180));
 
     const deleted = await Promise.resolve(onDelete());
@@ -233,12 +256,13 @@ function SwipeableNotification({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl select-none transition-[max-height,opacity,margin,transform] duration-300 ease-out ${
+      className={`relative overflow-hidden select-none transition-[max-height,opacity,margin,transform] duration-300 ease-out ${
         deleting ? 'max-h-0 -translate-x-2 opacity-0' : 'max-h-72 opacity-100'
       }`}
     >
+      {/* Delete background */}
       <div
-        className="absolute inset-0 flex items-center justify-end rounded-2xl bg-gradient-to-l from-red-500 via-red-500 to-red-400 px-5"
+        className="absolute inset-0 flex items-center justify-end rounded-lg bg-gradient-to-l from-red-500 via-red-500 to-red-400 px-5"
         style={{ opacity: Math.max(0, Math.min(1, swipeProgress)) }}
         aria-hidden="true"
       >
@@ -252,6 +276,7 @@ function SwipeableNotification({
         </div>
       </div>
 
+      {/* Card content */}
       <div
         ref={cardRef}
         onPointerDown={handlePointerDown}
@@ -271,60 +296,39 @@ function SwipeableNotification({
       >
         <div
           onClick={handleCardClick}
-          className="w-full rounded-3xl bg-white p-3.5 shadow-sm ring-1 ring-gray-100 transition-shadow duration-200 active:shadow-md"
+          className={`flex gap-3 py-3 active:bg-slate-50 transition rounded-lg px-1 -mx-1 ${
+            !isLast ? 'border-b border-slate-100' : ''
+          }`}
         >
-          <div className="flex gap-3">
-            <div
-              className={`mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl ${style.bg} ${style.text}`}
-            >
-              <Icon size={18} strokeWidth={2.1} />
-            </div>
+          <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${style.bg} ${style.text}`}>
+            <Icon size={18} strokeWidth={2.1} />
+          </div>
 
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p
-                      className={`text-sm font-bold ${
-                        isRead ? 'text-gray-500' : 'text-gray-900'
-                      }`}
-                    >
-                      {notification.title}
-                    </p>
-                    {!isRead && (
-                      <span
-                        className="h-2 w-2 rounded-full bg-orange-500"
-                        aria-label="Unread"
-                      />
-                    )}
-                  </div>
-                  <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                    {notificationTypeLabel(notification.type)}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className={`text-sm font-bold ${isRead ? 'text-slate-500' : 'text-slate-950'}`}>
+                    {notification.title}
                   </p>
+                  {!isRead && (
+                    <span className="h-2.5 w-2.5 rounded-full bg-orange-500 shrink-0 ring-2 ring-orange-100" aria-label="Unread" />
+                  )}
                 </div>
-
-                {hasLink && (
-                  <ChevronRight
-                    size={18}
-                    className="mt-1 flex-shrink-0 text-gray-300"
-                  />
-                )}
-              </div>
-
-              {notification.message && (
-                <p
-                  className={`mt-2 text-sm leading-5 ${
-                    isRead ? 'text-gray-400' : 'text-gray-600'
-                  }`}
-                >
-                  {notification.message}
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mt-0.5">
+                  {notificationTypeLabel(notification.type)}
                 </p>
-              )}
-
-              <p className="mt-2 text-[11px] font-medium text-gray-400">
-                {formattedTime || 'Just now'}
-              </p>
+              </div>
+              <span className="text-[11px] font-medium text-slate-400 shrink-0">
+                {formatRelativeTime(notification.createdAt)}
+              </span>
             </div>
+
+            {notification.message && (
+              <p className={`mt-1.5 text-sm leading-[1.5] ${isRead ? 'text-slate-400' : 'text-slate-600'}`}>
+                {notification.message}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -347,6 +351,15 @@ export default function Notifications() {
   const [nativePermissionBusy, setNativePermissionBusy] = useState(false);
 
   const unreadCount = useMemo(() => notifications.filter((item) => !item.isRead).length, [notifications]);
+
+  const todayNotifications = useMemo(
+    () => notifications.filter((n) => isToday(n.createdAt)),
+    [notifications],
+  );
+  const earlierNotifications = useMemo(
+    () => notifications.filter((n) => !isToday(n.createdAt)),
+    [notifications],
+  );
 
   useEffect(() => {
     const resetScroll = () => {
@@ -436,37 +449,37 @@ export default function Notifications() {
   };
 
   const handleDelete = async (id: string) => {
-  if (!user) return false;
+    if (!user) return false;
 
-  setError('');
+    setError('');
 
-  try {
-    const { error: deleteError, count } = await supabase
-      .from('notifications')
-      .delete({ count: 'exact' })
-      .eq('id', id)
-      .eq('user_id', user.id);
+    try {
+      const { error: deleteError, count } = await supabase
+        .from('notifications')
+        .delete({ count: 'exact' })
+        .eq('id', id)
+        .eq('user_id', user.id);
 
-    if (deleteError) throw deleteError;
+      if (deleteError) throw deleteError;
 
-    if (count === 0) {
-      throw new Error(
-        'Notification was not deleted. Please check the Supabase delete policy for notifications.',
+      if (count === 0) {
+        throw new Error(
+          'Notification was not deleted. Please check the Supabase delete policy for notifications.',
+        );
+      }
+
+      setNotifications((current) => current.filter((item) => item.id !== id));
+      window.dispatchEvent(new CustomEvent('shop2bhutan:notifications-updated'));
+
+      return true;
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
+      setError(
+        err instanceof Error ? err.message : 'Unable to delete notification.',
       );
+      return false;
     }
-
-    setNotifications((current) => current.filter((item) => item.id !== id));
-    window.dispatchEvent(new CustomEvent('shop2bhutan:notifications-updated'));
-
-    return true;
-  } catch (err) {
-    console.error('Failed to delete notification:', err);
-    setError(
-      err instanceof Error ? err.message : 'Unable to delete notification.',
-    );
-    return false;
-  }
-};
+  };
 
   const handleMarkAllRead = async () => {
     if (!user || unreadCount <= 0) return;
@@ -483,20 +496,47 @@ export default function Notifications() {
     }
   };
 
+  const renderNotificationList = (items: AppNotification[], sectionLabel: string) => {
+    if (items.length === 0) return null;
+
+    return (
+      <div>
+        <div className="mb-2 mt-5 px-1">
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{sectionLabel}</p>
+        </div>
+        {items.map((notification, index) => (
+          <SwipeableNotification
+            key={notification.id}
+            notification={notification}
+            onClick={() => handleNotificationClick(notification)}
+            onDelete={() => handleDelete(notification.id)}
+            isLast={index === items.length - 1 && sectionLabel === 'Earlier'}
+          />
+        ))}
+      </div>
+    );
+  };
+
   if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-white">
-        <div className="sticky top-0 z-20 border-b border-gray-100 bg-white px-4 py-3">
+        <div className="sticky top-0 z-20 border-b border-slate-100 bg-white px-4 py-3">
           <div className="mx-auto flex max-w-lg items-center gap-3">
             <div>
-              <h1 className="text-base font-bold text-gray-900">Notifications</h1>
-              <p className="text-xs text-gray-500">Loading updates...</p>
+              <div className="h-5 w-40 animate-pulse rounded-lg bg-slate-200" />
+              <div className="mt-2 h-4 w-32 animate-pulse rounded-lg bg-slate-200" />
             </div>
           </div>
         </div>
-        <div className="mx-auto max-w-lg space-y-3 px-4 py-4">
+        <div className="mx-auto max-w-lg space-y-4 px-4 py-4">
           {[1, 2, 3, 4].map((item) => (
-            <div key={item} className="h-24 animate-pulse rounded-2xl bg-gray-100" />
+            <div key={item} className="flex gap-3 py-3 animate-pulse">
+              <div className="h-10 w-10 shrink-0 rounded-xl bg-slate-200" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-3/4 rounded-lg bg-slate-200" />
+                <div className="h-3 w-1/2 rounded-lg bg-slate-200" />
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -505,35 +545,35 @@ export default function Notifications() {
 
   return (
     <div className="min-h-screen bg-white pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
-      <header className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-slate-100 bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
           <div className="min-w-0">
-              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-orange-500">Activity</p>
-              <h1 className="mt-0.5 truncate text-xl font-black tracking-tight text-gray-950">Notifications</h1>
-              <p className="truncate text-xs text-gray-500">
-                {unreadCount > 0 ? `${unreadCount} unread` : notifications.length > 0 ? `${notifications.length} updates` : 'You are all caught up'}
-              </p>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-500">Activity</p>
+            <h1 className="mt-0.5 truncate text-xl font-black tracking-tight text-slate-950">Notifications</h1>
+            <p className="truncate text-xs text-slate-400">
+              {unreadCount > 0 ? `${unreadCount} unread` : notifications.length > 0 ? `${notifications.length} updates` : 'You are all caught up'}
+            </p>
           </div>
 
-          <div className="flex flex-shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={() => loadNotifications()}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gray-100 text-gray-600 active:scale-95"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-600 active:scale-95 transition"
               aria-label="Refresh notifications"
             >
-              <RefreshCw size={18} />
+              <RefreshCw size={18} strokeWidth={2} />
             </button>
             {unreadCount > 0 && (
               <button
                 type="button"
                 disabled={busy}
                 onClick={handleMarkAllRead}
-                className="flex h-10 items-center gap-1.5 rounded-2xl bg-orange-500 px-3 text-xs font-bold text-white shadow-sm active:scale-95 disabled:opacity-60"
+                className="flex h-10 items-center gap-1.5 rounded-full bg-orange-500 px-3 text-xs font-bold text-white shadow-sm active:scale-95 transition disabled:opacity-60"
                 aria-label="Mark all as read"
               >
-                {busy ? <Loader2 size={16} className="animate-spin" /> : <CheckCheck size={16} />}
-                <span className="hidden sm:inline">Mark all read</span>
+                {busy ? <Loader2 size={16} className="animate-spin" /> : <CheckCheck size={16} strokeWidth={2.5} />}
+                <span>Mark all</span>
               </button>
             )}
           </div>
@@ -542,33 +582,28 @@ export default function Notifications() {
 
       <main className="mx-auto max-w-lg px-4 py-4">
         {isNativeNotificationsAvailable() && nativePermission !== 'granted' && (
-          <div className="mb-4 rounded-3xl border border-blue-100 bg-blue-50 p-4">
+          <div className="mb-4 rounded-[18px] bg-blue-50 p-4 ring-1 ring-blue-100">
             <div className="flex items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                <Bell size={19} strokeWidth={2.4} />
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm">
+                <Bell size={18} strokeWidth={2.4} />
               </span>
-
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-extrabold text-gray-900">
-                  Native app notifications
+                <p className="text-sm font-extrabold text-slate-900">Push notifications</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Enable alerts for quotation, payment, order, and parcel updates.
                 </p>
-                <p className="mt-1 text-xs leading-5 text-gray-600">
-                  Enable Android alerts for quotation, payment, order, and parcel updates.
-                </p>
-
                 {nativePermission === 'denied' && (
                   <p className="mt-2 text-[11px] leading-4 text-blue-700">
                     {getNativeNotificationSettingsUrlHint()}
                   </p>
                 )}
-
                 <button
                   type="button"
                   onClick={handleEnableNativeNotifications}
                   disabled={nativePermissionBusy}
-                  className="mt-3 h-9 rounded-2xl bg-blue-600 px-4 text-xs font-bold text-white transition active:scale-[0.98] disabled:opacity-60"
+                  className="mt-3 h-9 rounded-xl bg-blue-600 px-4 text-xs font-bold text-white transition active:scale-[0.98] disabled:opacity-60"
                 >
-                  {nativePermissionBusy ? 'Checking...' : 'Enable Notifications'}
+                  {nativePermissionBusy ? 'Checking...' : 'Enable'}
                 </button>
               </div>
             </div>
@@ -576,45 +611,33 @@ export default function Notifications() {
         )}
 
         {error && (
-          <div className="mb-4 flex gap-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
-            <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />
+          <div className="mb-4 flex gap-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <AlertCircle size={18} className="mt-0.5 shrink-0" strokeWidth={2} />
             <p>{error}</p>
           </div>
         )}
 
         {notifications.length === 0 ? (
-          <div className="rounded-3xl border border-gray-100 bg-gray-50 px-6 py-10 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-orange-50 text-orange-500">
-              <ShieldCheck size={28} strokeWidth={2} />
+          <div className="rounded-[22px] bg-slate-50 px-6 py-10 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[22px] bg-orange-50 text-orange-500 ring-1 ring-orange-100">
+              <BellOff size={28} strokeWidth={2} />
             </div>
-            <h2 className="text-lg font-bold text-gray-900">No notifications yet</h2>
-            <p className="mt-2 text-sm leading-6 text-gray-500">
+            <h2 className="text-lg font-black text-slate-950">No notifications yet</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
               Order, quotation, payment, and delivery updates will appear here.
             </p>
             <button
               type="button"
               onClick={() => navigate('/orders')}
-              className="mt-6 h-11 rounded-2xl bg-orange-500 px-5 text-sm font-bold text-white hover:bg-orange-600"
+              className="mt-6 h-11 rounded-2xl bg-orange-500 px-5 text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98] active:bg-orange-600"
             >
               View My Orders
             </button>
           </div>
         ) : (
           <>
-            <div className="mb-3 flex items-center justify-between px-1">
-              <p className="text-[11px] font-black uppercase tracking-[0.12em] text-gray-400">Recent updates</p>
-              <p className="text-[11px] font-medium text-gray-400">Swipe left to delete</p>
-            </div>
-            <div className="space-y-3">
-            {notifications.map((notification) => (
-              <SwipeableNotification
-                key={notification.id}
-                notification={notification}
-                onClick={() => handleNotificationClick(notification)}
-                onDelete={() => handleDelete(notification.id)}
-              />
-            ))}
-            </div>
+            {renderNotificationList(todayNotifications, 'Today')}
+            {renderNotificationList(earlierNotifications, 'Earlier')}
           </>
         )}
       </main>
