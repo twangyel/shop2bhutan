@@ -83,7 +83,7 @@ const trustBadges = [
 ] as const;
 
 const howItWorks = [
-  { step: '1', title: 'Paste Link', description: 'Send us any product link from accepted Indian stores.' },
+  { step: '1', title: 'Find Product', description: 'Browse with S2B, share a link, or paste one manually.' },
   { step: '2', title: 'Get Quote', description: 'We calculate item cost, service fee, and delivery.' },
   { step: '3', title: 'Pay Safely', description: 'Upload payment proof after reviewing the quotation.' },
   { step: '4', title: 'Track Delivery', description: 'Follow your order or parcel until handover.' },
@@ -928,12 +928,12 @@ export default function Home() {
               </h2>
 
               <p className="mt-2.5 text-[13px] leading-[1.5] text-white/85">
-                Paste a product link or upload a screenshot. We send a quotation before you pay.
+                Browse supported stores or share a product link. We verify everything before you pay.
               </p>
 
               <button
                 type="button"
-                onClick={() => navigate('/paste-link')}
+                onClick={() => navigate('/shopping-assist')}
                 className="mt-4 inline-flex h-11 w-fit items-center gap-2 rounded-xl bg-orange-500 px-5 text-sm font-extrabold text-white shadow-lg shadow-orange-950/25 transition active:scale-95 active:bg-orange-600"
               >
                 Start shopping
@@ -979,11 +979,11 @@ export default function Home() {
                   Accepted stores
                 </p>
                 <h2 className="mt-0.5 text-lg font-extrabold tracking-tight text-slate-950">
-                  Shop from these platforms
+                  Shop from Indian stores
                 </h2>
               </div>
               <span className="text-[10px] font-semibold text-slate-400">
-                Opens in browser
+                Browse with S2B
               </span>
             </div>
 
@@ -992,9 +992,13 @@ export default function Home() {
                 <button
                   key={store.name}
                   type="button"
-                  onClick={() => window.open(store.url, '_blank', 'noopener,noreferrer')}
+                  onClick={() =>
+                    navigate('/shopping-assist', {
+                      state: { preferredStore: store.platform },
+                    })
+                  }
                   className="flex min-w-0 flex-col items-center gap-2 rounded-xl bg-white px-1 py-3 ring-1 ring-slate-100 transition active:scale-95 active:bg-slate-50"
-                  aria-label={`Open ${store.name} website`}
+                  aria-label={`Browse ${store.name} with S2B`}
                 >
                   <span className="flex h-9 w-9 items-center justify-center">
                     <img

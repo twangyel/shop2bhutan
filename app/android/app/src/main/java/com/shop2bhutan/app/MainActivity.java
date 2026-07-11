@@ -22,6 +22,7 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         // Capacitor requires local plugins to be registered before super.
         registerPlugin(ShareReceiverPlugin.class);
+        registerPlugin(ShoppingAssistPlugin.class);
 
         storeIncomingShare(getIntent());
         super.onCreate(savedInstanceState);

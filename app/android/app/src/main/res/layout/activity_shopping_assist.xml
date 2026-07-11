@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#FFFFFF">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:background="#FFFFFF">
+
+        <TextView
+            android:id="@+id/shopping_assist_close"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:text="×"
+            android:textSize="28sp"
+            android:textColor="#334155"
+            android:contentDescription="Close shopping browser"
+            android:background="@drawable/s2b_toolbar_button" />
+
+        <TextView
+            android:id="@+id/shopping_assist_back"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="6dp"
+            android:gravity="center"
+            android:text="‹"
+            android:textSize="31sp"
+            android:textColor="#334155"
+            android:contentDescription="Go back"
+            android:background="@drawable/s2b_toolbar_button" />
+
+        <TextView
+            android:id="@+id/shopping_assist_forward"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="6dp"
+            android:gravity="center"
+            android:text="›"
+            android:textSize="31sp"
+            android:textColor="#334155"
+            android:contentDescription="Go forward"
+            android:background="@drawable/s2b_toolbar_button" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="8dp">
+
+            <TextView
+                android:id="@+id/shopping_assist_store"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="S2B Shopping Assist"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="#0F172A" />
+
+            <TextView
+                android:id="@+id/shopping_assist_page_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="Browse and select a product"
+                android:textSize="10sp"
+                android:textColor="#64748B" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/shopping_assist_reload"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:text="↻"
+            android:textSize="22sp"
+            android:textColor="#334155"
+            android:contentDescription="Reload page"
+            android:background="@drawable/s2b_toolbar_button" />
+
+        <TextView
+            android:id="@+id/shopping_assist_external"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="6dp"
+            android:gravity="center"
+            android:text="↗"
+            android:textSize="21sp"
+            android:textColor="#334155"
+            android:contentDescription="Open in external browser"
+            android:background="@drawable/s2b_toolbar_button" />
+    </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/shopping_assist_progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:max="100"
+        android:progressTint="#F97316"
+        android:progressBackgroundTint="#FFEDD5" />
+
+    <WebView
+        android:id="@+id/shopping_assist_webview"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#FFFFFF" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="126dp"
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingTop="13dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="14dp"
+        android:elevation="16dp"
+        android:background="@drawable/s2b_assist_dock">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:paddingEnd="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="S2B Shopping Assist"
+                    android:textAllCaps="true"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.08"
+                    android:textSize="9sp"
+                    android:textColor="#F97316" />
+
+                <TextView
+                    android:id="@+id/shopping_assist_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:maxLines="2"
+                    android:ellipsize="end"
+                    android:text="Open a product page to get started"
+                    android:textStyle="bold"
+                    android:textSize="13sp"
+                    android:textColor="#0F172A" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/shopping_assist_price"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:minWidth="78dp"
+                android:gravity="center"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="₹0"
+                android:textStyle="bold"
+                android:textSize="12sp"
+                android:textColor="#C2410C"
+                android:visibility="gone"
+                android:background="@drawable/s2b_price_chip" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/shopping_assist_add"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginTop="11dp"
+            android:text="Add to Request Bag"
+            android:textAllCaps="false"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:textColor="#FFFFFF"
+            android:enabled="false"
+            android:backgroundTint="#F97316"
+            android:background="@drawable/s2b_primary_button" />
+    </LinearLayout>
+</LinearLayout>

@@ -15,6 +15,34 @@ export type OrderStatus =
 
 export type ProductSource = 'internal' | 'amazon' | 'flipkart' | 'myntra' | 'meesho';
 
+export type ShoppingAssistStore =
+  | 'amazon'
+  | 'flipkart'
+  | 'myntra'
+  | 'meesho';
+
+export type ShoppingAssistCaptureMethod =
+  | 'json_ld'
+  | 'store_selector'
+  | 'open_graph'
+  | 'visible_page'
+  | 'page_fallback';
+
+export interface ShoppingAssistCapture {
+  sourceUrl: string;
+  canonicalUrl: string;
+  store: ShoppingAssistStore;
+  title: string;
+  image: string;
+  displayedPrice: number;
+  currency: 'INR';
+  variant: string;
+  captureMethod: ShoppingAssistCaptureMethod;
+  confidence: number;
+  capturedAt: number;
+}
+
+
 export type UserRole = 'customer' | 'admin';
 
 export type VerificationBadge = 'none' | 'blue' | 'gold';

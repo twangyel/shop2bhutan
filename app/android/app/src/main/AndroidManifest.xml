@@ -40,6 +40,12 @@
 
         </activity>
 
+        <activity
+            android:name=".ShoppingAssistActivity"
+            android:exported="false"
+            android:hardwareAccelerated="true"
+            android:theme="@style/S2BShoppingAssistTheme" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

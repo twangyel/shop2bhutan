@@ -41,7 +41,11 @@ function isTabActive(pathname: string, tabPath: string) {
   if (tabPath === '/') return pathname === '/'
 
   if (tabPath === '/shop') {
-    return pathname === '/shop' || pathname === '/catalog'
+    return (
+      pathname === '/shop' ||
+      pathname === '/catalog' ||
+      pathname.startsWith('/shopping-assist')
+    )
   }
 
   if (tabPath === '/parcel') {

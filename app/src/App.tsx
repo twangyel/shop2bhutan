@@ -14,6 +14,7 @@ import {
   type PushPermissionState,
 } from '@/lib/pushNotifications';
 import { consumePendingNativeShare } from '@/lib/nativeShareReceiver';
+import { consumePendingShoppingAssistCapture } from '@/lib/shoppingAssist';
 
 // Layouts
 import CustomerLayout from '@/layouts/CustomerLayout';
@@ -49,6 +50,8 @@ import Parcel from '@/pages/customer/Parcel';
 import ParcelBooking from '@/pages/customer/ParcelBooking';
 import MyParcels from '@/pages/customer/MyParcels';
 import Shop from '@/pages/customer/Shop';
+import ShoppingAssist from '@/pages/customer/ShoppingAssist';
+import ShoppingAssistReview from '@/pages/customer/ShoppingAssistReview';
 
 // Admin Pages
 import Dashboard from '@/pages/admin/Dashboard';
@@ -891,6 +894,88 @@ function NativeShareBridge() {
   return null;
 }
 
+
+function NativeShoppingAssistBridge() {
+  const navigate = useNavigate();
+  const checkingRef = useRef(false);
+  const activeRef = useRef(true);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return undefined;
+
+    activeRef.current = true;
+    let removeResume: (() => Promise<void>) | undefined;
+    let removeStateChange: (() => Promise<void>) | undefined;
+
+    const openPendingCapture = async () => {
+      if (checkingRef.current) return;
+
+      checkingRef.current = true;
+
+      try {
+        const capture =
+          await consumePendingShoppingAssistCapture();
+
+        if (!activeRef.current || !capture) return;
+
+        navigate('/shopping-assist/review', {
+          state: { capture },
+        });
+      } finally {
+        checkingRef.current = false;
+      }
+    };
+
+    void openPendingCapture();
+
+    void CapacitorApp.addListener('resume', () => {
+      void openPendingCapture();
+    }).then((listener) => {
+      if (!activeRef.current) {
+        void listener.remove();
+        return;
+      }
+
+      removeResume = () => listener.remove();
+    });
+
+    void CapacitorApp.addListener(
+      'appStateChange',
+      ({ isActive }) => {
+        if (isActive) void openPendingCapture();
+      },
+    ).then((listener) => {
+      if (!activeRef.current) {
+        void listener.remove();
+        return;
+      }
+
+      removeStateChange = () => listener.remove();
+    });
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) void openPendingCapture();
+    };
+
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityChange,
+    );
+
+    return () => {
+      activeRef.current = false;
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange,
+      );
+      void removeResume?.();
+      void removeStateChange?.();
+    };
+  }, [navigate]);
+
+  return null;
+}
+
 function PushNotificationBridge() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -1007,6 +1092,7 @@ export default function App() {
     <AppProvider>
       <NativeGoogleOAuthBridge />
       <NativeShareBridge />
+      <NativeShoppingAssistBridge />
       <PushNotificationBridge />
       <RouteScrollToTop />
       <PwaInstallBanner />
@@ -1040,6 +1126,8 @@ export default function App() {
           <Route path="/return-policy" element={<PolicyPage slug="returns" />} />
           <Route path="/parcel" element={<Parcel />} />
           <Route path="/shop" element={<Shop />} />
+          <Route path="/shopping-assist" element={<ShoppingAssist />} />
+          <Route path="/shopping-assist/review" element={<ShoppingAssistReview />} />
 
           {/* Customer-only routes/actions */}
           <Route
