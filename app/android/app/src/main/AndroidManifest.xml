@@ -31,6 +31,14 @@
                     android:host="login" />
             </intent-filter>
 
+            <!-- Receive product links shared from Amazon, Flipkart, Myntra,
+                 Meesho, browsers, and other Android apps. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+
         </activity>
 
         <provider

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { BellRing, CheckCircle2, Download, Loader2, X } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
@@ -684,38 +684,77 @@ function GoogleProfileCompletionGate({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-const NATIVE_AUTH_SCHEME = 'com.shop2bhutan.app:';
+const NATIVE_APP_SCHEME = 'com.shop2bhutan.app:';
+
+function replaceCurrentRoute(pathname: string, searchParams?: URLSearchParams) {
+  const search = searchParams?.toString();
+  const target = search ? `${pathname}?${search}` : pathname;
+
+  window.history.replaceState({}, '', target);
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
 
 function navigateToNativeGoogleCallback(
   errorMessage?: string,
   returnTo?: string | null,
 ) {
-  const callbackUrl = new URL('/login', window.location.origin);
-  callbackUrl.searchParams.set('oauth', 'google');
+  const searchParams = new URLSearchParams();
+  searchParams.set('oauth', 'google');
 
   if (returnTo?.startsWith('/') && !returnTo.startsWith('//')) {
-    callbackUrl.searchParams.set('returnTo', returnTo);
+    searchParams.set('returnTo', returnTo);
   }
 
   if (errorMessage) {
-    callbackUrl.searchParams.set('error_description', errorMessage);
+    searchParams.set('error_description', errorMessage);
   }
 
-  window.history.replaceState(
-    {},
-    '',
-    `${callbackUrl.pathname}${callbackUrl.search}`,
-  );
-  window.dispatchEvent(new PopStateEvent('popstate'));
+  replaceCurrentRoute('/login', searchParams);
 }
 
-async function handleNativeAuthUrl(url: string) {
-  if (!url.startsWith(NATIVE_AUTH_SCHEME)) return false;
+function navigateToSharedProduct(
+  sharedUrl: string,
+  sharedTitle?: string | null,
+) {
+  const cleanUrl = sharedUrl.trim();
+  if (!/^https?:\/\//i.test(cleanUrl)) return false;
 
-  const parsedUrl = new URL(url);
+  const searchParams = new URLSearchParams();
+  searchParams.set('source', 'android-share');
+  searchParams.set('url', cleanUrl);
+
+  const cleanTitle = String(sharedTitle ?? '').trim();
+  if (cleanTitle) {
+    searchParams.set('title', cleanTitle);
+  }
+
+  replaceCurrentRoute('/paste-link', searchParams);
+  return true;
+}
+
+async function handleNativeAppUrl(url: string) {
+  if (!url.startsWith(NATIVE_APP_SCHEME)) return false;
+
+  let parsedUrl: URL;
+
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    return false;
+  }
+
+  if (parsedUrl.hostname === 'share') {
+    return navigateToSharedProduct(
+      parsedUrl.searchParams.get('url') ?? '',
+      parsedUrl.searchParams.get('title'),
+    );
+  }
+
   if (parsedUrl.hostname !== 'login') return false;
 
-  const hashParams = new URLSearchParams(parsedUrl.hash.replace(/^#/, ''));
+  const hashParams = new URLSearchParams(
+    parsedUrl.hash.replace(/^#/, ''),
+  );
   const queryParams = parsedUrl.searchParams;
   const returnTo = queryParams.get('returnTo');
 
@@ -751,12 +790,15 @@ async function handleNativeAuthUrl(url: string) {
       });
       if (error) throw error;
     } else {
-      throw new Error('Google did not return a valid Shop2Bhutan session.');
+      throw new Error(
+        'Google did not return a valid Shop2Bhutan session.',
+      );
     }
 
     navigateToNativeGoogleCallback(undefined, returnTo);
   } catch (error) {
     console.error('[Shop2Bhutan] Native Google OAuth failed:', error);
+
     navigateToNativeGoogleCallback(
       error instanceof Error
         ? error.message
@@ -768,15 +810,32 @@ async function handleNativeAuthUrl(url: string) {
   return true;
 }
 
-function NativeGoogleOAuthBridge() {
+function NativeAppUrlBridge() {
+  const lastHandledUrlRef = useRef('');
+
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return undefined;
 
     let active = true;
     let removeListener: (() => Promise<void>) | undefined;
 
+    const handleOnce = (url?: string | null) => {
+      const cleanUrl = String(url ?? '').trim();
+
+      if (
+        !active ||
+        !cleanUrl ||
+        lastHandledUrlRef.current === cleanUrl
+      ) {
+        return;
+      }
+
+      lastHandledUrlRef.current = cleanUrl;
+      void handleNativeAppUrl(cleanUrl);
+    };
+
     void CapacitorApp.addListener('appUrlOpen', ({ url }) => {
-      if (active) void handleNativeAuthUrl(url);
+      handleOnce(url);
     }).then((listener) => {
       if (!active) {
         void listener.remove();
@@ -787,9 +846,7 @@ function NativeGoogleOAuthBridge() {
     });
 
     void CapacitorApp.getLaunchUrl().then((launch) => {
-      if (active && launch?.url) {
-        void handleNativeAuthUrl(launch.url);
-      }
+      handleOnce(launch?.url);
     });
 
     return () => {
@@ -915,7 +972,7 @@ function PasswordChangeGate({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <AppProvider>
-      <NativeGoogleOAuthBridge />
+      <NativeAppUrlBridge />
       <PushNotificationBridge />
       <RouteScrollToTop />
       <PwaInstallBanner />
