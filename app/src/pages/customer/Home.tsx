@@ -561,9 +561,9 @@ function ActiveUpdatesSection({
 }) {
   if (loading) {
     return (
-      <section className="mt-6">
+      <section className="mt-8">
         <div className="px-4">
-          <div className="h-4 w-36 animate-pulse rounded-full bg-slate-200" />
+          <div className="h-5 w-40 animate-pulse rounded-lg bg-slate-200" />
         </div>
         <div className="mt-3 space-y-3 px-4">
           <div className="h-[88px] animate-pulse rounded-2xl bg-slate-200" />
@@ -601,7 +601,7 @@ function ActiveUpdatesSection({
   }
 
   return (
-    <section className="mt-7">
+    <section className="mt-8">
       <SectionHeader
         eyebrow="Continue tracking"
         title="Active updates"
@@ -609,7 +609,7 @@ function ActiveUpdatesSection({
         onAction={updates.length > 1 ? () => onNavigate('/orders') : undefined}
       />
 
-      <div className="mt-3 space-y-3 px-4">
+      <div className="mt-4 space-y-3 px-4">
         {updates.slice(0, 2).map((update) => (
           <ActivityCard
             key={`${update.kind}-${update.id}`}
@@ -821,6 +821,21 @@ export default function Home() {
     setSheetDragY(0);
   };
 
+  const closeLocationSheetAndNavigate = useCallback(
+    (path: string) => {
+      setLocationSheetOpen(false);
+      setIsDragging(false);
+      setSheetDragY(0);
+
+      // Navigate after the sheet has started closing. This avoids mobile
+      // touch/gesture handlers swallowing the button tap.
+      window.requestAnimationFrame(() => {
+        navigate(path);
+      });
+    },
+    [navigate],
+  );
+
   return (
     <div className="min-h-dvh bg-neutral-50">
       {/* ═══════════════ HEADER ═══════════════ */}
@@ -906,7 +921,7 @@ export default function Home() {
               backgroundPosition: '62% center',
             }}
           >
-            <div className="relative z-10 flex min-h-[180px] max-w-[80%] flex-col justify-center p-5">
+            <div className="relative z-10 flex min-h-[180px] max-w-[80%] flex-col justify-center px-5 pt-5 pb-6">
               <h2 className="text-[1.4rem] font-extrabold leading-[1.12] tracking-tight text-white">
                 Shop Amazon, Flipkart,
                 <span className="block text-orange-300">Myntra &amp; Meesho</span>
@@ -960,7 +975,7 @@ export default function Home() {
           <section className="mt-2 bg-white py-5">
             <div className="flex items-end justify-between gap-3 px-4">
               <div>
-                <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-orange-500">
                   Accepted stores
                 </p>
                 <h2 className="mt-0.5 text-lg font-extrabold tracking-tight text-slate-950">
@@ -1006,7 +1021,7 @@ export default function Home() {
         />
 
         {/* ── Parcel CTA (full-width card) ── */}
-        <section className="mt-6 px-4">
+        <section className="mt-8 px-4">
           <button
             type="button"
             onClick={() => navigate('/parcel')}
@@ -1028,7 +1043,7 @@ export default function Home() {
         </section>
 
         {/* ── Trust Badges (compact row) ── */}
-        <section className="mt-7 bg-white py-5">
+        <section className="mt-8 bg-white py-6">
           <SectionHeader eyebrow="Shop confidently" title="Why customers trust us" />
 
           <div className="mt-3 flex gap-3 px-4">
@@ -1074,11 +1089,14 @@ export default function Home() {
                 : 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
             }}
             onClick={(event) => event.stopPropagation()}
-            onTouchStart={handleSheetTouchStart}
-            onTouchMove={handleSheetTouchMove}
-            onTouchEnd={handleSheetTouchEnd}
           >
-            <div className="flex justify-center pb-1 pt-3">
+            <div
+              className="flex touch-none cursor-grab justify-center pb-1 pt-3 active:cursor-grabbing"
+              onTouchStart={handleSheetTouchStart}
+              onTouchMove={handleSheetTouchMove}
+              onTouchEnd={handleSheetTouchEnd}
+              aria-label="Swipe down to close"
+            >
               <div className="h-1.5 w-12 rounded-full bg-slate-200" />
             </div>
 
@@ -1140,10 +1158,7 @@ export default function Home() {
                   <>
                     <button
                       type="button"
-                      onClick={() => {
-                        setLocationSheetOpen(false);
-                        navigate('/profile');
-                      }}
+                      onClick={() => closeLocationSheetAndNavigate('/profile')}
                       className="h-12 rounded-2xl bg-orange-500 px-4 text-sm font-extrabold text-white transition active:scale-[0.98] active:bg-orange-600"
                     >
                       {deliveryLabel ? 'Change delivery location' : 'Set delivery location'}
@@ -1151,10 +1166,7 @@ export default function Home() {
 
                     <button
                       type="button"
-                      onClick={() => {
-                        setLocationSheetOpen(false);
-                        navigate('/addresses');
-                      }}
+                      onClick={() => closeLocationSheetAndNavigate('/addresses')}
                       className="h-12 rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-700 transition active:scale-[0.98] active:bg-slate-200"
                     >
                       Manage saved addresses
@@ -1164,10 +1176,7 @@ export default function Home() {
                   <>
                     <button
                       type="button"
-                      onClick={() => {
-                        setLocationSheetOpen(false);
-                        navigate('/register');
-                      }}
+                      onClick={() => closeLocationSheetAndNavigate('/register')}
                       className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-orange-500 px-4 text-sm font-extrabold text-white transition active:scale-[0.98]"
                     >
                       <UserPlus size={16} strokeWidth={2.2} />
@@ -1176,10 +1185,7 @@ export default function Home() {
 
                     <button
                       type="button"
-                      onClick={() => {
-                        setLocationSheetOpen(false);
-                        navigate('/login');
-                      }}
+                      onClick={() => closeLocationSheetAndNavigate('/login')}
                       className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-700 transition active:scale-[0.98]"
                     >
                       <LogIn size={16} strokeWidth={2.2} />
