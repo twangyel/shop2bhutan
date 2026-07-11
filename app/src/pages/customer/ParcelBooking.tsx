@@ -347,17 +347,17 @@ export default function ParcelBooking() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white px-4 py-6">
+      <div className="min-h-screen bg-neutral-50 px-4 py-6">
         <div className="h-8 w-40 animate-pulse rounded-lg bg-neutral-100" />
-        <div className="mt-5 h-36 animate-pulse rounded-3xl bg-neutral-100" />
-        <div className="mt-4 h-96 animate-pulse rounded-3xl bg-neutral-100" />
+        <div className="mt-5 h-36 animate-pulse rounded-2xl bg-neutral-200" />
+        <div className="mt-4 h-96 animate-pulse rounded-2xl bg-neutral-200" />
       </div>
     )
   }
 
   if (submitted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white px-4 py-8">
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4 py-8">
         <div className="w-full max-w-sm text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
             <CheckCircle2 size={34} />
@@ -401,13 +401,13 @@ export default function ParcelBooking() {
 
   if (error && !trip) {
     return (
-      <div className="min-h-screen bg-white px-4 py-6">
+      <div className="min-h-screen bg-neutral-50 px-4 py-6">
         <div className="pt-[env(safe-area-inset-top)]">
           <h1 className="text-lg font-bold text-neutral-900">Book Parcel</h1>
           <p className="mt-1 text-xs text-neutral-500">Pickup and drop-off details</p>
         </div>
 
-        <div className="mt-10 rounded-3xl border border-red-100 bg-red-50 p-4 text-center">
+        <div className="mt-10 rounded-2xl border border-red-100 bg-red-50 p-4 text-center">
           <p className="text-sm font-semibold text-red-700">{error}</p>
         </div>
       </div>
@@ -415,11 +415,11 @@ export default function ParcelBooking() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-neutral-50">
       {/* Header */}
       <div className="sticky top-0 z-20 border-b border-neutral-100 bg-white/95 backdrop-blur">
         <div className="px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-500">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-orange-500">
             Parcel booking
           </p>
           <div className="mt-1 flex items-center justify-between gap-3">
@@ -462,7 +462,7 @@ export default function ParcelBooking() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5 px-4 py-4 pb-[calc(7rem+env(safe-area-inset-bottom))]">
+      <form onSubmit={handleSubmit} className="space-y-4 px-4 py-4 pb-[calc(7rem+env(safe-area-inset-bottom))]">
         {error && (
           <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
@@ -477,7 +477,7 @@ export default function ParcelBooking() {
 
         {/* Trip Route Card */}
         {trip && (
-          <div className="overflow-hidden rounded-[28px] border border-neutral-100 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-sm shadow-slate-100">
             <div className="p-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white">
@@ -528,7 +528,7 @@ export default function ParcelBooking() {
         )}
 
         {/* Pickup Section */}
-        <div className="rounded-3xl border border-neutral-100 bg-white p-4">
+        <div className="rounded-2xl border border-neutral-100 bg-white p-4">
           <div className="mb-4 flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
               <MapPin size={16} />
@@ -571,7 +571,7 @@ export default function ParcelBooking() {
         </div>
 
         {/* Drop-off Section */}
-        <div className="rounded-3xl border border-neutral-100 bg-white p-4">
+        <div className="rounded-2xl border border-neutral-100 bg-white p-4">
           <div className="mb-4 flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
               <MapPinned size={16} />
@@ -614,7 +614,7 @@ export default function ParcelBooking() {
         </div>
 
         {/* Parcel Details Section */}
-        <div className="rounded-3xl border border-neutral-100 bg-white p-4">
+        <div className="rounded-2xl border border-neutral-100 bg-white p-4">
           <div className="mb-4 flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
               <Package size={16} />
@@ -681,7 +681,7 @@ export default function ParcelBooking() {
               Parcel Photo
             </label>
             <label
-              className={`block cursor-pointer overflow-hidden rounded-3xl border-2 border-dashed transition ${
+              className={`block cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed transition ${
                 errors.photoFile
                   ? 'border-red-300 bg-red-50'
                   : photoFile
@@ -744,20 +744,20 @@ export default function ParcelBooking() {
           </div>
 
           {/* Special Note */}
-          <div className="mt-4">
+          <div className="mt-4 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-100">
             <IconTextArea
               icon={FileText}
-              label="Special Note"
+              label="Special Note (optional)"
               value={form.customerNotes}
               onChange={(value) => update('customerNotes', value)}
-              placeholder="Optional pickup/drop-off note"
+              placeholder="Any extra pickup or drop-off instructions"
             />
           </div>
         </div>
 
         {/* Declaration */}
         <div
-          className={`rounded-3xl border p-4 ${
+          className={`rounded-2xl border p-4 ${
             errors.declarationConfirmed
               ? 'border-red-200 bg-red-50'
               : 'border-blue-100 bg-blue-50'
@@ -770,7 +770,7 @@ export default function ParcelBooking() {
               onChange={(event) =>
                 update('declarationConfirmed', event.target.checked)
               }
-              className="mt-1 h-4 w-4 rounded border-neutral-300 text-orange-500 focus:ring-orange-500"
+              className="mt-0.5 h-5 w-5 rounded border-neutral-300 text-orange-500 focus:ring-orange-500"
             />
 
             <div>
@@ -800,7 +800,7 @@ export default function ParcelBooking() {
           <button
             type="submit"
             disabled={submitting || bookingClosed}
-            className="h-12 w-full rounded-2xl bg-orange-500 px-4 py-3.5 text-sm font-bold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
+            className="h-14 w-full rounded-2xl bg-orange-500 px-4 text-base font-extrabold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100"
           >
             {bookingClosed
               ? 'Booking Closed'
@@ -854,7 +854,7 @@ function IconField({
           placeholder={placeholder}
           inputMode={inputMode}
           maxLength={maxLength}
-          className={`h-12 w-full rounded-2xl border bg-white pl-10 pr-3 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10 ${
+          className={`h-[52px] w-full rounded-2xl border bg-white pl-11 pr-3 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10 ${
             error ? 'border-red-400' : 'border-neutral-200'
           }`}
         />

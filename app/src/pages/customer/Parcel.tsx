@@ -168,11 +168,11 @@ export default function Parcel() {
   )
 
   return (
-    <div className="min-h-screen bg-white pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-screen bg-neutral-50 pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
       {/* Header */}
       <div className="sticky top-0 z-20 border-b border-neutral-100 bg-white/95 backdrop-blur">
         <div className="px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-500">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-orange-500">
             Parcel service
           </p>
           <div className="mt-1 flex items-end justify-between gap-3">
@@ -191,18 +191,13 @@ export default function Parcel() {
         </div>
       </div>
 
-      <div className="space-y-6 px-4 py-4">
+      <div className="space-y-5 px-4 py-4">
         {/* Info Banner */}
-        <div className="flex items-start gap-3 rounded-3xl border border-blue-100 bg-blue-50/70 p-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-600 ring-1 ring-blue-100">
-            <Info size={17} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-blue-950">Lightweight parcel service</p>
-            <p className="mt-1 text-xs leading-relaxed text-blue-700">
-              Book documents, small electronics, or permitted medicines for an admin-scheduled trip. A parcel photo and declaration are required.
-            </p>
-          </div>
+        <div className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
+          <Info size={17} className="mt-0.5 shrink-0 text-blue-500" />
+          <p className="text-[12px] leading-[1.6] text-blue-800">
+            <span className="font-extrabold text-blue-950">Lightweight items only.</span> Documents, small electronics, or permitted medicines. Photo and declaration required.
+          </p>
         </div>
 
         {error && (
@@ -216,7 +211,7 @@ export default function Parcel() {
           <section>
             <div className="mb-3 flex items-end justify-between gap-3">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-orange-500">Tracking</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-orange-500">Tracking</p>
                 <h2 className="mt-1 text-lg font-extrabold tracking-tight text-neutral-950">
                   Active parcels
                 </h2>
@@ -269,7 +264,7 @@ export default function Parcel() {
         {/* Available Trips */}
         <section>
           <div className="mb-3">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-orange-500">Book a parcel</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-orange-500">Book a parcel</p>
             <h2 className="mt-1 text-lg font-extrabold tracking-tight text-neutral-950">
               Available trips
             </h2>
@@ -283,7 +278,7 @@ export default function Parcel() {
               {[1, 2].map((item) => (
                 <div
                   key={item}
-                  className="h-48 animate-pulse rounded-3xl bg-neutral-100"
+                  className="h-48 animate-pulse rounded-2xl bg-neutral-200"
                 />
               ))}
             </div>
@@ -307,7 +302,7 @@ export default function Parcel() {
                 <button
                   key={trip.id}
                   onClick={() => navigate(`/parcel-booking/${trip.id}`)}
-                  className="w-full overflow-hidden rounded-[28px] border border-neutral-100 bg-white text-left shadow-sm transition hover:border-orange-200 active:scale-[0.99]"
+                  className="w-full overflow-hidden rounded-2xl border border-neutral-100 bg-white text-left shadow-sm shadow-slate-100 transition hover:border-orange-200 active:scale-[0.99]"
                 >
                   {/* Card Header */}
                   <div className="p-4 pb-0">
@@ -345,8 +340,8 @@ export default function Parcel() {
 
                       <div className="flex-1 space-y-3">
                         <div>
-                          <p className="text-[11px] font-semibold text-neutral-400">
-                            Pickup
+                          <p className="text-[11px] font-semibold text-emerald-600">
+                            From
                           </p>
                           <p className="text-sm font-bold text-neutral-900">
                             {trip.origin || trip.fromLocation || 'Thimphu'}
@@ -354,8 +349,8 @@ export default function Parcel() {
                         </div>
 
                         <div>
-                          <p className="text-[11px] font-semibold text-neutral-400">
-                            Drop-off
+                          <p className="text-[11px] font-semibold text-orange-500">
+                            To
                           </p>
                           <p className="text-sm font-bold text-neutral-900">
                             {trip.destination ||
