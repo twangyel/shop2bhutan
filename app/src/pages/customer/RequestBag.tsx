@@ -341,7 +341,7 @@ function BagItemCard({
 
   return (
     <article
-      className={`overflow-hidden rounded-[26px] border bg-white shadow-[0_10px_32px_rgba(15,23,42,0.05)] transition-all duration-200 ${
+      className={`overflow-hidden rounded-2xl border bg-white shadow-sm shadow-slate-100 transition-all duration-200 ${
         removing
           ? 'pointer-events-none translate-x-2 scale-[0.98] opacity-0'
           : 'translate-x-0 scale-100 border-slate-100 opacity-100'
@@ -349,8 +349,8 @@ function BagItemCard({
     >
       <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="inline-flex h-7 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-extrabold text-slate-600">
-            Item {index + 1}
+          <span className="text-[11px] font-bold text-slate-400">
+            #{index + 1}
           </span>
           <span className="truncate text-xs font-semibold text-slate-500">
             {itemTypeLabel}
@@ -378,11 +378,11 @@ function BagItemCard({
             <img
               src={item.productImage}
               alt=""
-              className="h-[86px] w-[86px] shrink-0 rounded-[22px] bg-slate-100 object-cover ring-1 ring-slate-100"
+              className="h-[80px] w-[80px] shrink-0 rounded-2xl bg-slate-100 object-cover ring-1 ring-slate-100"
             />
           ) : (
             <div
-              className={`flex h-[86px] w-[86px] shrink-0 items-center justify-center rounded-[22px] ring-1 ring-slate-100 ${ps.bg}`}
+              className={`flex h-[80px] w-[80px] shrink-0 items-center justify-center rounded-2xl ring-1 ring-slate-100 ${ps.bg}`}
             >
               {ps.initial ? (
                 <span className={`text-lg font-black ${ps.text}`}>{ps.initial}</span>
@@ -448,14 +448,14 @@ function BagItemCard({
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-[minmax(0,1fr)_132px] gap-3">
+        <div className="mt-4 grid grid-cols-[minmax(0,1fr)_120px] gap-3">
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
-              Site price estimate
+            <label className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400">
+              Site price
             </label>
             <output
               aria-label="Site price estimate"
-              className={`mt-2 flex h-12 w-full items-center rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[15px] font-bold ${
+              className={`mt-1.5 flex h-[44px] w-full items-center rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm font-bold ${
                 hasSitePriceEstimate ? 'text-slate-800' : 'text-slate-400'
               }`}
             >
@@ -464,10 +464,10 @@ function BagItemCard({
           </div>
 
           <div>
-            <label className="block text-center text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
-              Qty
+            <label className="block text-center text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400">
+              Quantity
             </label>
-            <div className="mt-2 flex h-12 items-center justify-between rounded-2xl border border-slate-200 bg-white p-1">
+            <div className="mt-1.5 flex h-[44px] items-center justify-between rounded-xl border border-slate-200 bg-white p-0.5">
               <button
                 type="button"
                 onClick={() =>
@@ -475,7 +475,7 @@ function BagItemCard({
                     quantity: Math.max(1, safeQuantity - 1),
                   })
                 }
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-700 transition active:scale-95 active:bg-slate-100"
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-50 text-slate-700 transition active:scale-95 active:bg-slate-100"
                 aria-label="Decrease quantity"
               >
                 <Minus size={16} />
@@ -488,7 +488,7 @@ function BagItemCard({
                 onClick={() =>
                   onPatch(item.id, { quantity: safeQuantity + 1 })
                 }
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-700 transition active:scale-95 active:bg-slate-100"
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-50 text-slate-700 transition active:scale-95 active:bg-slate-100"
                 aria-label="Increase quantity"
               >
                 <Plus size={16} />
@@ -497,10 +497,10 @@ function BagItemCard({
           </div>
         </div>
 
-        <div className="mt-3 flex items-start gap-2 rounded-2xl border border-blue-100 bg-blue-50/80 px-3.5 py-2.5 text-xs font-medium leading-5 text-blue-700">
-          <CheckCircle size={15} className="mt-0.5 shrink-0" strokeWidth={2.3} />
-          <span>Admin will verify the site price before sending your final quotation.</span>
-        </div>
+        <p className="mt-2.5 flex items-center gap-1.5 text-[11px] leading-5 text-slate-400">
+          <CheckCircle size={13} className="shrink-0 text-blue-400" strokeWidth={2.3} />
+          Admin will verify the site price before quotation.
+        </p>
 
         {hasSitePriceEstimate && (
           <p className="mt-2.5 text-sm font-bold text-orange-600">
@@ -516,7 +516,7 @@ function BagItemCard({
           onBlur={() => onPatch(item.id, { notes: item.notes || '' })}
           placeholder="Size, color, variant, or instruction for this item..."
           rows={2}
-          className="mt-3.5 w-full resize-none rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-[15px] leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+          className="mt-3 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-500/15"
         />
       </div>
     </article>
@@ -846,9 +846,9 @@ export default function RequestBag() {
 
   if (!authLoading && (!user || isGuest)) {
     return (
-      <div className="min-h-screen bg-white px-5 py-8">
-        <div className="mx-auto max-w-lg rounded-[28px] border border-slate-100 bg-white p-7 text-center shadow-[0_12px_36px_rgba(15,23,42,0.06)]">
-          <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-orange-50 text-orange-500 ring-1 ring-orange-100">
+      <div className="min-h-screen bg-neutral-50 px-5 py-8">
+        <div className="mx-auto max-w-lg rounded-2xl border border-slate-100 bg-white p-7 text-center shadow-sm shadow-slate-100">
+          <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-50 text-orange-500 ring-1 ring-orange-100">
             <ShoppingBag size={30} strokeWidth={2.1} />
           </span>
           <h1 className="mt-5 text-xl font-extrabold text-slate-950">
@@ -892,7 +892,7 @@ export default function RequestBag() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-[calc(10.5rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-screen bg-neutral-50 pb-[calc(10.5rem+env(safe-area-inset-bottom))]">
       <header className="border-b border-slate-100 bg-white px-5 py-4">
         <div className="mx-auto flex max-w-lg items-center gap-3">
           <div className="min-w-0 flex-1">
@@ -924,13 +924,13 @@ export default function RequestBag() {
             {[1, 2].map((item) => (
               <div
                 key={item}
-                className="h-72 animate-pulse rounded-[26px] bg-slate-100"
+                className="h-72 animate-pulse rounded-2xl bg-slate-200"
               />
             ))}
           </div>
         ) : !hasItems ? (
-          <div className="rounded-[28px] border border-slate-100 bg-white p-7 text-center shadow-[0_12px_36px_rgba(15,23,42,0.05)]">
-            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-orange-50 text-orange-500 ring-1 ring-orange-100">
+          <div className="rounded-2xl border border-slate-100 bg-white p-7 text-center shadow-sm shadow-slate-100">
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-50 text-orange-500 ring-1 ring-orange-100">
               <ShoppingBag size={30} strokeWidth={2.1} />
             </span>
             <h2 className="mt-5 text-xl font-extrabold text-slate-950">
@@ -974,21 +974,11 @@ export default function RequestBag() {
               Add another product
             </button>
 
-            <section className="rounded-[24px] border border-blue-100 bg-blue-50/80 p-4">
-              <div className="flex items-start gap-3.5">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-600 ring-1 ring-blue-100">
-                  <CheckCircle size={21} strokeWidth={2.4} />
-                </span>
-                <div>
-                  <h2 className="text-base font-extrabold text-blue-950">
-                    Ready to request a quotation?
-                  </h2>
-                  <p className="mt-1 text-sm leading-6 text-blue-800">
-                    Contact, destination, and delivery preference will be
-                    confirmed in the next step. No payment is required now.
-                  </p>
-                </div>
-              </div>
+            <section className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
+              <CheckCircle size={16} className="mt-0.5 shrink-0 text-blue-500" strokeWidth={2.3} />
+              <p className="text-[12px] leading-[1.6] text-blue-800">
+                <span className="font-extrabold text-blue-950">Ready to request a quotation?</span> Contact, destination, and delivery preference will be confirmed next. No payment required now.
+              </p>
             </section>
           </>
         )}
@@ -1071,7 +1061,7 @@ export default function RequestBag() {
               </div>
 
               <div className="mt-4 space-y-3">
-                <section className="rounded-[22px] border border-slate-100 bg-white p-4 shadow-sm">
+                <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                   <p className="text-sm font-extrabold text-slate-950">
                     Notes for quotation
                   </p>
@@ -1092,7 +1082,7 @@ export default function RequestBag() {
                   />
                 </section>
 
-                <section className="rounded-[22px] border border-slate-100 bg-white p-4 shadow-sm">
+                <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-3">
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
@@ -1179,7 +1169,7 @@ export default function RequestBag() {
                   )}
                 </section>
 
-                <section className="rounded-[22px] border border-slate-100 bg-white p-4 shadow-sm">
+                <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                   <div className="flex items-start gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
                       <MapPin size={18} strokeWidth={2.2} />
@@ -1385,7 +1375,7 @@ export default function RequestBag() {
                   )}
                 </section>
 
-                <div className="flex items-start gap-3 rounded-[22px] border border-amber-100 bg-amber-50/70 px-4 py-3.5">
+                <div className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3.5">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-amber-600 ring-1 ring-amber-100">
                     <CheckCircle size={17} strokeWidth={2.3} />
                   </span>
