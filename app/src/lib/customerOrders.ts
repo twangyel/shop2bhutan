@@ -1703,8 +1703,8 @@ async function createAdminOrderSubmittedNotification(input: {
 
   await createAdminNotificationForAdmins({
     type: 'order_update',
-    title: 'New Order Request',
-    message: `${customerName}${customerPhone ? ` (${customerPhone})` : ''} submitted ${itemText} for order #${orderNo}.`,
+    title: 'New Shopping Request',
+    message: `${customerName}${customerPhone ? ` (${customerPhone})` : ''} submitted ${itemText} for shopping request #${orderNo}.`,
     link: `/admin/orders/${orderId}`,
     dedupeKey: `admin:new-order:${orderId}`,
   })
@@ -1793,8 +1793,10 @@ async function createAdminQuotationResponseNotification(input: {
 
   await createAdminNotificationForAdmins({
     type: 'quotation',
-    title: accepted ? 'Quotation Accepted' : 'Quotation Rejected',
-    message: `${customerName} ${accepted ? 'accepted' : 'rejected'} quotation for order #${orderNo}.`,
+    title: accepted ? 'Final Price Confirmed' : 'Final Price Changes Requested',
+    message: accepted
+      ? `${customerName} confirmed the final price for order #${orderNo}.`
+      : `${customerName} requested changes to the final price for order #${orderNo}.`,
     link: `/admin/orders/${orderId}`,
     dedupeKey: `admin:quotation-response:${cleanText(input.quotationId) || orderId}:${input.response}`,
   })
@@ -2132,8 +2134,8 @@ async function createQuotationReadyNotificationForOrder(orderId: string, quotati
     await createCustomerNotification({
       userId,
       type: 'quotation',
-      title: 'Quotation Ready',
-      message: `Your quotation for order #${orderNo} is ready for review.`,
+      title: 'Final Price Ready',
+      message: `Availability has been confirmed and the final price for order #${orderNo} is ready. Review it to continue to payment.`,
       link: `/quotation/${orderId}`,
       dedupeKey: `quotation-ready:${quotationId || orderId}`,
     })
@@ -2149,18 +2151,18 @@ function orderStatusNotificationCopy(status: OrderStatus, orderNo: string, selle
   const copy: Record<OrderStatus, { title: string; message: string; type: AppNotification['type'] }> = {
     pending_confirmation: {
       type: 'order_update',
-      title: 'Order Received',
-      message: `Your order #${orderNo} has been received.`,
+      title: 'Request Submitted',
+      message: `Your shopping request #${orderNo} has been received.`,
     },
     quotation_pending: {
       type: 'quotation',
-      title: 'Quotation Pending',
-      message: `We are preparing the quotation for order #${orderNo}.`,
+      title: 'Checking Availability & Price',
+      message: `We are checking product availability, selected options, current prices, and delivery charges for order #${orderNo}.`,
     },
     quoted: {
       type: 'quotation',
-      title: 'Quotation Ready',
-      message: `Your quotation for order #${orderNo} is ready for review.`,
+      title: 'Final Price Ready',
+      message: `Availability is confirmed and the final price for order #${orderNo} is ready. Review it to continue to payment.`,
     },
     payment_pending: {
       type: 'payment',

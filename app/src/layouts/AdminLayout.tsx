@@ -128,12 +128,17 @@ function adminNotificationStyle(type: NotificationType, title: string) {
   }
 
   if (type === 'quotation') {
-    const rejected = text.includes('reject') || text.includes('declin')
+    const needsChanges =
+      text.includes('reject') ||
+      text.includes('declin') ||
+      text.includes('change') ||
+      text.includes('revision')
+
     return {
       icon: FileText,
-      bg: rejected ? 'bg-red-50' : 'bg-violet-50',
-      text: rejected ? 'text-red-600' : 'text-violet-600',
-      label: 'Quotation',
+      bg: needsChanges ? 'bg-red-50' : 'bg-orange-50',
+      text: needsChanges ? 'text-red-600' : 'text-orange-600',
+      label: 'Final Price',
     }
   }
 
@@ -874,7 +879,7 @@ export default function AdminLayout() {
                           No notifications yet
                         </p>
                         <p className="mt-1 text-xs text-neutral-500">
-                          New orders, payments, and quotation responses will
+                          New shopping requests, payments, and final price responses will
                           appear here.
                         </p>
                       </div>

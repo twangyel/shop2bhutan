@@ -53,14 +53,19 @@ function isTabActive(pathname: string, tabPath: string) {
   }
 
   if (tabPath === '/request-bag') {
-    return pathname === '/request-bag' || pathname === '/cart'
+    return (
+      pathname === '/request-bag' ||
+      pathname === '/cart' ||
+      pathname === '/orders' ||
+      pathname.startsWith('/order/') ||
+      pathname.startsWith('/quotation/') ||
+      pathname.startsWith('/payment/')
+    )
   }
 
   if (tabPath === '/account') {
     return (
       pathname === '/account' ||
-      pathname === '/orders' ||
-      pathname.startsWith('/order/') ||
       pathname === '/profile' ||
       pathname === '/addresses' ||
       pathname === '/notifications' ||
@@ -122,7 +127,7 @@ export default function CustomerLayout() {
         await showNativeNotificationFromRow({
           id: 'shop2bhutan-notifications-enabled',
           title: 'Notifications enabled',
-          message: 'You will receive Shop2Bhutan order, parcel, payment, and account updates.',
+          message: 'You will receive Shop2Bhutan final price, order, parcel, payment, and account updates.',
           link: '/notifications',
         })
         return
@@ -516,7 +521,7 @@ export default function CustomerLayout() {
                     Turn on notifications
                   </p>
                   <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Receive quotations, payment, order and parcel updates instantly.
+                    Receive final price, payment, order and parcel updates instantly.
                   </p>
 
                   <div className="mt-3 flex gap-2">
