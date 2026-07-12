@@ -23,13 +23,16 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import {
   addItemToRequestBag,
+  detectSourcePlatformFromUrl,
   fetchProductLinkPreview,
   inferProductNameFromUrl,
+  normalizeProductUrl,
 } from '@/lib/customerOrders';
 import {
   clearShoppingAssistCapture,
   openShoppingAssist,
   readShoppingAssistCapture,
+  readWebShareTarget,
   saveShoppingAssistCapture,
 } from '@/lib/shoppingAssist';
 import type {
@@ -76,6 +79,11 @@ export default function ShoppingAssistReview() {
   const locationState =
     location.state as ReviewLocationState | null;
 
+  const webShareTarget = useMemo(
+    () => readWebShareTarget(location.search),
+    [location.search],
+  );
+
   const initialCapture =
     locationState?.capture ??
     readShoppingAssistCapture();
@@ -100,6 +108,14 @@ export default function ShoppingAssistReview() {
     useState(false);
   const [checkingFallback, setCheckingFallback] =
     useState(false);
+  const [
+    preparingWebShare,
+    setPreparingWebShare,
+  ] = useState(
+    Boolean(!initialCapture && webShareTarget?.url),
+  );
+  const [webShareError, setWebShareError] =
+    useState('');
   const [adding, setAdding] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -114,6 +130,127 @@ export default function ShoppingAssistReview() {
       ? numeric
       : 0;
   }, [price]);
+
+  useEffect(() => {
+    if (
+      capture ||
+      !webShareTarget?.url
+    ) {
+      return;
+    }
+
+    let active = true;
+
+    async function prepareSharedProduct() {
+      setPreparingWebShare(true);
+      setWebShareError('');
+
+      const sourceUrl = normalizeProductUrl(
+        webShareTarget.url,
+      );
+      const detectedPlatform =
+        detectSourcePlatformFromUrl(sourceUrl);
+
+      const store: ShoppingAssistStore | null =
+        detectedPlatform === 'amazon' ||
+        detectedPlatform === 'flipkart' ||
+        detectedPlatform === 'myntra' ||
+        detectedPlatform === 'meesho'
+          ? detectedPlatform
+          : null;
+
+      if (!sourceUrl || !store) {
+        if (active) {
+          setPreparingWebShare(false);
+          setWebShareError(
+            'Share a product from Amazon, Flipkart, Myntra, or Meesho.',
+          );
+        }
+        return;
+      }
+
+      try {
+        const preview =
+          await fetchProductLinkPreview(sourceUrl);
+
+        if (!active) return;
+
+        const nextCapture: ShoppingAssistCapture = {
+          sourceUrl,
+          canonicalUrl: sourceUrl,
+          store,
+          title:
+            webShareTarget.title ||
+            preview?.title ||
+            inferProductNameFromUrl(
+              sourceUrl,
+              store,
+            ),
+          image: preview?.image || '',
+          displayedPrice:
+            preview?.price || 0,
+          currency: 'INR',
+          variant: '',
+          captureMethod:
+            preview?.fetched
+              ? 'open_graph'
+              : 'page_fallback',
+          confidence:
+            preview?.fetched
+              ? 70
+              : 35,
+          capturedAt:
+            webShareTarget.receivedAt,
+        };
+
+        saveShoppingAssistCapture(
+          nextCapture,
+        );
+        setCapture(nextCapture);
+        setTitle(nextCapture.title);
+        setPrice(
+          nextCapture.displayedPrice > 0
+            ? String(
+                nextCapture.displayedPrice,
+              )
+            : '',
+        );
+        setVariant('');
+
+        navigate(
+          '/shopping-assist/review',
+          {
+            replace: true,
+            state: {
+              capture: nextCapture,
+            },
+          },
+        );
+      } catch {
+        if (active) {
+          setWebShareError(
+            'The product link was received, but its details could not be checked. Open Paste Link to continue.',
+          );
+        }
+      } finally {
+        if (active) {
+          setPreparingWebShare(false);
+        }
+      }
+    }
+
+    void prepareSharedProduct();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    capture,
+    navigate,
+    webShareTarget?.receivedAt,
+    webShareTarget?.title,
+    webShareTarget?.url,
+  ]);
 
   useEffect(() => {
     if (capture) {
@@ -201,6 +338,27 @@ export default function ShoppingAssistReview() {
   }, [capture, price, title]);
 
   if (!capture) {
+    if (preparingWebShare) {
+      return (
+        <div className="flex min-h-[100dvh] items-center justify-center bg-white px-5">
+          <div className="w-full max-w-sm text-center">
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-orange-50 text-orange-500">
+              <Loader2
+                size={28}
+                className="animate-spin"
+              />
+            </span>
+            <h1 className="mt-5 text-xl font-extrabold text-slate-950">
+              Preparing your product
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Shop2Bhutan is checking the shared link, product name, photo, and displayed price.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-white px-5">
         <div className="w-full max-w-sm text-center">
@@ -208,15 +366,52 @@ export default function ShoppingAssistReview() {
             <Package size={28} />
           </span>
           <h1 className="mt-5 text-xl font-extrabold text-slate-950">
-            No product is waiting
+            {webShareError
+              ? 'Shared product needs review'
+              : 'No product is waiting'}
           </h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            Browse a supported store and choose a product first.
+            {webShareError ||
+              'Browse a supported store and choose a product first.'}
           </p>
+
+          {webShareError && webShareTarget?.url && (
+            <button
+              type="button"
+              onClick={() =>
+                navigate('/paste-link', {
+                  replace: true,
+                  state: {
+                    initialUrl:
+                      webShareTarget.url,
+                    sharedTitle:
+                      webShareTarget.title,
+                    source:
+                      'pwa-share-target',
+                    receivedAt:
+                      webShareTarget.receivedAt,
+                  },
+                })
+              }
+              className="mt-6 h-12 w-full rounded-2xl bg-orange-500 text-sm font-extrabold text-white"
+            >
+              Continue with Paste Link
+            </button>
+          )}
+
           <button
             type="button"
-            onClick={() => navigate('/shopping-assist', { replace: true })}
-            className="mt-6 h-12 w-full rounded-2xl bg-orange-500 text-sm font-extrabold text-white"
+            onClick={() =>
+              navigate(
+                '/shopping-assist',
+                { replace: true },
+              )
+            }
+            className={`h-12 w-full rounded-2xl text-sm font-extrabold ${
+              webShareError
+                ? 'mt-3 border border-slate-200 bg-white text-slate-700'
+                : 'mt-6 bg-orange-500 text-white'
+            }`}
           >
             Open S2B Shopping Assist
           </button>

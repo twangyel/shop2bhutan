@@ -12,6 +12,7 @@ import {
   Camera,
   CheckCircle,
   ClipboardList,
+  ClipboardPaste,
   ExternalLink,
   ImageIcon,
   Link2,
@@ -412,6 +413,63 @@ export default function PasteLink() {
 
     if (nextMode === 'link') {
       window.setTimeout(() => linkInputRef.current?.focus(), 80);
+    }
+  };
+
+  const pasteCopiedProductLink = async () => {
+    setError('');
+    setSuccessMessage('');
+    setMode('link');
+
+    try {
+      if (!navigator.clipboard?.readText) {
+        throw new Error('Clipboard unavailable');
+      }
+
+      const clipboardText =
+        await navigator.clipboard.readText();
+
+      const matchedUrl =
+        clipboardText.match(
+          /https?:\/\/[^\s<>"']+/i,
+        )?.[0] || clipboardText;
+
+      const nextUrl = normalizeProductUrl(
+        matchedUrl.replace(
+          /[),.;!?]+$/g,
+          '',
+        ),
+      );
+
+      if (!nextUrl) {
+        setError(
+          'No valid product link was found in your clipboard.',
+        );
+        linkInputRef.current?.focus();
+        return;
+      }
+
+      setUrl(nextUrl);
+      setPreview(emptyPreview);
+      setLinkProductName('');
+      linkNameEditedRef.current = false;
+      lastNotifiedUrlRef.current = '';
+
+      showNotice({
+        title: 'Product link pasted',
+        message:
+          'Checking the product name, photo, and price now.',
+      });
+
+      revealResult();
+    } catch {
+      linkInputRef.current?.focus();
+
+      showNotice({
+        title: 'Paste product link',
+        message:
+          'Press and hold inside the link field, then choose Paste.',
+      });
     }
   };
 
@@ -837,11 +895,27 @@ export default function PasteLink() {
                     )}
                   </div>
 
-                  {cleanUrl && (
-                    <p className="mt-1.5 truncate text-[11px] font-medium text-slate-400">
-                      {extractDomain(cleanUrl)}
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <p className="min-w-0 truncate text-[11px] font-medium text-slate-400">
+                      {cleanUrl
+                        ? extractDomain(cleanUrl)
+                        : 'Copy a product link, then paste it here.'}
                     </p>
-                  )}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void pasteCopiedProductLink()
+                      }
+                      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-[11px] font-extrabold text-slate-700 transition active:scale-[0.97]"
+                    >
+                      <ClipboardPaste
+                        size={14}
+                        strokeWidth={2.3}
+                      />
+                      Paste copied link
+                    </button>
+                  </div>
                 </div>
 
                 {preview.loading && (

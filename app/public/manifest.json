@@ -56,5 +56,15 @@
       "form_factor": "wide",
       "label": "Shop2Bhutan desktop home"
     }
-  ]
+  ],
+  "share_target": {
+    "action": "/shopping-assist/review",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
 }

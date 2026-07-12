@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shop2bhutan-runtime-v1'
+const CACHE_NAME = 'shop2bhutan-runtime-v2'
 const APP_SHELL = '/'
 
 self.addEventListener('install', (event) => {

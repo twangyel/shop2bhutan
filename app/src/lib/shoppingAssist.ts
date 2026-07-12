@@ -77,6 +77,105 @@ function cleanText(value: unknown) {
   return String(value ?? '').trim();
 }
 
+export type WebShareTargetPayload = {
+  url: string;
+  title: string;
+  text: string;
+  receivedAt: number;
+};
+
+export function extractSharedProductUrl(
+  ...values: unknown[]
+) {
+  for (const value of values) {
+    const raw = cleanText(value);
+    if (!raw) continue;
+
+    const match = raw.match(
+      /https?:\/\/[^\s<>"']+/i,
+    );
+
+    if (!match?.[0]) continue;
+
+    const candidate = match[0].replace(
+      /[),.;!?]+$/g,
+      '',
+    );
+
+    try {
+      const parsed = new URL(candidate);
+
+      if (
+        parsed.protocol === 'https:' ||
+        parsed.protocol === 'http:'
+      ) {
+        return parsed.toString();
+      }
+    } catch {
+      // Continue checking the remaining shared values.
+    }
+  }
+
+  return '';
+}
+
+export function readWebShareTarget(
+  search: string,
+): WebShareTargetPayload | null {
+  const params = new URLSearchParams(search);
+
+  if (
+    !params.has('url') &&
+    !params.has('text') &&
+    !params.has('title')
+  ) {
+    return null;
+  }
+
+  const rawUrl = cleanText(params.get('url'));
+  const rawText = cleanText(params.get('text'));
+  const rawTitle = cleanText(params.get('title'));
+
+  const url = extractSharedProductUrl(
+    rawUrl,
+    rawText,
+    rawTitle,
+  );
+
+  if (!url) return null;
+
+  let title = rawTitle;
+
+  if (extractSharedProductUrl(title)) {
+    title = '';
+  }
+
+  if (!title && rawText) {
+    title = cleanText(
+      rawText
+        .replace(url, '')
+        .replace(
+          extractSharedProductUrl(rawText),
+          '',
+        ),
+    );
+  }
+
+  if (
+    title.length < 3 ||
+    extractSharedProductUrl(title)
+  ) {
+    title = '';
+  }
+
+  return {
+    url,
+    title: title.slice(0, 280),
+    text: rawText.slice(0, 1000),
+    receivedAt: Date.now(),
+  };
+}
+
 function normalizeStore(
   value: unknown,
 ): ShoppingAssistStore | null {
