@@ -567,7 +567,8 @@ export default function RequestBag() {
   const [destinationPickerOpen, setDestinationPickerOpen] = useState(false);
   const [error, setError] = useState('');
   const [addressLoading, setAddressLoading] = useState(false);
-  const [, setSavedAddress] = useState<CustomerAddress | null>(null);
+  const [savedAddress, setSavedAddress] = useState<CustomerAddress | null>(null);
+  const [useSavedAddress, setUseSavedAddress] = useState(true);
   const [dzongkhagOptions, setDzongkhagOptions] = useState<DzongkhagOption[]>([]);
   const [fulfillmentMode, setFulfillmentMode] = useState<FulfillmentMode>('delivery');
   const [pickupHubId, setPickupHubId] = useState(SELF_PICKUP_OPTIONS[0].id);
@@ -582,6 +583,10 @@ export default function RequestBag() {
   const hasItems = Boolean(bag?.items.length);
   const selectedPickupHub = getSelfPickupOptionById(pickupHubId);
   const isSelfPickup = fulfillmentMode === 'self_pickup';
+  const selectedDeliveryZone = normalizeSupportedDeliveryDestination(
+    customer.deliveryAddress,
+    dzongkhagOptions,
+  );
   const itemCount = bag?.items.length ?? 0;
   const totalQuantity = bag?.items.reduce((sum, item) => sum + Math.max(1, item.quantity || 1), 0) ?? 0;
   const estimatedSiteTotal = bag?.items.reduce((sum, item) => sum + Math.max(0, item.priceShown || 0) * Math.max(1, item.quantity || 1), 0) ?? 0;
@@ -657,24 +662,29 @@ export default function RequestBag() {
       user.email?.split('@')[0] ||
       '';
 
-    const bagDestination = normalizeSupportedDeliveryDestination(bag?.deliveryAddress, dzongkhagOptions);
-    const profileDestination = getProfileDestinationDzongkhag(profile, dzongkhagOptions);
+    const bagAddress = cleanString(bag?.deliveryAddress);
+    const profileAddress = makeDeliveryAddress(profile, dzongkhagOptions);
+    const profileDestination = getProfileDestinationDzongkhag(
+      profile,
+      dzongkhagOptions,
+    );
 
-    setCustomer((prev) => {
-      const currentDestination = normalizeSupportedDeliveryDestination(prev.deliveryAddress, dzongkhagOptions);
-
-      return {
-        name: prev.name || bag?.customerName || profileName,
-        phone: prev.phone || bag?.customerPhone || profile?.phone?.trim() || '',
-        deliveryAddress: currentDestination || bagDestination || profileDestination,
-        notes: prev.notes || bag?.customerNotes || '',
-      };
-    });
+    setCustomer((prev) => ({
+      name: prev.name || bag?.customerName || profileName,
+      phone: prev.phone || bag?.customerPhone || profile?.phone?.trim() || '',
+      deliveryAddress:
+        cleanString(prev.deliveryAddress) ||
+        bagAddress ||
+        profileAddress ||
+        profileDestination,
+      notes: prev.notes || bag?.customerNotes || '',
+    }));
   }, [user, isGuest, profile, bag?.customerName, bag?.customerPhone, bag?.deliveryAddress, bag?.customerNotes, dzongkhagOptions]);
 
   useEffect(() => {
     if (!user || isGuest) {
       setSavedAddress(null);
+      setUseSavedAddress(false);
       return;
     }
 
@@ -689,31 +699,31 @@ export default function RequestBag() {
         if (!active) return;
 
         setSavedAddress(address);
+        setUseSavedAddress(Boolean(address?.formattedAddress));
 
         if (address?.formattedAddress) {
-          const addressDestination = normalizeSupportedDeliveryDestination(address.formattedAddress, dzongkhagOptions);
-          const profileDestination = getProfileDestinationDzongkhag(profile, dzongkhagOptions);
-
           setCustomer((prev) => ({
             name: address.recipientName || prev.name,
             phone: address.phone || prev.phone,
-            deliveryAddress:
-              normalizeSupportedDeliveryDestination(prev.deliveryAddress, dzongkhagOptions) ||
-              addressDestination ||
-              profileDestination,
+            deliveryAddress: address.formattedAddress,
             notes: prev.notes,
           }));
           return;
         }
 
-        const profileDestination = getProfileDestinationDzongkhag(profile, dzongkhagOptions);
-        if (profileDestination) {
-          setCustomer((prev) => ({
-            ...prev,
-            deliveryAddress:
-              normalizeSupportedDeliveryDestination(prev.deliveryAddress, dzongkhagOptions) || profileDestination,
-          }));
-        }
+        const profileAddress = makeDeliveryAddress(profile, dzongkhagOptions);
+        const profileDestination = getProfileDestinationDzongkhag(
+          profile,
+          dzongkhagOptions,
+        );
+
+        setCustomer((prev) => ({
+          ...prev,
+          deliveryAddress:
+            cleanString(prev.deliveryAddress) ||
+            profileAddress ||
+            profileDestination,
+        }));
       } finally {
         if (active) setAddressLoading(false);
       }
@@ -902,6 +912,52 @@ export default function RequestBag() {
       if (!validateContactStep()) return;
       goToReviewStep(3);
     }
+  };
+
+  const selectSavedDefaultAddress = () => {
+    if (!savedAddress?.formattedAddress) return;
+
+    setUseSavedAddress(true);
+    setDestinationPickerOpen(false);
+    setCustomer((previous) => ({
+      ...previous,
+      name: savedAddress.recipientName || previous.name,
+      phone: savedAddress.phone || previous.phone,
+      deliveryAddress: savedAddress.formattedAddress,
+    }));
+    setError('');
+  };
+
+  const useAnotherDeliveryArea = () => {
+    const savedZone = normalizeSupportedDeliveryDestination(
+      savedAddress?.formattedAddress,
+      dzongkhagOptions,
+    );
+
+    setUseSavedAddress(false);
+    setCustomer((previous) => ({
+      ...previous,
+      deliveryAddress:
+        normalizeSupportedDeliveryDestination(
+          previous.deliveryAddress,
+          dzongkhagOptions,
+        ) ||
+        savedZone ||
+        '',
+    }));
+    setDestinationPickerOpen(true);
+    setError('');
+  };
+
+  const openAddressManager = () => {
+    if (submitting) return;
+
+    setConfirmOpen(false);
+    setReviewStep(1);
+    setDestinationPickerOpen(false);
+    navigate('/addresses', {
+      state: { returnTo: '/request-bag' },
+    });
   };
 
   const submitBag = async () => {
@@ -1399,113 +1455,228 @@ export default function RequestBag() {
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-orange-500">
                         <MapPin size={18} strokeWidth={2.2} />
                       </span>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-extrabold text-slate-950">
-                          Delivery area
+                          Delivery address
                         </p>
                         <p className="mt-1 text-xs leading-5 text-slate-500">
-                          Select an area for delivery. It is ignored when you
-                          choose pickup in the final step.
+                          Your default saved address is selected automatically.
+                          The delivery zone is detected from the full address.
                         </p>
                       </div>
                     </div>
 
-                    {addressLoading && (
-                      <div className="mt-3 flex items-center gap-2 rounded-2xl bg-slate-50 px-3.5 py-3 text-xs text-slate-500">
+                    {addressLoading ? (
+                      <div className="mt-4 flex items-center gap-2 rounded-2xl bg-slate-50 px-3.5 py-3 text-xs text-slate-500">
                         <Loader2
                           size={15}
                           className="animate-spin text-orange-500"
                         />
-                        Loading destination...
+                        Loading your default address...
+                      </div>
+                    ) : savedAddress?.formattedAddress ? (
+                      <div className="mt-4 space-y-3">
+                        <button
+                          type="button"
+                          onClick={selectSavedDefaultAddress}
+                          className={`w-full rounded-2xl border p-4 text-left transition active:scale-[0.99] ${
+                            useSavedAddress
+                              ? 'border-orange-200 bg-orange-50 ring-1 ring-orange-100'
+                              : 'border-slate-200 bg-white'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span
+                                  className={`text-sm font-extrabold ${
+                                    useSavedAddress
+                                      ? 'text-orange-800'
+                                      : 'text-slate-950'
+                                  }`}
+                                >
+                                  {savedAddress.label || 'Home'}
+                                </span>
+                                {savedAddress.isDefault && (
+                                  <span className="rounded-full bg-white px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-orange-600 ring-1 ring-orange-100">
+                                    Default
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="mt-2 text-sm font-bold text-slate-900">
+                                {savedAddress.recipientName || customer.name}
+                                {(savedAddress.phone || customer.phone) &&
+                                  ` · ${savedAddress.phone || customer.phone}`}
+                              </p>
+                              <p className="mt-1.5 break-words text-sm leading-5 text-slate-600 [overflow-wrap:anywhere]">
+                                {savedAddress.formattedAddress}
+                              </p>
+
+                              <div className="mt-3 flex items-center gap-2">
+                                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                  Delivery zone
+                                </span>
+                                <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-slate-700 ring-1 ring-slate-200">
+                                  {normalizeSupportedDeliveryDestination(
+                                    savedAddress.formattedAddress,
+                                    dzongkhagOptions,
+                                  ) || 'To be confirmed'}
+                                </span>
+                              </div>
+                            </div>
+
+                            <span
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                                useSavedAddress
+                                  ? 'bg-orange-500 text-white'
+                                  : 'bg-slate-100 text-slate-400'
+                              }`}
+                            >
+                              <CheckCircle size={17} strokeWidth={2.5} />
+                            </span>
+                          </div>
+                        </button>
+
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <button
+                            type="button"
+                            onClick={openAddressManager}
+                            className="flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition active:scale-[0.98] active:bg-slate-50"
+                          >
+                            Manage addresses
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={useAnotherDeliveryArea}
+                            className="flex h-11 items-center justify-center rounded-2xl bg-slate-100 px-3 text-xs font-bold text-slate-600 transition active:scale-[0.98]"
+                          >
+                            Use another area
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3.5">
+                        <p className="text-sm font-extrabold text-amber-800">
+                          No saved delivery address found
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-amber-700">
+                          Add a complete address for easier future requests, or
+                          choose a supported delivery area below.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={openAddressManager}
+                          className="mt-3 h-10 rounded-xl bg-white px-4 text-xs font-extrabold text-amber-700 ring-1 ring-amber-200"
+                        >
+                          Add saved address
+                        </button>
                       </div>
                     )}
 
-                    <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-1.5">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDestinationPickerOpen((previous) => !previous)
-                        }
-                        className="flex min-h-[50px] w-full items-center justify-between gap-3 rounded-xl px-3 text-left transition active:scale-[0.99]"
-                        aria-expanded={destinationPickerOpen}
-                      >
-                        <span className="flex min-w-0 items-center gap-2.5">
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-orange-500">
-                            <MapPin size={17} strokeWidth={2.2} />
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                              {customer.deliveryAddress
-                                ? 'Selected area'
-                                : 'Optional until delivery is selected'}
+                    {(!savedAddress?.formattedAddress || !useSavedAddress) && (
+                      <div className="mt-4">
+                        <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                          Delivery-area fallback
+                        </p>
+                        <div className="rounded-2xl border border-slate-200 bg-white p-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDestinationPickerOpen((previous) => !previous)
+                            }
+                            className="flex min-h-[50px] w-full items-center justify-between gap-3 rounded-xl px-3 text-left transition active:scale-[0.99]"
+                            aria-expanded={destinationPickerOpen}
+                          >
+                            <span className="flex min-w-0 items-center gap-2.5">
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-orange-500">
+                                <MapPin size={17} strokeWidth={2.2} />
+                              </span>
+                              <span className="min-w-0">
+                                <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                  Supported delivery area
+                                </span>
+                                <span className="block truncate text-sm font-extrabold text-slate-950">
+                                  {selectedDeliveryZone ||
+                                    'Choose Thimphu, Paro, or Chhukha'}
+                                </span>
+                              </span>
                             </span>
-                            <span className="block truncate text-sm font-extrabold text-slate-950">
-                              {customer.deliveryAddress ||
-                                'Select Thimphu, Paro, or Chhukha'}
-                            </span>
-                          </span>
-                        </span>
 
-                        <ChevronDown
-                          size={18}
-                          strokeWidth={2.4}
-                          className={`shrink-0 text-slate-400 transition-transform ${
-                            destinationPickerOpen ? 'rotate-180' : ''
-                          }`}
-                        />
-                      </button>
+                            <ChevronDown
+                              size={18}
+                              strokeWidth={2.4}
+                              className={`shrink-0 text-slate-400 transition-transform ${
+                                destinationPickerOpen ? 'rotate-180' : ''
+                              }`}
+                            />
+                          </button>
 
-                      {destinationPickerOpen && (
-                        <div className="mt-1.5 grid gap-1.5 border-t border-slate-100 pt-1.5">
-                          {DELIVERY_DESTINATION_OPTIONS.map((destination) => {
-                            const selected =
-                              normalizeSupportedDeliveryDestination(
-                                customer.deliveryAddress,
-                                dzongkhagOptions,
-                              ) === destination;
+                          {destinationPickerOpen && (
+                            <div className="mt-1.5 grid gap-1.5 border-t border-slate-100 pt-1.5">
+                              {DELIVERY_DESTINATION_OPTIONS.map((destination) => {
+                                const selected =
+                                  selectedDeliveryZone === destination;
 
-                            return (
-                              <button
-                                key={destination}
-                                type="button"
-                                onClick={() => {
-                                  setCustomer((previous) => ({
-                                    ...previous,
-                                    deliveryAddress: destination,
-                                  }));
-                                  setDestinationPickerOpen(false);
-                                  setError('');
-                                }}
-                                className={`flex min-h-[46px] items-center justify-between rounded-xl px-3 text-left transition active:scale-[0.99] ${
-                                  selected
-                                    ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-100'
-                                    : 'bg-white text-slate-700 active:bg-slate-50'
-                                }`}
-                              >
-                                <span className="flex items-center gap-2.5">
-                                  <span
-                                    className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                                return (
+                                  <button
+                                    key={destination}
+                                    type="button"
+                                    onClick={() => {
+                                      setUseSavedAddress(false);
+                                      setCustomer((previous) => ({
+                                        ...previous,
+                                        deliveryAddress: destination,
+                                      }));
+                                      setDestinationPickerOpen(false);
+                                      setError('');
+                                    }}
+                                    className={`flex min-h-[46px] items-center justify-between rounded-xl px-3 text-left transition active:scale-[0.99] ${
                                       selected
-                                        ? 'bg-white text-orange-500'
-                                        : 'bg-slate-50 text-slate-400'
+                                        ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-100'
+                                        : 'bg-white text-slate-700 active:bg-slate-50'
                                     }`}
                                   >
-                                    <MapPin size={15} strokeWidth={2.3} />
-                                  </span>
-                                  <span className="text-sm font-bold">
-                                    {destination}
-                                  </span>
-                                </span>
+                                    <span className="flex items-center gap-2.5">
+                                      <span
+                                        className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                                          selected
+                                            ? 'bg-white text-orange-500'
+                                            : 'bg-slate-50 text-slate-400'
+                                        }`}
+                                      >
+                                        <MapPin size={15} strokeWidth={2.3} />
+                                      </span>
+                                      <span className="text-sm font-bold">
+                                        {destination}
+                                      </span>
+                                    </span>
 
-                                {selected && (
-                                  <CheckCircle size={17} strokeWidth={2.5} />
-                                )}
-                              </button>
-                            );
-                          })}
+                                    {selected && (
+                                      <CheckCircle
+                                        size={17}
+                                        strokeWidth={2.5}
+                                      />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
+
+                        {savedAddress?.formattedAddress && (
+                          <button
+                            type="button"
+                            onClick={selectSavedDefaultAddress}
+                            className="mt-2.5 h-10 w-full rounded-xl bg-orange-50 text-xs font-extrabold text-orange-700"
+                          >
+                            Use my default saved address
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </section>
                 </div>
               )}
@@ -1545,7 +1716,7 @@ export default function RequestBag() {
                           Deliver to me
                         </span>
                         <span className="mt-1 block text-xs leading-4 opacity-75">
-                          Use selected area
+                          Use saved address
                         </span>
                       </button>
 
@@ -1606,26 +1777,33 @@ export default function RequestBag() {
                       </div>
                     ) : (
                       <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3.5">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
                             <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                              Delivery area
+                              {useSavedAddress && savedAddress?.formattedAddress
+                                ? 'Deliver to saved address'
+                                : 'Delivery area'}
                             </p>
-                            <p className="mt-1 truncate text-sm font-extrabold text-slate-950">
+                            <p className="mt-1 text-sm font-extrabold text-slate-950">
+                              {useSavedAddress && savedAddress?.formattedAddress
+                                ? savedAddress.label || 'Default address'
+                                : selectedDeliveryZone ||
+                                  'No delivery area selected'}
+                            </p>
+                            <p className="mt-1.5 break-words text-xs leading-5 text-slate-500 [overflow-wrap:anywhere]">
                               {customer.deliveryAddress ||
-                                'No delivery area selected'}
+                                'Choose an address or delivery area.'}
                             </p>
+                            {selectedDeliveryZone && (
+                              <span className="mt-2 inline-flex rounded-full bg-slate-50 px-2.5 py-1 text-[10px] font-extrabold text-slate-600">
+                                Zone: {selectedDeliveryZone}
+                              </span>
+                            )}
                           </div>
 
                           <button
                             type="button"
-                            onClick={() => {
-                              goToReviewStep(2);
-                              window.setTimeout(
-                                () => setDestinationPickerOpen(true),
-                                100,
-                              );
-                            }}
+                            onClick={() => goToReviewStep(2)}
                             className="shrink-0 rounded-full bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 transition active:scale-[0.97]"
                           >
                             {customer.deliveryAddress ? 'Change' : 'Choose'}
