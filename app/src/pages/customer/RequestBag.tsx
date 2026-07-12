@@ -1056,7 +1056,7 @@ export default function RequestBag() {
 
             <button
               type="button"
-              onClick={() => navigate('/paste-link')}
+              onClick={() => navigate('/shop')}
               className="flex h-[50px] w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white text-sm font-extrabold text-slate-700 transition active:scale-[0.99] active:border-orange-300 active:text-orange-600"
             >
               <Plus size={19} />
