@@ -527,7 +527,11 @@ export default function Profile() {
                 <h2 className="truncate text-lg font-black tracking-tight">
                   {fullName || 'Your Profile'}
                 </h2>
-                <VerificationBadge badge={verificationBadge} size="sm" />
+                <VerificationBadge
+                  badge={verificationBadge}
+                  size="sm"
+                  className="!ring-0 !ring-offset-0"
+                />
               </div>
 
               {verificationBadge !== 'none' && (
