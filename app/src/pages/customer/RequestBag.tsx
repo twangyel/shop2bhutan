@@ -159,8 +159,6 @@ function platformLabel(platform?: string) {
   return 'Link';
 }
 
-
-
 function platformStyles(platform?: string) {
   const p = String(platform ?? '').toLowerCase();
   if (p === 'amazon') return { bg: 'bg-orange-100', text: 'text-orange-600', initial: 'A' };
@@ -356,7 +354,7 @@ function BagItemCard({
 
   return (
     <article
-      className={`rounded-[22px] border bg-white p-3.5 transition-all duration-200 ${
+      className={`rounded-[22px] border bg-white p-3 transition-all duration-200 ${
         removing
           ? 'pointer-events-none translate-x-2 scale-[0.98] border-slate-100 opacity-0'
           : 'translate-x-0 scale-100 border-slate-200 opacity-100'
@@ -371,14 +369,14 @@ function BagItemCard({
                 item.productName ||
                 'Product preview'
               }
-              className={`h-[92px] w-[92px] rounded-2xl border border-slate-100 bg-white ${
+              className={`h-[82px] w-[82px] rounded-2xl border border-slate-100 bg-white ${
                 previewIsScreenshot
                   ? 'object-contain'
                   : 'object-cover'
               }`}
             />
           ) : storeLogo ? (
-            <div className="flex h-[92px] w-[92px] items-center justify-center rounded-2xl border border-slate-100 bg-white p-5">
+            <div className="flex h-[82px] w-[82px] items-center justify-center rounded-2xl border border-slate-100 bg-white p-4">
               <img
                 src={storeLogo}
                 alt={`${platformLabel(
@@ -389,7 +387,7 @@ function BagItemCard({
             </div>
           ) : (
             <div
-              className={`flex h-[92px] w-[92px] items-center justify-center rounded-2xl border border-slate-100 bg-white ${ps.text}`}
+              className={`flex h-[82px] w-[82px] items-center justify-center rounded-2xl border border-slate-100 bg-white ${ps.text}`}
             >
               {ps.initial ? (
                 <span className="text-xl font-black">
@@ -404,9 +402,9 @@ function BagItemCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
-            <input
-              type="text"
+            <textarea
               value={item.productName}
+              rows={2}
               onChange={(event) =>
                 onPatch(item.id, {
                   productName:
@@ -419,7 +417,7 @@ function BagItemCard({
                     item.productName,
                 })
               }
-              className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[15px] font-extrabold leading-5 text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+              className="min-h-[40px] min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent p-0 text-[15px] font-extrabold leading-5 text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-0"
               placeholder={`Product ${index + 1}`}
             />
 
@@ -496,13 +494,13 @@ function BagItemCard({
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_132px] items-end gap-3">
+      <div className="mt-2.5 grid grid-cols-2 items-end gap-2.5">
         <div>
           <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400">
             Price
           </p>
 
-          <div className="mt-1.5 flex h-11 items-center justify-between rounded-xl border border-slate-200 bg-white px-3.5">
+          <div className="mt-1.5 flex h-10 items-center justify-between rounded-xl border border-slate-200 bg-white px-3">
             <span
               className={`truncate text-sm font-extrabold ${
                 hasSitePriceEstimate
@@ -528,7 +526,7 @@ function BagItemCard({
             Quantity
           </p>
 
-          <div className="mt-1.5 flex h-11 items-center justify-between rounded-xl border border-slate-200 bg-white px-1">
+          <div className="mt-1.5 flex h-10 items-center justify-between rounded-xl border border-slate-200 bg-white px-1">
             <button
               type="button"
               onClick={() =>
@@ -539,7 +537,7 @@ function BagItemCard({
                   ),
                 })
               }
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition active:bg-slate-100"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition active:bg-slate-100"
               aria-label="Decrease quantity"
             >
               <Minus size={15} />
@@ -557,7 +555,7 @@ function BagItemCard({
                     safeQuantity + 1,
                 })
               }
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-orange-500 transition active:bg-orange-50"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-orange-500 transition active:bg-orange-50"
               aria-label="Increase quantity"
             >
               <Plus size={15} />
@@ -586,23 +584,23 @@ function BagItemCard({
             })
           }
           placeholder="Size, colour, variant or instruction"
-          className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 pr-10 text-[12px] font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10"
+          className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 pr-10 text-[12px] font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10"
         />
       </div>
 
-      <div className="mt-2.5 flex items-center justify-between gap-3">
+      <div className="mt-2 flex items-center justify-between gap-3">
         <p className="flex min-w-0 items-center gap-1.5 text-[10px] leading-4 text-slate-400">
           <CheckCircle
             size={13}
             className="shrink-0 text-blue-500"
             strokeWidth={2.3}
           />
-          Price verified before quotation
+          Price will be verified before quotation
         </p>
 
         {hasSitePriceEstimate && (
           <p className="shrink-0 text-[11px] font-extrabold text-orange-600">
-            Total{' '}
+            Estimated total{' '}
             {formatPrice(
               sitePriceEstimate *
                 safeQuantity,
@@ -982,7 +980,7 @@ export default function RequestBag() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-[calc(10.5rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-screen bg-white pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
       <header className="border-b border-slate-100 bg-white">
         <div className="mx-auto flex max-w-lg items-center gap-3 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.8rem)]">
           <div className="min-w-0 flex-1">
@@ -1065,19 +1063,21 @@ export default function RequestBag() {
               Add another product
             </button>
 
-            <section className="flex items-start gap-3 border-t border-slate-100 bg-white pt-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-white text-blue-600">
-                <CheckCircle size={16} strokeWidth={2.3} />
-              </span>
-              <div>
-                <p className="text-xs font-extrabold text-slate-800">
-                  Multiple products, one quotation
-                </p>
-                <p className="mt-0.5 text-[10px] leading-[17px] text-slate-500">
-                  Contact and delivery details are confirmed in the next step. No payment is required now.
-                </p>
-              </div>
-            </section>
+            {itemCount > 1 && (
+              <section className="flex items-start gap-3 border-t border-slate-100 bg-white pt-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-white text-blue-600">
+                  <CheckCircle size={16} strokeWidth={2.3} />
+                </span>
+                <div>
+                  <p className="text-xs font-extrabold text-slate-800">
+                    Multiple products, one quotation
+                  </p>
+                  <p className="mt-0.5 text-[10px] leading-[17px] text-slate-500">
+                    Contact and delivery details are confirmed in the next step. No payment is required now.
+                  </p>
+                </div>
+              </section>
+            )}
           </>
         )}
       </main>
@@ -1495,7 +1495,7 @@ export default function RequestBag() {
                 type="button"
                 onClick={submitBag}
                 disabled={submitting}
-                className="flex h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-[15px] font-bold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98] active:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-extrabold text-white shadow-md shadow-orange-500/15 transition active:scale-[0.98] active:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting ? (
                   <>
@@ -1519,7 +1519,7 @@ export default function RequestBag() {
       )}
 
       {hasItems && (
-        <div className="fixed bottom-[calc(4.55rem+env(safe-area-inset-bottom))] left-0 right-0 z-40 border-t border-slate-100 bg-white/95 px-5 py-3 backdrop-blur-xl">
+        <div className="sticky bottom-[calc(4.55rem+env(safe-area-inset-bottom))] z-40 mt-3 border-t border-slate-100 bg-white/95 px-4 py-3 backdrop-blur-xl">
           <div className="mx-auto max-w-lg">
             <button
               type="button"
@@ -1539,7 +1539,7 @@ export default function RequestBag() {
                 </>
               )}
             </button>
-            <p className="mt-2 text-center text-xs text-slate-500">
+            <p className="mt-1.5 text-center text-[10px] text-slate-500">
               No payment now. Approve the quotation before paying.
             </p>
           </div>
