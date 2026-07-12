@@ -5191,7 +5191,7 @@ export async function fetchProductLinkPreview(url: string): Promise<ProductLinkP
           data: null,
           error: new Error('Product preview was not available in time.'),
         })
-      }, 10000)
+      }, 15000)
     })
 
     const { data, error } = await Promise.race([invokePromise, timeoutPromise])
