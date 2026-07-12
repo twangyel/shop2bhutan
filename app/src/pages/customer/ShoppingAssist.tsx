@@ -12,8 +12,6 @@ import {
   Loader2,
   ShieldCheck,
   Share2,
-  ShoppingBag,
-  Sparkles,
   X,
 } from 'lucide-react';
 import {
@@ -315,88 +313,82 @@ export default function ShoppingAssist() {
   return (
     <div className="min-h-[100dvh] bg-white">
       <header className="border-b border-slate-100 bg-white">
-        <div className="mx-auto max-w-lg px-4 pb-4 pt-[calc(env(safe-area-inset-top)+0.9rem)]">
+        <div className="mx-auto max-w-lg px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.8rem)]">
           <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-orange-500">
             Shop2Bhutan
           </p>
-          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-950">
-            S2B Shopping Assist
+          <h1 className="mt-1 text-[24px] font-extrabold tracking-tight text-slate-950">
+            Shopping Assist
           </h1>
-          <p className="mt-1.5 max-w-md text-[13px] leading-5 text-slate-500">
-            Browse supported Indian stores, open a product and add it to your Request Bag.
+          <p className="mt-1 text-[12px] leading-5 text-slate-500">
+            Choose a store, open a product and review it before saving.
           </p>
         </div>
       </header>
 
-      <main className="mx-auto max-w-lg px-4 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-4">
-        <section className="overflow-hidden rounded-[26px] border border-orange-100 bg-orange-50/60 p-5">
-          <div className="flex items-start gap-4">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-orange-600 shadow-sm ring-1 ring-orange-100">
-              <Sparkles size={22} strokeWidth={2.3} />
-            </span>
-
-            <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-extrabold text-slate-950">
-                Find it there. Request it here.
-              </h2>
-              <p className="mt-1.5 text-xs leading-5 text-slate-600">
-                Product name, photo and displayed price are checked from the page you are viewing. You review everything before saving.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            {[
-              ['1', 'Browse'],
-              ['2', 'Review'],
-              ['3', 'Request'],
-            ].map(([step, label]) => (
-              <div
-                key={step}
-                className="rounded-2xl bg-white px-2 py-3 text-center ring-1 ring-orange-100"
-              >
-                <span className="mx-auto flex h-7 w-7 items-center justify-center rounded-full bg-orange-500 text-[11px] font-extrabold text-white">
+      <main className="mx-auto max-w-lg px-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-3">
+        <section className="flex items-center rounded-2xl border border-slate-200 bg-white px-3 py-3">
+          {[
+            ['1', 'Browse'],
+            ['2', 'Review'],
+            ['3', 'Request'],
+          ].map(([step, label], index) => (
+            <div
+              key={step}
+              className="flex min-w-0 flex-1 items-center"
+            >
+              <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500 text-[10px] font-extrabold text-white">
                   {step}
                 </span>
-                <p className="mt-1.5 text-[10px] font-extrabold text-slate-700">
+                <span className="truncate text-[10px] font-extrabold text-slate-600">
                   {label}
-                </p>
+                </span>
               </div>
-            ))}
-          </div>
+
+              {index < 2 && (
+                <span className="h-px w-5 shrink-0 bg-slate-200" />
+              )}
+            </div>
+          ))}
         </section>
 
-        <section className="mt-6">
-          <div className="flex items-end justify-between gap-3">
+        <section className="mt-5">
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
-                Supported stores
-              </p>
-              <h2 className="mt-1 text-lg font-extrabold text-slate-950">
-                Choose where to browse
+              <h2 className="text-[17px] font-extrabold text-slate-950">
+                Choose a store
               </h2>
+              <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
+                {isNativeRuntime
+                  ? 'Products open inside the S2B browser.'
+                  : 'We will guide you through copying the product link.'}
+              </p>
             </div>
 
-            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-extrabold text-blue-600">
+            <span className="shrink-0 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[9px] font-extrabold text-slate-500">
               {isNativeRuntime
-                ? 'Secure browser'
-                : 'Guided web flow'}
+                ? 'In-app'
+                : 'Web guide'}
             </span>
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-3">
+          <div className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-[22px] border border-slate-200 bg-white">
             {SHOPPING_ASSIST_STORES.map((store) => {
-              const opening = openingStore === store.key;
+              const opening =
+                openingStore === store.key;
 
               return (
                 <button
                   key={store.key}
                   type="button"
-                  onClick={() => void openStore(store.key)}
+                  onClick={() =>
+                    void openStore(store.key)
+                  }
                   disabled={Boolean(openingStore)}
-                  className="group flex min-h-[108px] items-center gap-3 rounded-[22px] border border-slate-100 bg-white p-4 text-left shadow-sm shadow-slate-100 transition active:scale-[0.98] disabled:opacity-60"
+                  className="flex min-h-[68px] w-full items-center gap-3 px-3.5 py-3 text-left transition active:scale-[0.99] disabled:opacity-60"
                 >
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-50 p-2.5 ring-1 ring-slate-100">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-100 bg-white p-2.5">
                     <img
                       src={store.logo}
                       alt=""
@@ -408,7 +400,7 @@ export default function ShoppingAssist() {
                     <span className="block text-sm font-extrabold text-slate-900">
                       {store.name}
                     </span>
-                    <span className="mt-1 block text-[10px] font-semibold text-slate-400">
+                    <span className="mt-0.5 block text-[10px] text-slate-400">
                       {isNativeRuntime
                         ? 'Browse products'
                         : 'Open guided shopping'}
@@ -423,7 +415,7 @@ export default function ShoppingAssist() {
                   ) : (
                     <ArrowRight
                       size={17}
-                      className="shrink-0 text-slate-300 transition group-active:translate-x-0.5"
+                      className="shrink-0 text-slate-300"
                     />
                   )}
                 </button>
@@ -433,50 +425,51 @@ export default function ShoppingAssist() {
         </section>
 
         {error && (
-          <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs font-semibold leading-5 text-amber-800">
+          <div className="mt-4 rounded-2xl border border-red-200 bg-white px-4 py-3 text-xs font-semibold leading-5 text-red-600">
             {error}
           </div>
         )}
 
-        <section className="mt-6 rounded-[24px] border border-slate-100 bg-slate-50/70 p-4">
-          <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-600 ring-1 ring-slate-100">
-              <ShieldCheck size={19} strokeWidth={2.3} />
-            </span>
-            <div>
-              <p className="text-sm font-extrabold text-slate-900">
-                You stay in control
-              </p>
-              <p className="mt-1 text-[11px] leading-5 text-slate-500">
-                Shop2Bhutan does not handle your shopping-site password or checkout. The detected price is verified again during quotation.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <section className="mt-5">
           <button
             type="button"
             onClick={() => navigate('/paste-link')}
-            className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-xs font-extrabold text-slate-700 transition active:scale-[0.98]"
+            className="flex w-full items-center gap-3 border-y border-slate-100 bg-white py-3.5 text-left transition active:scale-[0.99]"
           >
-            <Link2 size={16} />
-            Paste a link
-          </button>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-orange-100 bg-white text-orange-500">
+              <Link2 size={18} />
+            </span>
 
-          <button
-            type="button"
-            onClick={() => navigate('/request-bag')}
-            className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 text-xs font-extrabold text-white transition active:scale-[0.98]"
-          >
-            <ShoppingBag size={16} />
-            View Request Bag
-          </button>
-        </div>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-extrabold text-slate-900">
+                Already have a product link?
+              </span>
+              <span className="mt-0.5 block text-[10px] text-slate-400">
+                Paste the link or upload a screenshot
+              </span>
+            </span>
 
-        <p className="mt-5 text-center text-[10px] leading-4 text-slate-400">
-          Shop2Bhutan is an independent shopping-assistance service and is not affiliated with the supported stores.
-        </p>
+            <ArrowRight
+              size={16}
+              className="shrink-0 text-slate-300"
+            />
+          </button>
+        </section>
+
+        <section className="mt-5 flex items-start gap-3 border-t border-slate-100 bg-white pt-4">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-white text-blue-600">
+            <ShieldCheck size={17} strokeWidth={2.2} />
+          </span>
+
+          <div>
+            <p className="text-xs font-extrabold text-slate-800">
+              You stay in control
+            </p>
+            <p className="mt-1 text-[10px] leading-[17px] text-slate-500">
+              Shop2Bhutan never handles your store password or checkout. Price and availability are confirmed during quotation.
+            </p>
+          </div>
+        </section>
       </main>
 
       {!isNativeRuntime && guidedStore && (
@@ -488,14 +481,14 @@ export default function ShoppingAssist() {
               setGuidedStore(null);
               setClipboardError('');
             }}
-            className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
+            className="absolute inset-0 bg-slate-950/45"
           />
 
-          <section className="relative z-10 w-full max-w-lg rounded-t-[30px] bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-4 shadow-2xl">
-            <div className="mx-auto mb-4 h-1.5 w-11 rounded-full bg-slate-200" />
+          <section className="relative z-10 w-full max-w-lg rounded-t-[28px] bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3 shadow-2xl">
+            <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-slate-200" />
 
             <div className="flex items-start gap-3">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-50 p-2.5 ring-1 ring-slate-100">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-100 bg-white p-2.5">
                 <img
                   src={guidedStore.logo}
                   alt=""
@@ -504,18 +497,18 @@ export default function ShoppingAssist() {
               </span>
 
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
-                  Guided Shopping Assist
+                <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
+                  Guided shopping
                 </p>
-                <h2 className="mt-1 text-lg font-extrabold text-slate-950">
+                <h2 className="mt-0.5 text-[17px] font-extrabold text-slate-950">
                   {showResumeStep
-                    ? 'Ready to review your product?'
+                    ? 'Use your copied product'
                     : `Shop on ${guidedStore.name}`}
                 </h2>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
+                <p className="mt-1 text-[11px] leading-[18px] text-slate-500">
                   {showResumeStep
-                    ? 'After copying the product link, return here and use it to prepare the same review screen.'
-                    : 'Follow these three steps for an experience close to the Android app.'}
+                    ? 'Return after copying the product link, then continue below.'
+                    : 'Open a product, copy its link and return to Shop2Bhutan.'}
                 </p>
               </div>
 
@@ -525,47 +518,51 @@ export default function ShoppingAssist() {
                   setGuidedStore(null);
                   setClipboardError('');
                 }}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-500"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-500"
                 aria-label="Close"
               >
                 <X size={17} />
               </button>
             </div>
 
-            <div className="mt-5 grid grid-cols-3 gap-2">
+            <div className="mt-4 flex items-center rounded-2xl border border-slate-200 bg-white px-3 py-3">
               {[
-                ['1', 'Open store'],
-                ['2', 'Copy link'],
+                ['1', 'Open'],
+                ['2', 'Copy'],
                 ['3', 'Review'],
-              ].map(([step, label]) => (
+              ].map(([step, label], index) => (
                 <div
                   key={step}
-                  className="rounded-2xl border border-slate-100 bg-slate-50 px-2 py-3 text-center"
+                  className="flex min-w-0 flex-1 items-center"
                 >
-                  <span className="mx-auto flex h-7 w-7 items-center justify-center rounded-full bg-orange-500 text-[11px] font-extrabold text-white">
-                    {step}
-                  </span>
-                  <p className="mt-1.5 text-[10px] font-extrabold text-slate-700">
-                    {label}
-                  </p>
+                  <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-500 text-[10px] font-extrabold text-white">
+                      {step}
+                    </span>
+                    <span className="truncate text-[10px] font-extrabold text-slate-600">
+                      {label}
+                    </span>
+                  </div>
+
+                  {index < 2 && (
+                    <span className="h-px w-4 shrink-0 bg-slate-200" />
+                  )}
                 </div>
               ))}
             </div>
 
-            <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-3.5">
-              <div className="flex items-start gap-2.5">
-                <Share2
-                  size={17}
-                  className="mt-0.5 shrink-0 text-blue-600"
-                />
-                <p className="text-[11px] leading-5 text-blue-800">
-                  Open a product, choose Copy link from the store’s Share menu, then return to Shop2Bhutan.
-                </p>
-              </div>
+            <div className="mt-3 flex items-start gap-2.5 rounded-2xl border border-slate-200 bg-white px-3.5 py-3">
+              <Share2
+                size={16}
+                className="mt-0.5 shrink-0 text-blue-600"
+              />
+              <p className="text-[10px] leading-[17px] text-slate-600">
+                Open a product and use the store’s Share menu to copy its link.
+              </p>
             </div>
 
             {clipboardError && (
-              <div className="mt-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-xs font-semibold leading-5 text-red-700">
+              <div className="mt-3 rounded-2xl border border-red-200 bg-white px-4 py-3 text-xs font-semibold leading-5 text-red-600">
                 {clipboardError}
               </div>
             )}
@@ -600,15 +597,13 @@ export default function ShoppingAssist() {
                     className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-xs font-extrabold text-slate-700"
                   >
                     <ExternalLink size={15} />
-                    Open store again
+                    Open again
                   </button>
 
                   <button
                     type="button"
-                    onClick={
-                      continueWithManualPaste
-                    }
-                    className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 text-xs font-extrabold text-white"
+                    onClick={continueWithManualPaste}
+                    className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-xs font-extrabold text-slate-700"
                   >
                     <Link2 size={15} />
                     Paste manually
