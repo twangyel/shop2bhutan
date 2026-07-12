@@ -139,6 +139,7 @@ export default function ShoppingAssistReview() {
       return;
     }
 
+    const sharedTarget = webShareTarget;
     let active = true;
 
     async function prepareSharedProduct() {
@@ -146,7 +147,7 @@ export default function ShoppingAssistReview() {
       setWebShareError('');
 
       const sourceUrl = normalizeProductUrl(
-        webShareTarget.url,
+        sharedTarget.url,
       );
       const detectedPlatform =
         detectSourcePlatformFromUrl(sourceUrl);
@@ -180,7 +181,7 @@ export default function ShoppingAssistReview() {
           canonicalUrl: sourceUrl,
           store,
           title:
-            webShareTarget.title ||
+            sharedTarget.title ||
             preview?.title ||
             inferProductNameFromUrl(
               sourceUrl,
@@ -200,7 +201,7 @@ export default function ShoppingAssistReview() {
               ? 70
               : 35,
           capturedAt:
-            webShareTarget.receivedAt,
+            sharedTarget.receivedAt,
         };
 
         saveShoppingAssistCapture(
