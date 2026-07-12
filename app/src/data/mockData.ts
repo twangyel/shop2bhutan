@@ -425,13 +425,13 @@ export const orders: Order[] = [
 
 export const notifications: Notification[] = [
   { id: 'n1', userId: 'u1', type: 'order_update', title: 'Order Delivered', message: 'Your order #S2B-20260001 has been delivered successfully.', link: '/order/o1', isRead: false, createdAt: '2026-01-15T10:00:00Z' },
-  { id: 'n2', userId: 'u1', type: 'quotation', title: 'Quotation Received', message: 'A new quotation is ready for your order #S2B-20260003. Review and approve before it expires.', link: '/quotation/o3', isRead: false, createdAt: '2026-01-22T10:00:00Z' },
+  { id: 'n2', userId: 'u1', type: 'quotation', title: 'Final Price Ready', message: 'Availability is confirmed and the final price for order #S2B-20260003 is ready. Review it to continue to payment.', link: '/quotation/o3', isRead: false, createdAt: '2026-01-22T10:00:00Z' },
   { id: 'n3', userId: 'u1', type: 'payment', title: 'Payment Verified', message: 'Your payment of Nu. 2,639 for order #S2B-20260002 has been verified.', link: '/order/o2', isRead: true, createdAt: '2026-01-16T16:00:00Z' },
   { id: 'n4', userId: 'u1', type: 'order_update', title: 'Order Arrived at Hub', message: 'Your order #S2B-20260006 has arrived at Paro Hub. Ready for pickup soon.', link: '/order/o6', isRead: false, createdAt: '2026-01-24T08:00:00Z' },
   { id: 'n5', userId: 'u1', type: 'promotion', title: 'Weekend Flash Sale!', message: 'Get up to 40% off on electronics this weekend only. Don\'t miss out!', link: '/catalog', isRead: true, createdAt: '2026-01-23T09:00:00Z' },
   { id: 'n6', userId: 'u1', type: 'order_update', title: 'Out for Delivery', message: 'Your order #S2B-20260007 is out for delivery. Expected today.', link: '/order/o7', isRead: false, createdAt: '2026-01-25T06:00:00Z' },
   { id: 'n7', userId: 'u1', type: 'system', title: 'App Updated', message: 'Shop2Bhutan has been updated with new features. Check out the improved order tracking!', isRead: true, createdAt: '2026-01-20T00:00:00Z' },
-  { id: 'n8', userId: 'u1', type: 'quotation', title: 'Quotation Approved', message: 'You approved the quotation for order #S2B-20260004. Please upload your payment.', link: '/payment/o4', isRead: true, createdAt: '2026-01-23T11:00:00Z' },
+  { id: 'n8', userId: 'u1', type: 'quotation', title: 'Final Price Confirmed', message: 'You confirmed the final price for order #S2B-20260004. Please upload your payment.', link: '/payment/o4', isRead: true, createdAt: '2026-01-23T11:00:00Z' },
 ];
 
 // ============ Delivery Fee Rules ============
@@ -491,7 +491,7 @@ export const deliveryFeeRules: DeliveryFeeRule[] = [
     isActive: false,
     manualQuote: true,
     sortOrder: 99,
-    notes: 'Orders accepted, delivery not available yet. Manual quote only.',
+    notes: 'Orders accepted, delivery not available yet. Manual pricing is required.',
   },
 ];
 
@@ -592,9 +592,9 @@ export const paymentMethods: PaymentMethod[] = [
 // ============ FAQs ============
 
 export const faqs: FAQItem[] = [
-  { id: 'faq1', category: 'Ordering', question: 'How do I place an order?', answer: 'You can browse our catalog and add items to cart, or paste a product link from Amazon, Flipkart, Myntra, or Meesho. Proceed to checkout, review your quotation, and pay.', sortOrder: 1 },
+  { id: 'faq1', category: 'Ordering', question: 'How do I place an order?', answer: 'You can browse our catalog and add items to cart, or paste a product link from Amazon, Flipkart, Myntra, or Meesho. Submit your request, review the confirmed final price, and pay.', sortOrder: 1 },
   { id: 'faq2', category: 'Ordering', question: 'Which Indian websites are supported?', answer: 'We currently support Amazon.in, Flipkart, Myntra, and Meesho. Simply paste the product URL and we will handle the rest.', sortOrder: 2 },
-  { id: 'faq3', category: 'Payment', question: 'What payment methods are accepted?', answer: 'We accept Bank of Bhutan transfers, MBob, and BPay. After your quotation is approved, upload a screenshot of your payment.', sortOrder: 3 },
+  { id: 'faq3', category: 'Payment', question: 'What payment methods are accepted?', answer: 'We accept Bank of Bhutan transfers, MBob, and BPay. After confirming the final price, upload a screenshot of your payment.', sortOrder: 3 },
   { id: 'faq4', category: 'Payment', question: 'Is my payment secure?', answer: 'Yes, all payments are verified manually by our team. We only release funds to sellers after confirming your order.', sortOrder: 4 },
   { id: 'faq5', category: 'Delivery', question: 'How long does delivery take?', answer: 'Delivery typically takes 3-7 business days after payment verification. Orders accepted from all 20 dzongkhags. Pickup/delivery hubs currently available in Thimphu, Phuntsholing, and Paro.', sortOrder: 5 },
   { id: 'faq6', category: 'Delivery', question: 'Where can I pick up my order?', answer: 'Orders accepted from all 20 dzongkhags. Pickup/delivery hubs currently available in Thimphu, Phuntsholing, and Paro. Select the nearest hub during checkout.', sortOrder: 6 },
@@ -662,9 +662,9 @@ export const topProducts: TopProduct[] = [
 // ============ Status Config ============
 
 export const orderStatusLabels: Record<string, string> = {
-  pending_confirmation: 'Pending Confirmation',
-  quotation_pending: 'Quotation Pending',
-  quoted: 'Quoted',
+  pending_confirmation: 'Request Submitted',
+  quotation_pending: 'Checking Availability',
+  quoted: 'Final Price Ready',
   payment_pending: 'Payment Pending',
   payment_verified: 'Payment Verified',
   order_placed: 'Order Placed',
@@ -678,7 +678,7 @@ export const orderStatusLabels: Record<string, string> = {
 export const orderStatusColors: Record<string, { bg: string; text: string }> = {
   pending_confirmation: { bg: 'bg-orange-50', text: 'text-orange-600' },
   quotation_pending: { bg: 'bg-amber-50', text: 'text-amber-600' },
-  quoted: { bg: 'bg-violet-50', text: 'text-violet-600' },
+  quoted: { bg: 'bg-orange-50', text: 'text-orange-700' },
   payment_pending: { bg: 'bg-orange-50', text: 'text-orange-600' },
   payment_verified: { bg: 'bg-blue-50', text: 'text-blue-600' },
   order_placed: { bg: 'bg-blue-50', text: 'text-blue-600' },
@@ -709,10 +709,10 @@ export const appSettings = {
 };
 
 export const trackingSteps = [
-  { status: 'pending_confirmation', label: 'Order Received', description: 'Your order has been received' },
-  { status: 'quotation_pending', label: 'Quotation Pending', description: 'We are preparing your quotation' },
-  { status: 'quoted', label: 'Quotation Sent', description: 'Review and approve your quotation' },
-  { status: 'payment_pending', label: 'Payment Pending', description: 'Upload your payment screenshot' },
+  { status: 'pending_confirmation', label: 'Request Submitted', description: 'Your shopping request has been received' },
+  { status: 'quotation_pending', label: 'Checking Availability & Price', description: 'We are checking availability, selected options, prices, and charges' },
+  { status: 'quoted', label: 'Final Price Ready', description: 'Review the confirmed final price and continue to payment' },
+  { status: 'payment_pending', label: 'Payment in Progress', description: 'Upload your payment screenshot or wait for verification' },
   { status: 'payment_verified', label: 'Payment Verified', description: 'Your payment has been verified' },
   { status: 'order_placed', label: 'Order Placed', description: 'Order placed with seller' },
   { status: 'in_transit', label: 'In Transit', description: 'Your order is on the way to Bhutan' },

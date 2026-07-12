@@ -20,26 +20,26 @@ type TimelineStep = {
 const trackingSteps: TimelineStep[] = [
   {
     status: 'pending_confirmation',
-    label: 'Order Received',
-    description: 'Customer order request received.',
+    label: 'Request Submitted',
+    description: 'Customer shopping request submitted.',
     icon: <Clock size={14} />,
   },
   {
     status: 'quotation_pending',
-    label: 'Quotation Pending',
-    description: 'Quotation is being prepared.',
+    label: 'Checking Availability & Price',
+    description: 'Product availability, selected options, current prices, and charges are being checked.',
     icon: <FileText size={14} />,
   },
   {
     status: 'quoted',
-    label: 'Quotation Sent',
-    description: 'Quotation sent to customer.',
+    label: 'Final Price Ready',
+    description: 'Final price sent to the customer for confirmation.',
     icon: <FileText size={14} />,
   },
   {
     status: 'payment_pending',
-    label: 'Payment Pending',
-    description: 'Waiting for customer payment or admin review.',
+    label: 'Payment in Progress',
+    description: 'Waiting for payment submission or verification.',
     icon: <CreditCard size={14} />,
   },
   {
@@ -109,6 +109,15 @@ function latestEventForStatus(events: TrackingEvent[] | undefined, status: Order
     .sort((a, b) => (new Date(b.createdAt).getTime() || 0) - (new Date(a.createdAt).getTime() || 0))[0];
 }
 
+function customerFacingTrackingMessage(value: string | undefined, fallback: string) {
+  const message = (value || fallback).trim();
+
+  return message
+    .replace(/quotation request/gi, 'shopping request')
+    .replace(/order request/gi, 'shopping request')
+    .replace(/quotation/gi, 'final price');
+}
+
 export default function TrackingTimeline({ currentStatus, trackingEvents = [], showDetails = false }: TrackingTimelineProps) {
   const currentIndex = trackingSteps.findIndex((step) => step.status === currentStatus);
   const safeCurrentIndex = currentStatus === 'cancelled' ? -1 : Math.max(0, currentIndex);
@@ -159,7 +168,9 @@ export default function TrackingTimeline({ currentStatus, trackingEvents = [], s
               </div>
               <div className="min-w-0 pt-1.5">
                 <p className={`text-sm font-semibold ${isActive ? 'text-gray-900' : 'text-neutral-400'}`}>{step.label}</p>
-                <p className={`mt-0.5 text-xs ${isActive ? 'text-neutral-500' : 'text-neutral-400'}`}>{event?.message || step.description}</p>
+                <p className={`mt-0.5 text-xs ${isActive ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                  {customerFacingTrackingMessage(event?.message, step.description)}
+                </p>
                 <p className={`mt-1 text-[11px] font-medium ${timestamp ? 'text-neutral-500' : 'text-neutral-300'}`}>
                   {timestamp || 'Pending'}
                 </p>

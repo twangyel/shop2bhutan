@@ -554,7 +554,7 @@ function WebPushPermissionBanner() {
               Notifications enabled
             </p>
             <p className="mt-0.5 text-xs text-slate-500">
-              You’ll receive quotation, payment, order, and parcel updates.
+              You’ll receive final price, payment, order, and parcel updates.
             </p>
           </div>
         </div>
@@ -575,7 +575,7 @@ function WebPushPermissionBanner() {
               Stay updated
             </p>
             <p className="mt-1 text-xs leading-5 text-slate-500">
-              Enable notifications for quotations, payments, orders, and parcel updates—even when the PWA is closed.
+              Enable notifications for final price, payment, order, and parcel updates—even when the PWA is closed.
             </p>
 
             {error && (
@@ -1133,7 +1133,7 @@ export default function App() {
           <Route
             path="/request-bag"
             element={
-              <RequireAuth title="Sign in to view Request Bag" message="Save product links, screenshots, and quantities in your Request Bag before requesting a quotation.">
+              <RequireAuth title="Sign in to view Request Bag" message="Save product links, screenshots, and quantities in your Request Bag before submitting a shopping request.">
                 <RequestBag />
               </RequireAuth>
             }
@@ -1141,7 +1141,7 @@ export default function App() {
           <Route
             path="/cart"
             element={
-              <RequireAuth title="Sign in to view Request Bag" message="Your old cart is now Request Bag for quotation requests.">
+              <RequireAuth title="Sign in to view Request Bag" message="Your old cart is now the Request Bag for shopping requests.">
                 <RequestBag />
               </RequireAuth>
             }
@@ -1151,7 +1151,7 @@ export default function App() {
             element={
               <RequireAuth
                 title="Sign in to checkout"
-                message="Please sign in before placing an order so we can save your quotation, payment, and tracking history."
+                message="Please sign in before submitting your request so we can save your final price, payment, and tracking history."
               >
                 <Checkout />
               </RequireAuth>
@@ -1160,7 +1160,7 @@ export default function App() {
           <Route
             path="/quotation/:orderId"
             element={
-              <RequireAuth title="Sign in to view quotation" message="Your quotation is linked to your Shop2Bhutan account.">
+              <RequireAuth title="Sign in to review final price" message="Your confirmed final price is private and linked to your Shop2Bhutan account.">
                 <QuotationReview />
               </RequireAuth>
             }
@@ -1176,7 +1176,7 @@ export default function App() {
           <Route
             path="/orders"
             element={
-              <RequireAuth title="Sign in to view orders" message="Your order history, quotations, and tracking updates are available after sign in.">
+              <RequireAuth title="Sign in to view orders" message="Your shopping requests, final prices, payments, and tracking updates are available after sign in.">
                 <Orders />
               </RequireAuth>
             }

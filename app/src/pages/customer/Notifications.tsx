@@ -94,17 +94,55 @@ function getNotificationStyle(type: NotificationType, title: string) {
     return { icon: Package, bg: 'bg-blue-50', text: 'text-blue-600' };
   }
   if (type === 'payment') return { icon: CreditCard, bg: 'bg-emerald-50', text: 'text-emerald-600' };
-  if (type === 'quotation') return { icon: FileText, bg: 'bg-violet-50', text: 'text-violet-600' };
+  if (type === 'quotation') {
+    const needsChanges =
+      t.includes('change') ||
+      t.includes('revision') ||
+      t.includes('reject') ||
+      t.includes('declin');
+
+    return needsChanges
+      ? { icon: FileText, bg: 'bg-red-50', text: 'text-red-600' }
+      : { icon: FileText, bg: 'bg-orange-50', text: 'text-orange-600' };
+  }
   if (type === 'promotion') return { icon: Megaphone, bg: 'bg-purple-50', text: 'text-purple-600' };
   return { icon: Bell, bg: 'bg-slate-100', text: 'text-slate-500' };
 }
 
 function notificationTypeLabel(type: NotificationType) {
   if (type === 'payment') return 'Payment';
-  if (type === 'quotation') return 'Quotation';
+  if (type === 'quotation') return 'Final price';
   if (type === 'order_update') return 'Order update';
   if (type === 'promotion') return 'Promotion';
   return 'System';
+}
+
+function customerFacingNotificationCopy(notification: AppNotification) {
+  if (notification.type !== 'quotation') {
+    return {
+      title: notification.title,
+      message: notification.message,
+    };
+  }
+
+  const title = notification.title
+    .replace(/Quotation Received/gi, 'Final Price Ready')
+    .replace(/Quotation Ready/gi, 'Final Price Ready')
+    .replace(/Quotation Pending/gi, 'Checking Availability & Price')
+    .replace(/Quotation Approved/gi, 'Final Price Confirmed')
+    .replace(/Quotation Accepted/gi, 'Final Price Confirmed')
+    .replace(/Quotation Rejected/gi, 'Final Price Changes Requested')
+    .replace(/Quotation Declined/gi, 'Final Price Changes Requested');
+
+  const message = notification.message
+    .replace(/quotation request/gi, 'shopping request')
+    .replace(/quotation/gi, 'final price')
+    .replace(/\bapproved\b/gi, 'confirmed')
+    .replace(/\bapprove\b/gi, 'confirm')
+    .replace(/\baccepted\b/gi, 'confirmed')
+    .replace(/\baccept\b/gi, 'confirm');
+
+  return { title, message };
 }
 
 /* ------------------------------------------------------------------ */
@@ -132,7 +170,8 @@ function SwipeableNotification({
   const dragAxis = useRef<'none' | 'x' | 'y'>('none');
   const moved = useRef(false);
 
-  const style = getNotificationStyle(notification.type, notification.title);
+  const displayCopy = customerFacingNotificationCopy(notification);
+  const style = getNotificationStyle(notification.type, displayCopy.title);
   const Icon = style.icon;
   const isRead = notification.isRead;
 
@@ -309,7 +348,7 @@ function SwipeableNotification({
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <p className={`text-sm font-bold ${isRead ? 'text-slate-500' : 'text-slate-950'}`}>
-                    {notification.title}
+                    {displayCopy.title}
                   </p>
                   {!isRead && (
                     <span className="h-2.5 w-2.5 rounded-full bg-orange-500 shrink-0 ring-2 ring-orange-100" aria-label="Unread" />
@@ -324,9 +363,9 @@ function SwipeableNotification({
               </span>
             </div>
 
-            {notification.message && (
+            {displayCopy.message && (
               <p className={`mt-1.5 text-sm leading-[1.5] ${isRead ? 'text-slate-400' : 'text-slate-600'}`}>
-                {notification.message}
+                {displayCopy.message}
               </p>
             )}
           </div>
@@ -590,7 +629,7 @@ export default function Notifications() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-extrabold text-slate-900">Push notifications</p>
                 <p className="mt-1 text-xs leading-5 text-slate-500">
-                  Enable alerts for quotation, payment, order, and parcel updates.
+                  Enable alerts for final price, payment, order, and parcel updates.
                 </p>
                 {nativePermission === 'denied' && (
                   <p className="mt-2 text-[11px] leading-4 text-blue-700">
@@ -624,7 +663,7 @@ export default function Notifications() {
             </div>
             <h2 className="text-lg font-black text-slate-950">No notifications yet</h2>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Order, quotation, payment, and delivery updates will appear here.
+              Shopping request, final price, payment, and delivery updates will appear here.
             </p>
             <button
               type="button"
