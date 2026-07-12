@@ -55,6 +55,8 @@ type CustomerAddress = {
   isDefault: boolean;
 };
 
+type RequestReviewStep = 1 | 2 | 3;
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function cleanString(value: unknown) {
@@ -561,7 +563,7 @@ export default function RequestBag() {
   const [removingItemId, setRemovingItemId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [contactExpanded, setContactExpanded] = useState(false);
+  const [reviewStep, setReviewStep] = useState<RequestReviewStep>(1);
   const [destinationPickerOpen, setDestinationPickerOpen] = useState(false);
   const [error, setError] = useState('');
   const [addressLoading, setAddressLoading] = useState(false);
@@ -580,7 +582,6 @@ export default function RequestBag() {
   const hasItems = Boolean(bag?.items.length);
   const selectedPickupHub = getSelfPickupOptionById(pickupHubId);
   const isSelfPickup = fulfillmentMode === 'self_pickup';
-  const contactDetailsComplete = Boolean(customer.name.trim() && customer.phone.trim());
   const itemCount = bag?.items.length ?? 0;
   const totalQuantity = bag?.items.reduce((sum, item) => sum + Math.max(1, item.quantity || 1), 0) ?? 0;
   const estimatedSiteTotal = bag?.items.reduce((sum, item) => sum + Math.max(0, item.priceShown || 0) * Math.max(1, item.quantity || 1), 0) ?? 0;
@@ -802,28 +803,71 @@ export default function RequestBag() {
     return true;
   };
 
-  const validateRequestDetails = () => {
-    if (!validateRequestBagItems()) return false;
+  const scrollReviewToTop = () => {
+    window.setTimeout(() => {
+      document
+        .getElementById('request-review-scroll')
+        ?.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+    }, 0);
+  };
+
+  const goToReviewStep = (nextStep: RequestReviewStep) => {
+    setError('');
+    setDestinationPickerOpen(false);
+    setReviewStep(nextStep);
+    scrollReviewToTop();
+  };
+
+  const validateContactStep = () => {
+    setError('');
 
     if (!customer.name.trim()) {
-      setContactExpanded(true);
       setError('Please enter your name.');
       return false;
     }
 
     if (!customer.phone.trim()) {
-      setContactExpanded(true);
       setError('Please enter your phone number.');
       return false;
     }
 
-    if (isSelfPickup && !selectedPickupHub?.id) {
-      setError('Please select a pickup option.');
+    return true;
+  };
+
+  const validateRequestDetails = () => {
+    if (!validateRequestBagItems()) return false;
+
+    if (!customer.name.trim()) {
+      setReviewStep(2);
+      setError('Please enter your name.');
+      scrollReviewToTop();
       return false;
     }
 
-    if (!isSelfPickup && !normalizeSupportedDeliveryDestination(customer.deliveryAddress, dzongkhagOptions)) {
+    if (!customer.phone.trim()) {
+      setReviewStep(2);
+      setError('Please enter your phone number.');
+      scrollReviewToTop();
+      return false;
+    }
+
+    if (isSelfPickup && !selectedPickupHub?.id) {
+      setReviewStep(3);
+      setError('Please select a pickup option.');
+      scrollReviewToTop();
+      return false;
+    }
+
+    if (
+      !isSelfPickup &&
+      !normalizeSupportedDeliveryDestination(
+        customer.deliveryAddress,
+        dzongkhagOptions,
+      )
+    ) {
+      setReviewStep(3);
       setError('Please select Thimphu, Paro, or Chhukha as your destination.');
+      scrollReviewToTop();
       return false;
     }
 
@@ -832,9 +876,32 @@ export default function RequestBag() {
 
   const openSubmitConfirmation = () => {
     if (!validateRequestBagItems()) return;
+
     setError('');
-    setContactExpanded(!contactDetailsComplete);
+    setReviewStep(1);
+    setDestinationPickerOpen(false);
     setConfirmOpen(true);
+  };
+
+  const closeSubmitConfirmation = () => {
+    if (submitting) return;
+
+    setConfirmOpen(false);
+    setReviewStep(1);
+    setDestinationPickerOpen(false);
+    setError('');
+  };
+
+  const continueReview = () => {
+    if (reviewStep === 1) {
+      goToReviewStep(2);
+      return;
+    }
+
+    if (reviewStep === 2) {
+      if (!validateContactStep()) return;
+      goToReviewStep(3);
+    }
   };
 
   const submitBag = async () => {
@@ -1025,13 +1092,13 @@ export default function RequestBag() {
           className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/45 pt-[calc(env(safe-area-inset-top)+0.5rem)] backdrop-blur-[2px]"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="confirm-quotation-title"
+          aria-labelledby="submit-request-title"
         >
           <button
             type="button"
             className="absolute inset-0 h-full w-full cursor-default"
-            onClick={() => !submitting && setConfirmOpen(false)}
-            aria-label="Close confirmation"
+            onClick={closeSubmitConfirmation}
+            aria-label="Close request review"
           />
 
           <section className="relative flex max-h-[calc(100dvh-env(safe-area-inset-top)-0.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-[32px] bg-white shadow-2xl">
@@ -1039,129 +1106,252 @@ export default function RequestBag() {
               <span className="h-1.5 w-12 rounded-full bg-slate-200" />
             </div>
 
-            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 pb-4 pt-3">
-              <div className="min-w-0">
-                <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
-                  Review request
-                </p>
-                <h2
-                  id="confirm-quotation-title"
-                  className="mt-1 text-xl font-extrabold tracking-tight text-slate-950"
+            <div className="shrink-0 border-b border-slate-100 px-5 pb-4 pt-3">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
+                    Step {reviewStep} of 3
+                  </p>
+                  <h2
+                    id="submit-request-title"
+                    className="mt-1 text-xl font-extrabold tracking-tight text-slate-950"
+                  >
+                    {reviewStep === 1
+                      ? 'Review products'
+                      : reviewStep === 2
+                        ? 'Contact & address'
+                        : 'Delivery preference'}
+                  </h2>
+                  <p className="mt-1 text-sm leading-5 text-slate-500">
+                    {reviewStep === 1
+                      ? 'Confirm the products and add any final request notes.'
+                      : reviewStep === 2
+                        ? 'Confirm how Shop2Bhutan should contact you and your delivery area.'
+                        : 'Choose delivery or pickup before submitting your request.'}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeSubmitConfirmation}
+                  disabled={submitting}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition active:scale-95"
+                  aria-label="Close"
                 >
-                  Submit shopping request
-                </h2>
-                <p className="mt-1 text-sm leading-5 text-slate-500">
-                  Confirm your details before we check availability and final price.
-                </p>
+                  <ChevronDown size={20} strokeWidth={2.4} />
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => !submitting && setConfirmOpen(false)}
-                disabled={submitting}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition active:scale-95"
-                aria-label="Close"
-              >
-                <ChevronDown size={20} strokeWidth={2.4} />
-              </button>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {[
+                  { step: 1 as const, label: 'Products' },
+                  { step: 2 as const, label: 'Contact' },
+                  { step: 3 as const, label: 'Delivery' },
+                ].map((item) => {
+                  const active = reviewStep === item.step;
+                  const completed = reviewStep > item.step;
+
+                  return (
+                    <button
+                      key={item.step}
+                      type="button"
+                      onClick={() => {
+                        if (item.step < reviewStep) {
+                          goToReviewStep(item.step);
+                        }
+                      }}
+                      disabled={item.step > reviewStep || submitting}
+                      className={`rounded-2xl border px-2 py-2.5 text-center transition ${
+                        active
+                          ? 'border-orange-200 bg-orange-50 text-orange-700'
+                          : completed
+                            ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
+                            : 'border-slate-100 bg-white text-slate-400'
+                      }`}
+                    >
+                      <span
+                        className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-black ${
+                          active
+                            ? 'bg-orange-500 text-white'
+                            : completed
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-slate-100 text-slate-400'
+                        }`}
+                      >
+                        {completed ? (
+                          <CheckCircle size={15} strokeWidth={2.7} />
+                        ) : (
+                          item.step
+                        )}
+                      </span>
+                      <span className="mt-1.5 block text-[10px] font-extrabold">
+                        {item.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 pt-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-slate-50 px-4 py-3.5">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                    Items
-                  </p>
-                  <p className="mt-1 text-base font-extrabold text-slate-950">
-                    {itemCount} item{itemCount === 1 ? '' : 's'}
-                    <span className="ml-1 text-sm font-semibold text-slate-500">
-                      ({totalQuantity} qty)
-                    </span>
-                  </p>
+            <div
+              id="request-review-scroll"
+              className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-4"
+            >
+              {error && (
+                <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-3.5 py-3 text-xs font-medium leading-5 text-red-700">
+                  {error}
                 </div>
+              )}
 
-                <div className="rounded-2xl bg-slate-50 px-4 py-3.5 text-right">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                    Site estimate
-                  </p>
-                  <p className="mt-1 text-base font-extrabold text-slate-950">
-                    {estimatedSiteTotal > 0 ? (
-                      formatPrice(estimatedSiteTotal)
-                    ) : (
-                      <span className="text-sm font-semibold text-slate-400">
-                        Final price pending
-                      </span>
-                    )}
-                  </p>
+              {reviewStep === 1 && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl bg-slate-50 px-4 py-3.5">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                        Products
+                      </p>
+                      <p className="mt-1 text-base font-extrabold text-slate-950">
+                        {itemCount} item{itemCount === 1 ? '' : 's'}
+                        <span className="ml-1 text-sm font-semibold text-slate-500">
+                          ({totalQuantity} qty)
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-slate-50 px-4 py-3.5 text-right">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                        Site estimate
+                      </p>
+                      <p className="mt-1 text-base font-extrabold text-slate-950">
+                        {estimatedSiteTotal > 0 ? (
+                          formatPrice(estimatedSiteTotal)
+                        ) : (
+                          <span className="text-sm font-semibold text-slate-400">
+                            Final price pending
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white">
+                    <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                      <div>
+                        <p className="text-sm font-extrabold text-slate-950">
+                          Product preview
+                        </p>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          Product names are locked. Edit quantity or options from
+                          the Request Bag.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={closeSubmitConfirmation}
+                        className="shrink-0 rounded-full bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 transition active:scale-[0.97]"
+                      >
+                        Edit Bag
+                      </button>
+                    </div>
+
+                    <div className="divide-y divide-slate-100">
+                      {bag?.items.map((item) => {
+                        const previewImage =
+                          item.productImage || item.screenshotUrl || '';
+                        const quantity = Math.max(
+                          1,
+                          Number(item.quantity) || 1,
+                        );
+                        const itemEstimate =
+                          Math.max(0, Number(item.priceShown || 0)) * quantity;
+
+                        return (
+                          <div
+                            key={item.id}
+                            className="flex items-start gap-3 px-4 py-3"
+                          >
+                            {previewImage ? (
+                              <img
+                                src={previewImage}
+                                alt=""
+                                className="h-14 w-14 shrink-0 rounded-xl border border-slate-100 bg-white object-cover"
+                              />
+                            ) : (
+                              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-400">
+                                <ImageIcon size={20} />
+                              </span>
+                            )}
+
+                            <div className="min-w-0 flex-1">
+                              <p className="break-words text-sm font-extrabold leading-5 text-slate-950 [overflow-wrap:anywhere]">
+                                {item.productName || 'Product'}
+                              </p>
+                              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-500">
+                                <span>Qty {quantity}</span>
+                                <span>{platformLabel(item.sourcePlatform)}</span>
+                                <span>
+                                  {itemEstimate > 0
+                                    ? formatPrice(itemEstimate)
+                                    : 'Price to be verified'}
+                                </span>
+                              </div>
+
+                              {item.notes && (
+                                <p className="mt-1.5 rounded-lg bg-orange-50 px-2.5 py-1.5 text-[11px] font-semibold leading-4 text-orange-700">
+                                  {item.notes}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  <section className="rounded-2xl border border-slate-100 bg-white p-4">
+                    <p className="text-sm font-extrabold text-slate-950">
+                      Request notes
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      Add a general instruction that applies to this shopping
+                      request.
+                    </p>
+                    <textarea
+                      value={customer.notes}
+                      onChange={(event) =>
+                        setCustomer((previous) => ({
+                          ...previous,
+                          notes: event.target.value,
+                        }))
+                      }
+                      placeholder="Optional note for Shop2Bhutan..."
+                      rows={3}
+                      className="mt-3 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-5 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
+                    />
+                  </section>
                 </div>
-              </div>
+              )}
 
-              <div className="mt-4 space-y-3">
-                <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                  <p className="text-sm font-extrabold text-slate-950">
-                    Request notes
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Add size, colour, variant, delivery, or pickup instructions.
-                  </p>
-                  <textarea
-                    value={customer.notes}
-                    onChange={(event) =>
-                      setCustomer((previous) => ({
-                        ...previous,
-                        notes: event.target.value,
-                      }))
-                    }
-                    placeholder="Optional note for Shop2Bhutan..."
-                    rows={2}
-                    className="mt-3 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-5 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/15"
-                  />
-                </section>
-
-                <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-start gap-3">
+              {reviewStep === 2 && (
+                <div className="space-y-4">
+                  <section className="rounded-2xl border border-slate-100 bg-white p-4">
+                    <div className="flex items-start gap-3">
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
                         <User size={18} strokeWidth={2.2} />
                       </span>
-                      <div className="min-w-0">
+                      <div>
                         <p className="text-sm font-extrabold text-slate-950">
-                          Contact
+                          Contact details
                         </p>
-                        {contactDetailsComplete && !contactExpanded ? (
-                          <p className="mt-1 truncate text-sm font-semibold text-slate-600">
-                            {customer.name.trim()} • {customer.phone.trim()}
-                          </p>
-                        ) : (
-                          <p className="mt-1 text-xs leading-5 text-slate-500">
-                            We use this only for request and final price updates.
-                          </p>
-                        )}
+                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                          Used for request, final price, payment, and delivery
+                          updates.
+                        </p>
                       </div>
                     </div>
 
-                    {contactDetailsComplete && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setContactExpanded((previous) => !previous)
-                        }
-                        className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-3 text-xs font-bold text-slate-600 transition active:scale-[0.97]"
-                      >
-                        <Edit3 size={13} strokeWidth={2.3} />
-                        {contactExpanded ? 'Done' : 'Edit'}
-                      </button>
-                    )}
-                  </div>
-
-                  {error && (
-                    <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3.5 py-3 text-xs font-medium leading-5 text-red-700">
-                      {error}
-                    </div>
-                  )}
-
-                  {(!contactDetailsComplete || contactExpanded) && (
-                    <div className="mt-3 grid gap-2.5">
+                    <div className="mt-4 grid gap-3">
                       <div className="relative">
                         <User
                           size={17}
@@ -1202,254 +1392,358 @@ export default function RequestBag() {
                         />
                       </div>
                     </div>
-                  )}
-                </section>
+                  </section>
 
-                <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
-                      <MapPin size={18} strokeWidth={2.2} />
+                  <section className="rounded-2xl border border-slate-100 bg-white p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-orange-500">
+                        <MapPin size={18} strokeWidth={2.2} />
+                      </span>
+                      <div>
+                        <p className="text-sm font-extrabold text-slate-950">
+                          Delivery area
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                          Select an area for delivery. It is ignored when you
+                          choose pickup in the final step.
+                        </p>
+                      </div>
+                    </div>
+
+                    {addressLoading && (
+                      <div className="mt-3 flex items-center gap-2 rounded-2xl bg-slate-50 px-3.5 py-3 text-xs text-slate-500">
+                        <Loader2
+                          size={15}
+                          className="animate-spin text-orange-500"
+                        />
+                        Loading destination...
+                      </div>
+                    )}
+
+                    <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-1.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDestinationPickerOpen((previous) => !previous)
+                        }
+                        className="flex min-h-[50px] w-full items-center justify-between gap-3 rounded-xl px-3 text-left transition active:scale-[0.99]"
+                        aria-expanded={destinationPickerOpen}
+                      >
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-orange-500">
+                            <MapPin size={17} strokeWidth={2.2} />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                              {customer.deliveryAddress
+                                ? 'Selected area'
+                                : 'Optional until delivery is selected'}
+                            </span>
+                            <span className="block truncate text-sm font-extrabold text-slate-950">
+                              {customer.deliveryAddress ||
+                                'Select Thimphu, Paro, or Chhukha'}
+                            </span>
+                          </span>
+                        </span>
+
+                        <ChevronDown
+                          size={18}
+                          strokeWidth={2.4}
+                          className={`shrink-0 text-slate-400 transition-transform ${
+                            destinationPickerOpen ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+
+                      {destinationPickerOpen && (
+                        <div className="mt-1.5 grid gap-1.5 border-t border-slate-100 pt-1.5">
+                          {DELIVERY_DESTINATION_OPTIONS.map((destination) => {
+                            const selected =
+                              normalizeSupportedDeliveryDestination(
+                                customer.deliveryAddress,
+                                dzongkhagOptions,
+                              ) === destination;
+
+                            return (
+                              <button
+                                key={destination}
+                                type="button"
+                                onClick={() => {
+                                  setCustomer((previous) => ({
+                                    ...previous,
+                                    deliveryAddress: destination,
+                                  }));
+                                  setDestinationPickerOpen(false);
+                                  setError('');
+                                }}
+                                className={`flex min-h-[46px] items-center justify-between rounded-xl px-3 text-left transition active:scale-[0.99] ${
+                                  selected
+                                    ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-100'
+                                    : 'bg-white text-slate-700 active:bg-slate-50'
+                                }`}
+                              >
+                                <span className="flex items-center gap-2.5">
+                                  <span
+                                    className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                                      selected
+                                        ? 'bg-white text-orange-500'
+                                        : 'bg-slate-50 text-slate-400'
+                                    }`}
+                                  >
+                                    <MapPin size={15} strokeWidth={2.3} />
+                                  </span>
+                                  <span className="text-sm font-bold">
+                                    {destination}
+                                  </span>
+                                </span>
+
+                                {selected && (
+                                  <CheckCircle size={17} strokeWidth={2.5} />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                </div>
+              )}
+
+              {reviewStep === 3 && (
+                <div className="space-y-4">
+                  <section className="rounded-2xl border border-slate-100 bg-white p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
+                        <MapPin size={18} strokeWidth={2.2} />
+                      </span>
+                      <div>
+                        <p className="text-sm font-extrabold text-slate-950">
+                          How would you like to receive it?
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                          The final price will include the applicable delivery
+                          or pickup handling charge.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFulfillmentMode('delivery');
+                          setError('');
+                        }}
+                        className={`rounded-2xl border px-3.5 py-3 text-left transition active:scale-[0.99] ${
+                          fulfillmentMode === 'delivery'
+                            ? 'border-orange-200 bg-orange-50 text-orange-700 ring-1 ring-orange-100'
+                            : 'border-slate-200 bg-white text-slate-600'
+                        }`}
+                      >
+                        <span className="block text-sm font-extrabold">
+                          Deliver to me
+                        </span>
+                        <span className="mt-1 block text-xs leading-4 opacity-75">
+                          Use selected area
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFulfillmentMode('self_pickup');
+                          setDestinationPickerOpen(false);
+                          setError('');
+                        }}
+                        className={`rounded-2xl border px-3.5 py-3 text-left transition active:scale-[0.99] ${
+                          fulfillmentMode === 'self_pickup'
+                            ? 'border-orange-200 bg-orange-50 text-orange-700 ring-1 ring-orange-100'
+                            : 'border-slate-200 bg-white text-slate-600'
+                        }`}
+                      >
+                        <span className="block text-sm font-extrabold">
+                          I will collect
+                        </span>
+                        <span className="mt-1 block text-xs leading-4 opacity-75">
+                          Choose pickup option
+                        </span>
+                      </button>
+                    </div>
+
+                    {isSelfPickup ? (
+                      <div className="mt-4 space-y-2.5">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                          Pickup option
+                        </p>
+
+                        {SELF_PICKUP_OPTIONS.map((hub) => (
+                          <button
+                            key={hub.id}
+                            type="button"
+                            onClick={() => {
+                              setPickupHubId(hub.id);
+                              setError('');
+                            }}
+                            className={`w-full rounded-2xl border p-3.5 text-left transition active:scale-[0.99] ${
+                              pickupHubId === hub.id
+                                ? 'border-orange-200 bg-orange-50 text-orange-700 ring-1 ring-orange-100'
+                                : 'border-slate-200 bg-white text-slate-600'
+                            }`}
+                          >
+                            <span className="block text-sm font-bold">
+                              {hub.name}
+                            </span>
+                            <span className="mt-1 block text-xs leading-4 text-slate-500">
+                              {hub.dzongkhag}
+                            </span>
+                          </button>
+                        ))}
+
+                        <div className="rounded-2xl bg-slate-50 px-3.5 py-3 text-xs leading-5 text-slate-600">
+                          {selectedPickupHub.pickupInstructions}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3.5">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                              Delivery area
+                            </p>
+                            <p className="mt-1 truncate text-sm font-extrabold text-slate-950">
+                              {customer.deliveryAddress ||
+                                'No delivery area selected'}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              goToReviewStep(2);
+                              window.setTimeout(
+                                () => setDestinationPickerOpen(true),
+                                100,
+                              );
+                            }}
+                            className="shrink-0 rounded-full bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 transition active:scale-[0.97]"
+                          >
+                            {customer.deliveryAddress ? 'Change' : 'Choose'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="rounded-2xl border border-slate-100 bg-white p-4">
+                    <p className="text-sm font-extrabold text-slate-950">
+                      Request summary
+                    </p>
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <div className="rounded-2xl bg-slate-50 px-3.5 py-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                          Products
+                        </p>
+                        <p className="mt-1 text-sm font-extrabold text-slate-950">
+                          {itemCount} item{itemCount === 1 ? '' : 's'} ·{' '}
+                          {totalQuantity} qty
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl bg-slate-50 px-3.5 py-3 text-right">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                          Site estimate
+                        </p>
+                        <p className="mt-1 text-sm font-extrabold text-slate-950">
+                          {estimatedSiteTotal > 0
+                            ? formatPrice(estimatedSiteTotal)
+                            : 'Pending'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 rounded-2xl bg-slate-50 px-3.5 py-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                        Contact
+                      </p>
+                      <p className="mt-1 text-sm font-extrabold text-slate-950">
+                        {customer.name.trim()} · {customer.phone.trim()}
+                      </p>
+                    </div>
+                  </section>
+
+                  <div className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-white px-4 py-3.5">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                      <CheckCircle size={17} strokeWidth={2.3} />
                     </span>
                     <div>
                       <p className="text-sm font-extrabold text-slate-950">
-                        Delivery preference
+                        No payment now
                       </p>
-                      <p className="mt-1 text-xs leading-5 text-slate-500">
-                        Used when confirming availability and final price.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 grid grid-cols-2 gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFulfillmentMode('delivery');
-                        setError('');
-                      }}
-                      className={`rounded-2xl border px-3.5 py-3 text-left transition active:scale-[0.99] ${
-                        fulfillmentMode === 'delivery'
-                          ? 'border-orange-200 bg-orange-50 text-orange-700 ring-1 ring-orange-100'
-                          : 'border-slate-200 bg-white text-slate-600'
-                      }`}
-                    >
-                      <span className="block text-sm font-extrabold">
-                        Deliver to me
-                      </span>
-                      <span className="mt-1 block text-xs leading-4 opacity-75">
-                        Choose destination
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFulfillmentMode('self_pickup');
-                        setDestinationPickerOpen(false);
-                        setError('');
-                      }}
-                      className={`rounded-2xl border px-3.5 py-3 text-left transition active:scale-[0.99] ${
-                        fulfillmentMode === 'self_pickup'
-                          ? 'border-orange-200 bg-orange-50 text-orange-700 ring-1 ring-orange-100'
-                          : 'border-slate-200 bg-white text-slate-600'
-                      }`}
-                    >
-                      <span className="block text-sm font-extrabold">
-                        I will collect
-                      </span>
-                      <span className="mt-1 block text-xs leading-4 opacity-75">
-                        Pickup option
-                      </span>
-                    </button>
-                  </div>
-
-                  {addressLoading && (
-                    <div className="mt-3 flex items-center gap-2 rounded-2xl bg-slate-50 px-3.5 py-3 text-xs text-slate-500">
-                      <Loader2
-                        size={15}
-                        className="animate-spin text-orange-500"
-                      />
-                      Loading destination...
-                    </div>
-                  )}
-
-                  {isSelfPickup ? (
-                    <div className="mt-3 space-y-2.5">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                        Pickup option
-                      </p>
-                      {SELF_PICKUP_OPTIONS.map((hub) => (
-                        <button
-                          key={hub.id}
-                          type="button"
-                          onClick={() => {
-                            setPickupHubId(hub.id);
-                            setError('');
-                          }}
-                          className={`w-full rounded-2xl border p-3.5 text-left transition active:scale-[0.99] ${
-                            pickupHubId === hub.id
-                              ? 'border-orange-200 bg-orange-50 text-orange-700 ring-1 ring-orange-100'
-                              : 'border-slate-200 bg-white text-slate-600'
-                          }`}
-                        >
-                          <span className="block text-sm font-bold">
-                            {hub.name}
-                          </span>
-                          <span className="mt-1 block text-xs leading-4 text-slate-500">
-                            {hub.dzongkhag}
-                          </span>
-                        </button>
-                      ))}
-
-                      <div className="rounded-2xl bg-slate-50 px-3.5 py-3 text-xs leading-5 text-slate-600">
-                        {selectedPickupHub.pickupInstructions}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mt-3">
-                      <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                        Delivery area
-                      </p>
-
-                      <div className="rounded-2xl border border-slate-200 bg-white p-1.5">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setDestinationPickerOpen((previous) => !previous)
-                          }
-                          className="flex min-h-[50px] w-full items-center justify-between gap-3 rounded-xl px-3 text-left transition active:scale-[0.99]"
-                          aria-expanded={destinationPickerOpen}
-                        >
-                          <span className="flex min-w-0 items-center gap-2.5">
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-orange-500">
-                              <MapPin size={17} strokeWidth={2.2} />
-                            </span>
-                            <span className="min-w-0">
-                              <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                                {customer.deliveryAddress
-                                  ? 'Selected area'
-                                  : 'Choose area'}
-                              </span>
-                              <span className="block truncate text-sm font-extrabold text-slate-950">
-                                {customer.deliveryAddress ||
-                                  'Select Thimphu, Paro, or Chhukha'}
-                              </span>
-                            </span>
-                          </span>
-                          <ChevronDown
-                            size={18}
-                            strokeWidth={2.4}
-                            className={`shrink-0 text-slate-400 transition-transform ${
-                              destinationPickerOpen ? 'rotate-180' : ''
-                            }`}
-                          />
-                        </button>
-
-                        {destinationPickerOpen && (
-                          <div className="mt-1.5 grid gap-1.5 border-t border-slate-100 pt-1.5">
-                            {DELIVERY_DESTINATION_OPTIONS.map(
-                              (destination) => {
-                                const selected =
-                                  normalizeSupportedDeliveryDestination(
-                                    customer.deliveryAddress,
-                                    dzongkhagOptions,
-                                  ) === destination;
-
-                                return (
-                                  <button
-                                    key={destination}
-                                    type="button"
-                                    onClick={() => {
-                                      setCustomer((previous) => ({
-                                        ...previous,
-                                        deliveryAddress: destination,
-                                      }));
-                                      setDestinationPickerOpen(false);
-                                      setError('');
-                                    }}
-                                    className={`flex min-h-[46px] items-center justify-between rounded-xl px-3 text-left transition active:scale-[0.99] ${
-                                      selected
-                                        ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-100'
-                                        : 'bg-white text-slate-700 active:bg-slate-50'
-                                    }`}
-                                  >
-                                    <span className="flex items-center gap-2.5">
-                                      <span
-                                        className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                                          selected
-                                            ? 'bg-white text-orange-500'
-                                            : 'bg-slate-50 text-slate-400'
-                                        }`}
-                                      >
-                                        <MapPin
-                                          size={15}
-                                          strokeWidth={2.3}
-                                        />
-                                      </span>
-                                      <span className="text-sm font-bold">
-                                        {destination}
-                                      </span>
-                                    </span>
-                                    {selected && (
-                                      <CheckCircle
-                                        size={17}
-                                        strokeWidth={2.5}
-                                      />
-                                    )}
-                                  </button>
-                                );
-                              },
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <p className="mt-2 text-xs leading-4 text-slate-400">
-                        Used only to estimate the delivery fee in your final price.
+                      <p className="mt-1 text-xs font-medium leading-5 text-slate-600">
+                        We’ll confirm availability and the final price first.
+                        Payment comes only after you approve it.
                       </p>
                     </div>
-                  )}
-                </section>
-
-                <div className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3.5">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-amber-600 ring-1 ring-amber-100">
-                    <CheckCircle size={17} strokeWidth={2.3} />
-                  </span>
-                  <div>
-                    <p className="text-sm font-extrabold text-slate-950">
-                      No payment now
-                    </p>
-                    <p className="mt-1 text-xs font-medium leading-5 text-slate-600">
-                      We’ll check availability and final price first. You pay only after confirmation.
-                    </p>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="shrink-0 border-t border-slate-100 bg-white/95 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
-              <button
-                type="button"
-                onClick={submitBag}
-                disabled={submitting}
-                className="flex h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-[15px] font-bold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98] active:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2
-                      size={18}
-                      strokeWidth={2.5}
-                      className="animate-spin"
-                    />
-                    Submitting Request...
-                  </>
-                ) : (
-                  <>
-                    Submit Request
-                    <Package size={18} />
-                  </>
+              <div className={`grid gap-2.5 ${reviewStep > 1 ? 'grid-cols-[0.72fr_1.28fr]' : 'grid-cols-1'}`}>
+                {reviewStep > 1 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      goToReviewStep(
+                        (reviewStep - 1) as RequestReviewStep,
+                      )
+                    }
+                    disabled={submitting}
+                    className="flex h-[52px] items-center justify-center rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-600 transition active:scale-[0.98] active:bg-slate-50 disabled:opacity-60"
+                  >
+                    Back
+                  </button>
                 )}
-              </button>
+
+                {reviewStep < 3 ? (
+                  <button
+                    type="button"
+                    onClick={continueReview}
+                    disabled={submitting}
+                    className="flex h-[52px] items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-extrabold text-white shadow-md shadow-orange-500/15 transition active:scale-[0.98] active:bg-orange-600 disabled:opacity-60"
+                  >
+                    {reviewStep === 1
+                      ? 'Continue to Contact'
+                      : 'Continue to Delivery'}
+                    <Package size={17} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={submitBag}
+                    disabled={submitting}
+                    className="flex h-[52px] items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-extrabold text-white shadow-md shadow-orange-500/15 transition active:scale-[0.98] active:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2
+                          size={18}
+                          strokeWidth={2.5}
+                          className="animate-spin"
+                        />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        Submit Request
+                        <Package size={18} />
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
           </section>
         </div>
