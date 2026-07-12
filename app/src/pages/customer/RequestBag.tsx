@@ -159,15 +159,7 @@ function platformLabel(platform?: string) {
   return 'Link';
 }
 
-function extractDomain(url?: string) {
-  if (!url) return '';
-  try {
-    const hostname = new URL(url).hostname;
-    return hostname.replace(/^www\./, '');
-  } catch {
-    return url.length > 32 ? url.slice(0, 32) + '…' : url;
-  }
-}
+
 
 function platformStyles(platform?: string) {
   const p = String(platform ?? '').toLowerCase();
@@ -342,213 +334,285 @@ function BagItemCard({
   const storeLogo = platformLogo(item.sourcePlatform);
   const hasSourceUrl = Boolean(item.sourceUrl);
   const hasScreenshot = Boolean(item.screenshotUrl);
-  const previewImage = item.productImage || item.screenshotUrl || '';
-  const previewIsScreenshot = Boolean(!item.productImage && item.screenshotUrl);
-  const itemTypeLabel = hasSourceUrl ? 'Product link' : 'Screenshot request';
-  const domain = extractDomain(item.sourceUrl);
-  const safeQuantity = Math.max(1, Number(item.quantity) || 1);
-  const sitePriceEstimate = Math.max(0, Number(item.priceShown || 0));
-  const hasSitePriceEstimate = sitePriceEstimate > 0;
-  const sitePriceEstimateLabel = hasSitePriceEstimate
-    ? formatPrice(sitePriceEstimate)
-    : 'To be verified';
+  const previewImage =
+    item.productImage || item.screenshotUrl || '';
+  const previewIsScreenshot = Boolean(
+    !item.productImage && item.screenshotUrl,
+  );
+  const safeQuantity = Math.max(
+    1,
+    Number(item.quantity) || 1,
+  );
+  const sitePriceEstimate = Math.max(
+    0,
+    Number(item.priceShown || 0),
+  );
+  const hasSitePriceEstimate =
+    sitePriceEstimate > 0;
+  const sitePriceEstimateLabel =
+    hasSitePriceEstimate
+      ? formatPrice(sitePriceEstimate)
+      : 'To be verified';
 
   return (
     <article
-      className={`overflow-hidden rounded-2xl border bg-white shadow-sm shadow-slate-100 transition-all duration-200 ${
+      className={`rounded-[22px] border bg-white p-3.5 transition-all duration-200 ${
         removing
-          ? 'pointer-events-none translate-x-2 scale-[0.98] opacity-0'
-          : 'translate-x-0 scale-100 border-slate-100 opacity-100'
+          ? 'pointer-events-none translate-x-2 scale-[0.98] border-slate-100 opacity-0'
+          : 'translate-x-0 scale-100 border-slate-200 opacity-100'
       }`}
     >
-      <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className="text-[11px] font-bold text-slate-400">
-            #{index + 1}
-          </span>
-          <span className="truncate text-xs font-semibold text-slate-500">
-            {itemTypeLabel}
-          </span>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => onRemove(item.id)}
-          disabled={removing}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-400 transition active:scale-95 active:bg-red-50 active:text-red-500 disabled:pointer-events-none disabled:opacity-50"
-          aria-label="Remove item"
-        >
-          {removing ? (
-            <Loader2 size={17} className="animate-spin" />
-          ) : (
-            <Trash2 size={17} />
-          )}
-        </button>
-      </div>
-
-      <div className="p-4">
-        <div className="flex gap-3.5">
+      <div className="flex gap-3">
+        <div className="shrink-0">
           {previewImage ? (
             <img
               src={previewImage}
-              alt={item.productName || 'Product preview'}
-              className={`h-[80px] w-[80px] shrink-0 rounded-2xl bg-slate-50 ring-1 ring-slate-100 ${
-                previewIsScreenshot ? 'object-contain' : 'object-cover'
+              alt={
+                item.productName ||
+                'Product preview'
+              }
+              className={`h-[92px] w-[92px] rounded-2xl border border-slate-100 bg-white ${
+                previewIsScreenshot
+                  ? 'object-contain'
+                  : 'object-cover'
               }`}
             />
           ) : storeLogo ? (
-            <div className="flex h-[80px] w-[80px] shrink-0 items-center justify-center rounded-2xl bg-white p-4 ring-1 ring-slate-100">
+            <div className="flex h-[92px] w-[92px] items-center justify-center rounded-2xl border border-slate-100 bg-white p-5">
               <img
                 src={storeLogo}
-                alt={`${platformLabel(item.sourcePlatform)} logo`}
+                alt={`${platformLabel(
+                  item.sourcePlatform,
+                )} logo`}
                 className="h-full w-full object-contain"
               />
             </div>
           ) : (
             <div
-              className={`flex h-[80px] w-[80px] shrink-0 items-center justify-center rounded-2xl ring-1 ring-slate-100 ${ps.bg}`}
+              className={`flex h-[92px] w-[92px] items-center justify-center rounded-2xl border border-slate-100 bg-white ${ps.text}`}
             >
               {ps.initial ? (
-                <span className={`text-lg font-black ${ps.text}`}>
+                <span className="text-xl font-black">
                   {ps.initial}
                 </span>
               ) : (
-                <ImageIcon size={24} className={ps.text} />
+                <ImageIcon size={25} />
               )}
             </div>
           )}
+        </div>
 
-          <div className="min-w-0 flex-1 pt-0.5">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start gap-2">
             <input
               type="text"
               value={item.productName}
               onChange={(event) =>
-                onPatch(item.id, { productName: event.target.value })
+                onPatch(item.id, {
+                  productName:
+                    event.target.value,
+                })
               }
               onBlur={() =>
-                onPatch(item.id, { productName: item.productName })
+                onPatch(item.id, {
+                  productName:
+                    item.productName,
+                })
               }
-              className="w-full border-0 bg-transparent p-0 text-base font-extrabold leading-6 text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-0"
-              placeholder="Product name"
+              className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[15px] font-extrabold leading-5 text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+              placeholder={`Product ${index + 1}`}
             />
 
+            <button
+              type="button"
+              onClick={() =>
+                onRemove(item.id)
+              }
+              disabled={removing}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-slate-400 transition active:bg-red-50 active:text-red-500 disabled:pointer-events-none disabled:opacity-50"
+              aria-label="Remove item"
+            >
+              {removing ? (
+                <Loader2
+                  size={16}
+                  className="animate-spin"
+                />
+              ) : (
+                <Trash2 size={17} />
+              )}
+            </button>
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {hasSourceUrl ? (
               <a
                 href={item.sourceUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-1 block truncate text-sm font-medium text-slate-500 transition-colors active:text-orange-600"
+                className="inline-flex h-8 max-w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 text-[11px] font-bold text-slate-600 transition active:border-orange-200 active:text-orange-600"
               >
-                {domain || 'Open product link'}
+                {storeLogo ? (
+                  <img
+                    src={storeLogo}
+                    alt=""
+                    className="h-4 w-4 shrink-0 object-contain"
+                  />
+                ) : (
+                  <span
+                    className={`flex h-4 w-4 items-center justify-center text-[9px] font-black ${ps.text}`}
+                  >
+                    {ps.initial}
+                  </span>
+                )}
+
+                <span className="truncate">
+                  {platformLabel(
+                    item.sourcePlatform,
+                  )}
+                </span>
               </a>
             ) : (
-              <p className="mt-1 text-sm font-medium text-slate-500">
-                Product details from screenshot
-              </p>
+              <span className="inline-flex h-8 items-center rounded-xl border border-slate-200 bg-white px-2.5 text-[11px] font-bold text-slate-600">
+                Screenshot request
+              </span>
             )}
 
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-600">
-                {platformLabel(item.sourcePlatform)}
+            {hasScreenshot && (
+              <span className="inline-flex h-8 items-center rounded-xl border border-emerald-100 bg-white px-2.5 text-[10px] font-bold text-emerald-600">
+                Screenshot saved
               </span>
+            )}
 
-              {!hasSourceUrl && (
-                <span className="rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-bold text-orange-600">
-                  Screenshot request
-                </span>
-              )}
-
-              {hasScreenshot && (
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-600">
-                  Screenshot saved
-                </span>
-              )}
-
-              {saving && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-400">
-                  <Loader2 size={11} className="animate-spin" />
-                  Saving
-                </span>
-              )}
-            </div>
+            {saving && (
+              <span className="inline-flex h-8 items-center gap-1 rounded-xl border border-slate-100 bg-white px-2.5 text-[10px] font-semibold text-slate-400">
+                <Loader2
+                  size={11}
+                  className="animate-spin"
+                />
+                Saving
+              </span>
+            )}
           </div>
         </div>
+      </div>
 
-        <div className="mt-4 grid grid-cols-[minmax(0,1fr)_120px] gap-3">
-          <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400">
-              Site price
-            </label>
-            <output
-              aria-label="Site price estimate"
-              className={`mt-1.5 flex h-[44px] w-full items-center rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm font-bold ${
-                hasSitePriceEstimate ? 'text-slate-800' : 'text-slate-400'
+      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_132px] items-end gap-3">
+        <div>
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400">
+            Price
+          </p>
+
+          <div className="mt-1.5 flex h-11 items-center justify-between rounded-xl border border-slate-200 bg-white px-3.5">
+            <span
+              className={`truncate text-sm font-extrabold ${
+                hasSitePriceEstimate
+                  ? 'text-slate-900'
+                  : 'text-orange-500'
               }`}
             >
               {sitePriceEstimateLabel}
-            </output>
-          </div>
+            </span>
 
-          <div>
-            <label className="block text-center text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400">
-              Quantity
-            </label>
-            <div className="mt-1.5 flex h-[44px] items-center justify-between rounded-xl border border-slate-200 bg-white p-0.5">
-              <button
-                type="button"
-                onClick={() =>
-                  onPatch(item.id, {
-                    quantity: Math.max(1, safeQuantity - 1),
-                  })
-                }
-                className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-50 text-slate-700 transition active:scale-95 active:bg-slate-100"
-                aria-label="Decrease quantity"
-              >
-                <Minus size={16} />
-              </button>
-              <span className="min-w-8 text-center text-base font-extrabold text-slate-950">
-                {safeQuantity}
-              </span>
-              <button
-                type="button"
-                onClick={() =>
-                  onPatch(item.id, { quantity: safeQuantity + 1 })
-                }
-                className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-50 text-slate-700 transition active:scale-95 active:bg-slate-100"
-                aria-label="Increase quantity"
-              >
-                <Plus size={16} />
-              </button>
-            </div>
+            {!hasSitePriceEstimate && (
+              <CheckCircle
+                size={15}
+                className="shrink-0 text-slate-300"
+                strokeWidth={2.2}
+              />
+            )}
           </div>
         </div>
 
-        <p className="mt-2.5 flex items-center gap-1.5 text-[11px] leading-5 text-slate-400">
-          <CheckCircle size={13} className="shrink-0 text-blue-400" strokeWidth={2.3} />
-          Admin will verify the site price before quotation.
+        <div>
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400">
+            Quantity
+          </p>
+
+          <div className="mt-1.5 flex h-11 items-center justify-between rounded-xl border border-slate-200 bg-white px-1">
+            <button
+              type="button"
+              onClick={() =>
+                onPatch(item.id, {
+                  quantity: Math.max(
+                    1,
+                    safeQuantity - 1,
+                  ),
+                })
+              }
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition active:bg-slate-100"
+              aria-label="Decrease quantity"
+            >
+              <Minus size={15} />
+            </button>
+
+            <span className="min-w-7 text-center text-sm font-extrabold text-slate-950">
+              {safeQuantity}
+            </span>
+
+            <button
+              type="button"
+              onClick={() =>
+                onPatch(item.id, {
+                  quantity:
+                    safeQuantity + 1,
+                })
+              }
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-orange-500 transition active:bg-orange-50"
+              aria-label="Increase quantity"
+            >
+              <Plus size={15} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="relative mt-3">
+        <Edit3
+          size={15}
+          className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+        />
+
+        <input
+          type="text"
+          value={item.notes || ''}
+          onChange={(event) =>
+            onPatch(item.id, {
+              notes: event.target.value,
+            })
+          }
+          onBlur={() =>
+            onPatch(item.id, {
+              notes: item.notes || '',
+            })
+          }
+          placeholder="Size, colour, variant or instruction"
+          className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 pr-10 text-[12px] font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10"
+        />
+      </div>
+
+      <div className="mt-2.5 flex items-center justify-between gap-3">
+        <p className="flex min-w-0 items-center gap-1.5 text-[10px] leading-4 text-slate-400">
+          <CheckCircle
+            size={13}
+            className="shrink-0 text-blue-500"
+            strokeWidth={2.3}
+          />
+          Price verified before quotation
         </p>
 
         {hasSitePriceEstimate && (
-          <p className="mt-2.5 text-sm font-bold text-orange-600">
-            Estimated item total: {formatPrice(sitePriceEstimate * safeQuantity)}
+          <p className="shrink-0 text-[11px] font-extrabold text-orange-600">
+            Total{' '}
+            {formatPrice(
+              sitePriceEstimate *
+                safeQuantity,
+            )}
           </p>
         )}
-
-        <textarea
-          value={item.notes || ''}
-          onChange={(event) =>
-            onPatch(item.id, { notes: event.target.value })
-          }
-          onBlur={() => onPatch(item.id, { notes: item.notes || '' })}
-          placeholder="Size, color, variant, or instruction for this item..."
-          rows={2}
-          className="mt-3 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-500/15"
-        />
       </div>
     </article>
   );
 }
-
 
 export default function RequestBag() {
   const navigate = useNavigate();
@@ -918,27 +982,28 @@ export default function RequestBag() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-[calc(10.5rem+env(safe-area-inset-bottom))]">
-      <header className="border-b border-slate-100 bg-white px-5 py-4">
-        <div className="mx-auto flex max-w-lg items-center gap-3">
+    <div className="min-h-screen bg-white pb-[calc(10.5rem+env(safe-area-inset-bottom))]">
+      <header className="border-b border-slate-100 bg-white">
+        <div className="mx-auto flex max-w-lg items-center gap-3 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.8rem)]">
           <div className="min-w-0 flex-1">
-            <h1 className="text-[22px] font-extrabold tracking-tight text-slate-950">
+            <h1 className="text-[23px] font-extrabold tracking-tight text-slate-950">
               Request Bag
             </h1>
-            <p className="mt-0.5 text-sm leading-5 text-slate-500">
-              Review your products and request one quotation.
+            <p className="mt-0.5 text-[12px] leading-5 text-slate-500">
+              Review products and request one quotation.
             </p>
           </div>
 
           {hasItems && (
-            <span className="inline-flex h-8 items-center rounded-full border border-orange-100 bg-orange-50 px-3 text-sm font-extrabold text-orange-700">
+            <span className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-xs font-extrabold text-slate-700">
+              <ShoppingBag size={14} className="text-orange-500" />
               {bag?.items.length} item{bag?.items.length === 1 ? '' : 's'}
             </span>
           )}
         </div>
       </header>
 
-      <main className="mx-auto max-w-lg space-y-4 px-5 py-5">
+      <main className="mx-auto max-w-lg space-y-3 px-4 py-4">
         {error && !confirmOpen && (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium leading-5 text-red-700">
             {error}
@@ -950,7 +1015,7 @@ export default function RequestBag() {
             {[1, 2].map((item) => (
               <div
                 key={item}
-                className="h-72 animate-pulse rounded-2xl bg-slate-200"
+                className="h-56 animate-pulse rounded-[22px] border border-slate-100 bg-slate-50"
               />
             ))}
           </div>
@@ -977,7 +1042,7 @@ export default function RequestBag() {
           </div>
         ) : (
           <>
-            <section className="space-y-4">
+            <section className="space-y-3">
               {bag?.items.map((item, index) => (
                 <BagItemCard
                   key={item.id}
@@ -994,17 +1059,24 @@ export default function RequestBag() {
             <button
               type="button"
               onClick={() => navigate('/paste-link')}
-              className="flex h-[54px] w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 text-[15px] font-bold text-slate-700 transition active:scale-[0.99] active:border-orange-300 active:bg-orange-50 active:text-orange-700"
+              className="flex h-[50px] w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white text-sm font-extrabold text-slate-700 transition active:scale-[0.99] active:border-orange-300 active:text-orange-600"
             >
               <Plus size={19} />
               Add another product
             </button>
 
-            <section className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
-              <CheckCircle size={16} className="mt-0.5 shrink-0 text-blue-500" strokeWidth={2.3} />
-              <p className="text-[12px] leading-[1.6] text-blue-800">
-                <span className="font-extrabold text-blue-950">Ready to request a quotation?</span> Contact, destination, and delivery preference will be confirmed next. No payment required now.
-              </p>
+            <section className="flex items-start gap-3 border-t border-slate-100 bg-white pt-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-white text-blue-600">
+                <CheckCircle size={16} strokeWidth={2.3} />
+              </span>
+              <div>
+                <p className="text-xs font-extrabold text-slate-800">
+                  Multiple products, one quotation
+                </p>
+                <p className="mt-0.5 text-[10px] leading-[17px] text-slate-500">
+                  Contact and delivery details are confirmed in the next step. No payment is required now.
+                </p>
+              </div>
             </section>
           </>
         )}
