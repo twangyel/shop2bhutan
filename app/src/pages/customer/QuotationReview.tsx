@@ -42,12 +42,12 @@ function readableDate(value?: string) {
 function quotationDisplay(quotation: Quotation) {
   if (quotation.status === 'approved') {
     return {
-      badge: 'Quotation Approved',
+      badge: 'Price Confirmed',
       badgeClass: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
-      eyebrow: 'QUOTATION ACCEPTED',
+      eyebrow: 'FINAL PRICE CONFIRMED',
       title: 'Ready for payment',
-      subtitle: 'Your quotation is accepted. Continue to payment when ready.',
-      statusLabel: 'Approved',
+      subtitle: 'Your final price is confirmed. Continue to payment when ready.',
+      statusLabel: 'Confirmed',
       iconClass: 'text-emerald-500',
       icon: <Check size={30} strokeWidth={2.4} />,
     };
@@ -57,10 +57,10 @@ function quotationDisplay(quotation: Quotation) {
     return {
       badge: 'Changes Requested',
       badgeClass: 'bg-red-50 text-red-700 ring-red-100',
-      eyebrow: 'QUOTATION RESPONSE',
-      title: 'Quotation declined',
-      subtitle: 'This quotation was marked as needing changes.',
-      statusLabel: 'Declined',
+      eyebrow: 'PRICE REVIEW',
+      title: 'Changes requested',
+      subtitle: 'Your requested corrections were sent to Shop2Bhutan for review.',
+      statusLabel: 'Under revision',
       iconClass: 'text-red-500',
       icon: <X size={30} strokeWidth={2.4} />,
     };
@@ -68,11 +68,11 @@ function quotationDisplay(quotation: Quotation) {
 
   if (quotation.status === 'expired') {
     return {
-      badge: 'Quotation Expired',
+      badge: 'Price Expired',
       badgeClass: 'bg-red-50 text-red-700 ring-red-100',
-      eyebrow: 'QUOTATION STATUS',
-      title: 'Quotation expired',
-      subtitle: 'Please contact Shop2Bhutan for an updated quotation.',
+      eyebrow: 'FINAL PRICE STATUS',
+      title: 'Final price expired',
+      subtitle: 'Please contact Shop2Bhutan for an updated final price.',
       statusLabel: 'Expired',
       iconClass: 'text-red-500',
       icon: <X size={30} strokeWidth={2.4} />,
@@ -80,19 +80,34 @@ function quotationDisplay(quotation: Quotation) {
   }
 
   return {
-    badge: quotation.status === 'pending' ? 'Preparing Quote' : 'Quotation Ready',
+    badge:
+      quotation.status === 'pending'
+        ? 'Checking Details'
+        : 'Final Price Ready',
     badgeClass:
       quotation.status === 'pending'
         ? 'bg-amber-50 text-amber-700 ring-amber-100'
-        : 'bg-violet-50 text-violet-700 ring-violet-100',
-    eyebrow: quotation.status === 'pending' ? 'QUOTATION IN REVIEW' : 'FINAL QUOTATION',
-    title: quotation.status === 'pending' ? 'Quotation pending' : 'Review your quotation',
+        : 'bg-orange-50 text-orange-700 ring-orange-100',
+    eyebrow:
+      quotation.status === 'pending'
+        ? 'AVAILABILITY & PRICE CHECK'
+        : 'FINAL PRICE READY',
+    title:
+      quotation.status === 'pending'
+        ? 'Checking your request'
+        : 'Review final price',
     subtitle:
       quotation.status === 'pending'
-        ? 'Shop2Bhutan is finalizing your product and delivery charges.'
-        : 'Check the items and complete price breakdown before accepting.',
-    statusLabel: quotation.status === 'pending' ? 'Pending' : 'Awaiting approval',
-    iconClass: quotation.status === 'pending' ? 'text-amber-500' : 'text-violet-500',
+        ? 'Shop2Bhutan is confirming availability, selected options, product prices, and delivery charges.'
+        : 'Availability is confirmed. Review the items and complete price breakdown before payment.',
+    statusLabel:
+      quotation.status === 'pending'
+        ? 'Checking'
+        : 'Awaiting confirmation',
+    iconClass:
+      quotation.status === 'pending'
+        ? 'text-amber-500'
+        : 'text-orange-500',
     icon:
       quotation.status === 'pending' ? (
         <Clock size={30} strokeWidth={2.4} />
@@ -286,8 +301,8 @@ export default function QuotationReview() {
       const realOrder = await fetchCustomerOrderById(orderId, user.id, user.email ?? '');
       setOrder(realOrder);
     } catch (err) {
-      console.error('Failed to load quotation:', err);
-      setError(err instanceof Error ? err.message : 'Unable to load quotation.');
+      console.error('Failed to load final price:', err);
+      setError(err instanceof Error ? err.message : 'Unable to load final price.');
     } finally {
       setLoading(false);
     }
@@ -314,7 +329,7 @@ export default function QuotationReview() {
 
     const cleanRemark = rejectRemark.trim();
     if (cleanRemark.length < 5) {
-      setError('Please briefly explain what should be changed in the quotation.');
+      setError('Please briefly explain what should be changed in the final price.');
       return;
     }
 
@@ -332,7 +347,7 @@ export default function QuotationReview() {
       setShowRejectDialog(false);
       navigate(`/order/${order.id}`, { replace: true });
     } catch (err) {
-      console.error('Failed to request quotation revision:', err);
+      console.error('Failed to request final price revision:', err);
       setError(
         err instanceof Error
           ? err.message
@@ -357,8 +372,8 @@ export default function QuotationReview() {
 
       navigate(`/payment/${order.id}`);
     } catch (err) {
-      console.error('Failed to accept quotation:', err);
-      setError(err instanceof Error ? err.message : 'Unable to accept quotation.');
+      console.error('Failed to confirm final price:', err);
+      setError(err instanceof Error ? err.message : 'Unable to confirm final price.');
     } finally {
       setSubmitting(false);
     }
@@ -367,7 +382,7 @@ export default function QuotationReview() {
   if (!authLoading && !user) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-white px-6 text-center">
-        <p className="mb-4 text-gray-500">Please sign in to view your quotation.</p>
+        <p className="mb-4 text-gray-500">Please sign in to view your final price.</p>
         <button
           type="button"
           onClick={() => navigate('/login')}
@@ -402,7 +417,7 @@ export default function QuotationReview() {
   if (!order || !quotation || !display) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-white px-6 text-center">
-        <p className="mb-4 text-gray-500">{error || 'Quotation not found'}</p>
+        <p className="mb-4 text-gray-500">{error || 'Final price not found'}</p>
         <button
           type="button"
           onClick={() => navigate('/orders')}
@@ -425,7 +440,7 @@ export default function QuotationReview() {
   const advanceAmount = Math.ceil(quotation.totalAmount * 0.5);
   const nextSteps = isJaigaonPickup
     ? [
-        'Accept this quotation',
+        'Confirm the final price',
         'Pay Shop2Bhutan charges in full',
         'Coordinate product pickup at Jaigaon',
         'Track your order from your account',
@@ -443,10 +458,10 @@ export default function QuotationReview() {
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-500">
-              Quotation
+              Final price
             </p>
             <h1 className="mt-1 text-[1.45rem] font-black tracking-tight text-gray-950">
-              Review Quotation
+              Review Final Price
             </h1>
             <p className="mt-1 truncate text-sm font-medium text-gray-400">#{order.orderNumber}</p>
           </div>
@@ -466,50 +481,50 @@ export default function QuotationReview() {
           </div>
         )}
 
-        <section className="overflow-hidden rounded-[1.85rem] bg-[#050713] text-white shadow-[0_18px_42px_rgba(5,7,19,0.16)]">
+        <section className="overflow-hidden rounded-[1.85rem] border border-gray-200 bg-white text-gray-950 shadow-sm">
           <div className="px-5 pb-4 pt-5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500">
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-500">
                   {display.eyebrow}
                 </p>
-                <h2 className="mt-2.5 max-w-[13rem] text-[1.5rem] font-black leading-tight tracking-tight text-white">
+                <h2 className="mt-2.5 max-w-[13rem] text-[1.5rem] font-black leading-tight tracking-tight text-gray-950">
                   {display.title}
                 </h2>
-                <p className="mt-2.5 max-w-[16rem] text-[13px] leading-[1.4rem] text-gray-400">
+                <p className="mt-2.5 max-w-[16rem] text-[13px] leading-[1.4rem] text-gray-500">
                   {display.subtitle}
                 </p>
               </div>
 
               <span
-                className={`flex h-[4.2rem] w-[4.2rem] shrink-0 items-center justify-center rounded-[1.4rem] bg-white ${display.iconClass}`}
+                className={`flex h-[4.2rem] w-[4.2rem] shrink-0 items-center justify-center rounded-[1.4rem] border border-gray-100 bg-gray-50 ${display.iconClass}`}
               >
                 {display.icon}
               </span>
             </div>
 
-            <div className="mt-5 border-t border-white/10 pt-4">
+            <div className="mt-5 border-t border-gray-100 pt-4">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-500">
                 {isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total payable'}
               </p>
               <div className="mt-2 flex items-end justify-between gap-4">
-                <p className="text-[1.9rem] font-black tracking-tight text-white">
+                <p className="text-[1.9rem] font-black tracking-tight text-gray-950">
                   {money(quotation.totalAmount)}
                 </p>
-                <span className="mb-1 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-bold text-gray-200 ring-1 ring-white/10">
+                <span className="mb-1 rounded-full bg-gray-100 px-3 py-1.5 text-[11px] font-bold text-gray-600 ring-1 ring-gray-100">
                   {itemCount} {itemCount === 1 ? 'item' : 'items'}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 border-t border-white/10 bg-white/[0.04]">
+          <div className="grid grid-cols-2 border-t border-gray-100 bg-gray-50/70">
             <div className="px-5 py-3.5">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">Status</p>
-              <p className="mt-1 text-sm font-bold text-white">{display.statusLabel}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">Status</p>
+              <p className="mt-1 text-sm font-bold text-gray-950">{display.statusLabel}</p>
             </div>
-            <div className="border-l border-white/10 px-5 py-3.5">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">
+            <div className="border-l border-gray-100 px-5 py-3.5">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">
                 Valid until
               </p>
               <p className="mt-1 text-sm font-bold text-white">{validUntil || 'No expiry set'}</p>
@@ -517,13 +532,29 @@ export default function QuotationReview() {
           </div>
         </section>
 
+        {quotation.status !== 'pending' && (
+          <section className="mt-5 flex items-start gap-3 rounded-[1.35rem] border border-emerald-100 bg-emerald-50/60 px-4 py-3.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-600 ring-1 ring-emerald-100">
+              <ShieldCheck size={17} strokeWidth={2.4} />
+            </span>
+            <div>
+              <p className="text-sm font-extrabold text-emerald-950">
+                Availability and price checked
+              </p>
+              <p className="mt-1 text-xs leading-5 text-emerald-800">
+                Shop2Bhutan has reviewed the requested products, selected options, current prices, and applicable charges.
+              </p>
+            </div>
+          </section>
+        )}
+
         <section className="mt-7">
           <div className="mb-3 flex items-end justify-between gap-3 px-1">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-500">
-                Price details
+                Confirmed charges
               </p>
-              <h2 className="mt-1 text-xl font-black tracking-tight text-gray-950">Price breakdown</h2>
+              <h2 className="mt-1 text-xl font-black tracking-tight text-gray-950">Final price breakdown</h2>
             </div>
             <span className="rounded-full bg-gray-100 px-3 py-1.5 text-[11px] font-bold text-gray-600">
               Final
@@ -584,7 +615,7 @@ export default function QuotationReview() {
                   <p className="mt-1 text-xs leading-5 text-gray-500">
                     {isJaigaonPickup
                       ? 'Shop2Bhutan charges only. No Bhutan delivery fee.'
-                      : 'Final quoted amount with no hidden charges.'}
+                      : 'Confirmed final amount with no hidden charges.'}
                   </p>
                 </div>
                 <p className="shrink-0 whitespace-nowrap text-2xl font-black tracking-tight text-gray-950">
@@ -601,7 +632,7 @@ export default function QuotationReview() {
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-500">
                 Products
               </p>
-              <h2 className="mt-1 text-xl font-black tracking-tight text-gray-950">Quoted items</h2>
+              <h2 className="mt-1 text-xl font-black tracking-tight text-gray-950">Confirmed items</h2>
             </div>
             <span className="rounded-full bg-gray-100 px-3 py-1.5 text-[11px] font-bold text-gray-600">
               {quotation.items.length} {quotation.items.length === 1 ? 'item' : 'items'}
@@ -700,7 +731,7 @@ export default function QuotationReview() {
                 {money(quotation.totalAmount)}
               </p>
               <p className="mt-1 text-[10px] leading-4 text-gray-500">
-                {isJaigaonPickup ? 'Required for Jaigaon pickup.' : 'Pay the complete quotation now.'}
+                {isJaigaonPickup ? 'Required for Jaigaon pickup.' : 'Pay the complete final amount now.'}
               </p>
             </div>
 
@@ -753,7 +784,7 @@ export default function QuotationReview() {
                 <p className="mt-1 text-xs leading-5 text-gray-500">
                   {isJaigaonPickup
                     ? 'No Bhutan delivery fee is charged for direct Jaigaon pickup.'
-                    : 'Charged once per quotation or request bag, not once per item.'}
+                    : 'Charged once per shopping request, not once per item.'}
                 </p>
               </div>
             </div>
@@ -820,7 +851,7 @@ export default function QuotationReview() {
               disabled={submitting}
               className="flex h-12 flex-[1.55] items-center justify-center gap-1.5 rounded-2xl bg-orange-500 px-4 text-sm font-extrabold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50"
             >
-              {submitting ? 'Processing...' : 'Accept & Continue'}
+              {submitting ? 'Processing...' : 'Confirm & Pay'}
               {!submitting && <ChevronRight size={17} />}
             </button>
           </div>
@@ -853,9 +884,9 @@ export default function QuotationReview() {
                   <MessageSquareText size={22} />
                 </span>
                 <div>
-                  <h3 className="text-xl font-black tracking-tight text-gray-950">Request quotation changes</h3>
+                  <h3 className="text-xl font-black tracking-tight text-gray-950">Request price changes</h3>
                   <p className="mt-1.5 text-sm leading-6 text-gray-500">
-                    Tell Shop2Bhutan what should be corrected so the admin can prepare and resend a revised quotation.
+                    Tell Shop2Bhutan what should be corrected so the final price can be reviewed and updated.
                   </p>
                 </div>
               </div>
@@ -886,7 +917,7 @@ export default function QuotationReview() {
               )}
 
               <div className="mt-4 rounded-2xl bg-violet-50 px-4 py-3 text-xs leading-5 text-violet-700 ring-1 ring-violet-100">
-                The current quotation will be marked for revision, your order will return to “Waiting for Quotation,” and all admins will receive this remark with a direct link to the order.
+                The current final price will be marked for revision, your request will return to “Checking Availability,” and the admin team will receive your remark.
               </div>
             </div>
 
@@ -900,7 +931,7 @@ export default function QuotationReview() {
                 disabled={submitting}
                 className="h-12 rounded-2xl bg-white text-sm font-extrabold text-gray-700 ring-1 ring-gray-200 transition active:scale-[0.98] disabled:opacity-50"
               >
-                Keep Quotation
+                Keep Final Price
               </button>
               <button
                 type="button"
