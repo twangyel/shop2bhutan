@@ -549,7 +549,7 @@ export default function OrderDetail() {
             className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2"
           >
             <FileText size={16} />
-            Prepare Quotation
+            {order.quotation ? 'Update Final Price' : 'Confirm Availability & Final Price'}
           </button>
           <button
             type="button"
@@ -687,8 +687,8 @@ export default function OrderDetail() {
 
           <div className="bg-white rounded-xl p-5 shadow-card">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-900">Quotation</h3>
-              {order.quotation ? <StatusBadge status={order.quotation.status} size="sm" /> : <span className="text-xs text-neutral-400">Not prepared</span>}
+              <h3 className="text-sm font-semibold text-gray-900">Availability & Final Price</h3>
+              {order.quotation ? <StatusBadge status={order.quotation.status} size="sm" /> : <span className="text-xs text-neutral-400">Not confirmed</span>}
             </div>
 
             {order.quotation ? (
@@ -725,13 +725,13 @@ export default function OrderDetail() {
             ) : (
               <div className="rounded-lg border border-dashed border-neutral-200 p-4 text-center">
                 <FileText size={28} className="text-neutral-300 mx-auto mb-2" />
-                <p className="text-sm text-neutral-500 mb-3">No quotation has been created yet.</p>
+                <p className="text-sm text-neutral-500 mb-3">Availability and final price have not been confirmed yet.</p>
                 <button
                   type="button"
                   onClick={() => navigate(`/admin/quotation/${order.id}`)}
                   className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors"
                 >
-                  Prepare Quotation
+                  Confirm Availability & Final Price
                 </button>
               </div>
             )}
@@ -762,7 +762,7 @@ export default function OrderDetail() {
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
               <div className="rounded-lg bg-neutral-50 p-3">
-                <p className="text-xs text-neutral-500">Quotation Total</p>
+                <p className="text-xs text-neutral-500">Final Payable</p>
                 <p className="text-sm font-bold mt-1">{formatAmount(paymentSummary.totalPayable)}</p>
               </div>
               <div className="rounded-lg bg-emerald-50 p-3">

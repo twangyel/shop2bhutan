@@ -257,12 +257,12 @@ export default function QuotationBuilder() {
     }
 
     if (items.length === 0) {
-      setError('This order has no items to quote.');
+      setError('This shopping request has no items to price.');
       return;
     }
 
     if (items.some((item) => numberValue(item.quotedUnitPrice) <= 0)) {
-      setError('Please enter a quotation price for every item.');
+      setError('Please enter a confirmed unit price for every item.');
       return;
     }
 
@@ -307,7 +307,7 @@ export default function QuotationBuilder() {
       }
     } catch (err) {
       console.error('Failed to send quotation:', err);
-      setError(err instanceof Error ? err.message : 'Unable to send quotation.');
+      setError(err instanceof Error ? err.message : 'Unable to send final price.');
     } finally {
       setSaving(false);
     }
@@ -325,7 +325,7 @@ export default function QuotationBuilder() {
             <ArrowLeft size={20} className="text-neutral-600" />
           </button>
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">Build Quotation</h1>
+            <h1 className="text-lg font-semibold text-gray-900">Confirm Availability & Final Price</h1>
             <p className="text-xs text-neutral-500">Loading order details...</p>
           </div>
         </div>
@@ -370,7 +370,7 @@ export default function QuotationBuilder() {
           </button>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-lg font-semibold text-gray-900">Build Quotation</h1>
+              <h1 className="text-lg font-semibold text-gray-900">Confirm Availability & Final Price</h1>
               <StatusBadge status={order.status} size="sm" />
             </div>
             <p className="text-xs text-neutral-500">
@@ -404,7 +404,7 @@ export default function QuotationBuilder() {
             className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2 disabled:opacity-60"
           >
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-            Send Quotation
+            Send Final Price
           </button>
         </div>
       </div>
@@ -419,7 +419,7 @@ export default function QuotationBuilder() {
       {saved && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 flex items-start gap-2">
           <CheckCircle size={17} className="mt-0.5 flex-shrink-0" />
-          <span>Quotation sent successfully. Customer can now review it from /quotation/{order.id}.</span>
+          <span>Final price sent successfully. The customer can now review and continue to payment.</span>
         </div>
       )}
 
@@ -428,7 +428,7 @@ export default function QuotationBuilder() {
           <AlertCircle size={17} className="mt-0.5 flex-shrink-0" />
           <span>
             {settingsAmounts.serviceNeedsReview && 'High-value service charge tier needs manual review. '}
-            {settingsAmounts.deliveryNeedsManualQuote && 'Delivery destination is marked manual quote or inactive. Use additional charges only if required.'}
+            {settingsAmounts.deliveryNeedsManualQuote && 'Delivery destination requires manual pricing or is inactive. Use additional charges only if required.'}
           </span>
         </div>
       )}
@@ -436,10 +436,13 @@ export default function QuotationBuilder() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="xl:col-span-2 space-y-4">
           <div className="bg-white rounded-xl p-5 shadow-card">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-gray-900">Customer Request</h3>
               <span className="text-xs text-neutral-500">{items.length} item{items.length === 1 ? '' : 's'}</span>
             </div>
+            <p className="mb-4 text-xs leading-5 text-neutral-500">
+              Confirm product availability, selected options, current seller price, and all applicable charges before sending the final price.
+            </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
               <div className="rounded-xl bg-neutral-50 p-4">
@@ -537,7 +540,7 @@ export default function QuotationBuilder() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
                           <div>
-                            <label className="text-xs font-semibold text-neutral-500 uppercase">Quoted Unit Price</label>
+                            <label className="text-xs font-semibold text-neutral-500 uppercase">Confirmed Unit Price</label>
                             <input
                               type="number"
                               value={item.quotedUnitPrice}
@@ -599,7 +602,7 @@ export default function QuotationBuilder() {
           </div>
 
           <div className="bg-white rounded-xl p-5 shadow-card">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Quotation Note</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Note to Customer</h3>
             <textarea
               value={notes}
               onChange={(e) => {
@@ -615,7 +618,7 @@ export default function QuotationBuilder() {
 
         <div className="space-y-4">
           <div className="bg-white rounded-xl p-5 shadow-card sticky top-20">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">Quotation Summary</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">Final Price Summary</h3>
 
             <div className="space-y-3">
               <div>
@@ -690,11 +693,11 @@ export default function QuotationBuilder() {
               className="w-full h-12 mt-4 bg-amber-500 text-white text-sm font-semibold rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {saving ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-              Send Quotation
+              Send Final Price
             </button>
 
             <p className="text-xs text-neutral-400 mt-3">
-              Service charge and delivery fee are fetched from settings. The saved quotation stores a snapshot using order UUID only.
+              Service charge and delivery fee are fetched from settings. The final price is stored in the existing quotation record using the order UUID.
             </p>
           </div>
 
@@ -736,7 +739,7 @@ export default function QuotationBuilder() {
                 </div>
               </div>
               <p className="text-xs text-violet-600 mt-4">
-                Customer will review this in /quotation/{order.id} and then upload payment after acceptance.
+                The customer will review the final price and continue to payment after confirmation.
               </p>
             </div>
           )}

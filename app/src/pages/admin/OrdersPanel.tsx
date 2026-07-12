@@ -6,7 +6,7 @@ import { fetchAdminOrders } from '@/lib/customerOrders';
 import { getFulfillmentDisplay, isSelfPickupOrder } from '@/lib/fulfillment';
 import type { Order } from '@/types';
 
-const statusFilters = ['All', 'Pending', 'Quoted', 'In Transit', 'Delivered', 'Cancelled'] as const;
+const statusFilters = ['All', 'Pending', 'Final Price', 'In Transit', 'Delivered', 'Cancelled'] as const;
 type StatusFilter = (typeof statusFilters)[number];
 
 const pageSize = 10;
@@ -17,7 +17,7 @@ function matchesStatus(order: Order, statusFilter: StatusFilter) {
   if (statusFilter === 'Pending') {
     return ['pending_confirmation', 'quotation_pending', 'payment_pending'].includes(order.status);
   }
-  if (statusFilter === 'Quoted') return order.status === 'quoted' || order.quotation?.status === 'sent';
+  if (statusFilter === 'Final Price') return order.status === 'quoted' || order.quotation?.status === 'sent';
   if (statusFilter === 'In Transit') {
     return ['order_placed', 'in_transit', 'arrived_at_hub', 'out_for_delivery'].includes(order.status);
   }
@@ -193,13 +193,13 @@ function getOrderPaymentInfo(order: Order) {
   }
 
   return {
-    statusLabel: totalPayable > 0 ? 'Unpaid' : 'No Quote Yet',
+    statusLabel: totalPayable > 0 ? 'Unpaid' : 'Final Price Pending',
     statusClass: 'bg-neutral-100 text-neutral-600',
-    typeLabel: totalPayable > 0 ? 'Waiting for payment' : 'Quotation pending',
+    typeLabel: totalPayable > 0 ? 'Waiting for payment' : 'Checking availability & price',
     method: '',
-    amountLabel: totalPayable > 0 ? 'No proof uploaded' : 'No quotation total',
+    amountLabel: totalPayable > 0 ? 'No proof uploaded' : 'No final price yet',
     balanceDue,
-    searchableText: totalPayable > 0 ? 'unpaid waiting for payment' : 'no quote quotation pending',
+    searchableText: totalPayable > 0 ? 'unpaid waiting for payment' : 'final price pending checking availability price',
   };
 }
 
