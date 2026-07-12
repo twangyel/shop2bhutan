@@ -760,7 +760,7 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-white px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] sm:px-5">
+    <div className="min-h-[100dvh] bg-white px-4 pb-[calc(1.75rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] text-[15px] sm:px-5">
       {toast && (
         <RegistrationToast toast={toast} onClose={() => setToast(null)} />
       )}
@@ -777,13 +777,13 @@ export default function Register() {
       <div className="mx-auto w-full max-w-md">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-500">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-500">
               Shop2Bhutan account
             </p>
-            <h1 className="mt-1 text-[28px] font-black tracking-tight text-neutral-950">
+            <h1 className="mt-1 text-[30px] font-black tracking-tight text-neutral-950">
               Create your account
             </h1>
-            <p className="mt-1 text-sm font-medium text-neutral-500">
+            <p className="mt-1 text-[15px] font-medium leading-6 text-neutral-500">
               Quick setup. Takes less than a minute.
             </p>
           </div>
@@ -791,13 +791,13 @@ export default function Register() {
           <button
             type="button"
             onClick={() => navigate('/login', { state: { returnTo } })}
-            className="shrink-0 rounded-2xl border border-neutral-200 bg-white px-3.5 py-2 text-xs font-extrabold text-neutral-700 transition active:scale-[0.97]"
+            className="shrink-0 rounded-2xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-extrabold text-neutral-700 transition active:scale-[0.97]"
           >
             Sign in
           </button>
         </div>
 
-        <div className="mt-5 rounded-[28px] border border-neutral-100 bg-white p-4 shadow-[0_18px_55px_rgba(15,23,42,0.07)] sm:p-5">
+        <div className="mt-5 rounded-[28px] border border-neutral-100 bg-white p-4 sm:p-5">
           {submitError && (
             <div className="mb-4 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
               <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
@@ -834,7 +834,7 @@ export default function Register() {
                 type="button"
                 onClick={handleGoogleSignup}
                 disabled={busy}
-                className="flex h-[50px] w-full items-center justify-center gap-3 rounded-2xl border border-neutral-200 bg-white text-[14px] font-extrabold text-neutral-800 shadow-sm transition hover:bg-neutral-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-[54px] w-full items-center justify-center gap-3 rounded-2xl border border-neutral-200 bg-white text-[15px] font-extrabold text-neutral-800 transition hover:bg-neutral-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {googleSubmitting ? (
                   <Loader2
@@ -852,7 +852,7 @@ export default function Register() {
 
               <div className="my-4 flex items-center gap-3">
                 <div className="h-px flex-1 bg-neutral-200" />
-                <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-neutral-400">
+                <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-neutral-400">
                   or register manually
                 </span>
                 <div className="h-px flex-1 bg-neutral-200" />
@@ -860,7 +860,7 @@ export default function Register() {
 
               <div className="mb-5 grid grid-cols-2 gap-2">
                 <div
-                  className={`rounded-2xl border px-3 py-3 transition ${
+                  className={`rounded-2xl border px-3.5 py-3.5 transition ${
                     step === 1
                       ? 'border-orange-200 bg-orange-50/70'
                       : 'border-emerald-100 bg-emerald-50/60'
@@ -868,7 +868,7 @@ export default function Register() {
                 >
                   <div className="flex items-center gap-2">
                     <span
-                      className={`flex h-7 w-7 items-center justify-center rounded-xl text-xs font-black ${
+                      className={`flex h-8 w-8 items-center justify-center rounded-xl text-sm font-black ${
                         step === 1
                           ? 'bg-orange-500 text-white'
                           : 'bg-emerald-500 text-white'
@@ -877,24 +877,24 @@ export default function Register() {
                       {step === 2 ? <Check size={15} strokeWidth={3} /> : '1'}
                     </span>
                     <div>
-                      <p className="text-[11px] font-black text-neutral-900">
+                      <p className="text-[13px] font-black text-neutral-900">
                         Your details
                       </p>
-                      <p className="text-[10px] text-neutral-400">Step 1</p>
+                      <p className="text-[11px] font-medium text-neutral-400">Step 1</p>
                     </div>
                   </div>
                 </div>
 
                 <div
-                  className={`rounded-2xl border px-3 py-3 transition ${
+                  className={`rounded-2xl border px-3.5 py-3.5 transition ${
                     step === 2
                       ? 'border-orange-200 bg-orange-50/70'
-                      : 'border-neutral-100 bg-neutral-50/70'
+                      : 'border-neutral-200 bg-white'
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     <span
-                      className={`flex h-7 w-7 items-center justify-center rounded-xl text-xs font-black ${
+                      className={`flex h-8 w-8 items-center justify-center rounded-xl text-sm font-black ${
                         step === 2
                           ? 'bg-orange-500 text-white'
                           : 'bg-white text-neutral-400 ring-1 ring-neutral-200'
@@ -903,10 +903,10 @@ export default function Register() {
                       2
                     </span>
                     <div>
-                      <p className="text-[11px] font-black text-neutral-900">
+                      <p className="text-[13px] font-black text-neutral-900">
                         Security
                       </p>
-                      <p className="text-[10px] text-neutral-400">Step 2</p>
+                      <p className="text-[11px] font-medium text-neutral-400">Step 2</p>
                     </div>
                   </div>
                 </div>
@@ -914,11 +914,11 @@ export default function Register() {
 
               <form onSubmit={handleSubmit}>
                 {step === 1 ? (
-                  <div className="space-y-3.5">
+                  <div className="space-y-4">
                     <div>
                       <label
                         htmlFor="register-name"
-                        className="mb-1.5 block text-[12px] font-bold text-neutral-800"
+                        className="mb-2 block text-sm font-bold text-neutral-800"
                       >
                         Full name
                       </label>
@@ -935,7 +935,7 @@ export default function Register() {
                           autoComplete="name"
                           onChange={(event) => update('name', event.target.value)}
                           placeholder="Your full name"
-                          className={`h-12 w-full rounded-2xl border bg-white pl-10 pr-4 text-sm font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:ring-[3px] ${
+                          className={`h-[54px] w-full rounded-2xl border bg-white pl-11 pr-4 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:ring-[3px] ${
                             errors.name
                               ? 'border-red-400 bg-red-50/50 focus:ring-red-500/10'
                               : 'border-neutral-200 focus:border-orange-500 focus:ring-orange-500/10'
@@ -954,11 +954,11 @@ export default function Register() {
                       <div className="mb-1.5 flex items-center justify-between gap-3">
                         <label
                           htmlFor="register-email"
-                          className="text-[12px] font-bold text-neutral-800"
+                          className="text-sm font-bold text-neutral-800"
                         >
                           Email address
                         </label>
-                        <span className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400">
+                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-400">
                           Optional
                         </span>
                       </div>
@@ -975,7 +975,7 @@ export default function Register() {
                           autoComplete="email"
                           onChange={(event) => update('email', event.target.value)}
                           placeholder="your@email.com"
-                          className={`h-12 w-full rounded-2xl border bg-white pl-10 pr-4 text-sm font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:ring-[3px] ${
+                          className={`h-[54px] w-full rounded-2xl border bg-white pl-11 pr-4 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:ring-[3px] ${
                             errors.email
                               ? 'border-red-400 bg-red-50/50 focus:ring-red-500/10'
                               : 'border-neutral-200 focus:border-orange-500 focus:ring-orange-500/10'
@@ -993,7 +993,7 @@ export default function Register() {
                     <div>
                       <label
                         htmlFor="register-phone"
-                        className="mb-1.5 block text-[12px] font-bold text-neutral-800"
+                        className="mb-2 block text-sm font-bold text-neutral-800"
                       >
                         Bhutan mobile number
                       </label>
@@ -1017,7 +1017,7 @@ export default function Register() {
                             )
                           }
                           placeholder="17xxxxxx or 77xxxxxx"
-                          className={`h-12 w-full rounded-2xl border bg-white pl-10 pr-10 text-sm font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:ring-[3px] ${
+                          className={`h-[54px] w-full rounded-2xl border bg-white pl-11 pr-10 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:ring-[3px] ${
                             errors.phone
                               ? 'border-red-400 bg-red-50/50 focus:ring-red-500/10'
                               : 'border-neutral-200 focus:border-orange-500 focus:ring-orange-500/10'
@@ -1037,14 +1037,14 @@ export default function Register() {
                           {errors.phone}
                         </p>
                       ) : (
-                        <p className="mt-1.5 text-[11px] text-neutral-400">
+                        <p className="mt-1.5 text-xs leading-5 text-neutral-500">
                           8 digits beginning with 17 or 77.
                         </p>
                       )}
                     </div>
 
                     <div>
-                      <label className="mb-1.5 block text-[12px] font-bold text-neutral-800">
+                      <label className="mb-2 block text-sm font-bold text-neutral-800">
                         Dzongkhag
                       </label>
                       <div className="relative" ref={dzongkhagRef}>
@@ -1060,7 +1060,7 @@ export default function Register() {
                           }
                           disabled={loadingDzongkhags}
                           aria-expanded={isDzongkhagOpen}
-                          className={`flex h-12 w-full items-center justify-between rounded-2xl border bg-white pl-10 pr-3.5 text-sm outline-none transition focus:ring-[3px] disabled:bg-neutral-100 ${
+                          className={`flex h-[54px] w-full items-center justify-between rounded-2xl border bg-white pl-11 pr-3.5 text-[15px] outline-none transition focus:ring-[3px] disabled:bg-neutral-100 ${
                             errors.dzongkhag
                               ? 'border-red-400 bg-red-50/50 focus:ring-red-500/10'
                               : 'border-neutral-200 focus:border-orange-500 focus:ring-orange-500/10'
@@ -1139,15 +1139,15 @@ export default function Register() {
                       type="button"
                       onClick={handleContinue}
                       disabled={loadingDzongkhags || busy}
-                      className="mt-1 flex h-[50px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
+                      className="mt-1 flex h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-[15px] font-extrabold text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
                     >
                       Continue
                       <ArrowRight size={17} strokeWidth={2.5} />
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-3.5">
-                    <div className="flex items-start gap-3 rounded-2xl bg-neutral-50 px-3.5 py-3">
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3 rounded-2xl border border-neutral-100 bg-white px-3.5 py-3.5">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-orange-500 ring-1 ring-neutral-100">
                         <UserPlus size={18} strokeWidth={2.2} />
                       </div>
@@ -1171,7 +1171,7 @@ export default function Register() {
                     <div>
                       <label
                         htmlFor="register-password"
-                        className="mb-1.5 block text-[12px] font-bold text-neutral-800"
+                        className="mb-2 block text-sm font-bold text-neutral-800"
                       >
                         Password
                       </label>
@@ -1190,7 +1190,7 @@ export default function Register() {
                             update('password', event.target.value)
                           }
                           placeholder="Minimum 6 characters"
-                          className={`h-12 w-full rounded-2xl border bg-white pl-10 pr-11 text-sm font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:ring-[3px] ${
+                          className={`h-[54px] w-full rounded-2xl border bg-white pl-11 pr-11 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:ring-[3px] ${
                             errors.password
                               ? 'border-red-400 bg-red-50/50 focus:ring-red-500/10'
                               : 'border-neutral-200 focus:border-orange-500 focus:ring-orange-500/10'
@@ -1224,7 +1224,7 @@ export default function Register() {
                     <div>
                       <label
                         htmlFor="register-confirm-password"
-                        className="mb-1.5 block text-[12px] font-bold text-neutral-800"
+                        className="mb-2 block text-sm font-bold text-neutral-800"
                       >
                         Confirm password
                       </label>
@@ -1243,7 +1243,7 @@ export default function Register() {
                             update('confirmPassword', event.target.value)
                           }
                           placeholder="Re-enter your password"
-                          className={`h-12 w-full rounded-2xl border bg-white pl-10 pr-10 text-sm font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:ring-[3px] ${
+                          className={`h-[54px] w-full rounded-2xl border bg-white pl-11 pr-10 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:ring-[3px] ${
                             errors.confirmPassword
                               ? 'border-red-400 bg-red-50/50 focus:ring-red-500/10'
                               : 'border-neutral-200 focus:border-orange-500 focus:ring-orange-500/10'
@@ -1267,7 +1267,7 @@ export default function Register() {
 
                     <div className="flex flex-wrap gap-2">
                       <span
-                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold ${
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-extrabold ${
                           passwordReady
                             ? 'bg-emerald-50 text-emerald-600'
                             : 'bg-neutral-100 text-neutral-400'
@@ -1277,7 +1277,7 @@ export default function Register() {
                         6+ characters
                       </span>
                       <span
-                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold ${
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-extrabold ${
                           passwordsMatch
                             ? 'bg-emerald-50 text-emerald-600'
                             : 'bg-neutral-100 text-neutral-400'
@@ -1292,7 +1292,7 @@ export default function Register() {
                       className={`rounded-2xl border px-3.5 py-3 ${
                         errors.agreed
                           ? 'border-red-200 bg-red-50/60'
-                          : 'border-neutral-100 bg-neutral-50/70'
+                          : 'border-neutral-200 bg-white'
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -1329,7 +1329,7 @@ export default function Register() {
                         </label>
 
                         <div className="min-w-0">
-                          <p className="text-xs font-medium leading-5 text-neutral-600">
+                          <p className="text-[13px] font-medium leading-5 text-neutral-600">
                             I agree to the{' '}
                             <button
                               type="button"
@@ -1370,7 +1370,7 @@ export default function Register() {
                           });
                         }}
                         disabled={busy}
-                        className="flex h-[50px] items-center justify-center gap-1.5 rounded-2xl border border-neutral-200 bg-white px-4 text-sm font-extrabold text-neutral-700 transition active:scale-[0.98] disabled:opacity-60"
+                        className="flex h-[54px] items-center justify-center gap-1.5 rounded-2xl border border-neutral-200 bg-white px-4 text-[15px] font-extrabold text-neutral-700 transition active:scale-[0.98] disabled:opacity-60"
                       >
                         <ArrowLeft size={17} strokeWidth={2.4} />
                         Back
@@ -1379,7 +1379,7 @@ export default function Register() {
                       <button
                         type="submit"
                         disabled={busy || loadingDzongkhags}
-                        className="flex h-[50px] items-center justify-center gap-2 rounded-2xl bg-orange-500 px-4 text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
+                        className="flex h-[54px] items-center justify-center gap-2 rounded-2xl bg-orange-500 px-4 text-[15px] font-extrabold text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
                       >
                         {submitting && (
                           <Loader2
@@ -1398,7 +1398,7 @@ export default function Register() {
           )}
         </div>
 
-        <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] font-medium text-neutral-400">
+        <div className="mt-5 flex items-center justify-center gap-1.5 text-xs font-medium text-neutral-500">
           <ShieldCheck size={13} strokeWidth={2} />
           Your information is encrypted and protected
         </div>

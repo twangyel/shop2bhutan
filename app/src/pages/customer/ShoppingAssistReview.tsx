@@ -143,6 +143,8 @@ export default function ShoppingAssistReview() {
   const [adding, setAdding] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [optionReminderOpen, setOptionReminderOpen] = useState(false);
+  const variantInputRef = useRef<HTMLInputElement>(null);
   const fallbackCheckedRef = useRef(false);
   const lastPreparedUrlRef = useRef('');
 
@@ -499,7 +501,7 @@ export default function ShoppingAssistReview() {
     );
   }
 
-  const handleAdd = async () => {
+  const addProductToRequestBag = async () => {
     setError('');
 
     if (!title.trim()) {
@@ -566,6 +568,34 @@ export default function ShoppingAssistReview() {
     }
   };
 
+  const handleAdd = () => {
+    setError('');
+
+    if (!title.trim()) {
+      setError('Please confirm the product name.');
+      return;
+    }
+
+    if (!variant.trim()) {
+      setOptionReminderOpen(true);
+      return;
+    }
+
+    void addProductToRequestBag();
+  };
+
+  const focusOptionField = () => {
+    setOptionReminderOpen(false);
+
+    window.setTimeout(() => {
+      variantInputRef.current?.focus();
+      variantInputRef.current?.scrollIntoView({
+        block: 'center',
+        behavior: 'smooth',
+      });
+    }, 80);
+  };
+
   if (success) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-white px-5">
@@ -577,7 +607,7 @@ export default function ShoppingAssistReview() {
             Added to Request Bag
           </h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            Continue browsing or review your products before requesting one quotation.
+            Continue browsing or review your products before submitting your shopping request.
           </p>
 
           <button
@@ -612,6 +642,61 @@ export default function ShoppingAssistReview() {
 
   return (
     <div className="min-h-[100dvh] bg-white">
+      {optionReminderOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/45 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] backdrop-blur-[2px] sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="option-reminder-title"
+        >
+          <button
+            type="button"
+            className="absolute inset-0"
+            onClick={() => setOptionReminderOpen(false)}
+            aria-label="Close option reminder"
+          />
+
+          <section className="relative z-10 w-full max-w-sm rounded-[26px] bg-white p-5 shadow-2xl">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
+              <Sparkles size={21} strokeWidth={2.3} />
+            </span>
+
+            <h2
+              id="option-reminder-title"
+              className="mt-4 text-lg font-extrabold tracking-tight text-slate-950"
+            >
+              Any size, colour or option?
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Some products have variations. Add the exact option so we can
+              confirm the correct item. You may continue without one when the
+              product has no variation.
+            </p>
+
+            <div className="mt-5 grid gap-2.5">
+              <button
+                type="button"
+                onClick={focusOptionField}
+                className="flex h-12 items-center justify-center rounded-2xl bg-orange-500 text-sm font-extrabold text-white transition active:scale-[0.98]"
+              >
+                Add size, colour or option
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOptionReminderOpen(false);
+                  void addProductToRequestBag();
+                }}
+                className="flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition active:scale-[0.98] active:bg-slate-50"
+              >
+                Continue without option
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       <header className="border-b border-slate-100 bg-white">
         <div className="mx-auto flex max-w-lg items-center gap-3 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
           <button
@@ -753,14 +838,19 @@ export default function ShoppingAssistReview() {
                 Size, colour or option
               </label>
               <input
+                ref={variantInputRef}
                 id="assist-variant"
                 value={variant}
                 onChange={(event) =>
                   setVariant(event.target.value)
                 }
                 placeholder="Example: Black, Size M"
-                className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-orange-400"
+                className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10"
               />
+              <p className="mt-1.5 text-xs leading-5 text-slate-400">
+                Optional. Add this only when the product has a size, colour,
+                storage, pattern, or another variation.
+              </p>
             </div>
           </div>
         </section>
@@ -782,7 +872,7 @@ export default function ShoppingAssistReview() {
 
         <button
           type="button"
-          onClick={() => void handleAdd()}
+          onClick={handleAdd}
           disabled={adding}
           className="mt-4 flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-orange-500 text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98] disabled:opacity-60"
         >

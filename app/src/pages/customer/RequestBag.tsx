@@ -382,18 +382,12 @@ function BagItemCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
-            <textarea
-              value={item.productName}
-              rows={2}
-              onChange={(event) =>
-                onPatch(item.id, { productName: event.target.value })
-              }
-              onBlur={() =>
-                onPatch(item.id, { productName: item.productName })
-              }
-              className="min-h-[40px] min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent p-0 text-[15px] font-extrabold leading-5 text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-0"
-              placeholder={`Product ${index + 1}`}
-            />
+            <p
+              className="min-w-0 flex-1 break-words pr-1 text-[15px] font-extrabold leading-5 text-slate-950 [overflow-wrap:anywhere]"
+              title={item.productName || `Product ${index + 1}`}
+            >
+              {item.productName?.trim() || `Product ${index + 1}`}
+            </p>
 
             <button
               type="button"
@@ -1028,7 +1022,7 @@ export default function RequestBag() {
 
       {confirmOpen && (
         <div
-          className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/45 backdrop-blur-[2px]"
+          className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/45 pt-[calc(env(safe-area-inset-top)+0.5rem)] backdrop-blur-[2px]"
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-quotation-title"
@@ -1040,12 +1034,12 @@ export default function RequestBag() {
             aria-label="Close confirmation"
           />
 
-          <section className="relative w-full max-w-lg overflow-hidden rounded-t-[32px] bg-white shadow-2xl">
-            <div className="flex justify-center pt-3">
+          <section className="relative flex max-h-[calc(100dvh-env(safe-area-inset-top)-0.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-[32px] bg-white shadow-2xl">
+            <div className="flex shrink-0 justify-center pt-3">
               <span className="h-1.5 w-12 rounded-full bg-slate-200" />
             </div>
 
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 pb-4 pt-3">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 pb-4 pt-3">
               <div className="min-w-0">
                 <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
                   Review request
@@ -1072,7 +1066,7 @@ export default function RequestBag() {
               </button>
             </div>
 
-            <div className="max-h-[calc(88dvh-env(safe-area-inset-bottom))] overflow-y-auto px-5 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-4">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 pt-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-2xl bg-slate-50 px-4 py-3.5">
                   <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
@@ -1095,7 +1089,7 @@ export default function RequestBag() {
                       formatPrice(estimatedSiteTotal)
                     ) : (
                       <span className="text-sm font-semibold text-slate-400">
-                        To be quoted
+                        Final price pending
                       </span>
                     )}
                   </p>
@@ -1140,7 +1134,7 @@ export default function RequestBag() {
                           </p>
                         ) : (
                           <p className="mt-1 text-xs leading-5 text-slate-500">
-                            We use this only for quotation updates.
+                            We use this only for request and final price updates.
                           </p>
                         )}
                       </div>
@@ -1411,7 +1405,7 @@ export default function RequestBag() {
                       </div>
 
                       <p className="mt-2 text-xs leading-4 text-slate-400">
-                        Used only to estimate the delivery fee in your quotation.
+                        Used only to estimate the delivery fee in your final price.
                       </p>
                     </div>
                   )}
@@ -1433,7 +1427,7 @@ export default function RequestBag() {
               </div>
             </div>
 
-            <div className="absolute bottom-0 left-0 right-0 border-t border-slate-100 bg-white/95 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+            <div className="shrink-0 border-t border-slate-100 bg-white/95 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
               <button
                 type="button"
                 onClick={submitBag}
