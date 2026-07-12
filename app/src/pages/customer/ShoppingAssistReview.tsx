@@ -59,16 +59,35 @@ function priceText(value: number) {
 function isUsefulTitle(value: string) {
   const clean = value.trim().toLowerCase();
 
-  return (
-    clean.length >= 5 &&
-    ![
+  if (clean.length < 5) return false;
+
+  if (
+    [
       'amazon',
       'flipkart',
       'myntra',
       'meesho',
       's2b shopping assist',
     ].includes(clean)
-  );
+  ) {
+    return false;
+  }
+
+  return ![
+    'site maintenance',
+    'under maintenance',
+    'service unavailable',
+    'temporarily unavailable',
+    'something went wrong',
+    'access denied',
+    'request blocked',
+    'robot check',
+    'captcha',
+    'page not found',
+    'please try again later',
+    'hey, check out this product on meesho',
+    'get upto 25% off',
+  ].some((phrase) => clean.includes(phrase));
 }
 
 export default function ShoppingAssistReview() {
@@ -84,9 +103,14 @@ export default function ShoppingAssistReview() {
     [location.search],
   );
 
+  const storedCapture =
+    readShoppingAssistCapture();
+
   const initialCapture =
     locationState?.capture ??
-    readShoppingAssistCapture();
+    (webShareTarget?.url
+      ? null
+      : storedCapture);
 
   const [capture, setCapture] =
     useState<ShoppingAssistCapture | null>(
@@ -120,6 +144,7 @@ export default function ShoppingAssistReview() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const fallbackCheckedRef = useRef(false);
+  const lastPreparedUrlRef = useRef('');
 
   const displayedPrice = useMemo(() => {
     const numeric = Number(
@@ -132,23 +157,41 @@ export default function ShoppingAssistReview() {
   }, [price]);
 
   useEffect(() => {
-    if (
-      capture ||
-      !webShareTarget?.url
-    ) {
+    if (!webShareTarget?.url) {
+      lastPreparedUrlRef.current = '';
       return;
     }
 
     const sharedTarget = webShareTarget;
+    const sourceUrl = normalizeProductUrl(
+      sharedTarget.url,
+    );
+
+    if (
+      !sourceUrl ||
+      lastPreparedUrlRef.current === sourceUrl
+    ) {
+      return;
+    }
+
+    lastPreparedUrlRef.current = sourceUrl;
     let active = true;
 
     async function prepareSharedProduct() {
       setPreparingWebShare(true);
       setWebShareError('');
+      setError('');
+      setSuccess(false);
+      setImageFailed(false);
+      fallbackCheckedRef.current = false;
 
-      const sourceUrl = normalizeProductUrl(
-        sharedTarget.url,
-      );
+      clearShoppingAssistCapture();
+      setCapture(null);
+      setTitle('');
+      setPrice('');
+      setVariant('');
+      setQuantity(1);
+
       const detectedPlatform =
         detectSourcePlatformFromUrl(sourceUrl);
 
@@ -160,7 +203,7 @@ export default function ShoppingAssistReview() {
           ? detectedPlatform
           : null;
 
-      if (!sourceUrl || !store) {
+      if (!store) {
         if (active) {
           setPreparingWebShare(false);
           setWebShareError(
@@ -176,17 +219,26 @@ export default function ShoppingAssistReview() {
 
         if (!active) return;
 
+        const previewTitle =
+          String(preview?.title ?? '').trim();
+        const sharedTitle =
+          String(sharedTarget.title ?? '').trim();
+
+        const resolvedTitle =
+          isUsefulTitle(previewTitle)
+            ? previewTitle
+            : isUsefulTitle(sharedTitle)
+              ? sharedTitle
+              : inferProductNameFromUrl(
+                  sourceUrl,
+                  store,
+                );
+
         const nextCapture: ShoppingAssistCapture = {
           sourceUrl,
           canonicalUrl: sourceUrl,
           store,
-          title:
-            sharedTarget.title ||
-            preview?.title ||
-            inferProductNameFromUrl(
-              sourceUrl,
-              store,
-            ),
+          title: resolvedTitle,
           image: preview?.image || '',
           displayedPrice:
             preview?.price || 0,
@@ -217,6 +269,7 @@ export default function ShoppingAssistReview() {
             : '',
         );
         setVariant('');
+        setImageFailed(false);
 
         navigate(
           '/shopping-assist/review',
@@ -246,7 +299,6 @@ export default function ShoppingAssistReview() {
       active = false;
     };
   }, [
-    capture,
     navigate,
     webShareTarget?.receivedAt,
     webShareTarget?.title,
@@ -260,6 +312,14 @@ export default function ShoppingAssistReview() {
   }, [capture]);
 
   useEffect(() => {
+    setImageFailed(false);
+    fallbackCheckedRef.current = false;
+  }, [
+    capture?.sourceUrl,
+    capture?.image,
+  ]);
+
+  useEffect(() => {
     if (!capture) return;
 
     const currentCapture: ShoppingAssistCapture = capture;
@@ -269,6 +329,7 @@ export default function ShoppingAssistReview() {
       (
         isUsefulTitle(currentCapture.title) &&
         currentCapture.image &&
+        !imageFailed &&
         currentCapture.displayedPrice > 0
       )
     ) {
@@ -302,9 +363,13 @@ export default function ShoppingAssistReview() {
                   captureSnapshot.store,
                 ),
           image:
-            captureSnapshot.image ||
-            preview.image ||
-            '',
+            imageFailed
+              ? preview.image ||
+                captureSnapshot.image ||
+                ''
+              : captureSnapshot.image ||
+                preview.image ||
+                '',
           displayedPrice:
             captureSnapshot.displayedPrice ||
             preview.price ||
@@ -316,6 +381,14 @@ export default function ShoppingAssistReview() {
         };
 
         setCapture(next);
+
+        if (
+          preview.image &&
+          preview.image !==
+            captureSnapshot.image
+        ) {
+          setImageFailed(false);
+        }
 
         if (!isUsefulTitle(title)) {
           setTitle(next.title);
@@ -336,7 +409,12 @@ export default function ShoppingAssistReview() {
     return () => {
       active = false;
     };
-  }, [capture, price, title]);
+  }, [
+    capture,
+    imageFailed,
+    price,
+    title,
+  ]);
 
   if (!capture) {
     if (preparingWebShare) {
@@ -624,18 +702,11 @@ export default function ShoppingAssistReview() {
                   </span>
                   <input
                     id="assist-price"
-                    inputMode="decimal"
                     value={price}
-                    onChange={(event) =>
-                      setPrice(
-                        event.target.value.replace(
-                          /[^\d.]/g,
-                          '',
-                        ),
-                      )
-                    }
+                    readOnly
+                    aria-readonly="true"
                     placeholder="To verify"
-                    className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-8 pr-3 text-sm font-extrabold text-slate-900 outline-none focus:border-orange-400"
+                    className="h-12 w-full cursor-default rounded-2xl border border-slate-200 bg-slate-50 pl-8 pr-3 text-sm font-extrabold text-slate-700 outline-none"
                   />
                 </div>
               </div>

@@ -4911,11 +4911,27 @@ export async function rejectCustomerPayment(input: {
   }
 }
 
-export function normalizeProductUrl(value: string) {
-  const trimmed = cleanText(value)
-  if (!trimmed) return ''
+function firstProductUrlCandidate(value: string) {
+  const raw = cleanText(value)
+  if (!raw) return ''
 
-  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+  const matchedUrl = raw.match(
+    /https?:\/\/[^\s<>"']+/i
+  )?.[0]
+
+  return (matchedUrl || raw).replace(
+    /[\])},.;!?]+$/g,
+    ''
+  )
+}
+
+export function normalizeProductUrl(value: string) {
+  const candidate = firstProductUrlCandidate(value)
+  if (!candidate) return ''
+
+  const withProtocol = /^https?:\/\//i.test(candidate)
+    ? candidate
+    : `https://${candidate}`
 
   try {
     const url = new URL(withProtocol)
@@ -5103,6 +5119,27 @@ function parsePreviewPrice(value: unknown) {
   return Number.isFinite(numeric) && numeric > 0 ? numeric : undefined
 }
 
+function isJunkPreviewTitle(value: unknown) {
+  const title = cleanText(value).toLowerCase()
+
+  if (!title || title.length < 3) return true
+
+  return [
+    'site maintenance',
+    'under maintenance',
+    'service unavailable',
+    'temporarily unavailable',
+    'something went wrong',
+    'access denied',
+    'request blocked',
+    'robot check',
+    'captcha',
+    'page not found',
+    'please try again later',
+    'online shopping site for mobiles',
+  ].some((phrase) => title.includes(phrase))
+}
+
 function normalizePreviewPayload(payload: unknown, requestedUrl: string): ProductLinkPreview {
   const raw = (payload && typeof payload === 'object' ? payload : {}) as AnyRow
   const preview = pickPreviewObject(raw)
@@ -5125,9 +5162,11 @@ function normalizePreviewPayload(payload: unknown, requestedUrl: string): Produc
   )
 
   const title =
-    responseTitle && responseTitle !== genericTitle
+    responseTitle &&
+    responseTitle !== genericTitle &&
+    !isJunkPreviewTitle(responseTitle)
       ? responseTitle
-      : urlTitle || responseTitle || genericTitle
+      : urlTitle || genericTitle
 
   const image = cleanText(
     preview.image ||
