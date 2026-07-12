@@ -63,22 +63,43 @@
   function imageFromNode(node) {
     if (!node) return "";
 
+    var dynamicImage = "";
+    var dynamicRaw =
+      node.getAttribute?.("data-a-dynamic-image");
+
+    if (dynamicRaw) {
+      try {
+        var dynamic = JSON.parse(dynamicRaw);
+        var keys = Object.keys(dynamic || {});
+
+        keys.sort(function (left, right) {
+          var leftSize = dynamic[left] || [];
+          var rightSize = dynamic[right] || [];
+
+          var leftArea =
+            Number(leftSize[0] || 0) *
+            Number(leftSize[1] || 0);
+          var rightArea =
+            Number(rightSize[0] || 0) *
+            Number(rightSize[1] || 0);
+
+          return rightArea - leftArea;
+        });
+
+        if (keys.length) {
+          dynamicImage = keys[0];
+        }
+      } catch (_) {}
+    }
+
     var direct =
+      node.getAttribute?.("data-old-hires") ||
+      dynamicImage ||
       node.currentSrc ||
       node.src ||
-      node.getAttribute?.("data-old-hires") ||
-      node.getAttribute?.("data-a-dynamic-image") ||
       node.getAttribute?.("data-src") ||
       node.getAttribute?.("data-image") ||
       node.getAttribute?.("content");
-
-    if (direct && String(direct).trim().charAt(0) === "{") {
-      try {
-        var dynamic = JSON.parse(direct);
-        var keys = Object.keys(dynamic || {});
-        if (keys.length) direct = keys[0];
-      } catch (_) {}
-    }
 
     if (direct) return absoluteUrl(direct);
 
@@ -355,9 +376,12 @@
       ],
       title: [
         "#productTitle",
-        "#title span",
-        "h1.a-size-large",
-        "h1"
+        "#title_feature_div #productTitle",
+        "[data-feature-name='title'] #productTitle",
+        "[data-feature-name='title'] h1",
+        "#title_feature_div h1",
+        "h1#title",
+        "h1.a-size-large"
       ],
       price: [
         "#corePrice_feature_div .priceToPay .a-offscreen",
@@ -485,6 +509,59 @@
     variant: []
   };
 
+  function isProductPageUrl() {
+    var lower = sourceUrl.toLowerCase();
+
+    if (store === "amazon") {
+      return (
+        lower.indexOf("/dp/") >= 0 ||
+        lower.indexOf("/gp/product/") >= 0 ||
+        lower.indexOf("/product/") >= 0
+      );
+    }
+
+    if (store === "flipkart") {
+      return (
+        lower.indexOf("/p/") >= 0 &&
+        (
+          lower.indexOf("pid=") >= 0 ||
+          /\/p\/itm[a-z0-9]+/i.test(lower)
+        )
+      );
+    }
+
+    if (store === "myntra") {
+      return /myntra\.com\/(?:[^/?]+\/)*\d+(?:\/|$|\?)/i.test(
+        lower
+      );
+    }
+
+    if (store === "meesho") {
+      return (
+        lower.indexOf("/s/p/") >= 0 ||
+        lower.indexOf("/product/") >= 0
+      );
+    }
+
+    return false;
+  }
+
+  if (!isProductPageUrl()) {
+    return JSON.stringify({
+      sourceUrl: sourceUrl,
+      canonicalUrl: canonical,
+      store: store,
+      title: "",
+      image: "",
+      displayedPrice: 0,
+      currency: "INR",
+      variant: "",
+      captureMethod: "visible_page",
+      confidence: 0,
+      capturedAt: Date.now()
+    });
+  }
+
   function firstNode(selectors) {
     for (var i = 0; i < selectors.length; i += 1) {
       var node = document.querySelector(selectors[i]);
@@ -505,6 +582,24 @@
   }
 
   function selectorTitle() {
+    if (store === "amazon") {
+      var amazonTitle = firstText(rule.title)
+        .replace(/^amazon\.in\s*[:|-]\s*/i, "")
+        .replace(/\s*[:|-]\s*amazon\.in.*$/i, "")
+        .trim();
+
+      if (
+        usefulTitle(amazonTitle) &&
+        !/^(visit the|shop the|brand:)\b/i.test(
+          amazonTitle
+        )
+      ) {
+        return amazonTitle;
+      }
+
+      return "";
+    }
+
     if (store === "myntra") {
       var brand = firstText([".pdp-title"]);
       var name = firstText([".pdp-name"]);
@@ -784,6 +879,7 @@
     cleanText(document.title);
 
   title = title
+    .replace(/^amazon\.in\s*[:|-]\s*/i, "")
     .replace(
       /\s*[|:-]\s*(Amazon\.in|Flipkart|Myntra|Meesho).*$/i,
       ""
@@ -810,16 +906,29 @@
     visiblePrice ||
     0;
 
-  // Keep the existing image extraction order because it is already
-  // performing reliably across the supported stores.
+  var selectorImage = firstImage(rule.image);
+  var structuredImage = jsonImage(structured);
+  var socialImage = firstText([
+    'meta[property="og:image"]',
+    'meta[name="twitter:image"]'
+  ]);
+
+  // Amazon often exposes a small JSON-LD thumbnail. Its landing image
+  // contains data-old-hires/data-a-dynamic-image with the real resolution.
   var image =
-    jsonImage(structured) ||
-    firstImage(rule.image) ||
-    firstText([
-      'meta[property="og:image"]',
-      'meta[name="twitter:image"]'
-    ]) ||
-    genericVisibleImage();
+    store === "amazon"
+      ? (
+          selectorImage ||
+          structuredImage ||
+          socialImage ||
+          genericVisibleImage()
+        )
+      : (
+          structuredImage ||
+          selectorImage ||
+          socialImage ||
+          genericVisibleImage()
+        );
 
   image = absoluteUrl(image);
 

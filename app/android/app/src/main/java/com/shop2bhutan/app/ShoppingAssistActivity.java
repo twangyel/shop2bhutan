@@ -109,6 +109,7 @@ public class ShoppingAssistActivity extends AppCompatActivity {
     private String captureScript = "";
     private JSONObject strongestCapture = null;
     private int strongestScore = 0;
+    private String activePageUrl = "";
     private boolean finishingWithCapture = false;
 
     public static String resolveStartUrl(
@@ -405,16 +406,26 @@ public class ShoppingAssistActivity extends AppCompatActivity {
                     String url,
                     android.graphics.Bitmap favicon
                 ) {
-                    strongestCapture = null;
-                    strongestScore = 0;
-                    addButton.setEnabled(false);
-                    detectionStatus.setText(
-                        "Checking this page…"
-                    );
-                    detectedPrice.setVisibility(
-                        View.GONE
-                    );
+                    resetCaptureForPage(url);
                     updateNavigationButtons();
+                }
+
+                @Override
+                public void doUpdateVisitedHistory(
+                    WebView view,
+                    String url,
+                    boolean isReload
+                ) {
+                    super.doUpdateVisitedHistory(
+                        view,
+                        url,
+                        isReload
+                    );
+
+                    if (!samePageUrl(activePageUrl, url)) {
+                        resetCaptureForPage(url);
+                        scheduleCapturePasses();
+                    }
                 }
 
                 @Override
@@ -422,6 +433,10 @@ public class ShoppingAssistActivity extends AppCompatActivity {
                     WebView view,
                     String url
                 ) {
+                    if (!samePageUrl(activePageUrl, url)) {
+                        resetCaptureForPage(url);
+                    }
+
                     updateNavigationButtons();
                     pageTitle.setText(
                         cleanPageTitle(
@@ -493,6 +508,8 @@ public class ShoppingAssistActivity extends AppCompatActivity {
     }
 
     private void scheduleCapturePasses() {
+        handler.removeCallbacksAndMessages(null);
+
         int[] delays = {
             250,
             900,
@@ -506,6 +523,35 @@ public class ShoppingAssistActivity extends AppCompatActivity {
                 delay
             );
         }
+    }
+
+    private void resetCaptureForPage(
+        String url
+    ) {
+        handler.removeCallbacksAndMessages(null);
+        activePageUrl = safeString(url);
+        strongestCapture = null;
+        strongestScore = 0;
+
+        addButton.setEnabled(false);
+        addButton.setText(
+            "Add to Request Bag"
+        );
+        detectionStatus.setText(
+            "Checking this page…"
+        );
+        detectedPrice.setVisibility(
+            View.GONE
+        );
+    }
+
+    private static boolean samePageUrl(
+        String first,
+        String second
+    ) {
+        return safeString(first).equals(
+            safeString(second)
+        );
     }
 
     private void captureCurrentProduct(
@@ -554,6 +600,45 @@ public class ShoppingAssistActivity extends AppCompatActivity {
                 }
 
                 normalizeCapture(capture);
+
+                String capturedUrl =
+                    safeString(
+                        capture.optString(
+                            "sourceUrl",
+                            currentUrl
+                        )
+                    );
+
+                if (
+                    !samePageUrl(
+                        activePageUrl,
+                        capturedUrl
+                    )
+                ) {
+                    activePageUrl = capturedUrl;
+                    strongestCapture = null;
+                    strongestScore = 0;
+                }
+
+                if (strongestCapture != null) {
+                    String strongestUrl =
+                        safeString(
+                            strongestCapture.optString(
+                                "sourceUrl",
+                                ""
+                            )
+                        );
+
+                    if (
+                        !samePageUrl(
+                            strongestUrl,
+                            capturedUrl
+                        )
+                    ) {
+                        strongestCapture = null;
+                        strongestScore = 0;
+                    }
+                }
 
                 int score =
                     captureScore(capture);
