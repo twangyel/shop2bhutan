@@ -46,22 +46,22 @@ const progressSteps: Array<{
     status: 'pending_confirmation',
     label: 'Request Received',
     shortLabel: 'Request',
-    description: 'Your quotation request has been received',
-    next: 'Admin will review your items, site prices, and delivery area before preparing your quotation.',
+    description: 'Your shopping request has been received',
+    next: 'We will check product availability, selected options, current prices, and delivery charges.',
   },
   {
     status: 'quotation_pending',
-    label: 'Waiting for Quotation',
-    shortLabel: 'Quote',
-    description: 'We are preparing your quotation',
-    next: 'You will be notified once your quotation is ready.',
+    label: 'Checking Availability & Price',
+    shortLabel: 'Checking',
+    description: 'We are checking availability and final price',
+    next: 'You will be notified when your final price is ready.',
   },
   {
     status: 'quoted',
-    label: 'Quotation Sent',
-    shortLabel: 'Quote',
-    description: 'Review and approve your quotation',
-    next: 'Review and accept quotation to continue.',
+    label: 'Final Price Ready',
+    shortLabel: 'Final Price',
+    description: 'Review your confirmed final price',
+    next: 'Confirm the final price and continue to payment.',
   },
   {
     status: 'payment_pending',
@@ -206,7 +206,7 @@ function itemDisplayPrice(order: Order, item: Order['items'][number], index: num
   if (quotedTotal > 0) return money(quotedTotal);
   if (quotedUnitPrice > 0) return money(quotedUnitPrice * quantity);
   if (orderUnitPrice > 0) return money(orderUnitPrice * quantity);
-  return 'Price in quotation';
+  return 'Final price pending';
 }
 
 function fallbackImage() {
@@ -232,15 +232,15 @@ function statusMessage(order: Order, status = getEffectiveOrderStatus(order)) {
   if (status === 'order_placed') return 'Your order has been placed with the seller.';
   if (status === 'payment_verified') return 'Your payment has been verified. We will order the product from the seller.';
   if (status === 'cancelled') return 'This order has been cancelled.';
-  if (status === 'quoted') return 'Your quotation is ready. Review it before payment.';
+  if (status === 'quoted') return 'Availability is confirmed and your final price is ready. Review it before payment.';
   if (status === 'payment_pending' && order.payment?.status === 'pending') {
     return 'Your payment proof is under review.';
   }
   if (status === 'payment_pending' && order.payment?.status === 'rejected') {
     return 'Your payment proof was rejected. Please upload a corrected screenshot.';
   }
-  if (status === 'quotation_pending') return 'We received your request. Our team is checking the product details, site price, and delivery area before sending your quotation.';
-  if (status === 'pending_confirmation') return 'Your quotation request has been received. Our team will review it and prepare your quotation.';
+  if (status === 'quotation_pending') return 'We are checking product availability, current price, selected options, and delivery charges.';
+  if (status === 'pending_confirmation') return 'Your shopping request has been received. We will begin checking availability and final price shortly.';
   return 'We are processing your order.';
 }
 
@@ -361,8 +361,9 @@ function isWaitingForQuotation(status?: OrderStatus) {
 }
 
 function customerStageLabel(status?: OrderStatus) {
-  if (status === 'pending_confirmation' || status === 'quotation_pending') return 'Waiting for Quotation';
-  if (status === 'quoted') return 'Quotation Ready';
+  if (status === 'pending_confirmation') return 'Request Submitted';
+  if (status === 'quotation_pending') return 'Checking Availability';
+  if (status === 'quoted') return 'Final Price Ready';
   if (status === 'payment_pending') return 'Payment Pending';
   if (status === 'payment_verified') return 'Payment Verified';
   if (status === 'order_placed') return 'Order Placed';
@@ -678,9 +679,9 @@ export default function OrderDetail() {
     : `${appSettings.orderCoverage.label}. Delivery/pickup currently available in ${appSettings.deliveryHubs.hubNamesJoined}.`;
   const quotationStage = isQuotationRequestStage(effectiveStatus);
   const waitingForQuotation = isWaitingForQuotation(effectiveStatus);
-  const detailTitle = quotationStage ? 'Quotation Request' : 'Order Details';
-  const currentStatusTitle = quotationStage ? 'Request status' : 'Current status';
-  const progressTitle = quotationStage ? 'Request progress' : 'Order progress';
+  const detailTitle = quotationStage ? 'Shopping Request' : 'Order Details';
+  const currentStatusTitle = quotationStage ? 'Current step' : 'Current status';
+  const progressTitle = quotationStage ? 'Shopping progress' : 'Order progress';
   const itemsTitle = quotationStage ? 'Requested items' : 'Items ordered';
   const contactTitle = quotationStage
     ? 'Contact & destination'
@@ -698,7 +699,7 @@ export default function OrderDetail() {
     ? 'Deliver to me'
     : fulfillmentMethodTitle;
   const quotationFulfillmentDescription = quotationStage && !isSelfPickup
-    ? 'Delivery fee will be included in your quotation based on the selected area.'
+    ? 'Delivery fee will be included in your final price based on the selected area.'
     : fulfillmentMethodDescription;
   const quotationIsReferenceOnly = Boolean(
     effectiveStatus &&
@@ -711,7 +712,7 @@ export default function OrderDetail() {
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-orange-500">
-              {quotationStage ? 'Request journey' : 'Order journey'}
+              {quotationStage ? 'Shopping request' : 'Order journey'}
             </p>
             <h1 className="mt-0.5 text-lg font-black tracking-tight text-slate-950">{detailTitle}</h1>
             <p className="truncate text-xs font-medium text-slate-500">#{order.orderNumber}</p>
@@ -728,40 +729,40 @@ export default function OrderDetail() {
                 <CheckCircle size={20} strokeWidth={2.5} />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-black text-emerald-950">Quotation request sent</p>
+                <p className="text-sm font-black text-emerald-950">Request submitted</p>
                 <p className="mt-1 text-xs leading-5 text-emerald-800">
-                  We&apos;ll notify you once your quotation is ready. No payment is required until you approve it.
+                  We&apos;ll check availability, selected options, and the final price. No payment is required yet.
                 </p>
               </div>
             </div>
           </section>
         )}
 
-        <section className="overflow-hidden rounded-[22px] bg-slate-900 text-white shadow-lg shadow-slate-900/10">
+        <section className="overflow-hidden rounded-[22px] border border-slate-200 bg-white text-slate-950 shadow-sm">
           <div className="p-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/50">{currentStatusTitle}</p>
-                <h2 className="mt-1.5 text-2xl font-black tracking-tight text-white">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">{currentStatusTitle}</p>
+                <h2 className="mt-1.5 text-2xl font-black tracking-tight text-slate-950">
                   {customerStageLabel(effectiveStatus ?? order.status)}
                 </h2>
-                <p className="mt-1.5 max-w-md text-sm leading-5 text-white/70">
+                <p className="mt-1.5 max-w-md text-sm leading-5 text-slate-600">
                   {statusMessage(order, effectiveStatus ?? order.status)}
                 </p>
               </div>
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-white shadow-sm">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] border border-orange-100 bg-orange-50 shadow-sm">
                 {statusIcons[effectiveStatus ?? order.status] ?? (
                   <Package size={30} className="text-orange-500" strokeWidth={2} />
                 )}
               </span>
             </div>
 
-            <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/10 pt-3.5">
+            <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3.5">
               <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/40">Next step</p>
-                <p className="mt-1 text-xs font-semibold leading-5 text-white/80">{compactProgress.nextText}</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Next step</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{compactProgress.nextText}</p>
               </div>
-              <span className="shrink-0 rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-black text-white backdrop-blur-sm">
+              <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-black text-slate-700">
                 {compactProgress.progressPercent}%
               </span>
             </div>
@@ -771,14 +772,14 @@ export default function OrderDetail() {
             <button
               type="button"
               onClick={() => navigate(`/quotation/${order.id}`)}
-              className="flex w-full items-center justify-between gap-3 border-t border-white/10 bg-violet-500 px-4 py-3.5 text-left transition active:bg-violet-600"
+              className="flex w-full items-center justify-between gap-3 border-t border-orange-400 bg-orange-500 px-4 py-3.5 text-left transition active:bg-orange-600"
             >
               <div className="flex min-w-0 items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white">
                   <FileText size={19} strokeWidth={2.4} />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-black text-white">Review quotation</p>
+                  <p className="text-sm font-black text-white">Confirm &amp; Pay</p>
                   <p className="mt-0.5 text-xs text-white/75">Final payable: {money(order.quotation.totalAmount)}</p>
                 </div>
               </div>
@@ -790,7 +791,7 @@ export default function OrderDetail() {
             <button
               type="button"
               onClick={() => navigate(`/payment/${order.id}`)}
-              className="flex w-full items-center justify-between gap-3 border-t border-white/10 bg-orange-500 px-4 py-3.5 text-left transition active:bg-orange-600"
+              className="flex w-full items-center justify-between gap-3 border-t border-orange-400 bg-orange-500 px-4 py-3.5 text-left transition active:bg-orange-600"
             >
               <div className="flex min-w-0 items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white">
@@ -913,7 +914,7 @@ export default function OrderDetail() {
           <div className="mb-3 px-1">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">Fulfillment</p>
             <h3 className="mt-1 text-lg font-black tracking-tight text-slate-950">
-              {quotationStage ? 'Quotation details' : 'Delivery details'}
+              {quotationStage ? 'Request details' : 'Delivery details'}
             </h3>
           </div>
 
@@ -1110,7 +1111,7 @@ export default function OrderDetail() {
               </span>
               <div className="min-w-0">
                 <p className={`text-sm font-black ${quotationIsReferenceOnly ? 'text-slate-900' : 'text-violet-950'}`}>
-                  {quotationIsReferenceOnly ? 'Quotation details' : 'View quotation'}
+                  {quotationIsReferenceOnly ? 'Final price details' : 'View final price'}
                 </p>
                 <p
                   className={`mt-0.5 text-xs font-semibold ${
