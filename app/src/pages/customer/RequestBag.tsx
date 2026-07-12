@@ -332,25 +332,14 @@ function BagItemCard({
   const storeLogo = platformLogo(item.sourcePlatform);
   const hasSourceUrl = Boolean(item.sourceUrl);
   const hasScreenshot = Boolean(item.screenshotUrl);
-  const previewImage =
-    item.productImage || item.screenshotUrl || '';
-  const previewIsScreenshot = Boolean(
-    !item.productImage && item.screenshotUrl,
-  );
-  const safeQuantity = Math.max(
-    1,
-    Number(item.quantity) || 1,
-  );
-  const sitePriceEstimate = Math.max(
-    0,
-    Number(item.priceShown || 0),
-  );
-  const hasSitePriceEstimate =
-    sitePriceEstimate > 0;
-  const sitePriceEstimateLabel =
-    hasSitePriceEstimate
-      ? formatPrice(sitePriceEstimate)
-      : 'To be verified';
+  const previewImage = item.productImage || item.screenshotUrl || '';
+  const previewIsScreenshot = Boolean(!item.productImage && item.screenshotUrl);
+  const safeQuantity = Math.max(1, Number(item.quantity) || 1);
+  const sitePriceEstimate = Math.max(0, Number(item.priceShown || 0));
+  const hasSitePriceEstimate = sitePriceEstimate > 0;
+  const sitePriceEstimateLabel = hasSitePriceEstimate
+    ? formatPrice(sitePriceEstimate)
+    : 'To be verified';
 
   return (
     <article
@@ -365,23 +354,16 @@ function BagItemCard({
           {previewImage ? (
             <img
               src={previewImage}
-              alt={
-                item.productName ||
-                'Product preview'
-              }
+              alt={item.productName || 'Product preview'}
               className={`h-[82px] w-[82px] rounded-2xl border border-slate-100 bg-white ${
-                previewIsScreenshot
-                  ? 'object-contain'
-                  : 'object-cover'
+                previewIsScreenshot ? 'object-contain' : 'object-cover'
               }`}
             />
           ) : storeLogo ? (
             <div className="flex h-[82px] w-[82px] items-center justify-center rounded-2xl border border-slate-100 bg-white p-4">
               <img
                 src={storeLogo}
-                alt={`${platformLabel(
-                  item.sourcePlatform,
-                )} logo`}
+                alt={`${platformLabel(item.sourcePlatform)} logo`}
                 className="h-full w-full object-contain"
               />
             </div>
@@ -390,9 +372,7 @@ function BagItemCard({
               className={`flex h-[82px] w-[82px] items-center justify-center rounded-2xl border border-slate-100 bg-white ${ps.text}`}
             >
               {ps.initial ? (
-                <span className="text-xl font-black">
-                  {ps.initial}
-                </span>
+                <span className="text-xl font-black">{ps.initial}</span>
               ) : (
                 <ImageIcon size={25} />
               )}
@@ -406,16 +386,10 @@ function BagItemCard({
               value={item.productName}
               rows={2}
               onChange={(event) =>
-                onPatch(item.id, {
-                  productName:
-                    event.target.value,
-                })
+                onPatch(item.id, { productName: event.target.value })
               }
               onBlur={() =>
-                onPatch(item.id, {
-                  productName:
-                    item.productName,
-                })
+                onPatch(item.id, { productName: item.productName })
               }
               className="min-h-[40px] min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent p-0 text-[15px] font-extrabold leading-5 text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-0"
               placeholder={`Product ${index + 1}`}
@@ -423,18 +397,13 @@ function BagItemCard({
 
             <button
               type="button"
-              onClick={() =>
-                onRemove(item.id)
-              }
+              onClick={() => onRemove(item.id)}
               disabled={removing}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-slate-400 transition active:bg-red-50 active:text-red-500 disabled:pointer-events-none disabled:opacity-50"
               aria-label="Remove item"
             >
               {removing ? (
-                <Loader2
-                  size={16}
-                  className="animate-spin"
-                />
+                <Loader2 size={16} className="animate-spin" />
               ) : (
                 <Trash2 size={17} />
               )}
@@ -462,11 +431,8 @@ function BagItemCard({
                     {ps.initial}
                   </span>
                 )}
-
                 <span className="truncate">
-                  {platformLabel(
-                    item.sourcePlatform,
-                  )}
+                  {platformLabel(item.sourcePlatform)}
                 </span>
               </a>
             ) : (
@@ -483,10 +449,7 @@ function BagItemCard({
 
             {saving && (
               <span className="inline-flex h-8 items-center gap-1 rounded-xl border border-slate-100 bg-white px-2.5 text-[10px] font-semibold text-slate-400">
-                <Loader2
-                  size={11}
-                  className="animate-spin"
-                />
+                <Loader2 size={11} className="animate-spin" />
                 Saving
               </span>
             )}
@@ -499,18 +462,14 @@ function BagItemCard({
           <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400">
             Price
           </p>
-
           <div className="mt-1.5 flex h-10 items-center justify-between rounded-xl border border-slate-200 bg-white px-3">
             <span
               className={`truncate text-sm font-extrabold ${
-                hasSitePriceEstimate
-                  ? 'text-slate-900'
-                  : 'text-orange-500'
+                hasSitePriceEstimate ? 'text-slate-900' : 'text-orange-500'
               }`}
             >
               {sitePriceEstimateLabel}
             </span>
-
             {!hasSitePriceEstimate && (
               <CheckCircle
                 size={15}
@@ -525,16 +484,12 @@ function BagItemCard({
           <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400">
             Quantity
           </p>
-
           <div className="mt-1.5 flex h-10 items-center justify-between rounded-xl border border-slate-200 bg-white px-1">
             <button
               type="button"
               onClick={() =>
                 onPatch(item.id, {
-                  quantity: Math.max(
-                    1,
-                    safeQuantity - 1,
-                  ),
+                  quantity: Math.max(1, safeQuantity - 1),
                 })
               }
               className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition active:bg-slate-100"
@@ -550,10 +505,7 @@ function BagItemCard({
             <button
               type="button"
               onClick={() =>
-                onPatch(item.id, {
-                  quantity:
-                    safeQuantity + 1,
-                })
+                onPatch(item.id, { quantity: safeQuantity + 1 })
               }
               className="flex h-8 w-8 items-center justify-center rounded-lg text-orange-500 transition active:bg-orange-50"
               aria-label="Increase quantity"
@@ -569,19 +521,14 @@ function BagItemCard({
           size={15}
           className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400"
         />
-
         <input
           type="text"
           value={item.notes || ''}
           onChange={(event) =>
-            onPatch(item.id, {
-              notes: event.target.value,
-            })
+            onPatch(item.id, { notes: event.target.value })
           }
           onBlur={() =>
-            onPatch(item.id, {
-              notes: item.notes || '',
-            })
+            onPatch(item.id, { notes: item.notes || '' })
           }
           placeholder="Size, colour, variant or instruction"
           className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 pr-10 text-[12px] font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10"
@@ -595,16 +542,13 @@ function BagItemCard({
             className="shrink-0 text-blue-500"
             strokeWidth={2.3}
           />
-          Price will be verified before quotation
+          Price will be verified before confirmation
         </p>
 
         {hasSitePriceEstimate && (
           <p className="shrink-0 text-[11px] font-extrabold text-orange-600">
             Estimated total{' '}
-            {formatPrice(
-              sitePriceEstimate *
-                safeQuantity,
-            )}
+            {formatPrice(sitePriceEstimate * safeQuantity)}
           </p>
         )}
       </div>
@@ -852,7 +796,7 @@ export default function RequestBag() {
     if (!user || !bag) return false;
 
     if (isGuest) {
-      setError('Please sign in or register to request shopping quotations. Guest mode is only for Parcel booking.');
+      setError('Please sign in or register to submit shopping requests. Guest mode is only for Parcel booking.');
       return false;
     }
 
@@ -914,7 +858,7 @@ export default function RequestBag() {
         customerName: customer.name.trim(),
         customerPhone: customer.phone.trim(),
         deliveryAddress: isSelfPickup ? `Pickup — ${selectedPickupHub.name}` : customer.deliveryAddress.trim(),
-        customerNotes: customer.notes.trim() || 'Request Bag quotation request submitted by customer.',
+        customerNotes: customer.notes.trim() || 'Shopping request submitted by customer.',
         fulfillmentMode,
         pickupHubId: isSelfPickup ? selectedPickupHub.id : null,
         pickupHubName: isSelfPickup ? selectedPickupHub.name : null,
@@ -926,7 +870,7 @@ export default function RequestBag() {
       navigate(`/order/${result.orderId}`, { replace: true });
     } catch (err) {
       console.error('Failed to submit Request Bag:', err);
-      setError(err instanceof Error ? err.message : 'Unable to submit quotation request.');
+      setError(err instanceof Error ? err.message : 'Unable to submit shopping request.');
     } finally {
       setSubmitting(false);
     }
@@ -943,7 +887,7 @@ export default function RequestBag() {
             Sign in to use Request Bag
           </h1>
           <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
-            Shopping quotations require an account so we can save your request,
+            Shopping requests require an account so we can save your products,
             send updates, and track your order.
           </p>
 
@@ -988,7 +932,7 @@ export default function RequestBag() {
               Request Bag
             </h1>
             <p className="mt-0.5 text-[12px] leading-5 text-slate-500">
-              Review products and request one quotation.
+              Review products before submitting your request.
             </p>
           </div>
 
@@ -1026,8 +970,8 @@ export default function RequestBag() {
               Your Request Bag is empty
             </h2>
             <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
-              Add a product link or screenshot first. You can add multiple
-              items and request one quotation.
+              Add a product link or screenshot first. You can include multiple
+              items in one shopping request.
             </p>
             <button
               type="button"
@@ -1070,10 +1014,10 @@ export default function RequestBag() {
                 </span>
                 <div>
                   <p className="text-xs font-extrabold text-slate-800">
-                    Multiple products, one quotation
+                    Multiple products, one request
                   </p>
                   <p className="mt-0.5 text-[10px] leading-[17px] text-slate-500">
-                    Contact and delivery details are confirmed in the next step. No payment is required now.
+                    Contact and delivery details are confirmed next. We’ll check availability and final price before payment.
                   </p>
                 </div>
               </section>
@@ -1104,16 +1048,16 @@ export default function RequestBag() {
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 pb-4 pt-3">
               <div className="min-w-0">
                 <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
-                  Final review
+                  Review request
                 </p>
                 <h2
                   id="confirm-quotation-title"
                   className="mt-1 text-xl font-extrabold tracking-tight text-slate-950"
                 >
-                  Request quotation
+                  Submit shopping request
                 </h2>
                 <p className="mt-1 text-sm leading-5 text-slate-500">
-                  Confirm your contact and delivery preference.
+                  Confirm your details before we check availability and final price.
                 </p>
               </div>
 
@@ -1161,10 +1105,10 @@ export default function RequestBag() {
               <div className="mt-4 space-y-3">
                 <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                   <p className="text-sm font-extrabold text-slate-950">
-                    Notes for quotation
+                    Request notes
                   </p>
                   <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Add size, color, variant, delivery, or pickup instructions.
+                    Add size, colour, variant, delivery, or pickup instructions.
                   </p>
                   <textarea
                     value={customer.notes}
@@ -1277,7 +1221,7 @@ export default function RequestBag() {
                         Delivery preference
                       </p>
                       <p className="mt-1 text-xs leading-5 text-slate-500">
-                        Used to estimate delivery or pickup fee.
+                        Used when confirming availability and final price.
                       </p>
                     </div>
                   </div>
@@ -1482,8 +1426,7 @@ export default function RequestBag() {
                       No payment now
                     </p>
                     <p className="mt-1 text-xs font-medium leading-5 text-slate-600">
-                      You’ll receive a quotation first and pay only after
-                      approval.
+                      We’ll check availability and final price first. You pay only after confirmation.
                     </p>
                   </div>
                 </div>
@@ -1495,7 +1438,7 @@ export default function RequestBag() {
                 type="button"
                 onClick={submitBag}
                 disabled={submitting}
-                className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-extrabold text-white shadow-md shadow-orange-500/15 transition active:scale-[0.98] active:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-[15px] font-bold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98] active:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting ? (
                   <>
@@ -1504,11 +1447,11 @@ export default function RequestBag() {
                       strokeWidth={2.5}
                       className="animate-spin"
                     />
-                    Sending Request...
+                    Submitting Request...
                   </>
                 ) : (
                   <>
-                    Request Quotation
+                    Submit Request
                     <Package size={18} />
                   </>
                 )}
@@ -1525,7 +1468,7 @@ export default function RequestBag() {
               type="button"
               onClick={openSubmitConfirmation}
               disabled={submitting}
-              className="flex h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-[15px] font-bold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98] active:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-extrabold text-white shadow-md shadow-orange-500/15 transition active:scale-[0.98] active:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? (
                 <>
@@ -1534,13 +1477,13 @@ export default function RequestBag() {
                 </>
               ) : (
                 <>
-                  Review & Request Quotation
+                  Continue
                   <Package size={18} />
                 </>
               )}
             </button>
             <p className="mt-1.5 text-center text-[10px] text-slate-500">
-              No payment now. Approve the quotation before paying.
+              No payment now. We’ll check availability and final price first.
             </p>
           </div>
         </div>
