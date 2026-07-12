@@ -14,15 +14,20 @@
       .trim();
   }
 
+  function textFromNode(node) {
+    if (!node) return "";
+
+    return cleanText(
+      node.getAttribute?.("content") ||
+      node.getAttribute?.("value") ||
+      node.textContent
+    );
+  }
+
   function firstText(selectors) {
     for (var i = 0; i < selectors.length; i += 1) {
       var node = document.querySelector(selectors[i]);
-      if (!node) continue;
-      var text = cleanText(
-        node.getAttribute("content") ||
-        node.textContent ||
-        node.getAttribute("value")
-      );
+      var text = textFromNode(node);
       if (text) return text;
     }
     return "";
@@ -30,8 +35,10 @@
 
   function visible(node) {
     if (!node || !(node instanceof Element)) return false;
+
     var style = getComputedStyle(node);
     var rect = node.getBoundingClientRect();
+
     return (
       style.display !== "none" &&
       style.visibility !== "hidden" &&
@@ -45,6 +52,7 @@
     var raw = cleanText(value);
     if (!raw) return "";
     if (raw.indexOf("//") === 0) return "https:" + raw;
+
     try {
       return new URL(raw, location.href).href;
     } catch (_) {
@@ -84,48 +92,43 @@
   function firstImage(selectors) {
     for (var i = 0; i < selectors.length; i += 1) {
       var nodes = document.querySelectorAll(selectors[i]);
+
       for (var j = 0; j < nodes.length; j += 1) {
         var image = imageFromNode(nodes[j]);
+
         if (image && !/sprite|logo|icon|avatar/i.test(image)) {
           return image;
         }
       }
     }
+
     return "";
   }
 
-  function parsePrice(value) {
+  function parsePrices(value) {
     var raw = cleanText(value)
       .replace(/₹|INR|Rs\.?|रु\.?/gi, "")
-      .replace(/,/g, " ");
+      .replace(/,/g, "");
 
-    var matches = raw.match(/\d+(?:\s\d{3})*(?:\.\d{1,2})?/g);
-    if (!matches || !matches.length) return 0;
+    var matches = raw.match(/\d+(?:\.\d{1,2})?/g);
+    if (!matches || !matches.length) return [];
 
-    var values = matches
+    return matches
       .map(function (part) {
-        return Number(part.replace(/\s/g, ""));
+        return Number(part);
       })
       .filter(function (number) {
-        return Number.isFinite(number) && number > 0 && number < 100000000;
+        return (
+          Number.isFinite(number) &&
+          number > 0 &&
+          number < 100000000
+        );
       });
-
-    return values.length ? values[0] : 0;
   }
 
-  function firstPrice(selectors) {
-    for (var i = 0; i < selectors.length; i += 1) {
-      var nodes = document.querySelectorAll(selectors[i]);
-      for (var j = 0; j < nodes.length; j += 1) {
-        if (!visible(nodes[j])) continue;
-        var value =
-          nodes[j].getAttribute("content") ||
-          nodes[j].textContent;
-        var price = parsePrice(value);
-        if (price > 0) return price;
-      }
-    }
-    return 0;
+  function parsePrice(value) {
+    var values = parsePrices(value);
+    return values.length ? values[0] : 0;
   }
 
   function findProductJson(value, depth, seen) {
@@ -143,8 +146,10 @@
           depth + 1,
           seen
         );
+
         if (nestedArray) return nestedArray;
       }
+
       return null;
     }
 
@@ -166,8 +171,10 @@
     }
 
     var keys = Object.keys(value);
+
     for (var k = 0; k < keys.length; k += 1) {
       var key = keys[k];
+
       if (
         /review|breadcrumb|seller|organization|aggregateRating/i.test(key)
       ) {
@@ -179,6 +186,7 @@
         depth + 1,
         seen
       );
+
       if (nested) return nested;
     }
 
@@ -208,6 +216,7 @@
 
   function jsonImage(product) {
     if (!product) return "";
+
     var value =
       product.image ||
       product.images ||
@@ -229,78 +238,44 @@
   function jsonPrice(product) {
     if (!product) return 0;
 
-    var offers = product.offers || product.offer || {};
-    if (Array.isArray(offers)) offers = offers[0] || {};
+    var offers = product.offers || product.offer || [];
+    var list = Array.isArray(offers)
+      ? offers
+      : [offers];
 
-    return parsePrice(
-      offers.price ||
-      offers.lowPrice ||
-      offers.salePrice ||
-      product.price ||
-      product.salePrice
-    );
-  }
+    var preferred = [];
+    var fallback = [];
 
-  function genericVisiblePrice() {
-    var candidates = [];
-    var nodes = document.querySelectorAll(
-      "body *"
-    );
-    var limit = Math.min(nodes.length, 3500);
+    for (var i = 0; i < list.length; i += 1) {
+      var offer = list[i] || {};
 
-    for (var i = 0; i < limit; i += 1) {
-      var node = nodes[i];
-      if (!visible(node)) continue;
+      preferred.push(
+        offer.price,
+        offer.salePrice
+      );
 
-      var text = cleanText(node.textContent);
-      if (
-        !text ||
-        text.length > 55 ||
-        !/(₹|INR|Rs\.?)/i.test(text)
-      ) {
-        continue;
-      }
-
-      var classText = String(
-        node.className || ""
-      ).toLowerCase();
-
-      if (
-        /mrp|strike|original|old-price|discount-label/.test(classText) ||
-        node.closest("del, s, strike")
-      ) {
-        continue;
-      }
-
-      var price = parsePrice(text);
-      if (!price) continue;
-
-      var style = getComputedStyle(node);
-      var fontSize =
-        Number.parseFloat(style.fontSize || "0");
-      var rect = node.getBoundingClientRect();
-
-      var score =
-        fontSize * 3 +
-        Math.max(0, 20 - Math.abs(rect.top) / 120);
-
-      if (/price|selling|payable|final/.test(classText)) {
-        score += 30;
-      }
-
-      candidates.push({
-        price: price,
-        score: score
-      });
+      fallback.push(
+        offer.lowPrice,
+        offer.highPrice
+      );
     }
 
-    candidates.sort(function (a, b) {
-      return b.score - a.score;
-    });
+    preferred.push(
+      product.price,
+      product.salePrice
+    );
 
-    return candidates.length
-      ? candidates[0].price
-      : 0;
+    for (var p = 0; p < preferred.length; p += 1) {
+      var preferredPrice = parsePrice(preferred[p]);
+      if (preferredPrice > 0) return preferredPrice;
+    }
+
+    for (var f = 0; f < fallback.length; f += 1) {
+      var fallbackPrice = parsePrice(fallback[f]);
+      if (fallbackPrice > 0) return fallbackPrice;
+    }
+
+    return 0;
   }
 
   function genericVisibleImage() {
@@ -354,9 +329,16 @@
   }
 
   var store = "other";
-  if (host.indexOf("amazon.") >= 0 || host.indexOf("amzn.") >= 0) {
+
+  if (
+    host.indexOf("amazon.") >= 0 ||
+    host.indexOf("amzn.") >= 0
+  ) {
     store = "amazon";
-  } else if (host.indexOf("flipkart.") >= 0 || host.indexOf("fkrt.") >= 0) {
+  } else if (
+    host.indexOf("flipkart.") >= 0 ||
+    host.indexOf("fkrt.") >= 0
+  ) {
     store = "flipkart";
   } else if (host.indexOf("myntra.") >= 0) {
     store = "myntra";
@@ -366,6 +348,11 @@
 
   var rules = {
     amazon: {
+      root: [
+        "#dp-container",
+        "#ppd",
+        "main"
+      ],
       title: [
         "#productTitle",
         "#title span",
@@ -374,8 +361,9 @@
       ],
       price: [
         "#corePrice_feature_div .priceToPay .a-offscreen",
-        "#corePrice_feature_div .a-price .a-offscreen",
-        "#apex_desktop .a-price .a-offscreen",
+        "#corePrice_feature_div .a-price:not(.a-text-price) .a-offscreen",
+        "#apex_desktop .priceToPay .a-offscreen",
+        "#apex_desktop .a-price:not(.a-text-price) .a-offscreen",
         "#priceblock_dealprice",
         "#priceblock_ourprice",
         "#price_inside_buybox"
@@ -392,18 +380,26 @@
         "#inline-twister-expanded-dimension-text-color_name"
       ]
     },
+
     flipkart: {
+      root: [
+        "#container",
+        "main"
+      ],
       title: [
+        "h1 span.VU-ZEz",
+        "h1 span.B_NuCI",
         "span.VU-ZEz",
         "span.B_NuCI",
-        "h1 span",
         "h1"
       ],
       price: [
         "div.Nx9bqj.CxhGGd",
-        "div.Nx9bqj",
-        "div._30jeq3",
-        "[class*='Nx9bqj']"
+        "div.Nx9bqj:not([class*='yRaY8j'])",
+        "div._30jeq3:not(._3I9_wc)",
+        "[itemprop='price']",
+        "[class*='sellingPrice']",
+        "[class*='SellingPrice']"
       ],
       image: [
         "img.DByuf4",
@@ -412,22 +408,27 @@
         "picture img"
       ],
       variant: [
-        "[class*='selected']",
-        "[aria-selected='true']"
+        "[aria-selected='true']",
+        "[class*='selected']"
       ]
     },
+
     myntra: {
+      root: [
+        ".pdp-details",
+        ".pdp-description-container",
+        "main"
+      ],
       title: [
-        ".pdp-title",
         ".pdp-name",
-        ".pdp-title + .pdp-name",
+        ".pdp-title",
         "h1"
       ],
       price: [
         ".pdp-price strong",
-        ".pdp-price",
-        ".pdp-discount-container strong",
-        "[class*='pdp-price']"
+        ".pdp-price .pdp-mrp + strong",
+        "[class*='pdp-price'] strong",
+        "[itemprop='price']"
       ],
       image: [
         ".image-grid-image",
@@ -441,17 +442,27 @@
         "[class*='selectedSize']"
       ]
     },
+
     meesho: {
+      root: [
+        "main",
+        "[class*='ProductDetails']",
+        "[class*='product-details']"
+      ],
       title: [
-        "h1",
         "[class*='ProductTitle']",
-        "[class*='product-title']"
+        "[class*='product-title']",
+        "[class*='ProductDetails'] h1",
+        "main h1",
+        "h1"
       ],
       price: [
         "[class*='ProductPrice']",
         "[class*='product-price']",
-        "[class*='Price'] h4",
-        "h4"
+        "[class*='SellingPrice']",
+        "[class*='selling-price']",
+        "[itemprop='price']",
+        "main h4"
       ],
       image: [
         "[class*='ProductImage'] img",
@@ -467,19 +478,295 @@
   };
 
   var rule = rules[store] || {
+    root: ["main"],
     title: ["h1"],
     price: [],
     image: ["main img", "picture img"],
     variant: []
   };
 
-  var structured = jsonProduct();
+  function firstNode(selectors) {
+    for (var i = 0; i < selectors.length; i += 1) {
+      var node = document.querySelector(selectors[i]);
+      if (node) return node;
+    }
 
+    return null;
+  }
+
+  function usefulTitle(value) {
+    var clean = cleanText(value);
+
+    if (clean.length < 5) return false;
+
+    return !/^(amazon(?:\.in)?|flipkart|myntra|meesho|online shopping|shopping)$/i.test(
+      clean
+    );
+  }
+
+  function selectorTitle() {
+    if (store === "myntra") {
+      var brand = firstText([".pdp-title"]);
+      var name = firstText([".pdp-name"]);
+
+      if (
+        usefulTitle(brand) &&
+        usefulTitle(name) &&
+        brand.toLowerCase() !== name.toLowerCase()
+      ) {
+        return cleanText(brand + " " + name);
+      }
+
+      if (usefulTitle(name)) return name;
+      if (usefulTitle(brand)) return brand;
+    }
+
+    var title = firstText(rule.title);
+    return usefulTitle(title) ? title : "";
+  }
+
+  function priceContext(node) {
+    if (!node) return "";
+
+    var parent = node.parentElement;
+    var grandParent = parent?.parentElement;
+
+    return cleanText(
+      [
+        node.id,
+        node.className,
+        node.getAttribute?.("aria-label"),
+        node.getAttribute?.("data-testid"),
+        node.textContent,
+        parent?.id,
+        parent?.className,
+        parent?.textContent,
+        grandParent?.id,
+        grandParent?.className
+      ].join(" ")
+    ).toLowerCase();
+  }
+
+  function structuralPriceContext(node) {
+    if (!node) return "";
+
+    var parent = node.parentElement;
+    var grandParent = parent?.parentElement;
+
+    return cleanText(
+      [
+        node.id,
+        node.className,
+        node.getAttribute?.("aria-label"),
+        node.getAttribute?.("data-testid"),
+        parent?.id,
+        parent?.className,
+        grandParent?.id,
+        grandParent?.className
+      ].join(" ")
+    ).toLowerCase();
+  }
+
+  function rejectedPriceNode(node) {
+    if (!node || !visible(node)) return true;
+
+    if (node.closest("del, s, strike")) {
+      return true;
+    }
+
+    var structural = structuralPriceContext(node);
+    var ownText = cleanText(node.textContent).toLowerCase();
+    var nearbyText = cleanText(
+      [
+        ownText,
+        node.parentElement?.textContent
+      ].join(" ")
+    ).toLowerCase();
+
+    if (
+      /mrp|maximum retail|original price|old price|list price|strike|striked|was price/.test(
+        structural
+      ) ||
+      /^(mrp|maximum retail|original price|old price|list price|was price)\b/.test(
+        ownText
+      )
+    ) {
+      return true;
+    }
+
+    if (
+      /coupon|bank offer|cashback|emi|effective price|with offer|using coupon|delivery charge|shipping charge|exchange offer/.test(
+        structural
+      ) ||
+      /coupon|bank offer|cashback|emi|effective price|with offer|using coupon|delivery charge|shipping charge|exchange offer/.test(
+        nearbyText
+      )
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  function candidateScore(
+    node,
+    selectorPriority,
+    valueIndex,
+    productRoot
+  ) {
+    var style = getComputedStyle(node);
+    var rect = node.getBoundingClientRect();
+    var context = priceContext(node);
+
+    var score =
+      selectorPriority +
+      Number.parseFloat(style.fontSize || "0") * 3 -
+      valueIndex * 35;
+
+    if (
+      productRoot &&
+      (
+        productRoot === node ||
+        productRoot.contains(node)
+      )
+    ) {
+      score += 70;
+    }
+
+    if (
+      /selling|saleprice|sale-price|current|final|payable|pricepay|pricetopay|price-to-pay/.test(
+        context
+      )
+    ) {
+      score += 45;
+    }
+
+    if (/price/.test(context)) {
+      score += 20;
+    }
+
+    if (
+      rect.top >= -100 &&
+      rect.top <= window.innerHeight * 1.6
+    ) {
+      score += 15;
+    }
+
+    return score;
+  }
+
+  function collectPriceCandidates(
+    selectors,
+    productRoot,
+    basePriority
+  ) {
+    var candidates = [];
+
+    for (var i = 0; i < selectors.length; i += 1) {
+      var nodes = document.querySelectorAll(selectors[i]);
+
+      for (var j = 0; j < nodes.length; j += 1) {
+        var node = nodes[j];
+        if (rejectedPriceNode(node)) continue;
+
+        var raw =
+          node.getAttribute("content") ||
+          node.getAttribute("value") ||
+          node.textContent;
+
+        var values = parsePrices(raw);
+
+        for (var v = 0; v < values.length; v += 1) {
+          candidates.push({
+            price: values[v],
+            score: candidateScore(
+              node,
+              basePriority - i * 25,
+              v,
+              productRoot
+            )
+          });
+        }
+      }
+    }
+
+    return candidates;
+  }
+
+  function genericVisiblePrice(productRoot) {
+    var scope = productRoot || document.body;
+    var nodes = scope.querySelectorAll("*");
+    var limit = Math.min(nodes.length, 2600);
+    var candidates = [];
+
+    for (var i = 0; i < limit; i += 1) {
+      var node = nodes[i];
+
+      if (
+        rejectedPriceNode(node) ||
+        node.children.length > 4
+      ) {
+        continue;
+      }
+
+      var text = cleanText(node.textContent);
+
+      if (
+        !text ||
+        text.length > 80 ||
+        !/(₹|INR|Rs\.?)/i.test(text)
+      ) {
+        continue;
+      }
+
+      var values = parsePrices(text);
+
+      for (var v = 0; v < values.length; v += 1) {
+        candidates.push({
+          price: values[v],
+          score: candidateScore(
+            node,
+            80,
+            v,
+            productRoot
+          )
+        });
+      }
+    }
+
+    candidates.sort(function (a, b) {
+      return b.score - a.score;
+    });
+
+    return candidates.length
+      ? candidates[0].price
+      : 0;
+  }
+
+  function bestSelectorPrice(productRoot) {
+    var candidates = collectPriceCandidates(
+      rule.price,
+      productRoot,
+      500
+    );
+
+    candidates.sort(function (a, b) {
+      return b.score - a.score;
+    });
+
+    return candidates.length
+      ? candidates[0].price
+      : 0;
+  }
+
+  var structured = jsonProduct();
+  var productRoot = firstNode(rule.root);
+
+  var selectedTitle = selectorTitle();
   var structuredTitle = cleanText(
     structured?.name ||
     structured?.title
   );
-  var selectorTitle = firstText(rule.title);
   var openGraphTitle = firstText([
     'meta[property="og:title"]',
     'meta[name="twitter:title"]'
@@ -490,17 +777,22 @@
   ]);
 
   var title =
-    structuredTitle ||
-    selectorTitle ||
-    openGraphTitle ||
-    visibleHeading ||
+    selectedTitle ||
+    (usefulTitle(structuredTitle) ? structuredTitle : "") ||
+    (usefulTitle(openGraphTitle) ? openGraphTitle : "") ||
+    (usefulTitle(visibleHeading) ? visibleHeading : "") ||
     cleanText(document.title);
 
   title = title
-    .replace(/\s*[|:-]\s*(Amazon\.in|Flipkart|Myntra|Meesho).*$/i, "")
+    .replace(
+      /\s*[|:-]\s*(Amazon\.in|Flipkart|Myntra|Meesho).*$/i,
+      ""
+    )
+    .replace(/\s+/g, " ")
     .trim()
     .slice(0, 280);
 
+  var selectorPrice = bestSelectorPrice(productRoot);
   var structuredPrice = jsonPrice(structured);
   var metaPrice = parsePrice(
     firstText([
@@ -509,8 +801,7 @@
       '[itemprop="price"]'
     ])
   );
-  var selectorPrice = firstPrice(rule.price);
-  var visiblePrice = genericVisiblePrice();
+  var visiblePrice = genericVisiblePrice(productRoot);
 
   var price =
     selectorPrice ||
@@ -519,6 +810,8 @@
     visiblePrice ||
     0;
 
+  // Keep the existing image extraction order because it is already
+  // performing reliably across the supported stores.
   var image =
     jsonImage(structured) ||
     firstImage(rule.image) ||
@@ -530,21 +823,44 @@
 
   image = absoluteUrl(image);
 
-  var variant = firstText(rule.variant).slice(0, 180);
+  var variant =
+    firstText(rule.variant)
+      .slice(0, 180);
 
   var method = "visible_page";
-  if (structuredTitle || structuredPrice || jsonImage(structured)) {
-    method = "json_ld";
-  } else if (selectorTitle || selectorPrice || firstImage(rule.image)) {
+
+  if (selectedTitle || selectorPrice) {
     method = "store_selector";
-  } else if (openGraphTitle || metaPrice) {
+  } else if (
+    structuredTitle ||
+    structuredPrice ||
+    jsonImage(structured)
+  ) {
+    method = "json_ld";
+  } else if (
+    openGraphTitle ||
+    metaPrice
+  ) {
     method = "open_graph";
   }
 
   var confidence = 0;
-  if (title && title.length >= 5) confidence += 35;
-  if (price > 0) confidence += 25;
-  if (image && image.indexOf("https://") === 0) confidence += 20;
+
+  if (title && title.length >= 5) {
+    confidence += 35;
+  }
+
+  if (price > 0) {
+    confidence += selectorPrice ? 30 : 25;
+  }
+
+  if (
+    image &&
+    image.indexOf("https://") === 0
+  ) {
+    confidence += 20;
+  }
+
   if (
     /\/dp\/|\/gp\/product\/|\/p\/|pid=|\/s\/p\/|\/\d+(?:\/|$|\?)/i.test(
       sourceUrl
