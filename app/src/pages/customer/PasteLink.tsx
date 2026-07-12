@@ -850,7 +850,7 @@ export default function PasteLink() {
                     <input
                       ref={linkInputRef}
                       id="product-link"
-                      type="url"
+                      type="text"
                       value={url}
                       inputMode="url"
                       autoCapitalize="none"
@@ -861,10 +861,23 @@ export default function PasteLink() {
                         setSuccessMessage('');
                         linkNameEditedRef.current = false;
                       }}
-                      onPaste={() => {
+                      onPaste={(event) => {
+                        const pastedText =
+                          event.clipboardData.getData('text');
+                        const pastedUrl =
+                          normalizeProductUrl(pastedText);
+
                         setMode('link');
                         setError('');
                         setSuccessMessage('');
+                        linkNameEditedRef.current = false;
+
+                        if (pastedUrl) {
+                          event.preventDefault();
+                          setUrl(pastedUrl);
+                          setPreview(emptyPreview);
+                          lastNotifiedUrlRef.current = '';
+                        }
                       }}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') {
