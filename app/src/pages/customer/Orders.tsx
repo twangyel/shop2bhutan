@@ -29,7 +29,7 @@ type StageTone = {
 const tabs: { key: FilterTab; label: string; shortLabel: string; icon: ElementType }[] = [
   { key: 'all', label: 'All orders', shortLabel: 'All', icon: ListChecks },
   { key: 'pending', label: 'Pending', shortLabel: 'Pending', icon: Clock3 },
-  { key: 'quoted', label: 'Quoted', shortLabel: 'Quoted', icon: FileText },
+  { key: 'quoted', label: 'Final price', shortLabel: 'Final Price', icon: FileText },
   { key: 'in_transit', label: 'In transit', shortLabel: 'Transit', icon: Truck },
   { key: 'delivered', label: 'Delivered', shortLabel: 'Delivered', icon: CheckCircle2 },
 ];
@@ -264,11 +264,11 @@ function stageTone(order: Order): StageTone {
 
   if (status === 'quoted') {
     return {
-      label: 'Quotation ready',
-      pill: 'bg-violet-50 text-violet-700 ring-violet-100',
-      bar: 'bg-violet-500',
-      iconBg: 'bg-violet-50',
-      iconText: 'text-violet-600',
+      label: 'Final price ready',
+      pill: 'bg-orange-50 text-orange-700 ring-orange-100',
+      bar: 'bg-orange-500',
+      iconBg: 'bg-orange-50',
+      iconText: 'text-orange-600',
     };
   }
 
@@ -310,7 +310,7 @@ function stageTone(order: Order): StageTone {
   }
 
   return {
-    label: status === 'quotation_pending' ? 'Preparing quotation' : 'Request received',
+    label: status === 'quotation_pending' ? 'Checking availability' : 'Request submitted',
     pill: 'bg-amber-50 text-amber-700 ring-amber-100',
     bar: 'bg-amber-500',
     iconBg: 'bg-amber-50',
@@ -326,7 +326,7 @@ function progressPercent(order: Order) {
 }
 
 function actionText(order: Order) {
-  if (order.status === 'quoted') return 'Review quotation';
+  if (order.status === 'quoted') return 'Review final price';
   if (order.status === 'payment_pending') {
     if (order.payment?.status === 'pending') return 'View payment status';
     if (order.payment?.status === 'rejected') return 'Upload corrected proof';
@@ -339,13 +339,13 @@ function actionText(order: Order) {
 }
 
 function statusDescription(order: Order) {
-  if (order.status === 'pending_confirmation') return 'Your quotation request has been received.';
-  if (order.status === 'quotation_pending') return 'Shop2Bhutan is checking your products and delivery area.';
-  if (order.status === 'quoted') return 'Your final quotation is ready for review.';
+  if (order.status === 'pending_confirmation') return 'Your shopping request has been submitted.';
+  if (order.status === 'quotation_pending') return 'Shop2Bhutan is checking availability, selected options, prices, and delivery charges.';
+  if (order.status === 'quoted') return 'Availability is confirmed and your final price is ready.';
   if (order.status === 'payment_pending') {
     if (order.payment?.status === 'pending') return 'Your payment proof is being verified.';
     if (order.payment?.status === 'rejected') return 'Please upload a corrected payment screenshot.';
-    return 'Approve the quotation and submit your payment proof.';
+    return 'Confirm the final price and submit your payment proof.';
   }
   if (order.status === 'payment_verified') return 'Payment is verified. Seller ordering will begin shortly.';
   if (order.status === 'order_placed') return 'Your products have been ordered from the seller.';
@@ -358,7 +358,7 @@ function statusDescription(order: Order) {
 }
 
 function amountLabel(order: Order) {
-  if (order.quotation?.totalAmount) return 'Quotation total';
+  if (order.quotation?.totalAmount) return 'Final payable';
   if (estimatedTotal(order) > 0) return 'Site estimate';
   return 'Final amount';
 }
@@ -432,7 +432,7 @@ function CustomerOrderCard({ order }: { order: Order }) {
               <div className="min-w-0">
                 <p className="text-[9.5px] font-bold uppercase tracking-[0.1em] text-slate-400">{amountLabel(order)}</p>
                 <p className={`mt-0.5 tracking-tight ${total > 0 ? 'text-[18px] font-black text-slate-950' : 'text-[13px] font-bold text-slate-400'}`}>
-                  {total > 0 ? money(total) : 'To be quoted'}
+                  {total > 0 ? money(total) : 'Final price pending'}
                 </p>
               </div>
               <span className="text-[10px] font-bold text-slate-400">{progress}%</span>
@@ -502,7 +502,12 @@ function OrdersSkeleton() {
 }
 
 function EmptyOrders({ activeTab, onAdd }: { activeTab: FilterTab; onAdd: () => void }) {
-  const title = activeTab === 'all' ? 'No orders yet' : `No ${tabs.find((tab) => tab.key === activeTab)?.label.toLowerCase() ?? ''}`;
+  const title =
+    activeTab === 'all'
+      ? 'No orders yet'
+      : activeTab === 'quoted'
+        ? 'No final prices ready'
+        : `No ${tabs.find((tab) => tab.key === activeTab)?.label.toLowerCase() ?? ''}`;
 
   return (
     <section className="rounded-[28px] border border-slate-100 bg-white px-6 py-10 text-center shadow-[0_8px_28px_rgba(15,23,42,0.04)]">
@@ -511,7 +516,7 @@ function EmptyOrders({ activeTab, onAdd }: { activeTab: FilterTab; onAdd: () => 
       </div>
       <h2 className="mt-5 text-xl font-black tracking-tight text-slate-950">{title}</h2>
       <p className="mx-auto mt-2 max-w-xs text-[14px] leading-6 text-slate-500">
-        Product requests, quotations, payment updates, and delivery tracking will appear here.
+        Shopping requests, final prices, payment updates, and delivery tracking will appear here.
       </p>
       <button
         type="button"
@@ -613,7 +618,7 @@ export default function Orders() {
           </div>
           <h1 className="mt-5 text-xl font-black text-slate-950">Sign in to view orders</h1>
           <p className="mt-2 text-[14px] leading-6 text-slate-500">
-            Your quotations, payments, and delivery tracking are securely linked to your account.
+            Your shopping requests, final prices, payments, and delivery tracking are securely linked to your account.
           </p>
           <button
             type="button"
@@ -635,7 +640,7 @@ export default function Orders() {
             <div className="min-w-0">
               <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-orange-500">Shopping activity</p>
               <h1 className="mt-1 text-[22px] font-black tracking-tight text-slate-950">My Orders</h1>
-              <p className="mt-0.5 text-[12px] leading-5 text-slate-500">Track quotations, payments, and delivery.</p>
+              <p className="mt-0.5 text-[12px] leading-5 text-slate-500">Track requests, final prices, payments, and delivery.</p>
             </div>
 
             <button
