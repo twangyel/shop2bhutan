@@ -1040,7 +1040,164 @@
     return results;
   }
 
+  function bestAmazonImageCandidate(product) {
+    var candidates = [];
+
+    function add(value, source, quality) {
+      var url = normalizeImageUrl(value);
+      if (!url || !/^https:\/\//i.test(url)) return;
+
+      var imageHost = "";
+
+      try {
+        imageHost = new URL(url).hostname.toLowerCase();
+      } catch (_) {
+        return;
+      }
+
+      if (
+        !(
+          imageHost === "m.media-amazon.com" ||
+          imageHost.endsWith(".media-amazon.com") ||
+          imageHost.endsWith(".ssl-images-amazon.com") ||
+          imageHost === "images.amazon.com"
+        )
+      ) {
+        return;
+      }
+
+      if (/logo|icon|sprite|avatar|badge|banner/i.test(url)) {
+        return;
+      }
+
+      candidates.push({
+        value: url,
+        source: source,
+        quality: Number(quality || 0)
+      });
+    }
+
+    var productNodes = Array.from(
+      document.querySelectorAll(
+        [
+          "#landingImage",
+          "#imgTagWrapperId img",
+          "#main-image",
+          "#main-image-container img",
+          "#image-block img",
+          "#imageBlock_feature_div img",
+          "#ivLargeImage img",
+          "img[data-a-dynamic-image]"
+        ].join(",")
+      )
+    ).slice(0, 30);
+
+    for (var i = 0; i < productNodes.length; i += 1) {
+      var node = productNodes[i];
+      var rect = node.getBoundingClientRect();
+      var naturalArea =
+        Math.max(node.naturalWidth || rect.width, 0) *
+        Math.max(node.naturalHeight || rect.height, 0);
+
+      add(
+        node.getAttribute?.("data-old-hires"),
+        "amazon_old_hires",
+        20000000 + naturalArea
+      );
+
+      var dynamicRaw =
+        node.getAttribute?.("data-a-dynamic-image");
+
+      if (dynamicRaw) {
+        try {
+          var dynamic = JSON.parse(dynamicRaw);
+          var keys = Object.keys(dynamic || {});
+
+          for (var d = 0; d < keys.length; d += 1) {
+            var size = dynamic[keys[d]] || [];
+            var dynamicArea =
+              Number(size[0] || 0) *
+              Number(size[1] || 0);
+
+            add(
+              keys[d],
+              "amazon_dynamic_image",
+              18000000 + dynamicArea
+            );
+          }
+        } catch (_) {}
+      }
+
+      var srcsets = []
+        .concat(
+          srcsetCandidates(
+            node.getAttribute?.("srcset")
+          )
+        )
+        .concat(
+          srcsetCandidates(
+            node.getAttribute?.("data-srcset")
+          )
+        );
+
+      for (var s = 0; s < srcsets.length; s += 1) {
+        add(
+          srcsets[s].url,
+          "amazon_srcset",
+          16000000 + srcsets[s].quality
+        );
+      }
+
+      add(
+        node.currentSrc,
+        "amazon_current_src",
+        13000000 + naturalArea
+      );
+      add(
+        node.src,
+        "amazon_src",
+        12000000 + naturalArea
+      );
+      add(
+        node.getAttribute?.("data-src"),
+        "amazon_data_src",
+        11000000 + naturalArea
+      );
+    }
+
+    // These were the most dependable fallbacks in the earlier working
+    // Amazon implementation, so retain them after the product image nodes.
+    add(
+      jsonImage(product),
+      "json_ld",
+      10000000
+    );
+
+    add(
+      firstText([
+        'meta[property="og:image"]',
+        'meta[name="twitter:image"]'
+      ]),
+      "open_graph",
+      9000000
+    );
+
+    candidates.sort(function (left, right) {
+      return right.quality - left.quality;
+    });
+
+    return candidates[0] || {
+      value: "",
+      source: "",
+      quality: 0
+    };
+  }
+
   function bestImageCandidate(product) {
+    if (store === "amazon") {
+      return bestAmazonImageCandidate(product);
+    }
+
     var candidates = [];
 
     for (var i = 0; i < rule.image.length; i += 1) {

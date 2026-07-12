@@ -69,8 +69,21 @@ export default function ShoppingAssist() {
     }
 
     autoOpenedRef.current = true;
+
+    // preferredStore is a one-time launch instruction. Clear it before
+    // opening the native Activity so an app resume/remount cannot open
+    // the same store again on top of the product review page.
+    navigate(location.pathname, {
+      replace: true,
+      state: null,
+    });
+
     void openStore(preferredStore);
-  }, [locationState?.preferredStore]);
+  }, [
+    location.pathname,
+    locationState?.preferredStore,
+    navigate,
+  ]);
 
   return (
     <div className="min-h-[100dvh] bg-white">
