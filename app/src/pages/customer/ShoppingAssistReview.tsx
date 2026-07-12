@@ -255,9 +255,12 @@ export default function ShoppingAssistReview() {
       await addItemToRequestBag({
         userId: user.id,
         item: {
+          // Always save the exact URL currently open in the native
+          // shopping browser. Flipkart and Myntra can expose stale or
+          // homepage canonical tags during client-side navigation.
           sourceUrl:
-            capture.canonicalUrl ||
-            capture.sourceUrl,
+            capture.sourceUrl ||
+            capture.canonicalUrl,
           sourcePlatform: capture.store,
           productName: title.trim(),
           productImage: capture.image,

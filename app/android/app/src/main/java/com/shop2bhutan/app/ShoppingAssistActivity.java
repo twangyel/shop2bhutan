@@ -10,6 +10,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowInsetsController;
@@ -45,6 +46,9 @@ import java.util.Map;
 import java.util.Set;
 
 public class ShoppingAssistActivity extends AppCompatActivity {
+
+    private static final String LOG_TAG =
+        "S2BShoppingAssist";
 
     public static final String EXTRA_STORE =
         "shop2bhutan_store";
@@ -424,8 +428,9 @@ public class ShoppingAssistActivity extends AppCompatActivity {
 
                     if (!samePageUrl(activePageUrl, url)) {
                         resetCaptureForPage(url);
-                        scheduleCapturePasses();
                     }
+
+                    scheduleCapturePasses();
                 }
 
                 @Override
@@ -511,10 +516,12 @@ public class ShoppingAssistActivity extends AppCompatActivity {
         handler.removeCallbacksAndMessages(null);
 
         int[] delays = {
-            250,
+            350,
             900,
-            1800,
-            3200
+            1600,
+            2600,
+            4000,
+            5800
         };
 
         for (int delay : delays) {
@@ -549,9 +556,99 @@ public class ShoppingAssistActivity extends AppCompatActivity {
         String first,
         String second
     ) {
-        return safeString(first).equals(
-            safeString(second)
+        return pageIdentity(first).equals(
+            pageIdentity(second)
         );
+    }
+
+    private static String pageIdentity(
+        String value
+    ) {
+        String clean = safeString(value);
+
+        if (clean.isEmpty()) {
+            return "";
+        }
+
+        try {
+            Uri uri = Uri.parse(clean);
+            String host = safeString(
+                uri.getHost()
+            ).toLowerCase(Locale.ROOT);
+            String path = safeString(
+                uri.getPath()
+            ).toLowerCase(Locale.ROOT);
+
+            if (host.contains("amazon.")) {
+                java.util.regex.Matcher matcher =
+                    java.util.regex.Pattern
+                        .compile(
+                            "/(?:dp|gp/product)/([a-z0-9]{8,16})(?:/|$)",
+                            java.util.regex.Pattern.CASE_INSENSITIVE
+                        )
+                        .matcher(path);
+
+                if (matcher.find()) {
+                    return "amazon:" + matcher.group(1);
+                }
+            }
+
+            if (host.contains("flipkart.")) {
+                String pid = safeString(
+                    uri.getQueryParameter("pid")
+                ).toLowerCase(Locale.ROOT);
+
+                if (!pid.isEmpty()) {
+                    return "flipkart:" + pid;
+                }
+
+                java.util.regex.Matcher matcher =
+                    java.util.regex.Pattern
+                        .compile(
+                            "/p/(itm[a-z0-9]+)(?:/|$)",
+                            java.util.regex.Pattern.CASE_INSENSITIVE
+                        )
+                        .matcher(path);
+
+                if (matcher.find()) {
+                    return "flipkart:" + matcher.group(1);
+                }
+            }
+
+            if (host.contains("myntra.")) {
+                String[] segments = path.split("/");
+
+                for (
+                    int index = segments.length - 1;
+                    index >= 0;
+                    index -= 1
+                ) {
+                    if (
+                        segments[index].matches("\\d{5,}")
+                    ) {
+                        return "myntra:" + segments[index];
+                    }
+                }
+            }
+
+            if (host.contains("meesho.")) {
+                java.util.regex.Matcher matcher =
+                    java.util.regex.Pattern
+                        .compile(
+                            "/p/([a-z0-9_-]+)(?:/|$)",
+                            java.util.regex.Pattern.CASE_INSENSITIVE
+                        )
+                        .matcher(path);
+
+                if (matcher.find()) {
+                    return "meesho:" + matcher.group(1);
+                }
+            }
+
+            return host + path;
+        } catch (Exception ignored) {
+            return clean;
+        }
     }
 
     private void captureCurrentProduct(
@@ -601,6 +698,49 @@ public class ShoppingAssistActivity extends AppCompatActivity {
 
                 normalizeCapture(capture);
 
+                Log.d(
+                    LOG_TAG,
+                    "store=" + store +
+                    " pass=" + capture.optInt(
+                        "capturePass",
+                        0
+                    ) +
+                    " pageKey=" + safeString(
+                        capture.optString(
+                            "pageKey",
+                            ""
+                        )
+                    ) +
+                    " titleStable=" +
+                    capture.optBoolean(
+                        "titleStable",
+                        false
+                    ) +
+                    " priceStable=" +
+                    capture.optBoolean(
+                        "priceStable",
+                        false
+                    ) +
+                    " titleSource=" + safeString(
+                        capture.optString(
+                            "titleSource",
+                            ""
+                        )
+                    ) +
+                    " priceSource=" + safeString(
+                        capture.optString(
+                            "priceSource",
+                            ""
+                        )
+                    ) +
+                    " imageSource=" + safeString(
+                        capture.optString(
+                            "imageSource",
+                            ""
+                        )
+                    )
+                );
+
                 String capturedUrl =
                     safeString(
                         capture.optString(
@@ -643,17 +783,16 @@ public class ShoppingAssistActivity extends AppCompatActivity {
                 int score =
                     captureScore(capture);
 
-                if (score >= strongestScore) {
-                    strongestCapture = capture;
-                    strongestScore = score;
-                    renderCapture(capture, score);
-                }
+                // The JavaScript engine already stabilizes each field
+                // across multiple passes. Always keep the newest result
+                // for the current product instead of retaining an older,
+                // more complete but possibly stale snapshot.
+                strongestCapture = capture;
+                strongestScore = score;
+                renderCapture(capture, score);
 
                 if (finishAfterCapture) {
-                    JSONObject finalCapture =
-                        strongestCapture != null
-                            ? strongestCapture
-                            : capture;
+                    JSONObject finalCapture = capture;
 
                     if (
                         captureScore(finalCapture) < 25
@@ -690,14 +829,27 @@ public class ShoppingAssistActivity extends AppCompatActivity {
                 "sourceUrl",
                 sourceUrl
             );
-            capture.put(
-                "canonicalUrl",
+            String canonicalUrl =
                 safeString(
                     capture.optString(
                         "canonicalUrl",
                         sourceUrl
                     )
+                );
+
+            if (
+                canonicalUrl.isEmpty() ||
+                !samePageUrl(
+                    sourceUrl,
+                    canonicalUrl
                 )
+            ) {
+                canonicalUrl = sourceUrl;
+            }
+
+            capture.put(
+                "canonicalUrl",
+                canonicalUrl
             );
             capture.put("store", store);
             capture.put("currency", "INR");
