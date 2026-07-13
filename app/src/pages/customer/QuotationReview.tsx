@@ -44,7 +44,7 @@ function quotationDisplay(quotation: Quotation) {
     return {
       badge: 'Price Confirmed',
       badgeClass: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
-      eyebrow: 'FINAL PRICE CONFIRMED',
+      eyebrow: 'Final price confirmed',
       title: 'Ready for payment',
       subtitle: 'Your final price is confirmed. Continue to payment when ready.',
       statusLabel: 'Confirmed',
@@ -57,7 +57,7 @@ function quotationDisplay(quotation: Quotation) {
     return {
       badge: 'Changes Requested',
       badgeClass: 'bg-red-50 text-red-700 ring-red-100',
-      eyebrow: 'PRICE REVIEW',
+      eyebrow: 'Price review',
       title: 'Changes requested',
       subtitle: 'Your requested corrections were sent to Shop2Bhutan for review.',
       statusLabel: 'Under revision',
@@ -70,7 +70,7 @@ function quotationDisplay(quotation: Quotation) {
     return {
       badge: 'Price Expired',
       badgeClass: 'bg-red-50 text-red-700 ring-red-100',
-      eyebrow: 'FINAL PRICE STATUS',
+      eyebrow: 'Final price status',
       title: 'Final price expired',
       subtitle: 'Please contact Shop2Bhutan for an updated final price.',
       statusLabel: 'Expired',
@@ -90,8 +90,8 @@ function quotationDisplay(quotation: Quotation) {
         : 'bg-orange-50 text-orange-700 ring-orange-100',
     eyebrow:
       quotation.status === 'pending'
-        ? 'AVAILABILITY & PRICE CHECK'
-        : 'FINAL PRICE READY',
+        ? 'Availability & price check'
+        : 'Final price ready',
     title:
       quotation.status === 'pending'
         ? 'Checking your request'
@@ -264,7 +264,7 @@ function QuotationItemPreviewImage({
     <img
       src={imageSrc || QUOTATION_IMAGE_FALLBACK}
       alt={productName || 'Quoted product'}
-      className="h-[5.25rem] w-[5.25rem] shrink-0 rounded-[1.45rem] bg-gray-50 object-cover ring-1 ring-gray-100"
+      className="h-16 w-16 shrink-0 rounded-2xl bg-gray-50 object-cover ring-1 ring-gray-100"
       loading="lazy"
       onError={(event) => {
         const image = event.currentTarget;
@@ -454,116 +454,111 @@ export default function QuotationReview() {
 
   return (
     <div className="min-h-screen bg-white pb-[calc(8.5rem+env(safe-area-inset-bottom))]">
-      <header className="border-b border-gray-100 bg-white px-5 py-4">
+      <header className="bg-white px-5 py-4">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-500">
+            <p className="text-[11px] font-semibold text-orange-500">
               Final price
             </p>
-            <h1 className="mt-1 text-[1.45rem] font-black tracking-tight text-gray-950">
+            <h1 className="mt-0.5 text-[1.45rem] font-extrabold tracking-tight text-gray-950">
               Review Final Price
             </h1>
             <p className="mt-1 truncate text-sm font-medium text-gray-400">#{order.orderNumber}</p>
           </div>
 
           <span
-            className={`shrink-0 rounded-full px-3.5 py-2 text-[11px] font-extrabold ring-1 ${display.badgeClass}`}
+            className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold ring-1 ${display.badgeClass}`}
           >
             {display.badge}
           </span>
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-5 py-5 scroll-pb-44">
+      <main className="mx-auto max-w-2xl px-5 py-4 scroll-pb-44">
         {error && (
           <div className="mb-5 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm leading-6 text-red-600">
             {error}
           </div>
         )}
 
-        <section className="overflow-hidden rounded-[1.85rem] border border-gray-200 bg-white text-gray-950 shadow-sm">
+        {/* Status card — lighter, no heavy border */}
+        <section className="overflow-hidden rounded-2xl bg-white shadow-sm shadow-gray-100">
           <div className="px-5 pb-4 pt-5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-500">
+                <p className="text-[11px] font-semibold text-orange-500">
                   {display.eyebrow}
                 </p>
-                <h2 className="mt-2.5 max-w-[13rem] text-[1.5rem] font-black leading-tight tracking-tight text-gray-950">
+                <h2 className="mt-2 text-[1.5rem] font-extrabold leading-tight tracking-tight text-gray-950">
                   {display.title}
                 </h2>
-                <p className="mt-2.5 max-w-[16rem] text-[13px] leading-[1.4rem] text-gray-500">
+                <p className="mt-2 max-w-[16rem] text-[13px] leading-[1.4rem] text-gray-500">
                   {display.subtitle}
                 </p>
               </div>
 
               <span
-                className={`flex h-[4.2rem] w-[4.2rem] shrink-0 items-center justify-center rounded-[1.4rem] border border-gray-100 bg-gray-50 ${display.iconClass}`}
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gray-50 ${display.iconClass}`}
               >
                 {display.icon}
               </span>
             </div>
 
             <div className="mt-5 border-t border-gray-100 pt-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-500">
+              <p className="text-[11px] font-semibold text-gray-500">
                 {isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total payable'}
               </p>
               <div className="mt-2 flex items-end justify-between gap-4">
-                <p className="text-[1.9rem] font-black tracking-tight text-gray-950">
+                <p className="text-[1.9rem] font-extrabold tracking-tight text-gray-950">
                   {money(quotation.totalAmount)}
                 </p>
-                <span className="mb-1 rounded-full bg-gray-100 px-3 py-1.5 text-[11px] font-bold text-gray-600 ring-1 ring-gray-100">
+                <span className="mb-1 rounded-full bg-gray-100 px-3 py-1.5 text-[11px] font-semibold text-gray-600">
                   {itemCount} {itemCount === 1 ? 'item' : 'items'}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 border-t border-gray-100 bg-gray-50/70">
+          <div className="grid grid-cols-2 border-t border-gray-100 bg-gray-50/50">
             <div className="px-5 py-3.5">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">Status</p>
+              <p className="text-[10px] font-semibold text-gray-400">Status</p>
               <p className="mt-1 text-sm font-bold text-gray-950">{display.statusLabel}</p>
             </div>
             <div className="border-l border-gray-100 px-5 py-3.5">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">
+              <p className="text-[10px] font-semibold text-gray-400">
                 Valid until
               </p>
-              <p className="mt-1 text-sm font-bold text-white">{validUntil || 'No expiry set'}</p>
+              <p className="mt-1 text-sm font-bold text-gray-700">{validUntil || 'No expiry set'}</p>
             </div>
           </div>
         </section>
 
+        {/* Compact trust badge */}
         {quotation.status !== 'pending' && (
-          <section className="mt-5 flex items-start gap-3 rounded-[1.35rem] border border-emerald-100 bg-emerald-50/60 px-4 py-3.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-600 ring-1 ring-emerald-100">
-              <ShieldCheck size={17} strokeWidth={2.4} />
-            </span>
-            <div>
-              <p className="text-sm font-extrabold text-emerald-950">
-                Availability and price checked
-              </p>
-              <p className="mt-1 text-xs leading-5 text-emerald-800">
-                Shop2Bhutan has reviewed the requested products, selected options, current prices, and applicable charges.
-              </p>
-            </div>
+          <section className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50/40 px-3.5 py-2.5">
+            <span className="flex h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+            <p className="text-xs font-semibold text-emerald-800">
+              Availability and price checked by Shop2Bhutan
+            </p>
           </section>
         )}
 
-        <section className="mt-7">
+        <section className="mt-6">
           <div className="mb-3 flex items-end justify-between gap-3 px-1">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-500">
+              <p className="text-[11px] font-semibold text-orange-500">
                 Confirmed charges
               </p>
-              <h2 className="mt-1 text-xl font-black tracking-tight text-gray-950">Final price breakdown</h2>
+              <h2 className="mt-0.5 text-lg font-extrabold tracking-tight text-gray-950">Final price breakdown</h2>
             </div>
-            <span className="rounded-full bg-gray-100 px-3 py-1.5 text-[11px] font-bold text-gray-600">
+            <span className="rounded-full bg-gray-100 px-3 py-1.5 text-[11px] font-semibold text-gray-600">
               Final
             </span>
           </div>
 
-          <div className="overflow-hidden rounded-[1.75rem] border border-gray-100 bg-white shadow-sm">
-            <div className="space-y-4 px-5 py-5">
-              <div>
+          <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <div className="divide-y divide-gray-50 px-5 py-1">
+              <div className="py-4">
                 <div className="flex items-center justify-between gap-4 text-sm">
                   <span className="text-gray-500">
                     {isJaigaonPickup ? 'Product value (reference)' : 'Product total'}
@@ -577,25 +572,25 @@ export default function QuotationReview() {
                 )}
               </div>
 
-              <div className="flex items-center justify-between gap-4 text-sm">
+              <div className="flex items-center justify-between gap-4 py-4 text-sm">
                 <span className="text-gray-500">Service charge</span>
                 <span className="font-extrabold text-gray-950">{money(quotation.serviceCharge)}</span>
               </div>
 
-              <div className="flex items-center justify-between gap-4 text-sm">
+              <div className="flex items-center justify-between gap-4 py-4 text-sm">
                 <span className="text-gray-500">Delivery fee</span>
                 <span className="font-extrabold text-gray-950">{money(quotation.deliveryFee)}</span>
               </div>
 
               {quotation.taxAmount > 0 && (
-                <div className="flex items-center justify-between gap-4 text-sm">
+                <div className="flex items-center justify-between gap-4 py-4 text-sm">
                   <span className="text-gray-500">Tax</span>
                   <span className="font-extrabold text-gray-950">{money(quotation.taxAmount)}</span>
                 </div>
               )}
 
               {(quotation.additionalChargeAmount ?? 0) > 0 && (
-                <div className="flex items-center justify-between gap-4 text-sm">
+                <div className="flex items-center justify-between gap-4 py-4 text-sm">
                   <span className="text-gray-500">
                     {quotation.additionalChargeLabel || 'Additional charge'}
                   </span>
@@ -606,10 +601,10 @@ export default function QuotationReview() {
               )}
             </div>
 
-            <div className="border-t border-dashed border-gray-200 bg-gray-50 px-5 py-5">
+            <div className="border-t border-gray-100 px-5 py-4">
               <div className="flex items-end justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-sm font-black text-gray-950">
+                  <p className="text-sm font-extrabold text-gray-950">
                     {isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total payable'}
                   </p>
                   <p className="mt-1 text-xs leading-5 text-gray-500">
@@ -618,7 +613,7 @@ export default function QuotationReview() {
                       : 'Confirmed final amount with no hidden charges.'}
                   </p>
                 </div>
-                <p className="shrink-0 whitespace-nowrap text-2xl font-black tracking-tight text-gray-950">
+                <p className="shrink-0 whitespace-nowrap text-2xl font-extrabold tracking-tight text-gray-950">
                   {money(quotation.totalAmount)}
                 </p>
               </div>
@@ -626,20 +621,20 @@ export default function QuotationReview() {
           </div>
         </section>
 
-        <section className="mt-7">
+        <section className="mt-6">
           <div className="mb-3 flex items-end justify-between gap-3 px-1">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-500">
+              <p className="text-[11px] font-semibold text-orange-500">
                 Products
               </p>
-              <h2 className="mt-1 text-xl font-black tracking-tight text-gray-950">Confirmed items</h2>
+              <h2 className="mt-0.5 text-lg font-extrabold tracking-tight text-gray-950">Confirmed items</h2>
             </div>
-            <span className="rounded-full bg-gray-100 px-3 py-1.5 text-[11px] font-bold text-gray-600">
+            <span className="rounded-full bg-gray-100 px-3 py-1.5 text-[11px] font-semibold text-gray-600">
               {quotation.items.length} {quotation.items.length === 1 ? 'item' : 'items'}
             </span>
           </div>
 
-          <div className="overflow-hidden rounded-[1.75rem] border border-gray-100 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
             {quotation.items.map((item, index) => {
               const source = sourceForItem(order, item, index);
               const hasSourceLink = canShowSourceLink(source.sourceUrl);
@@ -658,7 +653,7 @@ export default function QuotationReview() {
                     <div className="min-w-0 flex-1 py-0.5">
                       <div className="flex flex-wrap items-center gap-2">
                         {source.sourcePlatform && (
-                          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-gray-600">
+                          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-gray-600">
                             {source.sourcePlatform}
                           </span>
                         )}
@@ -671,12 +666,12 @@ export default function QuotationReview() {
 
                       <div className="mt-2 flex items-end justify-between gap-3">
                         <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
                             Unit price
                           </p>
                           <p className="mt-0.5 text-sm font-bold text-gray-600">{money(item.unitPrice)}</p>
                         </div>
-                        <p className="shrink-0 text-base font-black text-gray-950">{money(item.totalPrice)}</p>
+                        <p className="shrink-0 text-base font-extrabold text-gray-950">{money(item.totalPrice)}</p>
                       </div>
                     </div>
                   </div>
@@ -688,7 +683,7 @@ export default function QuotationReview() {
                           href={source.sourceUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600 ring-1 ring-blue-100"
+                          className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600"
                           onClick={(event) => event.stopPropagation()}
                         >
                           Source <ExternalLink size={12.5} />
@@ -696,7 +691,7 @@ export default function QuotationReview() {
                       )}
 
                       {item.notes && (
-                        <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-gray-50 px-3 py-1.5 text-xs text-gray-600 ring-1 ring-gray-100">
+                        <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-gray-50 px-3 py-1.5 text-xs text-gray-600">
                           <Info size={12.5} className="shrink-0" />
                           <span className="truncate">{item.notes}</span>
                         </span>
@@ -709,25 +704,25 @@ export default function QuotationReview() {
           </div>
         </section>
 
-        <section className="mt-7">
+        <section className="mt-6">
           <div className="mb-3 px-1">
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-500">
+            <p className="text-[11px] font-semibold text-orange-500">
               Payment choice
             </p>
-            <h2 className="mt-1 text-xl font-black tracking-tight text-gray-950">How you can pay</h2>
+            <h2 className="mt-0.5 text-lg font-extrabold tracking-tight text-gray-950">How you can pay</h2>
           </div>
 
           <div className={`grid gap-2.5 ${isJaigaonPickup ? 'grid-cols-1' : 'grid-cols-2'}`}>
-            <div className="rounded-[1.35rem] border border-orange-100 bg-orange-50/60 p-3 ring-1 ring-orange-50">
+            <div className="rounded-2xl border border-orange-100 bg-orange-50/40 p-3">
               <div className="flex items-center gap-2">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-orange-500 ring-1 ring-orange-100">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-orange-500">
                   <CreditCard size={15.5} />
                 </span>
-                <p className="text-[11px] font-extrabold leading-4 text-gray-600">
+                <p className="text-[11px] font-semibold leading-4 text-gray-600">
                   {isJaigaonPickup ? 'Full charges' : 'Full payment'}
                 </p>
               </div>
-              <p className="mt-2.5 text-base font-black tracking-tight text-gray-950">
+              <p className="mt-2.5 text-base font-extrabold tracking-tight text-gray-950">
                 {money(quotation.totalAmount)}
               </p>
               <p className="mt-1 text-[10px] leading-4 text-gray-500">
@@ -736,14 +731,14 @@ export default function QuotationReview() {
             </div>
 
             {!isJaigaonPickup && (
-              <div className="rounded-[1.35rem] border border-violet-100 bg-violet-50/60 p-3 ring-1 ring-violet-50">
+              <div className="rounded-2xl border border-violet-100 bg-violet-50/40 p-3">
                 <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-violet-500 ring-1 ring-violet-100">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-violet-500">
                     <CreditCard size={15.5} />
                   </span>
-                  <p className="text-[11px] font-extrabold leading-4 text-gray-600">50% advance</p>
+                  <p className="text-[11px] font-semibold leading-4 text-gray-600">50% advance</p>
                 </div>
-                <p className="mt-2.5 text-base font-black tracking-tight text-gray-950">
+                <p className="mt-2.5 text-base font-extrabold tracking-tight text-gray-950">
                   {money(advanceAmount)}
                 </p>
                 <p className="mt-1 text-[10px] leading-4 text-gray-500">
@@ -754,17 +749,17 @@ export default function QuotationReview() {
           </div>
         </section>
 
-        <section className="mt-7">
+        <section className="mt-6">
           <div className="mb-3 px-1">
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-500">
+            <p className="text-[11px] font-semibold text-orange-500">
               Included service
             </p>
-            <h2 className="mt-1 text-xl font-black tracking-tight text-gray-950">What the charges cover</h2>
+            <h2 className="mt-0.5 text-lg font-extrabold tracking-tight text-gray-950">What the charges cover</h2>
           </div>
 
-          <div className="overflow-hidden rounded-[1.75rem] border border-gray-100 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
             <div className="flex gap-3.5 p-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
                 <ShieldCheck size={18} />
               </span>
               <div>
@@ -776,7 +771,7 @@ export default function QuotationReview() {
             </div>
 
             <div className="flex gap-3.5 border-t border-gray-100 p-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                 <Truck size={18} />
               </span>
               <div>
@@ -791,26 +786,26 @@ export default function QuotationReview() {
           </div>
         </section>
 
-        <section className="mt-7">
+        <section className="mt-6">
           <div className="mb-3 px-1">
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-500">
+            <p className="text-[11px] font-semibold text-orange-500">
               Next steps
             </p>
-            <h2 className="mt-1 text-xl font-black tracking-tight text-gray-950">What happens next?</h2>
+            <h2 className="mt-0.5 text-lg font-extrabold tracking-tight text-gray-950">What happens next?</h2>
           </div>
 
-          <div className="rounded-[1.75rem] border border-gray-100 bg-white px-5 py-2 shadow-sm">
+          <div className="rounded-2xl border border-gray-100 bg-white px-5 py-2 shadow-sm">
             {nextSteps.map((step, index) => (
               <div
                 key={step}
                 className={`flex items-center gap-3.5 py-3.5 ${index > 0 ? 'border-t border-gray-100' : ''}`}
               >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-950 text-[11px] font-black text-white">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-950 text-[11px] font-extrabold text-white">
                   {index + 1}
                 </span>
                 <span className="min-w-0 flex-1 text-sm font-semibold text-gray-700">{step}</span>
                 {index === 0 && canRespond && (
-                  <span className="rounded-full bg-orange-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-orange-600">
+                  <span className="rounded-full bg-orange-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-orange-600">
                     Now
                   </span>
                 )}
@@ -823,7 +818,7 @@ export default function QuotationReview() {
           <button
             type="button"
             onClick={() => navigate(`/order/${order.id}`)}
-            className="mt-6 flex h-14 w-full items-center justify-between rounded-2xl bg-gray-50 px-4 text-left ring-1 ring-gray-100"
+            className="mt-6 flex h-14 w-full items-center justify-between rounded-2xl bg-gray-50 px-4 text-left"
           >
             <span>
               <span className="block text-sm font-extrabold text-gray-950">View order details</span>
@@ -884,7 +879,7 @@ export default function QuotationReview() {
                   <MessageSquareText size={22} />
                 </span>
                 <div>
-                  <h3 className="text-xl font-black tracking-tight text-gray-950">Request price changes</h3>
+                  <h3 className="text-xl font-extrabold tracking-tight text-gray-950">Request price changes</h3>
                   <p className="mt-1.5 text-sm leading-6 text-gray-500">
                     Tell Shop2Bhutan what should be corrected so the final price can be reviewed and updated.
                   </p>
@@ -917,7 +912,7 @@ export default function QuotationReview() {
               )}
 
               <div className="mt-4 rounded-2xl bg-violet-50 px-4 py-3 text-xs leading-5 text-violet-700 ring-1 ring-violet-100">
-                The current final price will be marked for revision, your request will return to “Checking Availability,” and the admin team will receive your remark.
+                The current final price will be marked for revision, your request will return to "Checking Availability," and the admin team will receive your remark.
               </div>
             </div>
 
