@@ -13,6 +13,7 @@ import {
   LogOut,
   MapPin,
   Pencil,
+  Share2,
   Truck,
   User,
   Wallet,
@@ -29,6 +30,9 @@ import VerificationBadge, {
 } from '@/components/shared/VerificationBadge';
 
 const PHONE_ONLY_EMAIL_SUFFIX = '@phone.shop2bhutan.com';
+const SHOP2BHUTAN_APP_URL = 'https://shop2bhutan.vercel.app';
+const SHOP2BHUTAN_SHARE_TEXT =
+  'Shop from Amazon, Flipkart, Myntra and Meesho and get your orders delivered to Bhutan with Shop2Bhutan 🇧🇹';
 
 type ProfileLike = {
   full_name?: string | null;
@@ -57,7 +61,7 @@ type MenuItem = {
   description?: string;
   path?: string;
   badge?: boolean;
-  action?: 'deactivate_account';
+  action?: 'deactivate_account' | 'share_app';
   danger?: boolean;
   realAccountOnly?: boolean;
 };
@@ -178,6 +182,12 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
     title: 'Help',
     items: [
       {
+        icon: Share2,
+        label: 'Share Shop2Bhutan',
+        description: 'Invite friends to open or install the app',
+        action: 'share_app',
+      },
+      {
         icon: HeadphonesIcon,
         label: 'Support',
         description: 'Contact Shop2Bhutan support',
@@ -197,6 +207,7 @@ export default function Account() {
   const [deactivateError, setDeactivateError] = useState('');
   const [accountDeactivated, setAccountDeactivated] = useState(false);
   const [dzongkhagOptions, setDzongkhagOptions] = useState<DzongkhagOption[]>([]);
+  const [shareFeedback, setShareFeedback] = useState('');
 
   const profile = (context?.profile ?? null) as ProfileLike | null;
   const hasGuestSession = Boolean(user && isGuest);
@@ -327,6 +338,46 @@ export default function Account() {
       );
     } finally {
       setDeactivating(false);
+    }
+  };
+
+  const handleShareApp = async () => {
+    const shareData = {
+      title: 'Shop2Bhutan',
+      text: SHOP2BHUTAN_SHARE_TEXT,
+      url: SHOP2BHUTAN_APP_URL,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+
+      const shareMessage = `${SHOP2BHUTAN_SHARE_TEXT}\n\n${SHOP2BHUTAN_APP_URL}`;
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareMessage);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = shareMessage;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+
+      setShareFeedback('Shop2Bhutan link copied');
+      window.setTimeout(() => setShareFeedback(''), 2200);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+
+      console.warn('[Account] Share failed:', error);
+      setShareFeedback('Unable to share. Please try again.');
+      window.setTimeout(() => setShareFeedback(''), 2600);
     }
   };
 
@@ -578,6 +629,11 @@ export default function Account() {
                             return;
                           }
 
+                          if (item.action === 'share_app') {
+                            void handleShareApp();
+                            return;
+                          }
+
                           if (item.path) navigate(item.path);
                         }}
                         className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition active:scale-[0.995] ${
@@ -658,6 +714,14 @@ export default function Account() {
           </button>
         )}
       </main>
+
+      {shareFeedback && (
+        <div className="fixed bottom-[calc(6.75rem+env(safe-area-inset-bottom))] left-1/2 z-[90] -translate-x-1/2 px-4">
+          <div className="whitespace-nowrap rounded-full bg-slate-900 px-4 py-2.5 text-xs font-bold text-white shadow-xl shadow-slate-900/20">
+            {shareFeedback}
+          </div>
+        </div>
+      )}
 
       {deactivateOpen && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 px-3 pt-12 backdrop-blur-[2px] sm:items-center sm:p-4">
