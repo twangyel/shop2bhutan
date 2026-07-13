@@ -32,7 +32,7 @@ import VerificationBadge, {
 } from '@/components/shared/VerificationBadge';
 
 const PHONE_ONLY_EMAIL_SUFFIX = '@phone.shop2bhutan.com';
-const SHOP2BHUTAN_APP_URL = 'https://shop2bhutan.vercel.app';
+const SHOP2BHUTAN_APP_URL = 'https://shop2bhutan.vercel.app/download';
 const SHOP2BHUTAN_SHARE_TEXT =
   'Shop from Amazon, Flipkart, Myntra and Meesho and get your orders delivered to Bhutan with Shop2Bhutan 🇧🇹';
 
