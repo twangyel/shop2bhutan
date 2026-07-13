@@ -16,6 +16,10 @@ import {
 } from '@/lib/pushNotifications';
 import { consumePendingNativeShare } from '@/lib/nativeShareReceiver';
 import { consumePendingShoppingAssistCapture } from '@/lib/shoppingAssist';
+import {
+  getNumberPreference,
+  setNumberPreference,
+} from '@/lib/preferences';
 
 // Layouts
 import CustomerLayout from '@/layouts/CustomerLayout';
@@ -130,6 +134,10 @@ function GlobalNetworkStatus() {
       try {
         await refreshContext();
         notifyDataRefresh();
+        void setNumberPreference(
+          'shop2bhutan:last-successful-refresh-at:v1',
+          Date.now(),
+        );
 
         if (!active) return;
 
@@ -289,32 +297,24 @@ function isNativeAppRuntime() {
   return Boolean(win.Capacitor?.isNativePlatform?.());
 }
 
-function isInstallDismissed() {
-  if (typeof window === 'undefined') return true;
+async function isInstallDismissed() {
+  const dismissedUntil = await getNumberPreference(
+    PWA_INSTALL_DISMISSED_UNTIL_KEY,
+    0,
+  );
 
-  try {
-    const dismissedUntil = Number(
-      window.localStorage.getItem(PWA_INSTALL_DISMISSED_UNTIL_KEY) || 0,
-    );
-
-    return dismissedUntil > Date.now();
-  } catch {
-    return true;
-  }
+  return dismissedUntil > Date.now();
 }
 
-function dismissInstallBanner() {
-  if (typeof window === 'undefined') return;
+async function dismissInstallBanner() {
+  const dismissedUntil =
+    Date.now() +
+    PWA_INSTALL_DISMISS_DAYS * 24 * 60 * 60 * 1000;
 
-  try {
-    const dismissedUntil = Date.now() + PWA_INSTALL_DISMISS_DAYS * 24 * 60 * 60 * 1000;
-    window.localStorage.setItem(
-      PWA_INSTALL_DISMISSED_UNTIL_KEY,
-      String(dismissedUntil),
-    );
-  } catch {
-    // Ignore storage failures.
-  }
+  await setNumberPreference(
+    PWA_INSTALL_DISMISSED_UNTIL_KEY,
+    dismissedUntil,
+  );
 }
 
 function isIosSafari() {
@@ -342,36 +342,72 @@ function PwaInstallBanner() {
   const shouldHideForRoute = location.pathname.startsWith('/admin');
 
   useEffect(() => {
-    if (isPwaStandalone() || isNativeAppRuntime() || isInstallDismissed()) {
-      setVisible(false);
-      return undefined;
-    }
+    let active = true;
+    let showTimer: number | undefined;
 
-    const showTimer = window.setTimeout(() => {
-      // iOS Safari never gives beforeinstallprompt. Show manual install help.
-      // For other mobile browsers, show a lightweight custom banner. If the
-      // browser has the install prompt ready, the Install button opens it.
-      if (isMobileBrowser()) setVisible(true);
-    }, 900);
+    const scheduleBanner = async () => {
+      if (isPwaStandalone() || isNativeAppRuntime()) {
+        if (active) setVisible(false);
+        return;
+      }
+
+      const dismissed = await isInstallDismissed();
+
+      if (!active || dismissed) {
+        if (active) setVisible(false);
+        return;
+      }
+
+      showTimer = window.setTimeout(() => {
+        // iOS Safari never gives beforeinstallprompt. Show manual install help.
+        // For other mobile browsers, show a lightweight custom banner. If the
+        // browser has the install prompt ready, the Install button opens it.
+        if (active && isMobileBrowser()) setVisible(true);
+      }, 900);
+    };
 
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
-      setDeferredPrompt(event as BeforeInstallPromptEvent);
-      setVisible(true);
+      const promptEvent = event as BeforeInstallPromptEvent;
+      setDeferredPrompt(promptEvent);
+
+      void isInstallDismissed().then((dismissed) => {
+        if (
+          active &&
+          !dismissed &&
+          !isPwaStandalone() &&
+          !isNativeAppRuntime()
+        ) {
+          setVisible(true);
+        }
+      });
     };
 
     const handleInstalled = () => {
       setInstalled(true);
       setVisible(false);
-      dismissInstallBanner();
+      void dismissInstallBanner();
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    void scheduleBanner();
+
+    window.addEventListener(
+      'beforeinstallprompt',
+      handleBeforeInstallPrompt,
+    );
     window.addEventListener('appinstalled', handleInstalled);
 
     return () => {
-      window.clearTimeout(showTimer);
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      active = false;
+
+      if (showTimer !== undefined) {
+        window.clearTimeout(showTimer);
+      }
+
+      window.removeEventListener(
+        'beforeinstallprompt',
+        handleBeforeInstallPrompt,
+      );
       window.removeEventListener('appinstalled', handleInstalled);
     };
   }, []);
@@ -384,7 +420,7 @@ function PwaInstallBanner() {
       const choice = await deferredPrompt.userChoice;
 
       if (choice.outcome === 'accepted') {
-        dismissInstallBanner();
+        await dismissInstallBanner();
         setVisible(false);
       }
     } finally {
@@ -393,7 +429,7 @@ function PwaInstallBanner() {
   };
 
   const handleDismiss = () => {
-    dismissInstallBanner();
+    void dismissInstallBanner();
     setVisible(false);
   };
 
@@ -463,26 +499,16 @@ function PwaInstallBanner() {
 const WEB_PUSH_DISMISS_KEY = 'shop2bhutan:web-push-dismissed-until:v2';
 const WEB_PUSH_DISMISS_DAYS = 3;
 
-function getWebPushDismissedUntil() {
-  if (typeof window === 'undefined') return 0;
-
-  try {
-    return Number(window.localStorage.getItem(WEB_PUSH_DISMISS_KEY) || 0);
-  } catch {
-    return 0;
-  }
+async function getWebPushDismissedUntil() {
+  return getNumberPreference(WEB_PUSH_DISMISS_KEY, 0);
 }
 
-function dismissWebPushBanner() {
-  if (typeof window === 'undefined') return;
+async function dismissWebPushBanner() {
+  const until =
+    Date.now() +
+    WEB_PUSH_DISMISS_DAYS * 24 * 60 * 60 * 1000;
 
-  try {
-    const until =
-      Date.now() + WEB_PUSH_DISMISS_DAYS * 24 * 60 * 60 * 1000;
-    window.localStorage.setItem(WEB_PUSH_DISMISS_KEY, String(until));
-  } catch {
-    // Ignore storage failures.
-  }
+  await setNumberPreference(WEB_PUSH_DISMISS_KEY, until);
 }
 
 function isIosDeviceForWebPush() {
@@ -508,6 +534,8 @@ function WebPushPermissionBanner() {
   const [enabling, setEnabling] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [error, setError] = useState('');
+  const [dismissalChecked, setDismissalChecked] = useState(false);
+  const [dismissed, setDismissed] = useState(true);
 
   const hiddenRoute =
     location.pathname.startsWith('/admin') ||
@@ -515,6 +543,33 @@ function WebPushPermissionBanner() {
     location.pathname === '/register' ||
     location.pathname === '/forgot-password' ||
     location.pathname === '/reset-password';
+
+  useEffect(() => {
+    let active = true;
+
+    void getWebPushDismissedUntil()
+      .then((dismissedUntil) => {
+        if (!active) return;
+
+        setDismissed(dismissedUntil > Date.now());
+        setDismissalChecked(true);
+      })
+      .catch((preferenceError) => {
+        console.warn(
+          '[WebPushPermissionBanner] Dismissal preference skipped:',
+          preferenceError,
+        );
+
+        if (active) {
+          setDismissed(false);
+          setDismissalChecked(true);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -595,13 +650,13 @@ function WebPushPermissionBanner() {
   };
 
   const handleDismiss = () => {
-    dismissWebPushBanner();
+    void dismissWebPushBanner();
+    setDismissed(true);
     setPermissionState('unsupported');
   };
 
-  const dismissed = getWebPushDismissedUntil() > Date.now();
-
   if (
+    !dismissalChecked ||
     checking ||
     loading ||
     isGuest ||
