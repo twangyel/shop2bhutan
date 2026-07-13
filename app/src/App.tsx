@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { BellRing, CheckCircle2, Download, Loader2, X } from 'lucide-react';
+import { BellRing, CheckCircle2, Download, Loader2, Wifi, WifiOff, X } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
+import { Network, type ConnectionStatus } from '@capacitor/network';
 import { Browser } from '@capacitor/browser';
 import { AppProvider } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -76,6 +77,195 @@ type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 };
+
+type NetworkBannerState = 'online' | 'offline' | 'restoring' | 'restored';
+
+function GlobalNetworkStatus() {
+  const { refreshContext } = useAuth();
+  const [state, setState] = useState<NetworkBannerState>(() =>
+    typeof navigator !== 'undefined' && navigator.onLine === false
+      ? 'offline'
+      : 'online',
+  );
+  const wasOfflineRef = useRef(
+    typeof navigator !== 'undefined' && navigator.onLine === false,
+  );
+  const reconnectingRef = useRef(false);
+  const lastReconnectAtRef = useRef(0);
+  const hideTimerRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    let active = true;
+    let removeNetworkListener: (() => Promise<void>) | undefined;
+
+    const clearHideTimer = () => {
+      if (hideTimerRef.current !== undefined) {
+        window.clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = undefined;
+      }
+    };
+
+    const notifyDataRefresh = () => {
+      window.dispatchEvent(new Event('shop2bhutan:network-restored'));
+      window.dispatchEvent(new Event('shop2bhutan:request-bag-updated'));
+      window.dispatchEvent(new Event('shop2bhutan:parcels-updated'));
+      window.dispatchEvent(new Event('shop2bhutan:parcel-trips-updated'));
+    };
+
+    const recoverAfterReconnect = async () => {
+      const now = Date.now();
+
+      if (
+        reconnectingRef.current ||
+        now - lastReconnectAtRef.current < 1500
+      ) {
+        return;
+      }
+
+      reconnectingRef.current = true;
+      lastReconnectAtRef.current = now;
+      clearHideTimer();
+      setState('restoring');
+
+      try {
+        await refreshContext();
+        notifyDataRefresh();
+
+        if (!active) return;
+
+        setState('restored');
+        hideTimerRef.current = window.setTimeout(() => {
+          if (active) setState('online');
+        }, 2200);
+      } catch (error) {
+        console.warn(
+          '[Network] Reconnected, but app refresh was deferred:',
+          error,
+        );
+
+        if (active) setState('online');
+      } finally {
+        reconnectingRef.current = false;
+      }
+    };
+
+    const applyStatus = (status: ConnectionStatus) => {
+      if (!active) return;
+
+      if (!status.connected) {
+        clearHideTimer();
+        wasOfflineRef.current = true;
+        setState('offline');
+        return;
+      }
+
+      if (wasOfflineRef.current) {
+        wasOfflineRef.current = false;
+        void recoverAfterReconnect();
+        return;
+      }
+
+      setState((current) =>
+        current === 'offline' ? 'online' : current,
+      );
+    };
+
+    const handleBrowserOnline = () => {
+      applyStatus({ connected: true, connectionType: 'unknown' });
+    };
+
+    const handleBrowserOffline = () => {
+      applyStatus({ connected: false, connectionType: 'none' });
+    };
+
+    void Network.getStatus()
+      .then(applyStatus)
+      .catch((error) => {
+        console.warn('[Network] Initial status check skipped:', error);
+        applyStatus({
+          connected: navigator.onLine,
+          connectionType: navigator.onLine ? 'unknown' : 'none',
+        });
+      });
+
+    void Network.addListener('networkStatusChange', applyStatus)
+      .then((listener) => {
+        if (!active) {
+          void listener.remove();
+          return;
+        }
+
+        removeNetworkListener = () => listener.remove();
+      })
+      .catch((error) => {
+        console.warn('[Network] Native listener skipped:', error);
+      });
+
+    // Keep browser events as a lightweight fallback for PWA environments.
+    window.addEventListener('online', handleBrowserOnline);
+    window.addEventListener('offline', handleBrowserOffline);
+
+    return () => {
+      active = false;
+      clearHideTimer();
+      window.removeEventListener('online', handleBrowserOnline);
+      window.removeEventListener('offline', handleBrowserOffline);
+      void removeNetworkListener?.();
+    };
+  }, [refreshContext]);
+
+  if (state === 'online') return null;
+
+  const offline = state === 'offline';
+  const restoring = state === 'restoring';
+
+  return (
+    <div className="pointer-events-none fixed left-0 right-0 top-[calc(env(safe-area-inset-top)+0.65rem)] z-[160] px-3 sm:px-4">
+      <div
+        role="status"
+        aria-live="polite"
+        className={`pointer-events-auto mx-auto flex max-w-md items-start gap-3 rounded-2xl border bg-white px-4 py-3 shadow-2xl shadow-slate-900/15 ${
+          offline
+            ? 'border-rose-100'
+            : 'border-emerald-100'
+        }`}
+      >
+        <span
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+            offline
+              ? 'bg-rose-50 text-rose-600'
+              : 'bg-emerald-50 text-emerald-600'
+          }`}
+        >
+          {offline ? (
+            <WifiOff size={19} strokeWidth={2.4} />
+          ) : restoring ? (
+            <Loader2 size={19} className="animate-spin" strokeWidth={2.4} />
+          ) : (
+            <Wifi size={19} strokeWidth={2.4} />
+          )}
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-extrabold text-slate-950">
+            {offline
+              ? "You're offline"
+              : restoring
+                ? 'Internet restored'
+                : 'Back online'}
+          </p>
+          <p className="mt-0.5 text-xs leading-5 text-slate-500">
+            {offline
+              ? 'Some information may be unavailable. Shop2Bhutan will refresh automatically when your connection returns.'
+              : restoring
+                ? 'Refreshing your account and latest information…'
+                : 'Your Shop2Bhutan information has been refreshed.'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const PWA_INSTALL_DISMISSED_UNTIL_KEY = 'shop2bhutan:pwa-install-dismissed-until:v1';
 const PWA_INSTALL_DISMISS_DAYS = 3;
@@ -1095,6 +1285,7 @@ export default function App() {
       <NativeShoppingAssistBridge />
       <PushNotificationBridge />
       <RouteScrollToTop />
+      <GlobalNetworkStatus />
       <PwaInstallBanner />
       <WebPushPermissionBanner />
       <Routes>
