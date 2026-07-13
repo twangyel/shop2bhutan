@@ -58,6 +58,7 @@ import MyParcels from '@/pages/customer/MyParcels';
 import Shop from '@/pages/customer/Shop';
 import ShoppingAssist from '@/pages/customer/ShoppingAssist';
 import ShoppingAssistReview from '@/pages/customer/ShoppingAssistReview';
+import DownloadApp from '@/pages/customer/DownloadApp';
 
 // Admin Pages
 import Dashboard from '@/pages/admin/Dashboard';
@@ -340,7 +341,9 @@ function PwaInstallBanner() {
   const [visible, setVisible] = useState(false);
   const [installed, setInstalled] = useState(false);
   const iosSafari = isIosSafari();
-  const shouldHideForRoute = location.pathname.startsWith('/admin');
+  const shouldHideForRoute =
+    location.pathname.startsWith('/admin') ||
+    location.pathname === '/download';
 
   useEffect(() => {
     let active = true;
@@ -543,7 +546,8 @@ function WebPushPermissionBanner() {
     location.pathname === '/login' ||
     location.pathname === '/register' ||
     location.pathname === '/forgot-password' ||
-    location.pathname === '/reset-password';
+    location.pathname === '/reset-password' ||
+    location.pathname === '/download';
 
   useEffect(() => {
     let active = true;
@@ -1401,6 +1405,9 @@ export default function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+
+        {/* Public download/install page - No customer layout */}
+        <Route path="/download" element={<DownloadApp />} />
 
         {/* Customer Routes */}
         <Route
