@@ -81,7 +81,7 @@ function Step({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
+      <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm">
         <Icon size={18} strokeWidth={2.2} />
         <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-950 px-1 text-[10px] font-black text-white ring-2 ring-white">
           {number}
@@ -190,16 +190,16 @@ export default function DownloadApp() {
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.85rem)]">
           <a
             href={SHOP2BHUTAN_HOME_URL}
-            className="flex min-w-0 items-center gap-3"
+            className="flex min-w-0 items-center"
+            aria-label="Open Shop2Bhutan"
           >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-sm font-black text-orange-400 shadow-sm">
-              S2B
-            </span>
             <span className="min-w-0">
-              <span className="block truncate text-sm font-black tracking-tight text-slate-950">
-                Shop2Bhutan
-              </span>
-              <span className="block text-[11px] font-semibold text-slate-400">
+              <img
+                src="/brand/logo-full-transparent.png"
+                alt="Shop2Bhutan"
+                className="h-9 w-auto max-w-[175px] object-contain sm:h-10"
+              />
+              <span className="mt-0.5 block text-[10px] font-semibold tracking-wide text-slate-400">
                 Official app access
               </span>
             </span>
@@ -217,14 +217,21 @@ export default function DownloadApp() {
 
       <main className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
         <section className="text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-orange-50 text-orange-600 ring-1 ring-orange-100">
-            {showIos ? (
-              <Apple size={31} strokeWidth={2.1} />
-            ) : showAndroid ? (
-              <Smartphone size={31} strokeWidth={2.1} />
-            ) : (
-              <Monitor size={31} strokeWidth={2.1} />
-            )}
+          <div className="relative mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-[24px] border border-slate-200 bg-white shadow-sm">
+            <img
+              src="/brand/logo-mark-bag-transparent.png"
+              alt="Shop2Bhutan app logo"
+              className="h-14 w-14 object-contain"
+            />
+            <span className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-xl border-2 border-white bg-orange-500 text-white shadow-sm">
+              {showIos ? (
+                <Apple size={14} strokeWidth={2.3} />
+              ) : showAndroid ? (
+                <Smartphone size={14} strokeWidth={2.3} />
+              ) : (
+                <Monitor size={14} strokeWidth={2.3} />
+              )}
+            </span>
           </div>
 
           <p className="mt-5 text-[10px] font-black uppercase tracking-[0.2em] text-orange-500">
@@ -245,8 +252,8 @@ export default function DownloadApp() {
 
         {showAndroid && (
           <section className="mt-7 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-[24px] border border-orange-100 bg-orange-50/60 p-5">
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-orange-600 shadow-sm ring-1 ring-orange-100">
+            <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-orange-600 shadow-sm">
                 <Download size={21} strokeWidth={2.4} />
               </span>
 
@@ -267,7 +274,7 @@ export default function DownloadApp() {
                 Download APK · {ANDROID_APP_VERSION}
               </a>
 
-              <div className="mt-4 flex items-start gap-2.5 rounded-2xl bg-white px-3 py-3 text-xs leading-5 text-slate-500 ring-1 ring-orange-100">
+              <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-xs leading-5 text-slate-500">
                 <ShieldCheck
                   size={17}
                   className="mt-0.5 shrink-0 text-emerald-600"
@@ -281,7 +288,7 @@ export default function DownloadApp() {
             </div>
 
             <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700">
                 <Globe2 size={21} strokeWidth={2.3} />
               </span>
 
@@ -321,7 +328,7 @@ export default function DownloadApp() {
         {showIos && (
           <section className="mt-7 rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="flex items-start gap-3">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-800">
                 <Apple size={23} strokeWidth={2.1} />
               </span>
               <div>
@@ -380,7 +387,7 @@ export default function DownloadApp() {
         {!showAndroid && !showIos && (
           <section className="mt-7 grid gap-4 sm:grid-cols-[1.2fr_0.8fr]">
             <div className="rounded-[26px] border border-slate-200 bg-white p-6 shadow-sm">
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700">
                 <Smartphone size={21} strokeWidth={2.3} />
               </span>
               <h2 className="mt-4 text-xl font-black tracking-tight text-slate-950">
@@ -415,7 +422,7 @@ export default function DownloadApp() {
               </div>
             </div>
 
-            <div className="flex items-center justify-center rounded-[26px] border border-slate-200 bg-slate-50 p-5">
+            <div className="flex items-center justify-center rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
               <div className="rounded-[22px] bg-white p-3 shadow-sm ring-1 ring-slate-200">
                 <img
                   src="/shop2bhutan-download-qr.png"
@@ -430,7 +437,7 @@ export default function DownloadApp() {
         {installHint && (
           <div
             role="status"
-            className="mt-5 flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-800"
+            className="mt-5 flex items-start gap-3 rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm leading-6 text-blue-800 shadow-sm"
           >
             <MoreVertical
               size={18}
@@ -456,16 +463,16 @@ export default function DownloadApp() {
           </button>
         )}
 
-        <section className="mt-7 rounded-[24px] bg-slate-950 p-5 text-white sm:p-6">
+        <section className="mt-7 rounded-[24px] border border-slate-200 bg-white p-5 text-slate-950 shadow-sm sm:p-6">
           <div className="flex items-start gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-orange-400">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-orange-100 bg-orange-50 text-orange-600">
               <ShieldCheck size={21} strokeWidth={2.3} />
             </span>
             <div>
               <h2 className="text-base font-black tracking-tight">
                 Official Shop2Bhutan access
               </h2>
-              <p className="mt-1 text-sm leading-6 text-slate-300">
+              <p className="mt-1 text-sm leading-6 text-slate-500">
                 Shop2Bhutan is currently in beta and has not yet launched
                 publicly on Google Play or the Apple App Store. Always use
                 this official page for installation links and instructions.
