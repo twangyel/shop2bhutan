@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -41,6 +42,13 @@ import {
   hapticSuccess,
   hapticWarning,
 } from '@/lib/haptics';
+import {
+  consumeRestoredCameraFile,
+  isCameraCancellation,
+  isNativeCameraRuntime,
+  NATIVE_CAMERA_RESTORED_EVENT,
+  pickNativeImageFile,
+} from '@/lib/camera';
 
 const platforms = [
   {
@@ -178,6 +186,7 @@ export default function PasteLink() {
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState('');
   const [adding, setAdding] = useState(false);
+  const [openingCamera, setOpeningCamera] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [notice, setNotice] = useState<NoticeState | null>(null);
@@ -478,14 +487,11 @@ export default function PasteLink() {
     }
   };
 
-  const handleScreenshotChange = (
-    event: ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
-
+  const applyScreenshotFile = useCallback((file: File | null) => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
+      void hapticWarning();
       setError('Please select an image file.');
       return;
     }
@@ -511,7 +517,87 @@ export default function PasteLink() {
     });
 
     revealResult();
+  }, []);
+
+  const handleScreenshotChange = (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    applyScreenshotFile(event.target.files?.[0] ?? null);
+    event.target.value = '';
   };
+
+  const openScreenshotPicker = async () => {
+    if (!isNativeCameraRuntime()) {
+      fileInputRef.current?.click();
+      return;
+    }
+
+    setOpeningCamera(true);
+    setError('');
+
+    try {
+      const file = await pickNativeImageFile({
+        purpose: 'product-screenshot',
+        fileNamePrefix: 'product-screenshot',
+        quality: 86,
+        width: 1800,
+        height: 1800,
+      });
+
+      if (file) applyScreenshotFile(file);
+    } catch (cameraError) {
+      if (!isCameraCancellation(cameraError)) {
+        void hapticError();
+        setError(
+          cameraError instanceof Error
+            ? cameraError.message
+            : 'Unable to open the camera or gallery.',
+        );
+      }
+    } finally {
+      setOpeningCamera(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    const restoreCameraResult = async () => {
+      try {
+        const file = await consumeRestoredCameraFile(
+          'product-screenshot',
+          'product-screenshot',
+        );
+
+        if (active && file) {
+          applyScreenshotFile(file);
+        }
+      } catch (cameraError) {
+        if (active && !isCameraCancellation(cameraError)) {
+          setError('Unable to restore the selected screenshot.');
+        }
+      }
+    };
+
+    void restoreCameraResult();
+
+    const handleRestoredResult = () => {
+      void restoreCameraResult();
+    };
+
+    window.addEventListener(
+      NATIVE_CAMERA_RESTORED_EVENT,
+      handleRestoredResult,
+    );
+
+    return () => {
+      active = false;
+      window.removeEventListener(
+        NATIVE_CAMERA_RESTORED_EVENT,
+        handleRestoredResult,
+      );
+    };
+  }, [applyScreenshotFile]);
 
   const clearScreenshot = () => {
     setScreenshotFile(null);
@@ -1043,15 +1129,26 @@ export default function PasteLink() {
                 {!screenshotFile ? (
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => void openScreenshotPicker()}
+                    disabled={openingCamera}
                     className="flex min-h-[148px] w-full flex-col items-center justify-center rounded-2xl border border-dashed border-orange-200 bg-orange-50/40 px-5 text-center transition active:scale-[0.99] active:bg-orange-50"
                   >
                     <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-orange-500 shadow-sm ring-1 ring-orange-100">
-                      <Camera size={22} strokeWidth={2.2} />
+                      {openingCamera ? (
+                        <Loader2
+                          size={22}
+                          className="animate-spin"
+                          strokeWidth={2.2}
+                        />
+                      ) : (
+                        <Camera size={22} strokeWidth={2.2} />
+                      )}
                     </span>
 
                     <span className="mt-3 text-sm font-extrabold text-slate-900">
-                      Upload product screenshot
+                      {openingCamera
+                        ? 'Opening camera or gallery...'
+                        : 'Upload product screenshot'}
                     </span>
 
                     <span className="mt-1 max-w-xs text-[11px] leading-5 text-slate-500">
@@ -1072,7 +1169,8 @@ export default function PasteLink() {
                         <div className="absolute right-3 top-3 flex gap-2">
                           <button
                             type="button"
-                            onClick={() => fileInputRef.current?.click()}
+                            onClick={() => void openScreenshotPicker()}
+                            disabled={openingCamera}
                             className="flex h-9 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-extrabold text-slate-600 shadow-lg ring-1 ring-slate-200"
                           >
                             <ImageIcon size={14} strokeWidth={2.3} />

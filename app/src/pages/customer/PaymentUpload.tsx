@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Building2,
@@ -10,6 +10,7 @@ import {
   Plus,
   ShieldCheck,
   Upload,
+  Loader2,
   Wallet,
   X,
 } from 'lucide-react';
@@ -25,6 +26,13 @@ import {
 import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings';
 import { getFulfillmentDisplay, isJaigaonPickupOrder, isSelfPickupOrder } from '@/lib/fulfillment';
 import type { Order, PaymentMethod } from '@/types';
+import {
+  consumeRestoredCameraFile,
+  isCameraCancellation,
+  isNativeCameraRuntime,
+  NATIVE_CAMERA_RESTORED_EVENT,
+  pickNativeImageFile,
+} from '@/lib/camera';
 
 const ALLOWED_SCREENSHOT_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024;
@@ -176,6 +184,8 @@ export default function PaymentUpload() {
   const [selectedMethod, setSelectedMethod] = useState('');
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+  const [openingCamera, setOpeningCamera] = useState(false);
+  const screenshotInputRef = useRef<HTMLInputElement>(null);
   const [paymentSelection, setPaymentSelection] = useState<PaymentSelection>('full');
   const [transactionId, setTransactionId] = useState('');
   const [note, setNote] = useState('');
@@ -420,38 +430,106 @@ export default function PaymentUpload() {
     selectedPaymentAmount,
   ]);
 
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const applyPaymentScreenshot = useCallback((file: File | null) => {
     if (!file) return;
 
     if (!ALLOWED_SCREENSHOT_TYPES.includes(file.type)) {
       setError('Please upload a JPG, PNG, or WEBP payment screenshot.');
-      event.target.value = '';
       return;
     }
 
     if (file.size > MAX_SCREENSHOT_SIZE) {
       setError('Screenshot must be less than 5MB.');
-      event.target.value = '';
       return;
     }
 
-    if (screenshotPreview?.startsWith('blob:')) {
-      URL.revokeObjectURL(screenshotPreview);
-    }
-
     setScreenshotFile(file);
-    setScreenshotPreview(URL.createObjectURL(file));
+    setScreenshotPreview((currentPreview) => {
+      if (currentPreview?.startsWith('blob:')) {
+        URL.revokeObjectURL(currentPreview);
+      }
+
+      return URL.createObjectURL(file);
+    });
     setError('');
+  }, []);
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    applyPaymentScreenshot(event.target.files?.[0] ?? null);
+    event.target.value = '';
   };
 
-  const clearScreenshot = () => {
-    if (screenshotPreview?.startsWith('blob:')) {
-      URL.revokeObjectURL(screenshotPreview);
+  const openPaymentProofPicker = async () => {
+    if (!isNativeCameraRuntime()) {
+      screenshotInputRef.current?.click();
+      return;
     }
-    setScreenshotFile(null);
-    setScreenshotPreview(null);
+
+    setOpeningCamera(true);
+    setError('');
+
+    try {
+      const file = await pickNativeImageFile({
+        purpose: 'payment-proof',
+        fileNamePrefix: 'payment-proof',
+        quality: 88,
+        width: 1800,
+        height: 1800,
+      });
+
+      if (file) applyPaymentScreenshot(file);
+    } catch (cameraError) {
+      if (!isCameraCancellation(cameraError)) {
+        setError(
+          cameraError instanceof Error
+            ? cameraError.message
+            : 'Unable to open the camera or gallery.',
+        );
+      }
+    } finally {
+      setOpeningCamera(false);
+    }
   };
+
+  useEffect(() => {
+    let active = true;
+
+    const restoreCameraResult = async () => {
+      try {
+        const file = await consumeRestoredCameraFile(
+          'payment-proof',
+          'payment-proof',
+        );
+
+        if (active && file) {
+          applyPaymentScreenshot(file);
+        }
+      } catch (cameraError) {
+        if (active && !isCameraCancellation(cameraError)) {
+          setError('Unable to restore the selected payment screenshot.');
+        }
+      }
+    };
+
+    void restoreCameraResult();
+
+    const handleRestoredResult = () => {
+      void restoreCameraResult();
+    };
+
+    window.addEventListener(
+      NATIVE_CAMERA_RESTORED_EVENT,
+      handleRestoredResult,
+    );
+
+    return () => {
+      active = false;
+      window.removeEventListener(
+        NATIVE_CAMERA_RESTORED_EVENT,
+        handleRestoredResult,
+      );
+    };
+  }, [applyPaymentScreenshot]);
 
   const copyToClipboard = async (text: string, field: string) => {
     await navigator.clipboard.writeText(text);
@@ -1048,20 +1126,37 @@ export default function PaymentUpload() {
           </div>
 
           <div className="rounded-[22px] bg-white p-4 ring-1 ring-slate-100">
+            <input
+              ref={screenshotInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+
             {!screenshotPreview ? (
-              <label className="flex min-h-[180px] w-full cursor-pointer flex-col items-center justify-center rounded-[18px] border-2 border-dashed border-slate-200 bg-slate-50 px-5 text-center transition active:scale-[0.99]">
+              <button
+                type="button"
+                onClick={() => void openPaymentProofPicker()}
+                disabled={openingCamera}
+                className="flex min-h-[180px] w-full cursor-pointer flex-col items-center justify-center rounded-[18px] border-2 border-dashed border-slate-200 bg-slate-50 px-5 text-center transition active:scale-[0.99] disabled:cursor-wait disabled:opacity-70"
+              >
                 <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
-                  <Upload size={22} strokeWidth={2} />
+                  {openingCamera ? (
+                    <Loader2 size={22} className="animate-spin" />
+                  ) : (
+                    <Upload size={22} strokeWidth={2} />
+                  )}
                 </span>
-                <p className="mt-3 text-sm font-black text-slate-800">Tap to upload screenshot</p>
-                <p className="mt-1 text-[11px] font-medium text-slate-400">JPG, PNG or WEBP &middot; Max 5MB</p>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-              </label>
+                <p className="mt-3 text-sm font-black text-slate-800">
+                  {openingCamera
+                    ? 'Opening camera or gallery...'
+                    : 'Add payment screenshot'}
+                </p>
+                <p className="mt-1 text-[11px] font-medium text-slate-400">
+                  Take Photo or Choose from Gallery &middot; Max 5MB
+                </p>
+              </button>
             ) : (
               <div className="relative overflow-hidden rounded-[18px] bg-slate-50 ring-1 ring-slate-100">
                 <img
@@ -1074,7 +1169,8 @@ export default function PaymentUpload() {
                 </span>
                 <button
                   type="button"
-                  onClick={clearScreenshot}
+                  onClick={() => void openPaymentProofPicker()}
+                  disabled={openingCamera}
                   className="absolute right-3 top-3 rounded-lg bg-white px-3 py-1.5 text-xs font-black text-slate-700 shadow-sm ring-1 ring-slate-100 transition active:scale-95"
                 >
                   Change

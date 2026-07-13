@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Camera,
@@ -18,6 +18,13 @@ import VerificationBadge, {
   getVerificationBadgeToneClass,
   normalizeVerificationBadge,
 } from '@/components/shared/VerificationBadge';
+import {
+  consumeRestoredCameraFile,
+  isCameraCancellation,
+  isNativeCameraRuntime,
+  NATIVE_CAMERA_RESTORED_EVENT,
+  pickNativeImageFile,
+} from '@/lib/camera';
 
 type ProfileLike = {
   id?: string | null;
@@ -156,6 +163,8 @@ export default function Profile() {
 
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [openingCamera, setOpeningCamera] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -305,6 +314,81 @@ export default function Profile() {
     await refreshContext();
     setSuccess('Profile picture updated.');
   };
+
+  const openAvatarPicker = async () => {
+    if (!isNativeCameraRuntime()) {
+      avatarInputRef.current?.click();
+      return;
+    }
+
+    setOpeningCamera(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const file = await pickNativeImageFile({
+        purpose: 'profile-avatar',
+        fileNamePrefix: 'profile-avatar',
+        quality: 80,
+        width: 1200,
+        height: 1200,
+      });
+
+      if (file) {
+        await handleAvatarUpload(file);
+      }
+    } catch (cameraError) {
+      if (!isCameraCancellation(cameraError)) {
+        showError(
+          cameraError instanceof Error
+            ? cameraError.message
+            : 'Unable to open the camera or gallery.',
+        );
+      }
+    } finally {
+      setOpeningCamera(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    const restoreCameraResult = async () => {
+      try {
+        const file = await consumeRestoredCameraFile(
+          'profile-avatar',
+          'profile-avatar',
+        );
+
+        if (active && file) {
+          await handleAvatarUpload(file);
+        }
+      } catch (cameraError) {
+        if (active && !isCameraCancellation(cameraError)) {
+          showError('Unable to restore the selected profile picture.');
+        }
+      }
+    };
+
+    void restoreCameraResult();
+
+    const handleRestoredResult = () => {
+      void restoreCameraResult();
+    };
+
+    window.addEventListener(
+      NATIVE_CAMERA_RESTORED_EVENT,
+      handleRestoredResult,
+    );
+
+    return () => {
+      active = false;
+      window.removeEventListener(
+        NATIVE_CAMERA_RESTORED_EVENT,
+        handleRestoredResult,
+      );
+    };
+  }, [user?.id]);
 
   const checkProfileDuplicates = async (
     nextEmail: string | null,
@@ -502,24 +586,32 @@ export default function Profile() {
                 </div>
               )}
 
-              <label className="absolute -bottom-1 -right-1 flex h-9 w-9 cursor-pointer items-center justify-center rounded-2xl bg-orange-500 text-white ring-2 ring-gray-950">
-                {uploadingAvatar ? (
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={uploadingAvatar || openingCamera}
+                onChange={(event) => {
+                  const file = event.target.files?.[0] || null;
+                  void handleAvatarUpload(file);
+                  event.target.value = '';
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={() => void openAvatarPicker()}
+                disabled={uploadingAvatar || openingCamera}
+                className="absolute -bottom-1 -right-1 flex h-9 w-9 cursor-pointer items-center justify-center rounded-2xl bg-orange-500 text-white ring-2 ring-gray-950 disabled:cursor-wait disabled:opacity-75"
+                aria-label="Take or choose profile picture"
+              >
+                {uploadingAvatar || openingCamera ? (
                   <Loader2 size={17} className="animate-spin" />
                 ) : (
                   <Camera size={17} strokeWidth={2.2} />
                 )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  disabled={uploadingAvatar}
-                  onChange={(event) => {
-                    const file = event.target.files?.[0] || null;
-                    void handleAvatarUpload(file);
-                    event.target.value = '';
-                  }}
-                />
-              </label>
+              </button>
             </div>
 
             <div className="min-w-0 flex-1">
@@ -548,7 +640,7 @@ export default function Profile() {
                 {displayEmail}
               </p>
               <p className="mt-2 text-[11px] leading-5 text-gray-400">
-                Tap the camera to update your profile picture. Maximum 2 MB.
+                Tap the camera to take a photo or choose one from your gallery. Maximum 2 MB.
               </p>
             </div>
           </div>

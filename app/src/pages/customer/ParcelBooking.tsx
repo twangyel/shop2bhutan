@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
@@ -28,6 +28,13 @@ import {
 } from '@/lib/parcels'
 import type { ParcelSize, ParcelTrip, ParcelType } from '@/types/parcel'
 import { supabase } from '@/lib/supabase'
+import {
+  consumeRestoredCameraFile,
+  isCameraCancellation,
+  isNativeCameraRuntime,
+  NATIVE_CAMERA_RESTORED_EVENT,
+  pickNativeImageFile,
+} from '@/lib/camera'
 
 const allowedParcelTypes: { key: ParcelType; label: string }[] = [
   { key: 'documents', label: 'Documents' },
@@ -103,6 +110,8 @@ export default function ParcelBooking() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState('')
+  const [openingCamera, setOpeningCamera] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   const [form, setForm] = useState({
     senderName: '',
@@ -261,6 +270,78 @@ export default function ParcelBooking() {
     setErrors((prev) => ({ ...prev, photoFile: '' }))
     setError('')
   }
+
+  async function openParcelPhotoPicker() {
+    if (!isNativeCameraRuntime()) {
+      photoInputRef.current?.click()
+      return
+    }
+
+    setOpeningCamera(true)
+    setError('')
+
+    try {
+      const file = await pickNativeImageFile({
+        purpose: 'parcel-photo',
+        fileNamePrefix: 'parcel-photo',
+        quality: 86,
+        width: 1800,
+        height: 1800,
+      })
+
+      if (file) handlePhotoChange(file)
+    } catch (cameraError) {
+      if (!isCameraCancellation(cameraError)) {
+        setError(
+          cameraError instanceof Error
+            ? cameraError.message
+            : 'Unable to open the camera or gallery.',
+        )
+      }
+    } finally {
+      setOpeningCamera(false)
+    }
+  }
+
+  useEffect(() => {
+    let active = true
+
+    const restoreCameraResult = async () => {
+      try {
+        const file = await consumeRestoredCameraFile(
+          'parcel-photo',
+          'parcel-photo',
+        )
+
+        if (active && file) {
+          handlePhotoChange(file)
+        }
+      } catch (cameraError) {
+        if (active && !isCameraCancellation(cameraError)) {
+          setError('Unable to restore the selected parcel photo.')
+        }
+      }
+    }
+
+    void restoreCameraResult()
+
+    const handleRestoredResult = () => {
+      void restoreCameraResult()
+    }
+
+    window.addEventListener(
+      NATIVE_CAMERA_RESTORED_EVENT,
+      handleRestoredResult,
+    )
+
+    return () => {
+      active = false
+      window.removeEventListener(
+        NATIVE_CAMERA_RESTORED_EVENT,
+        handleRestoredResult,
+      )
+    }
+  }, [])
 
   function validate() {
     const nextErrors: Record<string, string> = {}
@@ -680,8 +761,22 @@ export default function ParcelBooking() {
             <label className="mb-2 block text-sm font-semibold text-neutral-700">
               Parcel Photo
             </label>
-            <label
-              className={`block cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed transition ${
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => {
+                handlePhotoChange(event.target.files?.[0] ?? null)
+                event.target.value = ''
+              }}
+            />
+
+            <button
+              type="button"
+              onClick={() => void openParcelPhotoPicker()}
+              disabled={openingCamera}
+              className={`block w-full cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed text-left transition disabled:cursor-wait disabled:opacity-70 ${
                 errors.photoFile
                   ? 'border-red-300 bg-red-50'
                   : photoFile
@@ -722,22 +817,16 @@ export default function ParcelBooking() {
                     <Upload size={24} />
                   </div>
                   <p className="mt-2 text-sm font-bold text-neutral-700">
-                    Upload clear parcel photo
+                    {openingCamera
+                      ? 'Opening camera or gallery...'
+                      : 'Add clear parcel photo'}
                   </p>
                   <p className="mt-1 text-xs text-neutral-400">
-                    Required. Image should be below 5 MB.
+                    Take Photo or Choose from Gallery. Maximum 5 MB.
                   </p>
                 </div>
               )}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(event) => {
-                  handlePhotoChange(event.target.files?.[0] ?? null)
-                }}
-              />
-            </label>
+            </button>
             {errors.photoFile && (
               <p className="mt-1.5 text-xs text-red-500">{errors.photoFile}</p>
             )}
