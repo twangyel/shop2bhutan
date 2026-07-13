@@ -28,6 +28,10 @@ import {
   showNativeNotificationFromRow,
 } from '@/lib/nativeNotifications'
 import { registerPushDeviceForUser } from '@/lib/pushNotifications'
+import {
+  dismissAppKeyboard,
+  subscribeToKeyboardState,
+} from '@/lib/keyboard'
 
 const tabs = [
   { path: '/', label: 'Home', icon: Home },
@@ -88,6 +92,7 @@ export default function CustomerLayout() {
   const [nativeNotificationPermission, setNativeNotificationPermission] = useState('unknown')
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false)
   const [requestingNotificationPermission, setRequestingNotificationPermission] = useState(false)
+  const [keyboardOpen, setKeyboardOpen] = useState(false)
 
   const refreshNativeNotificationPermission = useCallback(async () => {
     if (!isNativeNotificationsAvailable()) {
@@ -109,6 +114,33 @@ export default function CustomerLayout() {
   useEffect(() => {
     void refreshNativeNotificationPermission()
   }, [refreshNativeNotificationPermission])
+
+  useEffect(() => {
+    let active = true
+    let removeKeyboardListeners:
+      | (() => Promise<void>)
+      | undefined
+
+    void subscribeToKeyboardState((state) => {
+      if (active) setKeyboardOpen(state.isOpen)
+    }).then((remove) => {
+      if (!active) {
+        void remove()
+        return
+      }
+
+      removeKeyboardListeners = remove
+    })
+
+    return () => {
+      active = false
+      void removeKeyboardListeners?.()
+    }
+  }, [])
+
+  useEffect(() => {
+    void dismissAppKeyboard()
+  }, [location.pathname, location.search])
 
   const handleEnableNativeNotifications = async () => {
     setRequestingNotificationPermission(true)
@@ -464,6 +496,7 @@ export default function CustomerLayout() {
     location.pathname.startsWith('/parcel-booking/') ||
     location.pathname.startsWith('/product/') ||
     location.pathname === '/checkout'
+  const shouldRenderTabBar = !shouldHideTabBar && !keyboardOpen
 
   const handleTabPress = (path: string) => {
     if (location.pathname === path) {
@@ -475,7 +508,10 @@ export default function CustomerLayout() {
   }
 
   return (
-    <div className="customer-app-shell mx-auto min-h-dvh w-full max-w-lg bg-white text-slate-900 sm:shadow-[0_0_40px_rgba(15,23,42,0.08)]">
+    <div
+      className="customer-app-shell mx-auto min-h-dvh w-full max-w-lg bg-white text-slate-900 sm:shadow-[0_0_40px_rgba(15,23,42,0.08)]"
+      data-keyboard-open={keyboardOpen ? 'true' : 'false'}
+    >
       {appSettings.maintenanceEnabled && (
         <div className="border-b border-amber-100 bg-amber-50 px-4 py-3 text-amber-900">
           <div className="mx-auto flex items-start gap-2.5 text-sm leading-5">
@@ -487,9 +523,9 @@ export default function CustomerLayout() {
 
       <main
         className={
-          shouldHideTabBar
-            ? 'min-h-dvh'
-            : 'min-h-dvh pb-[calc(5.15rem+env(safe-area-inset-bottom))]'
+          shouldRenderTabBar
+            ? 'min-h-dvh pb-[calc(5.15rem+env(safe-area-inset-bottom))]'
+            : 'min-h-dvh'
         }
       >
         <AnimatePresence mode="wait" initial={false}>
@@ -505,7 +541,7 @@ export default function CustomerLayout() {
         </AnimatePresence>
       </main>
 
-      {showNotificationPrompt && !shouldHideTabBar && (
+      {showNotificationPrompt && shouldRenderTabBar && (
         <div className="fixed left-0 right-0 top-[calc(env(safe-area-inset-top)+0.65rem)] z-[90] px-4">
           <div className="mx-auto max-w-lg">
             <div className="relative overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white p-4 shadow-[0_16px_45px_rgba(15,23,42,0.16)]">
@@ -564,7 +600,7 @@ export default function CustomerLayout() {
         </div>
       )}
 
-      {!shouldHideTabBar && (
+      {shouldRenderTabBar && (
         <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50">
           <div className="customer-bottom-nav pointer-events-auto mx-auto flex h-[calc(72px+env(safe-area-inset-bottom))] w-full max-w-lg items-start border-t border-slate-200/80 bg-white/[0.97] px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:shadow-[0_-10px_30px_rgba(15,23,42,0.06)]">
             {tabs.map((tab) => {
