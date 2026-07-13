@@ -18,6 +18,12 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import {
+  hapticError,
+  hapticLight,
+  hapticSuccess,
+  hapticWarning,
+} from '@/lib/haptics';
+import {
   fetchActiveRequestBag,
   fetchActiveRequestBagFast,
   removeRequestBagItem,
@@ -756,6 +762,7 @@ export default function RequestBag() {
     try {
       await updateRequestBagItem(user.id, itemId, patch);
     } catch (err) {
+      void hapticError();
       console.error('Failed to update Request Bag item:', err);
       setError(err instanceof Error ? err.message : 'Unable to update item.');
       void loadBag();
@@ -785,6 +792,7 @@ export default function RequestBag() {
     try {
       await removeRequestBagItem(user.id, itemId);
     } catch (err) {
+      void hapticError();
       console.error('Failed to remove Request Bag item:', err);
       setError(err instanceof Error ? err.message : 'Unable to remove item.');
       setBag(previousBag);
@@ -798,14 +806,19 @@ export default function RequestBag() {
   const validateRequestBagItems = () => {
     setError('');
 
-    if (!user || !bag) return false;
+    if (!user || !bag) {
+      void hapticWarning();
+      return false;
+    }
 
     if (isGuest) {
+      void hapticWarning();
       setError('Please sign in or register to submit shopping requests. Guest mode is only for Parcel booking.');
       return false;
     }
 
     if (bag.items.length === 0) {
+      void hapticWarning();
       setError('Your Request Bag is empty.');
       return false;
     }
@@ -822,6 +835,7 @@ export default function RequestBag() {
   };
 
   const goToReviewStep = (nextStep: RequestReviewStep) => {
+    void hapticLight();
     setError('');
     setDestinationPickerOpen(false);
     setReviewStep(nextStep);
@@ -832,11 +846,13 @@ export default function RequestBag() {
     setError('');
 
     if (!customer.name.trim()) {
+      void hapticWarning();
       setError('Please enter your name.');
       return false;
     }
 
     if (!customer.phone.trim()) {
+      void hapticWarning();
       setError('Please enter your phone number.');
       return false;
     }
@@ -848,6 +864,7 @@ export default function RequestBag() {
     if (!validateRequestBagItems()) return false;
 
     if (!customer.name.trim()) {
+      void hapticWarning();
       setReviewStep(2);
       setError('Please enter your name.');
       scrollReviewToTop();
@@ -855,6 +872,7 @@ export default function RequestBag() {
     }
 
     if (!customer.phone.trim()) {
+      void hapticWarning();
       setReviewStep(2);
       setError('Please enter your phone number.');
       scrollReviewToTop();
@@ -862,6 +880,7 @@ export default function RequestBag() {
     }
 
     if (isSelfPickup && !selectedPickupHub?.id) {
+      void hapticWarning();
       setReviewStep(3);
       setError('Please select a pickup option.');
       scrollReviewToTop();
@@ -875,6 +894,7 @@ export default function RequestBag() {
         dzongkhagOptions,
       )
     ) {
+      void hapticWarning();
       setReviewStep(3);
       setError('Please select Thimphu, Paro, or Chhukha as your destination.');
       scrollReviewToTop();
@@ -887,6 +907,7 @@ export default function RequestBag() {
   const openSubmitConfirmation = () => {
     if (!validateRequestBagItems()) return;
 
+    void hapticLight();
     setError('');
     setReviewStep(1);
     setDestinationPickerOpen(false);
@@ -984,8 +1005,10 @@ export default function RequestBag() {
 
       clearCachedRequestBag(user.id);
       window.dispatchEvent(new Event('shop2bhutan:request-bag-updated'));
+      void hapticSuccess();
       navigate(`/order/${result.orderId}`, { replace: true });
     } catch (err) {
+      void hapticError();
       console.error('Failed to submit Request Bag:', err);
       setError(err instanceof Error ? err.message : 'Unable to submit shopping request.');
     } finally {

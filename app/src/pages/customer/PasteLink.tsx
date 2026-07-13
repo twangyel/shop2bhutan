@@ -36,6 +36,11 @@ import {
   DEFAULT_APP_SETTINGS,
   fetchPublicAppSettings,
 } from '@/lib/appSettings';
+import {
+  hapticError,
+  hapticSuccess,
+  hapticWarning,
+} from '@/lib/haptics';
 
 const platforms = [
   {
@@ -537,6 +542,7 @@ export default function PasteLink() {
       mode === 'screenshot' && Boolean(screenshotFile);
 
     if (!hasUrl && !hasScreenshot) {
+      void hapticWarning();
       setError(
         mode === 'link'
           ? 'Please paste a product link.'
@@ -546,6 +552,7 @@ export default function PasteLink() {
     }
 
     if (!user) {
+      void hapticWarning();
       navigate('/login', {
         state: {
           from: location.pathname,
@@ -556,6 +563,7 @@ export default function PasteLink() {
     }
 
     if (isGuest) {
+      void hapticWarning();
       setError(
         'Please sign in or register to add shopping items. Guest mode is only for Parcel booking.',
       );
@@ -563,6 +571,7 @@ export default function PasteLink() {
     }
 
     if (appSettings.maintenanceEnabled) {
+      void hapticWarning();
       setError(
         appSettings.maintenanceMessage ||
           'Shop2Bhutan is under maintenance. Please try again later.',
@@ -571,6 +580,7 @@ export default function PasteLink() {
     }
 
     if (!appSettings.orderAcceptanceEnabled) {
+      void hapticWarning();
       setError(
         'Shop2Bhutan is temporarily not accepting new order requests. Please try again later.',
       );
@@ -642,6 +652,8 @@ export default function PasteLink() {
         new Event('shop2bhutan:request-bag-updated'),
       );
 
+      void hapticSuccess();
+
       setSuccessMessage(
         'Product added. You can add another item or open your Request Bag.',
       );
@@ -653,6 +665,8 @@ export default function PasteLink() {
 
       resetForm();
     } catch (addError) {
+      void hapticError();
+
       console.error(
         'Failed to add item to Request Bag:',
         addError,
