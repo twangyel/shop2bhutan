@@ -4,6 +4,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock3,
+  Download,
   ExternalLink,
   FileText,
   Loader2,
@@ -17,6 +18,10 @@ import {
   type CustomerPaymentHistoryRecord,
   type CustomerPaymentHistoryResult,
 } from '@/lib/customerOrders';
+import {
+  openOrDownloadPaymentReceipt,
+  type PaymentReceiptResult,
+} from '@/lib/paymentReceipt';
 
 const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
 
@@ -144,9 +149,13 @@ function CompactSummary({
 function PaymentCard({
   payment,
   onViewOrder,
+  onReceipt,
+  openingReceiptId,
 }: {
   payment: CustomerPaymentHistoryRecord;
   onViewOrder: (orderId: string) => void;
+  onReceipt: (payment: CustomerPaymentHistoryRecord) => void;
+  openingReceiptId: string;
 }) {
   const method = readableText(payment.paymentMethod) || 'Payment Method';
   const showRejectedNote = payment.status === 'rejected' && (payment.rejectionReason || payment.adminNotes);
@@ -220,7 +229,21 @@ function PaymentCard({
           <ExternalLink size={13} strokeWidth={2.5} />
         </button>
 
-        {payment.proofUrl ? (
+        {payment.status === 'verified' ? (
+          <button
+            type="button"
+            onClick={() => onReceipt(payment)}
+            disabled={openingReceiptId === payment.id}
+            className="flex h-10 items-center justify-center gap-1.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-black text-emerald-700 transition active:scale-[0.98] disabled:cursor-wait disabled:opacity-60"
+          >
+            {openingReceiptId === payment.id ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <Download size={13} strokeWidth={2.5} />
+            )}
+            {openingReceiptId === payment.id ? 'Preparing' : 'Receipt'}
+          </button>
+        ) : payment.proofUrl ? (
           <a
             href={payment.proofUrl}
             target="_blank"
@@ -236,6 +259,18 @@ function PaymentCard({
           </div>
         )}
       </div>
+
+      {payment.status === 'verified' && payment.proofUrl && (
+        <a
+          href={payment.proofUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 flex h-9 w-full items-center justify-center gap-1.5 rounded-2xl border border-gray-200 bg-white px-3 text-[11px] font-bold text-gray-600 transition active:scale-[0.99]"
+        >
+          View submitted payment proof
+          <FileText size={12} strokeWidth={2.4} />
+        </a>
+      )}
     </article>
   );
 }
@@ -247,6 +282,11 @@ export default function PaymentHistory() {
   const [filter, setFilter] = useState<PaymentFilter>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [openingReceiptId, setOpeningReceiptId] = useState('');
+  const [receiptMessage, setReceiptMessage] = useState<{
+    tone: 'success' | 'error';
+    text: string;
+  } | null>(null);
   const [error, setError] = useState('');
 
   const loadHistory = useCallback(async (options?: { silent?: boolean }) => {
@@ -286,6 +326,81 @@ export default function PaymentHistory() {
   const handleViewOrder = (orderId: string) => {
     if (!orderId) return;
     navigate(`/order/${orderId}`);
+  };
+
+  const showReceiptMessage = (
+    tone: 'success' | 'error',
+    message: string,
+  ) => {
+    setReceiptMessage({ tone, text: message });
+
+    window.setTimeout(() => {
+      setReceiptMessage((current) =>
+        current?.text === message ? null : current,
+      );
+    }, 3200);
+  };
+
+  const handleReceipt = async (
+    payment: CustomerPaymentHistoryRecord,
+  ) => {
+    if (
+      payment.status !== 'verified' ||
+      openingReceiptId
+    ) {
+      return;
+    }
+
+    setOpeningReceiptId(payment.id);
+    setReceiptMessage(null);
+
+    try {
+      const result: PaymentReceiptResult =
+        await openOrDownloadPaymentReceipt({
+          paymentId: payment.id,
+          orderNumber: payment.orderNumber,
+          amountLabel: formatCurrency(payment.amount),
+          paymentType: paymentTypeLabel(payment.paymentType),
+          paymentMethod:
+            readableText(payment.paymentMethod) || 'Payment Method',
+          submittedAt: formatDateTime(
+            payment.submittedAt || payment.createdAt,
+          ),
+          verifiedAt: formatDateTime(payment.verifiedAt),
+          status: paymentStatusLabel(payment.status),
+        });
+
+      if (result.mode === 'opened') {
+        showReceiptMessage(
+          'success',
+          `Receipt saved and opened as ${result.fileName}.`,
+        );
+      } else if (result.mode === 'saved') {
+        showReceiptMessage(
+          'success',
+          `Receipt saved as ${result.fileName}. Install a PDF viewer to open it.`,
+        );
+      } else {
+        showReceiptMessage(
+          'success',
+          `Receipt downloaded as ${result.fileName}.`,
+        );
+      }
+    } catch (receiptError) {
+      console.error(
+        '[PaymentHistory] Failed to prepare receipt:',
+        receiptError,
+      );
+
+      showReceiptMessage(
+        'error',
+        receiptError instanceof Error
+          ? receiptError.message
+          : 'Unable to prepare the payment receipt.',
+      );
+    } finally {
+      setOpeningReceiptId('');
+    }
   };
 
   return (
@@ -341,6 +456,30 @@ export default function PaymentHistory() {
           </div>
         )}
 
+        {receiptMessage && (
+          <div
+            role="status"
+            className={`flex items-start gap-2 rounded-2xl border px-4 py-3 text-sm ${
+              receiptMessage.tone === 'success'
+                ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
+                : 'border-red-100 bg-red-50 text-red-700'
+            }`}
+          >
+            {receiptMessage.tone === 'success' ? (
+              <CheckCircle2
+                size={18}
+                className="mt-0.5 shrink-0"
+              />
+            ) : (
+              <AlertCircle
+                size={18}
+                className="mt-0.5 shrink-0"
+              />
+            )}
+            <span>{receiptMessage.text}</span>
+          </div>
+        )}
+
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((item) => (
@@ -372,7 +511,13 @@ export default function PaymentHistory() {
         ) : (
           <div className="space-y-3">
             {filteredPayments.map((payment) => (
-              <PaymentCard key={payment.id} payment={payment} onViewOrder={handleViewOrder} />
+              <PaymentCard
+                key={payment.id}
+                payment={payment}
+                onViewOrder={handleViewOrder}
+                onReceipt={(record) => void handleReceipt(record)}
+                openingReceiptId={openingReceiptId}
+              />
             ))}
           </div>
         )}
