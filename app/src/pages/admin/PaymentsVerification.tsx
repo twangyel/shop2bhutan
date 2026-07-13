@@ -17,6 +17,7 @@ import {
   type AdminPaymentRecord,
 } from '@/lib/customerOrders';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePrivacyScreen } from '@/lib/privacyScreen';
 
 const tabs = ['Pending Review', 'Verified', 'Rejected', 'All'] as const;
 type PaymentTab = (typeof tabs)[number];
@@ -63,6 +64,7 @@ function matchesTab(payment: AdminPaymentRecord, tab: PaymentTab) {
 export default function PaymentsVerification() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  usePrivacyScreen();
   const [activeTab, setActiveTab] = useState<PaymentTab>('Pending Review');
   const [payments, setPayments] = useState<AdminPaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);

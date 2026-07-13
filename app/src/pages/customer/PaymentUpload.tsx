@@ -33,6 +33,7 @@ import {
   NATIVE_CAMERA_RESTORED_EVENT,
   pickNativeImageFile,
 } from '@/lib/camera';
+import { usePrivacyScreen } from '@/lib/privacyScreen';
 
 const ALLOWED_SCREENSHOT_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024;
@@ -177,6 +178,7 @@ export default function PaymentUpload() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  usePrivacyScreen();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -759,7 +761,7 @@ export default function PaymentUpload() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-screen bg-slate-50 pb-[calc(7.5rem+var(--s2b-safe-area-bottom,env(safe-area-inset-bottom,0px)))]">
       <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-start justify-between gap-4">
           <div className="min-w-0">
@@ -1231,7 +1233,7 @@ export default function PaymentUpload() {
 
       {/* ===== ADDRESS PICKER BOTTOM SHEET ===== */}
       {showAddressPicker && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/45 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-10 backdrop-blur-[2px] sm:items-center">
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/45 px-4 pb-[calc(var(--s2b-safe-area-bottom,env(safe-area-inset-bottom,0px))+16px)] pt-10 backdrop-blur-[2px] sm:items-center">
           <div className="w-full max-w-md overflow-hidden rounded-[22px] bg-white shadow-2xl ring-1 ring-slate-200">
             <div className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-slate-200 sm:hidden" />
             <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-5">

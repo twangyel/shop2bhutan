@@ -32,6 +32,27 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /*
+     * Capacitor 8 SystemBars injects --safe-area-inset-* on Android
+     * WebViews where env(safe-area-inset-*) may be inaccurate.
+     */
+    --s2b-safe-area-top: var(
+      --safe-area-inset-top,
+      env(safe-area-inset-top, 0px)
+    );
+    --s2b-safe-area-right: var(
+      --safe-area-inset-right,
+      env(safe-area-inset-right, 0px)
+    );
+    --s2b-safe-area-bottom: var(
+      --safe-area-inset-bottom,
+      env(safe-area-inset-bottom, 0px)
+    );
+    --s2b-safe-area-left: var(
+      --safe-area-inset-left,
+      env(safe-area-inset-left, 0px)
+    );
   }
 
   .dark {
@@ -141,11 +162,27 @@
 }
 
 .pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: var(--s2b-safe-area-bottom);
 }
 
 .pt-safe {
-  padding-top: env(safe-area-inset-top, 0px);
+  padding-top: var(--s2b-safe-area-top);
+}
+
+.pl-safe {
+  padding-left: var(--s2b-safe-area-left);
+}
+
+.pr-safe {
+  padding-right: var(--s2b-safe-area-right);
+}
+
+.s2b-safe-top {
+  padding-top: var(--s2b-safe-area-top);
+}
+
+.s2b-safe-bottom {
+  padding-bottom: var(--s2b-safe-area-bottom);
 }
 
 @keyframes s2b-sheet-up {
@@ -195,6 +232,15 @@ html.capacitor-native .customer-bottom-sheet {
 html.capacitor-native .customer-app-shell,
 html.capacitor-native .customer-bottom-nav {
   box-shadow: none !important;
+}
+
+/*
+ * Override the Tailwind env() fallback on the native bottom bar with the
+ * corrected inset injected by Capacitor SystemBars when available.
+ */
+html.capacitor-native .customer-bottom-nav {
+  height: calc(72px + var(--s2b-safe-area-bottom)) !important;
+  padding-bottom: var(--s2b-safe-area-bottom) !important;
 }
 
 @media (display-mode: standalone) and (max-width: 640px) {

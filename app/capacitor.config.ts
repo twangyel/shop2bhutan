@@ -25,6 +25,12 @@ const config: CapacitorConfig = {
     Keyboard: {
       resize: 'body',
     },
+    SystemBars: {
+      insetsHandling: 'css',
+      style: 'LIGHT',
+      hidden: false,
+      animation: 'NONE',
+    },
   },
 }
 

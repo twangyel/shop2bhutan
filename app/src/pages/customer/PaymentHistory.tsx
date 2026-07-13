@@ -22,6 +22,7 @@ import {
   openOrDownloadPaymentReceipt,
   type PaymentReceiptResult,
 } from '@/lib/paymentReceipt';
+import { usePrivacyScreen } from '@/lib/privacyScreen';
 
 const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
 
@@ -278,6 +279,7 @@ function PaymentCard({
 export default function PaymentHistory() {
   const navigate = useNavigate();
   const { user, isGuest } = useAuth();
+  usePrivacyScreen();
   const [history, setHistory] = useState<CustomerPaymentHistoryResult>(() => emptyHistory());
   const [filter, setFilter] = useState<PaymentFilter>('all');
   const [loading, setLoading] = useState(true);
@@ -404,9 +406,9 @@ export default function PaymentHistory() {
   };
 
   return (
-    <div className="min-h-screen bg-white pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-screen bg-white pb-[calc(6.5rem+var(--s2b-safe-area-bottom,env(safe-area-inset-bottom,0px)))]">
       <header className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 pb-3 pt-[calc(var(--s2b-safe-area-top,env(safe-area-inset-top,0px))+0.75rem)]">
           <div className="min-w-0">
             <p className="text-[11px] font-black uppercase tracking-[0.14em] text-orange-500">Payments</p>
             <h1 className="mt-0.5 text-xl font-black tracking-tight text-gray-950">Payment History</h1>

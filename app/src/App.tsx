@@ -20,6 +20,7 @@ import {
   getNumberPreference,
   setNumberPreference,
 } from '@/lib/preferences';
+import { applyShopSystemBars } from '@/lib/systemBars';
 
 // Layouts
 import CustomerLayout from '@/layouts/CustomerLayout';
@@ -228,7 +229,7 @@ function GlobalNetworkStatus() {
   const restoring = state === 'restoring';
 
   return (
-    <div className="pointer-events-none fixed left-0 right-0 top-[calc(env(safe-area-inset-top)+0.65rem)] z-[160] px-3 sm:px-4">
+    <div className="pointer-events-none fixed left-0 right-0 top-[calc(var(--s2b-safe-area-top,env(safe-area-inset-top,0px))+0.65rem)] z-[160] px-3 sm:px-4">
       <div
         role="status"
         aria-live="polite"
@@ -438,7 +439,7 @@ function PwaInstallBanner() {
   }
 
   return (
-    <div className="fixed left-0 right-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[95] px-4">
+    <div className="fixed left-0 right-0 top-[calc(var(--s2b-safe-area-top,env(safe-area-inset-top,0px))+0.75rem)] z-[95] px-4">
       <div className="mx-auto max-w-lg overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-2xl shadow-slate-900/15 ring-1 ring-white/70">
         <div className="flex items-start gap-3 p-4">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600 ring-1 ring-orange-100">
@@ -670,7 +671,7 @@ function WebPushPermissionBanner() {
   }
 
   const topBannerClass =
-    'fixed left-0 right-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[110] px-3 sm:px-4';
+    'fixed left-0 right-0 top-[calc(var(--s2b-safe-area-top,env(safe-area-inset-top,0px))+0.75rem)] z-[110] px-3 sm:px-4';
 
   if (permissionState === 'unconfigured') {
     return (
@@ -1297,6 +1298,56 @@ function PushNotificationBridge() {
   return null;
 }
 
+function SystemBarsBridge() {
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return undefined;
+
+    let active = true;
+    let removeResume: (() => Promise<void>) | undefined;
+    let removeStateChange: (() => Promise<void>) | undefined;
+
+    const applyBars = () => {
+      if (active) void applyShopSystemBars();
+    };
+
+    applyBars();
+
+    void CapacitorApp.addListener('resume', applyBars).then(
+      (listener) => {
+        if (!active) {
+          void listener.remove();
+          return;
+        }
+
+        removeResume = () => listener.remove();
+      },
+    );
+
+    void CapacitorApp.addListener(
+      'appStateChange',
+      ({ isActive }) => {
+        if (isActive) applyBars();
+      },
+    ).then((listener) => {
+      if (!active) {
+        void listener.remove();
+        return;
+      }
+
+      removeStateChange = () => listener.remove();
+    });
+
+    return () => {
+      active = false;
+      void removeResume?.();
+      void removeStateChange?.();
+    };
+  }, []);
+
+  return null;
+}
+
+
 function RouteScrollToTop() {
   const { pathname, search } = useLocation();
 
@@ -1335,6 +1386,7 @@ function PasswordChangeGate({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <AppProvider>
+      <SystemBarsBridge />
       <NativeGoogleOAuthBridge />
       <NativeShareBridge />
       <NativeShoppingAssistBridge />
