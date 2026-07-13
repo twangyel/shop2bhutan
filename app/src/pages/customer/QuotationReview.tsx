@@ -9,8 +9,6 @@ import {
   FileText,
   Info,
   MessageSquareText,
-  ShieldCheck,
-  Truck,
   X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,7 +42,7 @@ function quotationDisplay(quotation: Quotation) {
     return {
       badge: 'Price Confirmed',
       badgeClass: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
-      eyebrow: 'Final price confirmed',
+      eyebrow: 'FINAL PRICE CONFIRMED',
       title: 'Ready for payment',
       subtitle: 'Your final price is confirmed. Continue to payment when ready.',
       statusLabel: 'Confirmed',
@@ -57,7 +55,7 @@ function quotationDisplay(quotation: Quotation) {
     return {
       badge: 'Changes Requested',
       badgeClass: 'bg-red-50 text-red-700 ring-red-100',
-      eyebrow: 'Price review',
+      eyebrow: 'PRICE REVIEW',
       title: 'Changes requested',
       subtitle: 'Your requested corrections were sent to Shop2Bhutan for review.',
       statusLabel: 'Under revision',
@@ -70,7 +68,7 @@ function quotationDisplay(quotation: Quotation) {
     return {
       badge: 'Price Expired',
       badgeClass: 'bg-red-50 text-red-700 ring-red-100',
-      eyebrow: 'Final price status',
+      eyebrow: 'FINAL PRICE STATUS',
       title: 'Final price expired',
       subtitle: 'Please contact Shop2Bhutan for an updated final price.',
       statusLabel: 'Expired',
@@ -90,8 +88,8 @@ function quotationDisplay(quotation: Quotation) {
         : 'bg-orange-50 text-orange-700 ring-orange-100',
     eyebrow:
       quotation.status === 'pending'
-        ? 'Availability & price check'
-        : 'Final price ready',
+        ? 'AVAILABILITY & PRICE CHECK'
+        : 'FINAL PRICE READY',
     title:
       quotation.status === 'pending'
         ? 'Checking your request'
@@ -438,39 +436,24 @@ export default function QuotationReview() {
     0,
   );
   const advanceAmount = Math.ceil(quotation.totalAmount * 0.5);
-  const nextSteps = isJaigaonPickup
-    ? [
-        'Confirm the final price',
-        'Pay Shop2Bhutan charges in full',
-        'Coordinate product pickup at Jaigaon',
-        'Track your order from your account',
-      ]
-    : [
-        'Accept this quotation',
-        'Upload your payment screenshot',
-        'Shop2Bhutan places the seller order',
-        'Track every update from your account',
-      ];
 
   return (
     <div className="min-h-screen bg-white pb-[calc(8.5rem+env(safe-area-inset-bottom))]">
       <header className="bg-white px-5 py-4">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold text-orange-500">
-              Final price
-            </p>
-            <h1 className="mt-0.5 text-[1.45rem] font-extrabold tracking-tight text-gray-950">
-              Review Final Price
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-[1.45rem] font-extrabold tracking-tight text-gray-950">
+                Review Final Price
+              </h1>
+              <span
+                className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold ring-1 ${display.badgeClass}`}
+              >
+                {display.badge}
+              </span>
+            </div>
             <p className="mt-1 truncate text-sm font-medium text-gray-400">#{order.orderNumber}</p>
           </div>
-
-          <span
-            className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold ring-1 ${display.badgeClass}`}
-          >
-            {display.badge}
-          </span>
         </div>
       </header>
 
@@ -481,169 +464,120 @@ export default function QuotationReview() {
           </div>
         )}
 
-        {/* Status card — lighter, no heavy border */}
-        <section className="overflow-hidden rounded-2xl bg-white shadow-sm shadow-gray-100">
-          <div className="px-5 pb-4 pt-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-orange-500">
-                  {display.eyebrow}
-                </p>
-                <h2 className="mt-2 text-[1.5rem] font-extrabold leading-tight tracking-tight text-gray-950">
-                  {display.title}
-                </h2>
-                <p className="mt-2 max-w-[16rem] text-[13px] leading-[1.4rem] text-gray-500">
-                  {display.subtitle}
-                </p>
-              </div>
-
-              <span
-                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gray-50 ${display.iconClass}`}
-              >
-                {display.icon}
-              </span>
-            </div>
-
-            <div className="mt-5 border-t border-gray-100 pt-4">
-              <p className="text-[11px] font-semibold text-gray-500">
-                {isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total payable'}
-              </p>
-              <div className="mt-2 flex items-end justify-between gap-4">
-                <p className="text-[1.9rem] font-extrabold tracking-tight text-gray-950">
-                  {money(quotation.totalAmount)}
-                </p>
-                <span className="mb-1 rounded-full bg-gray-100 px-3 py-1.5 text-[11px] font-semibold text-gray-600">
-                  {itemCount} {itemCount === 1 ? 'item' : 'items'}
-                </span>
-              </div>
-            </div>
+        {/* Price summary */}
+        <section className="px-1 pt-2 pb-1">
+          <p className="text-[11px] font-medium text-gray-500">
+            {isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total payable'}
+          </p>
+          <div className="mt-1 flex items-end justify-between gap-4">
+            <p className="text-[2.2rem] font-extrabold tracking-tight text-gray-950">
+              {money(quotation.totalAmount)}
+            </p>
+            <span className="mb-1.5 rounded-full bg-gray-100 px-3 py-1.5 text-[11px] font-medium text-gray-600">
+              {itemCount} {itemCount === 1 ? 'item' : 'items'}
+            </span>
           </div>
-
-          <div className="grid grid-cols-2 border-t border-gray-100 bg-gray-50/50">
-            <div className="px-5 py-3.5">
-              <p className="text-[10px] font-semibold text-gray-400">Status</p>
-              <p className="mt-1 text-sm font-bold text-gray-950">{display.statusLabel}</p>
-            </div>
-            <div className="border-l border-gray-100 px-5 py-3.5">
-              <p className="text-[10px] font-semibold text-gray-400">
-                Valid until
-              </p>
-              <p className="mt-1 text-sm font-bold text-gray-700">{validUntil || 'No expiry set'}</p>
-            </div>
+          <div className="mt-2 flex items-center gap-3 text-[12px] text-gray-500">
+            <span className="font-medium">{display.statusLabel}</span>
+            <span className="h-3 w-px bg-gray-200" />
+            <span>Valid until {validUntil || 'No expiry set'}</span>
           </div>
         </section>
 
         {/* Compact trust badge */}
         {quotation.status !== 'pending' && (
-          <section className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50/40 px-3.5 py-2.5">
-            <span className="flex h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-            <p className="text-xs font-semibold text-emerald-800">
+          <section className="mt-3 flex items-center gap-2 px-1">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+            <p className="text-xs font-medium text-emerald-700">
               Availability and price checked by Shop2Bhutan
             </p>
           </section>
         )}
 
+        {/* Price breakdown */}
         <section className="mt-6">
-          <div className="mb-3 flex items-end justify-between gap-3 px-1">
-            <div>
-              <p className="text-[11px] font-semibold text-orange-500">
-                Confirmed charges
-              </p>
-              <h2 className="mt-0.5 text-lg font-extrabold tracking-tight text-gray-950">Final price breakdown</h2>
-            </div>
-            <span className="rounded-full bg-gray-100 px-3 py-1.5 text-[11px] font-semibold text-gray-600">
-              Final
-            </span>
-          </div>
-
-          <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-            <div className="divide-y divide-gray-50 px-5 py-1">
-              <div className="py-4">
-                <div className="flex items-center justify-between gap-4 text-sm">
-                  <span className="text-gray-500">
-                    {isJaigaonPickup ? 'Product value (reference)' : 'Product total'}
-                  </span>
-                  <span className="font-extrabold text-gray-950">{money(quotation.productTotal)}</span>
-                </div>
-                {isJaigaonPickup && (
-                  <p className="mt-1.5 text-[11px] leading-5 text-gray-400">
-                    Product value is paid directly during Jaigaon pickup and is not included below.
-                  </p>
-                )}
+          <h2 className="mb-3 px-1 text-[15px] font-extrabold tracking-tight text-gray-950">
+            Final price breakdown
+          </h2>
+          <div className="divide-y divide-gray-100 px-1">
+            <div className="py-3.5">
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-gray-500">
+                  {isJaigaonPickup ? 'Product value (reference)' : 'Product total'}
+                </span>
+                <span className="font-extrabold text-gray-950">{money(quotation.productTotal)}</span>
               </div>
-
-              <div className="flex items-center justify-between gap-4 py-4 text-sm">
-                <span className="text-gray-500">Service charge</span>
-                <span className="font-extrabold text-gray-950">{money(quotation.serviceCharge)}</span>
-              </div>
-
-              <div className="flex items-center justify-between gap-4 py-4 text-sm">
-                <span className="text-gray-500">Delivery fee</span>
-                <span className="font-extrabold text-gray-950">{money(quotation.deliveryFee)}</span>
-              </div>
-
-              {quotation.taxAmount > 0 && (
-                <div className="flex items-center justify-between gap-4 py-4 text-sm">
-                  <span className="text-gray-500">Tax</span>
-                  <span className="font-extrabold text-gray-950">{money(quotation.taxAmount)}</span>
-                </div>
-              )}
-
-              {(quotation.additionalChargeAmount ?? 0) > 0 && (
-                <div className="flex items-center justify-between gap-4 py-4 text-sm">
-                  <span className="text-gray-500">
-                    {quotation.additionalChargeLabel || 'Additional charge'}
-                  </span>
-                  <span className="font-extrabold text-gray-950">
-                    {money(quotation.additionalChargeAmount)}
-                  </span>
-                </div>
+              {isJaigaonPickup && (
+                <p className="mt-1 text-[11px] leading-5 text-gray-400">
+                  Product value is paid directly during Jaigaon pickup and is not included below.
+                </p>
               )}
             </div>
 
-            <div className="border-t border-gray-100 px-5 py-4">
-              <div className="flex items-end justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-sm font-extrabold text-gray-950">
-                    {isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total payable'}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-gray-500">
-                    {isJaigaonPickup
-                      ? 'Shop2Bhutan charges only. No Bhutan delivery fee.'
-                      : 'Confirmed final amount with no hidden charges.'}
-                  </p>
-                </div>
-                <p className="shrink-0 whitespace-nowrap text-2xl font-extrabold tracking-tight text-gray-950">
-                  {money(quotation.totalAmount)}
+            <div className="flex items-center justify-between gap-4 py-3.5 text-sm">
+              <span className="text-gray-500">Service charge</span>
+              <span className="font-extrabold text-gray-950">{money(quotation.serviceCharge)}</span>
+            </div>
+
+            <div className="flex items-center justify-between gap-4 py-3.5 text-sm">
+              <span className="text-gray-500">Delivery fee</span>
+              <span className="font-extrabold text-gray-950">{money(quotation.deliveryFee)}</span>
+            </div>
+
+            {quotation.taxAmount > 0 && (
+              <div className="flex items-center justify-between gap-4 py-3.5 text-sm">
+                <span className="text-gray-500">Tax</span>
+                <span className="font-extrabold text-gray-950">{money(quotation.taxAmount)}</span>
+              </div>
+            )}
+
+            {(quotation.additionalChargeAmount ?? 0) > 0 && (
+              <div className="flex items-center justify-between gap-4 py-3.5 text-sm">
+                <span className="text-gray-500">
+                  {quotation.additionalChargeLabel || 'Additional charge'}
+                </span>
+                <span className="font-extrabold text-gray-950">
+                  {money(quotation.additionalChargeAmount)}
+                </span>
+              </div>
+            )}
+
+            <div className="flex items-end justify-between gap-4 py-4">
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold text-gray-950">
+                  {isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total payable'}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-gray-500">
+                  {isJaigaonPickup
+                    ? 'Shop2Bhutan charges only. No Bhutan delivery fee.'
+                    : 'Confirmed final amount with no hidden charges.'}
                 </p>
               </div>
+              <p className="shrink-0 whitespace-nowrap text-xl font-extrabold tracking-tight text-gray-950">
+                {money(quotation.totalAmount)}
+              </p>
             </div>
           </div>
         </section>
 
+        {/* Products */}
         <section className="mt-6">
           <div className="mb-3 flex items-end justify-between gap-3 px-1">
-            <div>
-              <p className="text-[11px] font-semibold text-orange-500">
-                Products
-              </p>
-              <h2 className="mt-0.5 text-lg font-extrabold tracking-tight text-gray-950">Confirmed items</h2>
-            </div>
-            <span className="rounded-full bg-gray-100 px-3 py-1.5 text-[11px] font-semibold text-gray-600">
+            <h2 className="text-[15px] font-extrabold tracking-tight text-gray-950">
+              Confirmed items
+            </h2>
+            <span className="rounded-full bg-gray-100 px-3 py-1.5 text-[11px] font-medium text-gray-600">
               {quotation.items.length} {quotation.items.length === 1 ? 'item' : 'items'}
             </span>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div className="divide-y divide-gray-100 px-1">
             {quotation.items.map((item, index) => {
               const source = sourceForItem(order, item, index);
               const hasSourceLink = canShowSourceLink(source.sourceUrl);
 
               return (
-                <div
-                  key={item.id}
-                  className={`p-4 ${index > 0 ? 'border-t border-gray-100' : ''}`}
-                >
+                <div key={item.id} className="py-4">
                   <div className="flex gap-3.5">
                     <QuotationItemPreviewImage
                       source={source}
@@ -677,7 +611,7 @@ export default function QuotationReview() {
                   </div>
 
                   {(hasSourceLink || item.notes) && (
-                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
                       {hasSourceLink && (
                         <a
                           href={source.sourceUrl}
@@ -704,15 +638,13 @@ export default function QuotationReview() {
           </div>
         </section>
 
+        {/* Payment choice */}
         <section className="mt-6">
-          <div className="mb-3 px-1">
-            <p className="text-[11px] font-semibold text-orange-500">
-              Payment choice
-            </p>
-            <h2 className="mt-0.5 text-lg font-extrabold tracking-tight text-gray-950">How you can pay</h2>
-          </div>
+          <h2 className="mb-3 px-1 text-[15px] font-extrabold tracking-tight text-gray-950">
+            How you can pay
+          </h2>
 
-          <div className={`grid gap-2.5 ${isJaigaonPickup ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          <div className={`grid gap-2.5 px-1 ${isJaigaonPickup ? 'grid-cols-1' : 'grid-cols-2'}`}>
             <div className="rounded-2xl border border-orange-100 bg-orange-50/40 p-3">
               <div className="flex items-center gap-2">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-orange-500">
@@ -746,71 +678,6 @@ export default function QuotationReview() {
                 </p>
               </div>
             )}
-          </div>
-        </section>
-
-        <section className="mt-6">
-          <div className="mb-3 px-1">
-            <p className="text-[11px] font-semibold text-orange-500">
-              Included service
-            </p>
-            <h2 className="mt-0.5 text-lg font-extrabold tracking-tight text-gray-950">What the charges cover</h2>
-          </div>
-
-          <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-            <div className="flex gap-3.5 p-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-                <ShieldCheck size={18} />
-              </span>
-              <div>
-                <p className="text-sm font-extrabold text-gray-950">Service charge</p>
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  Product verification, sourcing, coordination, order support, and customer updates.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3.5 border-t border-gray-100 p-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                <Truck size={18} />
-              </span>
-              <div>
-                <p className="text-sm font-extrabold text-gray-950">Delivery fee</p>
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  {isJaigaonPickup
-                    ? 'No Bhutan delivery fee is charged for direct Jaigaon pickup.'
-                    : 'Charged once per shopping request, not once per item.'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-6">
-          <div className="mb-3 px-1">
-            <p className="text-[11px] font-semibold text-orange-500">
-              Next steps
-            </p>
-            <h2 className="mt-0.5 text-lg font-extrabold tracking-tight text-gray-950">What happens next?</h2>
-          </div>
-
-          <div className="rounded-2xl border border-gray-100 bg-white px-5 py-2 shadow-sm">
-            {nextSteps.map((step, index) => (
-              <div
-                key={step}
-                className={`flex items-center gap-3.5 py-3.5 ${index > 0 ? 'border-t border-gray-100' : ''}`}
-              >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-950 text-[11px] font-extrabold text-white">
-                  {index + 1}
-                </span>
-                <span className="min-w-0 flex-1 text-sm font-semibold text-gray-700">{step}</span>
-                {index === 0 && canRespond && (
-                  <span className="rounded-full bg-orange-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-orange-600">
-                    Now
-                  </span>
-                )}
-              </div>
-            ))}
           </div>
         </section>
 
