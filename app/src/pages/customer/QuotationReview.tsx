@@ -4,7 +4,6 @@ import {
   Check,
   ChevronRight,
   Clock,
-  CreditCard,
   ExternalLink,
   FileText,
   Info,
@@ -435,7 +434,6 @@ export default function QuotationReview() {
     (total, item) => total + Math.max(1, Number(item.quantity) || 1),
     0,
   );
-  const advanceAmount = Math.ceil(quotation.totalAmount * 0.5);
 
   return (
     <div className="min-h-screen bg-white pb-[calc(8.5rem+env(safe-area-inset-bottom))]">
@@ -635,49 +633,6 @@ export default function QuotationReview() {
                 </div>
               );
             })}
-          </div>
-        </section>
-
-        {/* Payment choice */}
-        <section className="mt-6">
-          <h2 className="mb-3 px-1 text-[15px] font-extrabold tracking-tight text-gray-950">
-            How you can pay
-          </h2>
-
-          <div className={`grid gap-2.5 px-1 ${isJaigaonPickup ? 'grid-cols-1' : 'grid-cols-2'}`}>
-            <div className="rounded-2xl border border-orange-100 bg-orange-50/40 p-3">
-              <div className="flex items-center gap-2">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-orange-500">
-                  <CreditCard size={15.5} />
-                </span>
-                <p className="text-[11px] font-semibold leading-4 text-gray-600">
-                  {isJaigaonPickup ? 'Full charges' : 'Full payment'}
-                </p>
-              </div>
-              <p className="mt-2.5 text-base font-extrabold tracking-tight text-gray-950">
-                {money(quotation.totalAmount)}
-              </p>
-              <p className="mt-1 text-[10px] leading-4 text-gray-500">
-                {isJaigaonPickup ? 'Required for Jaigaon pickup.' : 'Pay the complete final amount now.'}
-              </p>
-            </div>
-
-            {!isJaigaonPickup && (
-              <div className="rounded-2xl border border-violet-100 bg-violet-50/40 p-3">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-violet-500">
-                    <CreditCard size={15.5} />
-                  </span>
-                  <p className="text-[11px] font-semibold leading-4 text-gray-600">50% advance</p>
-                </div>
-                <p className="mt-2.5 text-base font-extrabold tracking-tight text-gray-950">
-                  {money(advanceAmount)}
-                </p>
-                <p className="mt-1 text-[10px] leading-4 text-gray-500">
-                  Start after verification; pay the balance later.
-                </p>
-              </div>
-            )}
           </div>
         </section>
 
