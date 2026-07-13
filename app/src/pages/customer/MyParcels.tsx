@@ -8,11 +8,14 @@ import {
   ChevronRight,
   HelpCircle,
   Image as ImageIcon,
+  Loader2,
   MapPin,
   Package,
+  Share2,
   Truck,
 } from 'lucide-react'
 import { fetchMyParcelRequests } from '@/lib/parcels'
+import { shareTextContent } from '@/lib/nativeShare'
 import {
   parcelStatusLabels,
   parcelTypeLabels,
@@ -324,6 +327,8 @@ export default function MyParcels() {
 
 function ParcelCard({ request }: { request: ParcelRequest }) {
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [shareFeedback, setShareFeedback] = useState('')
 
   const displayStatus = normalizeStatus(request.status)
   const currentIndex = timeline.indexOf(
@@ -343,6 +348,45 @@ function ParcelCard({ request }: { request: ParcelRequest }) {
           ((Math.max(0, currentIndex) + 1) / timeline.length) * 100,
         ),
       )
+
+  const shareParcelUpdate = async () => {
+    if (sharing) return
+
+    setSharing(true)
+    setShareFeedback('')
+
+    try {
+      const status =
+        parcelStatusLabels[request.status] || request.status
+      const result = await shareTextContent({
+        title: `Shop2Bhutan Parcel ${
+          request.parcelNo || 'Update'
+        }`,
+        dialogTitle: 'Share parcel update',
+        text: [
+          `Shop2Bhutan Parcel ${
+            request.parcelNo || 'Request'
+          }`,
+          `Route: ${routeTitle(request)}`,
+          `Trip date: ${formatDate(request.trip?.goingDate)}`,
+          `Status: ${status}`,
+          '',
+          'Open Shop2Bhutan to view the complete private details.',
+        ].join('\n'),
+      })
+
+      if (result === 'copied') {
+        setShareFeedback('Parcel update copied')
+        window.setTimeout(() => setShareFeedback(''), 2200)
+      }
+    } catch (shareError) {
+      console.warn('Unable to share parcel update:', shareError)
+      setShareFeedback('Unable to share right now')
+      window.setTimeout(() => setShareFeedback(''), 2600)
+    } finally {
+      setSharing(false)
+    }
+  }
 
   return (
     <article className="overflow-hidden rounded-3xl border border-neutral-100 bg-white shadow-sm">
@@ -437,19 +481,47 @@ function ParcelCard({ request }: { request: ParcelRequest }) {
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setDetailsOpen((open) => !open)}
-          className="mt-3 flex h-10 w-full items-center justify-between rounded-2xl bg-neutral-50 px-3 text-sm font-bold text-neutral-700 ring-1 ring-neutral-100 transition active:scale-[0.99]"
-        >
-          <span>{detailsOpen ? 'Hide details' : 'View tracking & details'}</span>
-          <ChevronRight
-            size={17}
-            className={`transition-transform ${
-              detailsOpen ? 'rotate-90' : ''
-            }`}
-          />
-        </button>
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setDetailsOpen((open) => !open)}
+            className="flex h-10 min-w-0 flex-1 items-center justify-between rounded-2xl bg-neutral-50 px-3 text-sm font-bold text-neutral-700 ring-1 ring-neutral-100 transition active:scale-[0.99]"
+          >
+            <span className="truncate">
+              {detailsOpen ? 'Hide details' : 'View tracking & details'}
+            </span>
+            <ChevronRight
+              size={17}
+              className={`shrink-0 transition-transform ${
+                detailsOpen ? 'rotate-90' : ''
+              }`}
+            />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void shareParcelUpdate()}
+            disabled={sharing}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-neutral-200 bg-white text-neutral-600 transition active:scale-95 disabled:cursor-wait disabled:opacity-60"
+            aria-label="Share parcel update"
+            title="Share parcel update"
+          >
+            {sharing ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Share2 size={16} strokeWidth={2.3} />
+            )}
+          </button>
+        </div>
+
+        {shareFeedback && (
+          <p
+            className="mt-2 text-right text-[11px] font-semibold text-neutral-500"
+            role="status"
+          >
+            {shareFeedback}
+          </p>
+        )}
       </div>
 
       {detailsOpen && (

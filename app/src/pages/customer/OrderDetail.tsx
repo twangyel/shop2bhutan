@@ -9,7 +9,9 @@ import {
   ExternalLink,
   FileText,
   MapPin,
+  Loader2,
   Package,
+  Share2,
   Truck,
   XCircle,
 } from 'lucide-react';
@@ -17,6 +19,7 @@ import { appSettings } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchCustomerOrderById, fetchCustomerOrderByIdFast } from '@/lib/customerOrders';
 import { getFulfillmentDisplay, isSelfPickupOrder } from '@/lib/fulfillment';
+import { shareTextContent } from '@/lib/nativeShare';
 import type { Order, OrderStatus } from '@/types';
 
 const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
@@ -546,6 +549,8 @@ export default function OrderDetail() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [timelineOpen, setTimelineOpen] = useState(false);
+  const [sharingOrder, setSharingOrder] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState('');
   const [error, setError] = useState('');
 
   const loadOrder = useCallback(async () => {
@@ -593,6 +598,47 @@ export default function OrderDetail() {
   const compactProgress = useMemo(() => (order ? getCompactProgress(order) : null), [order]);
   const progressCardTitle = useMemo(() => (order ? getProgressCardTitle(order) : ''), [order]);
   const effectiveStatus = useMemo(() => (order ? getEffectiveOrderStatus(order) : undefined), [order]);
+
+  const shareOrderUpdate = async () => {
+    if (!order || sharingOrder) return;
+
+    setSharingOrder(true);
+    setShareFeedback('');
+
+    try {
+      const status = customerStageLabel(
+        effectiveStatus ?? order.status,
+      );
+      const requestLabel = isQuotationRequestStage(
+        effectiveStatus ?? order.status,
+      )
+        ? 'Shopping Request'
+        : 'Order';
+
+      const result = await shareTextContent({
+        title: `Shop2Bhutan ${requestLabel} #${order.orderNumber}`,
+        dialogTitle: 'Share order update',
+        text: [
+          `Shop2Bhutan ${requestLabel} #${order.orderNumber}`,
+          `Status: ${status}`,
+          statusMessage(order, effectiveStatus ?? order.status),
+          '',
+          'Open Shop2Bhutan to view the complete private details.',
+        ].join('\n'),
+      });
+
+      if (result === 'copied') {
+        setShareFeedback('Order update copied');
+        window.setTimeout(() => setShareFeedback(''), 2200);
+      }
+    } catch (shareError) {
+      console.warn('Unable to share order update:', shareError);
+      setShareFeedback('Unable to share right now');
+      window.setTimeout(() => setShareFeedback(''), 2600);
+    } finally {
+      setSharingOrder(false);
+    }
+  };
 
   if (!authLoading && !user) {
     return (
@@ -717,8 +763,33 @@ export default function OrderDetail() {
             <h1 className="mt-0.5 text-lg font-black tracking-tight text-slate-950">{detailTitle}</h1>
             <p className="truncate text-xs font-medium text-slate-500">#{order.orderNumber}</p>
           </div>
-          <CustomerStageBadge status={effectiveStatus ?? order.status} />
+          <div className="flex shrink-0 items-center gap-2">
+            <CustomerStageBadge status={effectiveStatus ?? order.status} />
+            <button
+              type="button"
+              onClick={() => void shareOrderUpdate()}
+              disabled={sharingOrder}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition active:scale-95 disabled:cursor-wait disabled:opacity-60"
+              aria-label="Share order update"
+              title="Share order update"
+            >
+              {sharingOrder ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Share2 size={16} strokeWidth={2.3} />
+              )}
+            </button>
+          </div>
         </div>
+
+        {shareFeedback && (
+          <p
+            className="mx-auto mt-2 max-w-2xl text-right text-[11px] font-semibold text-slate-500"
+            role="status"
+          >
+            {shareFeedback}
+          </p>
+        )}
       </header>
 
       <main className="mx-auto max-w-2xl space-y-4 px-4 py-4">

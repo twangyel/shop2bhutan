@@ -14,12 +14,16 @@ import {
   Phone,
   RotateCcw,
   Search,
+  Share2,
   ShieldCheck,
+  Smartphone,
   Truck,
   X,
 } from 'lucide-react';
 import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings';
 import { fetchPublicFaqItems, type FAQItemRecord } from '@/lib/contentPages';
+import { buildSupportDiagnostics } from '@/lib/deviceDiagnostics';
+import { shareTextContent } from '@/lib/nativeShare';
 
 function telHref(value: string) {
   const clean = value.replace(/[^+\d]/g, '');
@@ -93,6 +97,8 @@ export default function Support() {
   const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
   const [faqItems, setFaqItems] = useState<FAQItemRecord[]>([]);
   const [loadingFaqs, setLoadingFaqs] = useState(true);
+  const [sharingDiagnostics, setSharingDiagnostics] = useState(false);
+  const [diagnosticsFeedback, setDiagnosticsFeedback] = useState('');
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -173,6 +179,39 @@ export default function Support() {
   const clearSearch = () => {
     setSearchQuery('');
     setExpandedFaq(null);
+  };
+
+  const shareDiagnostics = async () => {
+    if (sharingDiagnostics) return;
+
+    setSharingDiagnostics(true);
+    setDiagnosticsFeedback('');
+
+    try {
+      const diagnostics = await buildSupportDiagnostics();
+      const result = await shareTextContent({
+        title: 'Shop2Bhutan Support Diagnostics',
+        dialogTitle: 'Share support diagnostics',
+        text: diagnostics,
+      });
+
+      if (result === 'copied') {
+        setDiagnosticsFeedback('Diagnostics copied');
+      } else if (result === 'shared') {
+        setDiagnosticsFeedback('Diagnostics ready to share');
+      }
+
+      window.setTimeout(() => setDiagnosticsFeedback(''), 2400);
+    } catch (diagnosticsError) {
+      console.warn(
+        'Unable to prepare support diagnostics:',
+        diagnosticsError,
+      );
+      setDiagnosticsFeedback('Unable to prepare diagnostics');
+      window.setTimeout(() => setDiagnosticsFeedback(''), 2800);
+    } finally {
+      setSharingDiagnostics(false);
+    }
   };
 
   return (
@@ -397,6 +436,60 @@ export default function Support() {
               )}
             </div>
           )}
+        </section>
+
+        <section aria-labelledby="support-diagnostics-title">
+          <div className="rounded-[26px] border border-blue-100 bg-blue-50/60 p-4">
+            <div className="flex items-start gap-3.5">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-600 ring-1 ring-blue-100">
+                <Smartphone size={20} strokeWidth={2.2} />
+              </span>
+
+              <div className="min-w-0 flex-1">
+                <h2
+                  id="support-diagnostics-title"
+                  className="text-base font-extrabold tracking-[-0.01em] text-neutral-950"
+                >
+                  App diagnostics
+                </h2>
+                <p className="mt-1 text-xs leading-5 text-neutral-600">
+                  Share your app version, phone model, operating system,
+                  WebView, and connection status when reporting a technical
+                  issue.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void shareDiagnostics()}
+              disabled={sharingDiagnostics}
+              className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-extrabold text-white transition active:scale-[0.98] disabled:cursor-wait disabled:opacity-60"
+            >
+              {sharingDiagnostics ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Share2 size={16} strokeWidth={2.3} />
+              )}
+              {sharingDiagnostics
+                ? 'Preparing diagnostics...'
+                : 'Share diagnostics'}
+            </button>
+
+            {diagnosticsFeedback && (
+              <p
+                className="mt-2 text-center text-[11px] font-semibold text-blue-700"
+                role="status"
+              >
+                {diagnosticsFeedback}
+              </p>
+            )}
+
+            <p className="mt-3 text-center text-[10px] leading-4 text-neutral-500">
+              Device ID, account details, passwords, addresses, and payment
+              information are never included.
+            </p>
+          </div>
         </section>
 
         <section aria-labelledby="contact-support-title">
