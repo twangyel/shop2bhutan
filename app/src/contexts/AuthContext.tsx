@@ -78,29 +78,33 @@ function isDeactivatedProfile(profile?: CustomerProfile | null) {
   return status === 'deactivated' || profile?.is_active === false;
 }
 
-async function isCurrentAuthUserDeactivated() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+async function isAuthUserDeactivated(user: User) {
+  if (!user.id || isAnonymousAuthUser(user)) return false;
 
-  if (!user?.id || isAnonymousAuthUser(user)) return false;
+  try {
+    const rpcResult = await supabase.rpc('is_my_account_deactivated');
 
-  const rpcResult = await supabase.rpc('is_my_account_deactivated');
+    if (!rpcResult.error) return Boolean(rpcResult.data);
 
-  if (!rpcResult.error) return Boolean(rpcResult.data);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('account_status, is_active')
+      .eq('id', user.id)
+      .maybeSingle();
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('account_status, is_active')
-    .eq('id', user.id)
-    .maybeSingle();
+    if (error) {
+      console.warn(
+        '[AuthContext] Deactivated account check skipped:',
+        error.message,
+      );
+      return false;
+    }
 
-  if (error) {
-    console.warn('[AuthContext] Deactivated account check skipped:', error.message);
+    return isDeactivatedProfile(data as CustomerProfile | null);
+  } catch (error) {
+    console.warn('[AuthContext] Deactivated account check deferred:', error);
     return false;
   }
-
-  return isDeactivatedProfile(data as CustomerProfile | null);
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -147,16 +151,38 @@ async function ensureProfileRow(user: User) {
 
   const payload = buildProfileInsert(user);
 
-  const { error } = await supabase
-    .from('profiles')
-    .upsert(payload, {
-      onConflict: 'id',
-      ignoreDuplicates: true,
-    });
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .upsert(payload, {
+        onConflict: 'id',
+        ignoreDuplicates: true,
+      });
 
-  if (error) {
-    console.warn('Profile sync skipped:', error.message);
+    if (error) {
+      console.warn('Profile sync skipped:', error.message);
+    }
+  } catch (error) {
+    console.warn('[AuthContext] Profile sync deferred:', error);
   }
+}
+
+function buildFallbackContext(user: User): SessionContext {
+  return {
+    user_id: user.id,
+    email: user.email ?? null,
+    role: isAnonymousAuthUser(user) ? 'anon' : 'customer',
+    is_admin: false,
+    is_super_admin: false,
+    profile: null,
+  };
+}
+
+function shouldRefreshSession(activeSession: Session) {
+  const expiresAt = Number(activeSession.expires_at ?? 0);
+  if (!expiresAt) return false;
+
+  return expiresAt <= Math.floor(Date.now() / 1000) + 90;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -164,61 +190,152 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [context, setContext] = useState<SessionContext | null>(null);
   const sessionRef = useRef<Session | null>(null);
+  const hydrationVersionRef = useRef(0);
+  const recoveryPromiseRef = useRef<Promise<void> | null>(null);
+  const lastRecoveryAtRef = useRef(0);
+  const hiddenAtRef = useRef<number | null>(null);
 
-  const loadSessionContext = async (activeSession: Session | null) => {
-    sessionRef.current = activeSession;
-    setSession(activeSession);
+  const loadSessionContext = useCallback(
+    async (activeSession: Session | null) => {
+      const hydrationVersion = ++hydrationVersionRef.current;
 
-    if (!activeSession?.user) {
-      setContext(anonContext);
-      return;
+      sessionRef.current = activeSession;
+      setSession(activeSession);
+
+      if (!activeSession?.user) {
+        setContext(anonContext);
+        return;
+      }
+
+      const activeUser = activeSession.user;
+      const fallbackContext = buildFallbackContext(activeUser);
+
+      setContext((current) =>
+        current?.user_id === activeUser.id ? current : fallbackContext,
+      );
+
+      try {
+        await ensureProfileRow(activeUser);
+
+        if (await isAuthUserDeactivated(activeUser)) {
+          rememberAuthMessage(DEACTIVATED_ACCOUNT_MESSAGE);
+          await supabase.auth.signOut();
+
+          if (hydrationVersion === hydrationVersionRef.current) {
+            sessionRef.current = null;
+            setSession(null);
+            setContext(anonContext);
+          }
+          return;
+        }
+
+        const { data, error } = await supabase.rpc('get_my_session_context');
+
+        if (hydrationVersion !== hydrationVersionRef.current) return;
+
+        if (error) {
+          console.warn(
+            '[AuthContext] Full session context deferred:',
+            error.message,
+          );
+          return;
+        }
+
+        const nextContext = data as SessionContext;
+
+        if (isDeactivatedProfile(nextContext.profile)) {
+          rememberAuthMessage(DEACTIVATED_ACCOUNT_MESSAGE);
+          await supabase.auth.signOut();
+
+          if (hydrationVersion === hydrationVersionRef.current) {
+            sessionRef.current = null;
+            setSession(null);
+            setContext(anonContext);
+          }
+          return;
+        }
+
+        setContext(nextContext);
+      } catch (error) {
+        if (hydrationVersion !== hydrationVersionRef.current) return;
+
+        console.warn('[AuthContext] Session context hydration deferred:', error);
+        setContext((current) =>
+          current?.user_id === activeUser.id ? current : fallbackContext,
+        );
+      }
+    },
+    [],
+  );
+
+  const recoverSession = useCallback(async () => {
+    if (recoveryPromiseRef.current) {
+      return recoveryPromiseRef.current;
     }
 
-    await ensureProfileRow(activeSession.user);
+    const recovery = (async () => {
+      try {
+        const {
+          data: { session: storedSession },
+          error: sessionError,
+        } = await supabase.auth.getSession();
 
-    if (await isCurrentAuthUserDeactivated()) {
-      rememberAuthMessage(DEACTIVATED_ACCOUNT_MESSAGE);
-      await supabase.auth.signOut();
-      setSession(null);
-      setContext(anonContext);
-      return;
-    }
+        if (sessionError) throw sessionError;
 
-    const { data, error } = await supabase.rpc('get_my_session_context');
+        let activeSession = storedSession;
 
-    if (error) {
-      console.error('Failed to load session context:', error);
+        if (activeSession && shouldRefreshSession(activeSession)) {
+          const {
+            data: refreshData,
+            error: refreshError,
+          } = await supabase.auth.refreshSession();
 
-      setContext({
-        ...anonContext,
-        user_id: activeSession.user.id,
-        email: activeSession.user.email ?? null,
-        role: 'customer',
-      });
+          if (refreshError) {
+            console.warn(
+              '[AuthContext] Token refresh will retry automatically:',
+              refreshError.message,
+            );
+          } else if (refreshData.session) {
+            activeSession = refreshData.session;
+          }
+        }
 
-      return;
-    }
+        await loadSessionContext(activeSession);
 
-    const nextContext = data as SessionContext;
+        window.dispatchEvent(
+          new CustomEvent('shop2bhutan:session-restored', {
+            detail: { userId: activeSession?.user?.id ?? null },
+          }),
+        );
+      } catch (error) {
+        console.warn('[AuthContext] Session recovery skipped:', error);
 
-    if (isDeactivatedProfile(nextContext.profile)) {
-      rememberAuthMessage(DEACTIVATED_ACCOUNT_MESSAGE);
-      await supabase.auth.signOut();
-      setSession(null);
-      setContext(anonContext);
-      return;
-    }
+        const currentSession = sessionRef.current;
 
-    setContext(nextContext);
-  };
+        if (!currentSession?.user) {
+          setSession(null);
+          setContext(anonContext);
+          return;
+        }
+
+        setSession(currentSession);
+        setContext((current) =>
+          current?.user_id === currentSession.user.id
+            ? current
+            : buildFallbackContext(currentSession.user),
+        );
+      } finally {
+        recoveryPromiseRef.current = null;
+      }
+    })();
+
+    recoveryPromiseRef.current = recovery;
+    return recovery;
+  }, [loadSessionContext]);
 
   const refreshContext = useCallback(async () => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    await loadSessionContext(session);
-  }, []);
+    await recoverSession();
+  }, [recoverSession]);
 
   const ensureGuestSession = useCallback(async () => {
     const {
@@ -244,38 +361,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     await loadSessionContext(data.session);
     return data.session;
-  }, []);
+  }, [loadSessionContext]);
 
   useEffect(() => {
     let mounted = true;
+    let recoveryTimer: number | undefined;
 
     async function init() {
       setLoading(true);
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!mounted) return;
-
-      await loadSessionContext(session);
-
-      if (mounted) {
-        setLoading(false);
+      try {
+        await recoverSession();
+      } finally {
+        if (mounted) setLoading(false);
       }
     }
 
-    init();
+    void init();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (!mounted) return;
 
-      // Keep the current screen mounted during normal auth changes.
-      // Login, logout, token refresh, and password updates are handled with
-      // local button/overlay states so the app does not flash a global loader.
       if (event === 'SIGNED_OUT') {
+        hydrationVersionRef.current += 1;
         sessionRef.current = null;
         setSession(null);
         setContext(anonContext);
@@ -283,18 +393,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      await loadSessionContext(newSession);
+      window.setTimeout(() => {
+        if (!mounted) return;
 
-      if (mounted) {
-        setLoading(false);
-      }
+        void loadSessionContext(newSession).finally(() => {
+          if (mounted) setLoading(false);
+        });
+      }, 0);
     });
+
+    const requestRecovery = () => {
+      if (!mounted || document.visibilityState === 'hidden') return;
+
+      const now = Date.now();
+      if (now - lastRecoveryAtRef.current < 1500) return;
+      lastRecoveryAtRef.current = now;
+
+      if (recoveryTimer !== undefined) {
+        window.clearTimeout(recoveryTimer);
+      }
+
+      recoveryTimer = window.setTimeout(() => {
+        if (mounted) void recoverSession();
+      }, 120);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAtRef.current = Date.now();
+        return;
+      }
+
+      const hiddenDuration =
+        hiddenAtRef.current === null ? 0 : Date.now() - hiddenAtRef.current;
+      hiddenAtRef.current = null;
+
+      if (hiddenDuration >= 5000) requestRecovery();
+    };
+
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) requestRecovery();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('focus', requestRecovery);
+    window.addEventListener('online', requestRecovery);
 
     return () => {
       mounted = false;
+
+      if (recoveryTimer !== undefined) {
+        window.clearTimeout(recoveryTimer);
+      }
+
       subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('focus', requestRecovery);
+      window.removeEventListener('online', requestRecovery);
     };
-  }, []);
+  }, [loadSessionContext, recoverSession]);
 
   const signOut = useCallback(async () => {
     // Clear local auth state first so logout feels instant and predictable.
