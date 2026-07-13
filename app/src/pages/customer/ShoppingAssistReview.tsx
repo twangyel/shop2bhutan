@@ -758,7 +758,7 @@ export default function ShoppingAssistReview() {
             <div>
               <label
                 htmlFor="assist-product-name"
-                className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-400"
+                className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-500"
               >
                 Product name
               </label>
@@ -777,7 +777,7 @@ export default function ShoppingAssistReview() {
               <div>
                 <label
                   htmlFor="assist-price"
-                  className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-400"
+                  className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-500"
                 >
                   Displayed price
                 </label>
@@ -791,13 +791,13 @@ export default function ShoppingAssistReview() {
                     readOnly
                     aria-readonly="true"
                     placeholder="To verify"
-                    className="h-12 w-full cursor-default rounded-2xl border border-slate-200 bg-slate-50 pl-8 pr-3 text-sm font-extrabold text-slate-700 outline-none"
+                    className="h-12 w-full cursor-default rounded-2xl border border-slate-200 bg-white pl-8 pr-3 text-sm font-extrabold text-slate-700 outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <p className="mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-400">
+                <p className="mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-500">
                   Quantity
                 </p>
                 <div className="flex h-12 items-center rounded-2xl border border-slate-200 bg-white">
@@ -833,7 +833,7 @@ export default function ShoppingAssistReview() {
             <div>
               <label
                 htmlFor="assist-variant"
-                className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-400"
+                className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-500"
               >
                 Size, colour or option
               </label>
@@ -855,8 +855,9 @@ export default function ShoppingAssistReview() {
           </div>
         </section>
 
-        <section className="mt-4 flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600">
+        {/* Lighter blue info box */}
+        <section className="mt-4 flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm">
             <Sparkles size={17} />
           </span>
           <p className="text-[11px] leading-5 text-blue-800">

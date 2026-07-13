@@ -312,42 +312,36 @@ export default function ShoppingAssist() {
 
   return (
     <div className="min-h-[100dvh] bg-white">
-      <header className="border-b border-slate-100 bg-white">
+      <header className="bg-white">
         <div className="mx-auto max-w-lg px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.8rem)]">
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-orange-500">
-            Shop2Bhutan
-          </p>
-          <h1 className="mt-1 text-[24px] font-extrabold tracking-tight text-slate-950">
+          <h1 className="text-[26px] font-extrabold tracking-tight text-slate-950">
             Shopping Assist
           </h1>
-          <p className="mt-1 text-[12px] leading-5 text-slate-500">
+          <p className="mt-1 text-[13px] leading-5 text-slate-500">
             Choose a store, open a product and review it before saving.
           </p>
         </div>
       </header>
 
       <main className="mx-auto max-w-lg px-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-3">
-        <section className="flex items-center rounded-2xl border border-slate-200 bg-white px-3 py-3">
+        {/* Steps — centered, compact */}
+        <section className="flex items-center justify-center gap-2 rounded-2xl bg-slate-50 px-3 py-3">
           {[
             ['1', 'Browse'],
             ['2', 'Review'],
             ['3', 'Request'],
           ].map(([step, label], index) => (
-            <div
-              key={step}
-              className="flex min-w-0 flex-1 items-center"
-            >
-              <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500 text-[10px] font-extrabold text-white">
+            <div key={step} className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-500 text-[10px] font-extrabold text-white">
                   {step}
                 </span>
-                <span className="truncate text-[10px] font-extrabold text-slate-600">
+                <span className="text-[11px] font-extrabold text-slate-600">
                   {label}
                 </span>
               </div>
-
               {index < 2 && (
-                <span className="h-px w-5 shrink-0 bg-slate-200" />
+                <span className="h-px w-3 shrink-0 bg-slate-300" />
               )}
             </div>
           ))}
@@ -373,7 +367,8 @@ export default function ShoppingAssist() {
             </span>
           </div>
 
-          <div className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-[22px] border border-slate-200 bg-white">
+          {/* Store cards — individual cards instead of divided list */}
+          <div className="mt-3 flex flex-col gap-2">
             {SHOPPING_ASSIST_STORES.map((store) => {
               const opening =
                 openingStore === store.key;
@@ -386,7 +381,7 @@ export default function ShoppingAssist() {
                     void openStore(store.key)
                   }
                   disabled={Boolean(openingStore)}
-                  className="flex min-h-[68px] w-full items-center gap-3 px-3.5 py-3 text-left transition active:scale-[0.99] disabled:opacity-60"
+                  className="flex min-h-[64px] w-full items-center gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm transition active:scale-[0.99] disabled:opacity-60"
                 >
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-100 bg-white p-2.5">
                     <img
@@ -430,11 +425,12 @@ export default function ShoppingAssist() {
           </div>
         )}
 
+        {/* Paste link — card style */}
         <section className="mt-5">
           <button
             type="button"
             onClick={() => navigate('/paste-link')}
-            className="flex w-full items-center gap-3 border-y border-slate-100 bg-white py-3.5 text-left transition active:scale-[0.99]"
+            className="flex w-full items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-sm transition active:scale-[0.99]"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-orange-100 bg-white text-orange-500">
               <Link2 size={18} />
@@ -456,8 +452,9 @@ export default function ShoppingAssist() {
           </button>
         </section>
 
-        <section className="mt-5 flex items-start gap-3 border-t border-slate-100 bg-white pt-4">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-white text-blue-600">
+        {/* Trust badge — compact card */}
+        <section className="mt-5 flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-600 shadow-sm">
             <ShieldCheck size={17} strokeWidth={2.2} />
           </span>
 
@@ -525,27 +522,24 @@ export default function ShoppingAssist() {
               </button>
             </div>
 
-            <div className="mt-4 flex items-center rounded-2xl border border-slate-200 bg-white px-3 py-3">
+            {/* Modal steps — centered */}
+            <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl bg-slate-50 px-3 py-3">
               {[
                 ['1', 'Open'],
                 ['2', 'Copy'],
                 ['3', 'Review'],
               ].map(([step, label], index) => (
-                <div
-                  key={step}
-                  className="flex min-w-0 flex-1 items-center"
-                >
-                  <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5">
+                <div key={step} className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-500 text-[10px] font-extrabold text-white">
                       {step}
                     </span>
-                    <span className="truncate text-[10px] font-extrabold text-slate-600">
+                    <span className="text-[10px] font-extrabold text-slate-600">
                       {label}
                     </span>
                   </div>
-
                   {index < 2 && (
-                    <span className="h-px w-4 shrink-0 bg-slate-200" />
+                    <span className="h-px w-3 shrink-0 bg-slate-300" />
                   )}
                 </div>
               ))}
@@ -557,7 +551,7 @@ export default function ShoppingAssist() {
                 className="mt-0.5 shrink-0 text-blue-600"
               />
               <p className="text-[10px] leading-[17px] text-slate-600">
-                Open a product and use the store’s Share menu to copy its link.
+                Open a product and use the store's Share menu to copy its link.
               </p>
             </div>
 
