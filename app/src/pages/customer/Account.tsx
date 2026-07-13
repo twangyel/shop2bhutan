@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
 import {
   AlertTriangle,
   Bell,
@@ -341,43 +343,72 @@ export default function Account() {
     }
   };
 
+  const copyShareMessage = async (shareMessage: string) => {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(shareMessage);
+    } else {
+      const textarea = document.createElement('textarea');
+      textarea.value = shareMessage;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+
+    setShareFeedback('Shop2Bhutan link copied');
+    window.setTimeout(() => setShareFeedback(''), 2200);
+  };
+
   const handleShareApp = async () => {
-    const shareData = {
-      title: 'Shop2Bhutan',
-      text: SHOP2BHUTAN_SHARE_TEXT,
-      url: SHOP2BHUTAN_APP_URL,
-    };
+    const shareMessage = `${SHOP2BHUTAN_SHARE_TEXT}\n\nOpen or install Shop2Bhutan:\n${SHOP2BHUTAN_APP_URL}`;
 
     try {
-      if (navigator.share) {
-        await navigator.share(shareData);
+      if (Capacitor.isNativePlatform()) {
+        const { value: nativeSharingAvailable } = await Share.canShare();
+
+        if (!nativeSharingAvailable) {
+          await copyShareMessage(shareMessage);
+          return;
+        }
+
+        await Share.share({
+          title: 'Shop2Bhutan',
+          text: shareMessage,
+          dialogTitle: 'Share Shop2Bhutan',
+        });
         return;
       }
 
-      const shareMessage = `${SHOP2BHUTAN_SHARE_TEXT}\n\n${SHOP2BHUTAN_APP_URL}`;
+      const webShareData = {
+        title: 'Shop2Bhutan',
+        text: shareMessage,
+      };
 
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(shareMessage);
-      } else {
-        const textarea = document.createElement('textarea');
-        textarea.value = shareMessage;
-        textarea.setAttribute('readonly', '');
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
+      const webSharingAvailable =
+        Boolean(navigator.share) &&
+        (!navigator.canShare || navigator.canShare(webShareData));
+
+      if (webSharingAvailable) {
+        await navigator.share(webShareData);
+        return;
       }
 
-      setShareFeedback('Shop2Bhutan link copied');
-      window.setTimeout(() => setShareFeedback(''), 2200);
+      await copyShareMessage(shareMessage);
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
 
       console.warn('[Account] Share failed:', error);
-      setShareFeedback('Unable to share. Please try again.');
-      window.setTimeout(() => setShareFeedback(''), 2600);
+
+      try {
+        await copyShareMessage(shareMessage);
+      } catch (copyError) {
+        console.warn('[Account] Copy fallback failed:', copyError);
+        setShareFeedback('Unable to share. Please try again.');
+        window.setTimeout(() => setShareFeedback(''), 2600);
+      }
     }
   };
 
