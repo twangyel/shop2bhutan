@@ -5867,80 +5867,121 @@ export async function removeRequestBagItem(userId: string, itemId: string) {
   }
 }
 
+function isMissingRequestBagSubmissionRpc(error: unknown) {
+  const message = errorMessage(error, '').toLowerCase()
+
+  return (
+    message.includes('submit_request_bag_transactional') &&
+    (
+      message.includes('could not find') ||
+      message.includes('schema cache') ||
+      message.includes('does not exist') ||
+      message.includes('function')
+    )
+  )
+}
+
 export async function submitRequestBagAsOrder(input: SubmitRequestBagInput): Promise<SubmitPasteLinkOrderResult> {
   if (!input.userId) throw new Error('Please sign in before requesting a quotation.')
   if (!input.bagId) throw new Error('Request Bag not found.')
+  if (!cleanText(input.customerName)) throw new Error('Customer name is required.')
+  if (!cleanText(input.customerPhone)) throw new Error('Phone number is required.')
 
-  const { data: bagRow, error: bagError } = await supabase
-    .from('customer_request_bags')
-    .select('*')
-    .eq('id', input.bagId)
-    .eq('user_id', input.userId)
-    .eq('status', 'active')
-    .maybeSingle()
+  const fulfillmentMode = normalizeFulfillmentModeValue(input.fulfillmentMode)
+  const pickupHub = resolvePickupHub(input)
+  const customerNotes =
+    cleanText(input.customerNotes) ||
+    `Request Bag submitted by customer. Name: ${cleanText(input.customerName)}. Phone: ${cleanText(input.customerPhone)}.`
 
-  if (bagError) throw bagError
-  if (!bagRow) throw new Error('Request Bag not found or already submitted.')
+  const { data, error } = await supabase.rpc(
+    'submit_request_bag_transactional',
+    {
+      p_bag_id: input.bagId,
+      p_customer_name: cleanText(input.customerName),
+      p_customer_phone: cleanText(input.customerPhone),
+      p_customer_email: cleanText(input.email) || null,
+      p_delivery_address: makeFulfillmentAddress(input) || null,
+      p_customer_notes: customerNotes,
+      p_fulfillment_mode: fulfillmentMode,
+      p_pickup_hub_id:
+        fulfillmentMode === 'self_pickup'
+          ? pickupHub.id
+          : null,
+      p_pickup_hub_name:
+        fulfillmentMode === 'self_pickup'
+          ? pickupHub.name
+          : null,
+      p_pickup_instructions:
+        fulfillmentMode === 'self_pickup'
+          ? pickupHub.instructions
+          : null,
+    },
+  )
 
-  const { data: itemRows, error: itemsError } = await supabase
-    .from('customer_request_bag_items')
-    .select('*')
-    .eq('bag_id', input.bagId)
-    .eq('user_id', input.userId)
-    .order('created_at', { ascending: true })
+  if (error) {
+    if (isMissingRequestBagSubmissionRpc(error)) {
+      throw new Error(
+        'Secure Request Bag submission is not installed yet. Run Request_Bag_Transactional_Submission.sql in Supabase, then try again.',
+      )
+    }
 
-  if (itemsError) throw itemsError
-
-  const items = ((itemRows ?? []) as AnyRow[]).map((item) => ({
-    sourceUrl: firstString(item, ['source_url'], ''),
-    sourcePlatform: firstString(item, ['source_platform'], 'other'),
-    productName: firstString(item, ['product_name'], 'Product request'),
-    productImage: firstString(item, ['product_image'], ''),
-    price: firstNumber(item, ['price_shown'], 0),
-    quantity: firstNumber(item, ['quantity'], 1),
-    notes: firstString(item, ['notes'], ''),
-    attachmentPath: firstString(item, ['screenshot_path'], ''),
-  }))
-
-  if (items.length === 0) throw new Error('Your Request Bag is empty.')
-
-  const result = await submitPasteLinkOrder({
-    userId: input.userId,
-    email: input.email,
-    customerName: input.customerName,
-    customerPhone: input.customerPhone,
-    deliveryAddress: input.deliveryAddress,
-    customerNotes:
-      cleanText(input.customerNotes) ||
-      `Request Bag submitted by customer. Name: ${cleanText(input.customerName)}. Phone: ${cleanText(input.customerPhone)}.`,
-    fulfillmentMode: input.fulfillmentMode,
-    pickupHubId: input.pickupHubId,
-    pickupHubName: input.pickupHubName,
-    pickupInstructions: input.pickupInstructions,
-    items,
-  })
-
-  const { error: updateError } = await supabase
-    .from('customer_request_bags')
-    .update({
-      status: 'submitted',
-      submitted_order_id: result.orderId,
-      customer_name: cleanText(input.customerName),
-      customer_phone: cleanText(input.customerPhone),
-      delivery_address: makeFulfillmentAddress(input),
-      customer_notes: cleanText(input.customerNotes) || null,
-      fulfillment_mode: normalizeFulfillmentModeValue(input.fulfillmentMode),
-      pickup_hub_id: normalizeFulfillmentModeValue(input.fulfillmentMode) === 'self_pickup' ? resolvePickupHub(input).id : null,
-      pickup_hub_name: normalizeFulfillmentModeValue(input.fulfillmentMode) === 'self_pickup' ? resolvePickupHub(input).name : null,
-      pickup_instructions: normalizeFulfillmentModeValue(input.fulfillmentMode) === 'self_pickup' ? resolvePickupHub(input).instructions : null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', input.bagId)
-    .eq('user_id', input.userId)
-
-  if (updateError) {
-    console.warn('[customerOrders] Request Bag submitted but status update failed:', updateError)
+    throw new Error(
+      errorMessage(
+        error,
+        'Unable to submit your shopping request securely.',
+      ),
+    )
   }
 
-  return result
+  const resultRow = (
+    Array.isArray(data)
+      ? data[0]
+      : data
+  ) as AnyRow | null
+
+  const orderId = firstString(
+    resultRow,
+    ['order_id', 'orderId', 'id'],
+    '',
+  )
+
+  if (!orderId) {
+    throw new Error(
+      'The shopping request was processed, but no order reference was returned.',
+    )
+  }
+
+  const orderNo = firstString(
+    resultRow,
+    ['order_no', 'orderNo', 'order_number'],
+    orderId,
+  )
+  const itemCount = firstNumber(
+    resultRow,
+    ['item_count', 'itemCount'],
+    0,
+  )
+
+  // Notifications are deliberately outside the database transaction.
+  // The dedupe key uses the order UUID, so a safe retry cannot create
+  // duplicate admin notifications.
+  try {
+    await createAdminOrderSubmittedNotification({
+      orderId,
+      orderNo,
+      customerName: input.customerName,
+      customerPhone: input.customerPhone,
+      itemCount,
+    })
+  } catch (notificationError) {
+    console.warn(
+      '[customerOrders] Request Bag submitted; admin notification deferred:',
+      notificationError,
+    )
+  }
+
+  return {
+    orderId,
+    orderNo,
+  }
 }

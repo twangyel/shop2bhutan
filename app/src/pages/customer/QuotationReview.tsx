@@ -9,6 +9,7 @@ import {
   Info,
   MessageSquareText,
   X,
+  ArrowLeft,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -40,39 +41,39 @@ function quotationDisplay(quotation: Quotation) {
   if (quotation.status === 'approved') {
     return {
       badge: 'Price Confirmed',
-      badgeClass: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+      badgeClass: 'bg-emerald-50 text-emerald-600',
       eyebrow: 'FINAL PRICE CONFIRMED',
       title: 'Ready for payment',
       subtitle: 'Your final price is confirmed. Continue to payment when ready.',
       statusLabel: 'Confirmed',
       iconClass: 'text-emerald-500',
-      icon: <Check size={30} strokeWidth={2.4} />,
+      icon: <Check size={28} strokeWidth={2.4} />,
     };
   }
 
   if (quotation.status === 'rejected') {
     return {
       badge: 'Changes Requested',
-      badgeClass: 'bg-red-50 text-red-700 ring-red-100',
+      badgeClass: 'bg-red-50 text-red-600',
       eyebrow: 'PRICE REVIEW',
       title: 'Changes requested',
       subtitle: 'Your requested corrections were sent to Shop2Bhutan for review.',
       statusLabel: 'Under revision',
       iconClass: 'text-red-500',
-      icon: <X size={30} strokeWidth={2.4} />,
+      icon: <X size={28} strokeWidth={2.4} />,
     };
   }
 
   if (quotation.status === 'expired') {
     return {
       badge: 'Price Expired',
-      badgeClass: 'bg-red-50 text-red-700 ring-red-100',
+      badgeClass: 'bg-red-50 text-red-600',
       eyebrow: 'FINAL PRICE STATUS',
       title: 'Final price expired',
       subtitle: 'Please contact Shop2Bhutan for an updated final price.',
       statusLabel: 'Expired',
       iconClass: 'text-red-500',
-      icon: <X size={30} strokeWidth={2.4} />,
+      icon: <X size={28} strokeWidth={2.4} />,
     };
   }
 
@@ -83,8 +84,8 @@ function quotationDisplay(quotation: Quotation) {
         : 'Final Price Ready',
     badgeClass:
       quotation.status === 'pending'
-        ? 'bg-amber-50 text-amber-700 ring-amber-100'
-        : 'bg-orange-50 text-orange-700 ring-orange-100',
+        ? 'bg-amber-50 text-amber-600'
+        : 'bg-orange-50 text-orange-600',
     eyebrow:
       quotation.status === 'pending'
         ? 'AVAILABILITY & PRICE CHECK'
@@ -107,9 +108,9 @@ function quotationDisplay(quotation: Quotation) {
         : 'text-orange-500',
     icon:
       quotation.status === 'pending' ? (
-        <Clock size={30} strokeWidth={2.4} />
+        <Clock size={28} strokeWidth={2.4} />
       ) : (
-        <FileText size={30} strokeWidth={2.2} />
+        <FileText size={28} strokeWidth={2.2} />
       ),
   };
 }
@@ -261,7 +262,7 @@ function QuotationItemPreviewImage({
     <img
       src={imageSrc || QUOTATION_IMAGE_FALLBACK}
       alt={productName || 'Quoted product'}
-      className="h-16 w-16 shrink-0 rounded-2xl bg-gray-50 object-cover ring-1 ring-gray-100"
+      className="h-13 w-13 shrink-0 rounded-xl bg-gray-50 object-cover"
       loading="lazy"
       onError={(event) => {
         const image = event.currentTarget;
@@ -379,11 +380,15 @@ export default function QuotationReview() {
   if (!authLoading && !user) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-white px-6 text-center">
-        <p className="mb-4 text-gray-500">Please sign in to view your final price.</p>
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
+          <FileText size={28} strokeWidth={2} />
+        </div>
+        <h1 className="mt-5 text-xl font-bold text-gray-900">Sign in to view</h1>
+        <p className="mt-2 text-sm text-gray-500">Please sign in to view your final price.</p>
         <button
           type="button"
           onClick={() => navigate('/login')}
-          className="h-11 rounded-2xl bg-orange-500 px-5 text-sm font-semibold text-white"
+          className="mt-6 h-12 rounded-xl bg-orange-500 px-6 text-sm font-bold text-white transition active:scale-[0.98]"
         >
           Sign In
         </button>
@@ -393,8 +398,8 @@ export default function QuotationReview() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white pb-28">
-        <div className="border-b border-gray-100 bg-white px-5 py-4">
+      <div className="min-h-screen bg-white">
+        <div className="border-b border-gray-100 px-5 py-4">
           <div className="mx-auto max-w-2xl">
             <div className="h-3 w-24 animate-pulse rounded-full bg-gray-100" />
             <div className="mt-3 h-7 w-44 animate-pulse rounded-xl bg-gray-100" />
@@ -402,9 +407,9 @@ export default function QuotationReview() {
           </div>
         </div>
         <div className="mx-auto max-w-2xl space-y-5 px-5 py-5">
-          <div className="h-60 animate-pulse rounded-[2rem] bg-gray-100" />
+          <div className="h-40 animate-pulse rounded-xl bg-gray-50" />
           {[1, 2, 3].map((item) => (
-            <div key={item} className="h-40 animate-pulse rounded-[1.75rem] bg-gray-100" />
+            <div key={item} className="h-32 animate-pulse rounded-xl bg-gray-50" />
           ))}
         </div>
       </div>
@@ -414,11 +419,15 @@ export default function QuotationReview() {
   if (!order || !quotation || !display) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-white px-6 text-center">
-        <p className="mb-4 text-gray-500">{error || 'Final price not found'}</p>
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-500">
+          <X size={28} strokeWidth={2} />
+        </div>
+        <h1 className="mt-5 text-xl font-bold text-gray-900">Not found</h1>
+        <p className="mt-2 text-sm text-gray-500">{error || 'Final price not found'}</p>
         <button
           type="button"
           onClick={() => navigate('/orders')}
-          className="h-11 rounded-2xl bg-orange-500 px-5 text-sm font-semibold text-white"
+          className="mt-6 h-12 rounded-xl bg-orange-500 px-6 text-sm font-bold text-white transition active:scale-[0.98]"
         >
           Back to Orders
         </button>
@@ -430,235 +439,214 @@ export default function QuotationReview() {
   const isApproved = quotation.status === 'approved';
   const isJaigaonPickup = isJaigaonPickupOrder(order);
   const validUntil = readableDate(quotation.validUntil);
-  const itemCount = quotation.items.reduce(
-    (total, item) => total + Math.max(1, Number(item.quantity) || 1),
-    0,
-  );
+ 
 
   return (
-    <div className="min-h-screen bg-white pb-[calc(8.5rem+env(safe-area-inset-bottom))]">
-      <header className="bg-white px-5 py-4">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="text-[1.45rem] font-extrabold tracking-tight text-gray-950">
-                Review Final Price
-              </h1>
-              <span
-                className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold ring-1 ${display.badgeClass}`}
-              >
-                {display.badge}
-              </span>
-            </div>
-            <p className="mt-1 truncate text-sm font-medium text-gray-400">#{order.orderNumber}</p>
-          </div>
+    <div className="min-h-screen bg-white pb-[calc(6rem+env(safe-area-inset-bottom))]">
+      {/* Header */}
+      <header className="border-b border-gray-100 px-5 py-4">
+        <div className="mx-auto flex max-w-2xl items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(`/order/${order.id}`)}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-700 transition active:scale-95"
+            aria-label="Back"
+          >
+            <ArrowLeft size={20} strokeWidth={2.2} />
+          </button>
+          <h1 className="text-lg font-bold text-gray-900">Review Final Price</h1>
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-5 py-4 scroll-pb-44">
+      <main className="mx-auto max-w-2xl px-5 py-6">
         {error && (
-          <div className="mb-5 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm leading-6 text-red-600">
+          <div className="mb-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
             {error}
           </div>
         )}
 
-        {/* Price summary */}
-        <section className="px-1 pt-2 pb-1">
-          <p className="text-[11px] font-medium text-gray-500">
-            {isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total payable'}
+        {/* Status + Order */}
+        <div className="mb-5 flex items-center gap-3">
+          <span className={`rounded-full px-3 py-1.5 text-[11px] font-bold ${display.badgeClass}`}>
+            {display.badge}
+          </span>
+          <span className="text-[13px] text-gray-400">#{order.orderNumber}</span>
+        </div>
+
+        {/* Total */}
+        <div className="mb-8">
+          <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-400">
+            {isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total Payable'}
           </p>
-          <div className="mt-1 flex items-end justify-between gap-4">
-            <p className="text-[2.2rem] font-extrabold tracking-tight text-gray-950">
-              {money(quotation.totalAmount)}
-            </p>
-            <span className="mb-1.5 rounded-full bg-gray-100 px-3 py-1.5 text-[11px] font-medium text-gray-600">
-              {itemCount} {itemCount === 1 ? 'item' : 'items'}
-            </span>
-          </div>
-          <div className="mt-2 flex items-center gap-3 text-[12px] text-gray-500">
-            <span className="font-medium">{display.statusLabel}</span>
-            <span className="h-3 w-px bg-gray-200" />
-            <span>Valid until {validUntil || 'No expiry set'}</span>
-          </div>
-        </section>
-
-        {/* Compact trust badge */}
-        {quotation.status !== 'pending' && (
-          <section className="mt-3 flex items-center gap-2 px-1">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-            <p className="text-xs font-medium text-emerald-700">
-              Availability and price checked by Shop2Bhutan
-            </p>
-          </section>
-        )}
-
-        {/* Price breakdown */}
-        <section className="mt-6">
-          <h2 className="mb-3 px-1 text-[15px] font-extrabold tracking-tight text-gray-950">
-            Final price breakdown
-          </h2>
-          <div className="divide-y divide-gray-100 px-1">
-            <div className="py-3.5">
-              <div className="flex items-center justify-between gap-4 text-sm">
-                <span className="text-gray-500">
-                  {isJaigaonPickup ? 'Product value (reference)' : 'Product total'}
-                </span>
-                <span className="font-extrabold text-gray-950">{money(quotation.productTotal)}</span>
-              </div>
-              {isJaigaonPickup && (
-                <p className="mt-1 text-[11px] leading-5 text-gray-400">
-                  Product value is paid directly during Jaigaon pickup and is not included below.
-                </p>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between gap-4 py-3.5 text-sm">
-              <span className="text-gray-500">Service charge</span>
-              <span className="font-extrabold text-gray-950">{money(quotation.serviceCharge)}</span>
-            </div>
-
-            <div className="flex items-center justify-between gap-4 py-3.5 text-sm">
-              <span className="text-gray-500">Delivery fee</span>
-              <span className="font-extrabold text-gray-950">{money(quotation.deliveryFee)}</span>
-            </div>
-
-            {quotation.taxAmount > 0 && (
-              <div className="flex items-center justify-between gap-4 py-3.5 text-sm">
-                <span className="text-gray-500">Tax</span>
-                <span className="font-extrabold text-gray-950">{money(quotation.taxAmount)}</span>
-              </div>
+          <p className="mt-1 text-[38px] font-extrabold tracking-tight text-gray-900">
+            {money(quotation.totalAmount)}
+          </p>
+          <div className="mt-2.5 flex items-center gap-3">
+            {quotation.status !== 'pending' && (
+              <span className="flex items-center gap-1.5 text-[12px] font-semibold text-emerald-600">
+                <Check size={15} strokeWidth={2.5} />
+                Price confirmed
+              </span>
             )}
-
-            {(quotation.additionalChargeAmount ?? 0) > 0 && (
-              <div className="flex items-center justify-between gap-4 py-3.5 text-sm">
-                <span className="text-gray-500">
-                  {quotation.additionalChargeLabel || 'Additional charge'}
-                </span>
-                <span className="font-extrabold text-gray-950">
-                  {money(quotation.additionalChargeAmount)}
-                </span>
-              </div>
+            {quotation.status === 'pending' && (
+              <span className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-600">
+                <Clock size={15} strokeWidth={2.5} />
+                Checking availability
+              </span>
             )}
-
-            <div className="flex items-end justify-between gap-4 py-4">
-              <div className="min-w-0">
-                <p className="text-sm font-extrabold text-gray-950">
-                  {isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total payable'}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-gray-500">
-                  {isJaigaonPickup
-                    ? 'Shop2Bhutan charges only. No Bhutan delivery fee.'
-                    : 'Confirmed final amount with no hidden charges.'}
-                </p>
-              </div>
-              <p className="shrink-0 whitespace-nowrap text-xl font-extrabold tracking-tight text-gray-950">
-                {money(quotation.totalAmount)}
-              </p>
-            </div>
+            <span className="h-2.5 w-px bg-gray-200" />
+            <span className="text-[12px] text-gray-400">Valid until {validUntil || 'No expiry set'}</span>
           </div>
-        </section>
+        </div>
 
-        {/* Products */}
-        <section className="mt-6">
-          <div className="mb-3 flex items-end justify-between gap-3 px-1">
-            <h2 className="text-[15px] font-extrabold tracking-tight text-gray-950">
-              Confirmed items
-            </h2>
-            <span className="rounded-full bg-gray-100 px-3 py-1.5 text-[11px] font-medium text-gray-600">
-              {quotation.items.length} {quotation.items.length === 1 ? 'item' : 'items'}
+        {/* Divider */}
+        <div className="h-px bg-gray-100 mb-7" />
+
+        {/* Price Breakdown */}
+        <h2 className="mb-4 text-[15px] font-bold text-gray-900">Price Breakdown</h2>
+
+        <div className="mb-8">
+          <div className="flex items-center justify-between py-2">
+            <span className="text-[14px] font-medium text-gray-500">
+              {isJaigaonPickup ? 'Product value (reference)' : 'Product total'}
             </span>
+            <span className="text-[14px] font-bold text-gray-700">{money(quotation.productTotal)}</span>
           </div>
+          {isJaigaonPickup && (
+            <p className="text-[11px] leading-relaxed text-gray-400 -mt-1 mb-2">
+              Product value is paid directly during Jaigaon pickup and is not included below.
+            </p>
+          )}
+          <div className="flex items-center justify-between py-2">
+            <span className="text-[14px] font-medium text-gray-500">Service charge</span>
+            <span className="text-[14px] font-bold text-gray-700">{money(quotation.serviceCharge)}</span>
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <span className="text-[14px] font-medium text-gray-500">Delivery fee</span>
+            <span className="text-[14px] font-bold text-gray-700">{money(quotation.deliveryFee)}</span>
+          </div>
+          {quotation.taxAmount > 0 && (
+            <div className="flex items-center justify-between py-2">
+              <span className="text-[14px] font-medium text-gray-500">Tax</span>
+              <span className="text-[14px] font-bold text-gray-700">{money(quotation.taxAmount)}</span>
+            </div>
+          )}
+          {(quotation.additionalChargeAmount ?? 0) > 0 && (
+            <div className="flex items-center justify-between py-2">
+              <span className="text-[14px] font-medium text-gray-500">
+                {quotation.additionalChargeLabel || 'Additional charge'}
+              </span>
+              <span className="text-[14px] font-bold text-gray-700">
+                {money(quotation.additionalChargeAmount)}
+              </span>
+            </div>
+          )}
+          <div className="h-px bg-gray-100 my-2" />
+          <div className="flex items-center justify-between pt-2">
+            <span className="text-[15px] font-bold text-gray-900">
+              {isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total'}
+            </span>
+            <span className="text-[18px] font-extrabold text-gray-900">{money(quotation.totalAmount)}</span>
+          </div>
+        </div>
 
-          <div className="divide-y divide-gray-100 px-1">
-            {quotation.items.map((item, index) => {
-              const source = sourceForItem(order, item, index);
-              const hasSourceLink = canShowSourceLink(source.sourceUrl);
+        {/* Divider */}
+        <div className="h-px bg-gray-100 mb-7" />
 
-              return (
-                <div key={item.id} className="py-4">
-                  <div className="flex gap-3.5">
-                    <QuotationItemPreviewImage
-                      source={source}
-                      productName={item.productName}
-                    />
+        {/* Items */}
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-[15px] font-bold text-gray-900">Confirmed Items</h2>
+          <span className="text-[12px] font-semibold text-gray-400">
+            {quotation.items.length} {quotation.items.length === 1 ? 'item' : 'items'}
+          </span>
+        </div>
 
-                    <div className="min-w-0 flex-1 py-0.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {source.sourcePlatform && (
-                          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-gray-600">
-                            {source.sourcePlatform}
-                          </span>
-                        )}
-                        <span className="text-xs font-medium text-gray-400">Qty {item.quantity}</span>
-                      </div>
+        <div className="mb-8">
+          {quotation.items.map((item, index) => {
+            const source = sourceForItem(order, item, index);
+            const hasSourceLink = canShowSourceLink(source.sourceUrl);
 
-                      <p className="mt-2 line-clamp-2 text-sm font-extrabold leading-5 text-gray-950">
-                        {item.productName}
-                      </p>
+            return (
+              <div key={item.id} className="flex gap-3.5 py-3.5 border-b border-gray-100 last:border-b-0">
+                <QuotationItemPreviewImage
+                  source={source}
+                  productName={item.productName}
+                />
 
-                      <div className="mt-2 flex items-end justify-between gap-3">
-                        <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                            Unit price
-                          </p>
-                          <p className="mt-0.5 text-sm font-bold text-gray-600">{money(item.unitPrice)}</p>
-                        </div>
-                        <p className="shrink-0 text-base font-extrabold text-gray-950">{money(item.totalPrice)}</p>
-                      </div>
-                    </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    {source.sourcePlatform && (
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-gray-500">
+                        {source.sourcePlatform}
+                      </span>
+                    )}
+                    <span className="text-[11px] text-gray-400">Qty {item.quantity}</span>
+                  </div>
+
+                  <p className="text-[14px] font-bold text-gray-900 leading-snug line-clamp-2">
+                    {item.productName}
+                  </p>
+
+                  <div className="mt-1.5 flex items-end justify-between gap-3">
+                    <span className="text-[12px] text-gray-400">
+                      {money(item.unitPrice)} each
+                    </span>
+                    <span className="text-[14px] font-extrabold text-gray-900">
+                      {money(item.totalPrice)}
+                    </span>
                   </div>
 
                   {(hasSourceLink || item.notes) && (
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
                       {hasSourceLink && (
                         <a
                           href={source.sourceUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600"
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-500"
                           onClick={(event) => event.stopPropagation()}
                         >
-                          Source <ExternalLink size={12.5} />
+                          Source <ExternalLink size={11} />
                         </a>
                       )}
-
                       {item.notes && (
-                        <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-gray-50 px-3 py-1.5 text-xs text-gray-600">
-                          <Info size={12.5} className="shrink-0" />
+                        <span className="inline-flex max-w-full items-center gap-1 text-[11px] text-gray-500">
+                          <Info size={11} className="shrink-0" />
                           <span className="truncate">{item.notes}</span>
                         </span>
                       )}
                     </div>
                   )}
                 </div>
-              );
-            })}
-          </div>
-        </section>
+              </div>
+            );
+          })}
+        </div>
 
         {!canRespond && !isApproved && (
           <button
             type="button"
             onClick={() => navigate(`/order/${order.id}`)}
-            className="mt-6 flex h-14 w-full items-center justify-between rounded-2xl bg-gray-50 px-4 text-left"
+            className="flex h-12 w-full items-center justify-between rounded-xl bg-gray-50 px-4 text-left transition active:scale-[0.99]"
           >
             <span>
-              <span className="block text-sm font-extrabold text-gray-950">View order details</span>
-              <span className="mt-0.5 block text-xs text-gray-500">Return to the complete order journey</span>
+              <span className="block text-sm font-bold text-gray-900">View order details</span>
+              <span className="block text-xs text-gray-400">Return to the complete order journey</span>
             </span>
-            <ChevronRight size={20} className="text-gray-400" />
+            <ChevronRight size={18} className="text-gray-400" />
           </button>
         )}
       </main>
 
+      {/* Bottom Actions */}
       {canRespond && !showRejectDialog && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-100 bg-white/95 px-4 pt-2.5 pb-[max(env(safe-area-inset-bottom),0.75rem)] shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-          <div className="mx-auto flex max-w-2xl gap-2.5">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-100 bg-white px-5 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)]">
+          <div className="mx-auto flex max-w-2xl gap-3">
             <button
               type="button"
               onClick={handleReject}
               disabled={submitting}
-              className="h-12 flex-1 rounded-2xl bg-gray-100 px-3 text-sm font-extrabold text-gray-700 transition active:scale-[0.98] disabled:opacity-50"
+              className="h-12 flex-1 rounded-xl border border-gray-200 bg-white text-sm font-bold text-gray-700 transition active:scale-[0.98] disabled:opacity-50"
             >
               Request Changes
             </button>
@@ -666,7 +654,7 @@ export default function QuotationReview() {
               type="button"
               onClick={handleAccept}
               disabled={submitting}
-              className="flex h-12 flex-[1.55] items-center justify-center gap-1.5 rounded-2xl bg-orange-500 px-4 text-sm font-extrabold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50"
+              className="flex h-12 flex-[1.5] items-center justify-center gap-1.5 rounded-xl bg-orange-500 px-4 text-sm font-bold text-white transition active:scale-[0.98] disabled:opacity-50"
             >
               {submitting ? 'Processing...' : 'Confirm & Pay'}
               {!submitting && <ChevronRight size={17} />}
@@ -676,40 +664,41 @@ export default function QuotationReview() {
       )}
 
       {isApproved && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-100 bg-white/95 px-4 pt-2.5 pb-[max(env(safe-area-inset-bottom),0.75rem)] shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-100 bg-white px-5 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)]">
           <div className="mx-auto max-w-2xl">
             <button
               type="button"
               onClick={() => navigate(`/payment/${order.id}`)}
-              className="flex h-12 w-full items-center justify-between rounded-2xl bg-orange-500 px-4 text-sm font-extrabold text-white transition active:scale-[0.99]"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 text-sm font-bold text-white transition active:scale-[0.98]"
             >
-              <span>Continue to Payment</span>
-              <ChevronRight size={18} />
+              Continue to Payment
+              <ChevronRight size={17} />
             </button>
           </div>
         </div>
       )}
 
+      {/* Reject Dialog */}
       {showRejectDialog && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/50 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-10 backdrop-blur-[2px] sm:items-center sm:pb-10">
-          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-sm overflow-y-auto rounded-[2rem] bg-white shadow-2xl ring-1 ring-black/5">
-            <div className="px-5 pb-5 pt-3">
-              <div className="mx-auto mb-5 h-1.5 w-12 rounded-full bg-gray-200" />
+          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-sm overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="px-5 pb-5 pt-4">
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200" />
 
-              <div className="flex items-start gap-3.5">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
-                  <MessageSquareText size={22} />
+              <div className="flex items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                  <MessageSquareText size={20} />
                 </span>
                 <div>
-                  <h3 className="text-xl font-extrabold tracking-tight text-gray-950">Request price changes</h3>
-                  <p className="mt-1.5 text-sm leading-6 text-gray-500">
+                  <h3 className="text-lg font-bold text-gray-900">Request Changes</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-gray-500">
                     Tell Shop2Bhutan what should be corrected so the final price can be reviewed and updated.
                   </p>
                 </div>
               </div>
 
-              <label className="mt-5 block">
-                <span className="text-xs font-extrabold text-gray-700">What needs to change?</span>
+              <label className="mt-4 block">
+                <span className="text-xs font-bold text-gray-700">What needs to change?</span>
                 <textarea
                   value={rejectRemark}
                   onChange={(event) => {
@@ -719,26 +708,26 @@ export default function QuotationReview() {
                   rows={4}
                   autoFocus
                   placeholder="Example: Please recheck the product price and remove the second item."
-                  className="mt-2 w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-violet-300 focus:bg-white focus:ring-4 focus:ring-violet-50"
+                  className="mt-2 w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-violet-300 focus:bg-white"
                 />
-                <div className="mt-1.5 flex items-center justify-between gap-3">
-                  <span className="text-[11px] text-gray-400">Required · minimum 5 characters</span>
+                <div className="mt-1 flex items-center justify-between gap-3">
+                  <span className="text-[11px] text-gray-400">Min 5 characters</span>
                   <span className="text-[11px] font-semibold text-gray-400">{rejectRemark.length}/500</span>
                 </div>
               </label>
 
               {error && (
-                <div className="mt-3 rounded-2xl border border-red-100 bg-red-50 px-3.5 py-3 text-xs leading-5 text-red-600">
+                <div className="mt-3 rounded-xl bg-red-50 px-3.5 py-2.5 text-xs font-medium text-red-600">
                   {error}
                 </div>
               )}
 
-              <div className="mt-4 rounded-2xl bg-violet-50 px-4 py-3 text-xs leading-5 text-violet-700 ring-1 ring-violet-100">
+              <div className="mt-3 rounded-xl bg-violet-50 px-4 py-3 text-xs leading-relaxed text-violet-700">
                 The current final price will be marked for revision, your request will return to "Checking Availability," and the admin team will receive your remark.
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 border-t border-gray-100 bg-gray-50 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4">
+            <div className="grid grid-cols-2 gap-3 border-t border-gray-100 px-4 py-4">
               <button
                 type="button"
                 onClick={() => {
@@ -746,7 +735,7 @@ export default function QuotationReview() {
                   setError('');
                 }}
                 disabled={submitting}
-                className="h-12 rounded-2xl bg-white text-sm font-extrabold text-gray-700 ring-1 ring-gray-200 transition active:scale-[0.98] disabled:opacity-50"
+                className="h-12 rounded-xl border border-gray-200 bg-white text-sm font-bold text-gray-700 transition active:scale-[0.98] disabled:opacity-50"
               >
                 Keep Final Price
               </button>
@@ -754,7 +743,7 @@ export default function QuotationReview() {
                 type="button"
                 onClick={confirmReject}
                 disabled={submitting || rejectRemark.trim().length < 5}
-                className="h-12 rounded-2xl bg-violet-600 px-3 text-sm font-extrabold text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                className="h-12 rounded-xl bg-violet-600 px-3 text-sm font-bold text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {submitting ? 'Sending...' : 'Send Request'}
               </button>
