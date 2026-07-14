@@ -262,7 +262,7 @@ function QuotationItemPreviewImage({
     <img
       src={imageSrc || QUOTATION_IMAGE_FALLBACK}
       alt={productName || 'Quoted product'}
-      className="h-13 w-13 shrink-0 rounded-xl bg-gray-50 object-cover"
+      className="h-[76px] w-[76px] shrink-0 rounded-2xl border border-gray-100 bg-gray-50 object-cover"
       loading="lazy"
       onError={(event) => {
         const image = event.currentTarget;
@@ -567,14 +567,14 @@ export default function QuotationReview() {
             const hasSourceLink = canShowSourceLink(source.sourceUrl);
 
             return (
-              <div key={item.id} className="flex gap-3.5 py-3.5 border-b border-gray-100 last:border-b-0">
+              <div key={item.id} className="flex items-start gap-3 py-4 border-b border-gray-100 last:border-b-0">
                 <QuotationItemPreviewImage
                   source={source}
                   productName={item.productName}
                 />
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="mb-1.5 flex flex-wrap items-center gap-2">
                     {source.sourcePlatform && (
                       <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-gray-500">
                         {source.sourcePlatform}
@@ -583,11 +583,11 @@ export default function QuotationReview() {
                     <span className="text-[11px] text-gray-400">Qty {item.quantity}</span>
                   </div>
 
-                  <p className="text-[14px] font-bold text-gray-900 leading-snug line-clamp-2">
+                  <p className="line-clamp-2 break-words text-[14px] font-bold leading-snug text-gray-900 [overflow-wrap:anywhere]">
                     {item.productName}
                   </p>
 
-                  <div className="mt-1.5 flex items-end justify-between gap-3">
+                  <div className="mt-2 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
                     <span className="text-[12px] text-gray-400">
                       {money(item.unitPrice)} each
                     </span>
@@ -597,7 +597,7 @@ export default function QuotationReview() {
                   </div>
 
                   {(hasSourceLink || item.notes) && (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
                       {hasSourceLink && (
                         <a
                           href={source.sourceUrl}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
+  Check,
   CheckCircle,
   ChevronDown,
   ChevronRight,
@@ -944,10 +945,10 @@ export default function OrderDetail() {
 
         {/* Payment Summary */}
         {order.quotation && (
-          <section className="mt-8">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-[15px] font-bold text-gray-900">Payment Summary</h3>
-              <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+          <section className="mt-7">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-[15px] font-bold text-gray-900">Payment Summary</h2>
+              <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
                 paymentSummary.isFullyPaid
                   ? 'bg-emerald-50 text-emerald-600'
                   : paymentSummary.isPartiallyPaid
@@ -966,85 +967,152 @@ export default function OrderDetail() {
               </span>
             </div>
 
-            <div className="flex items-end justify-between gap-4 mb-4">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Total Payable</p>
-                <p className="mt-1 text-[22px] font-bold text-gray-900">{money(paymentSummary.totalPayable)}</p>
+            {/* Total Payable */}
+            <div className="mb-1">
+              <p className="text-[13px] text-gray-400">Total Payable</p>
+              <p className="text-[28px] font-bold text-gray-900">{money(paymentSummary.totalPayable)}</p>
+            </div>
+
+            <div className="my-4 h-px bg-gray-100" />
+
+            {/* Stats — icon rows */}
+            <div className="space-y-3.5">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                  <Check size={16} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <p className="text-[13px] text-gray-400">Verified Paid</p>
+                  <p className="text-[15px] font-bold text-emerald-600">{money(paymentSummary.verifiedPaid)}</p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Balance</p>
-                <p className={`mt-1 text-base font-bold ${paymentSummary.balanceDue > 0 ? 'text-orange-500' : 'text-emerald-600'}`}>
-                  {money(paymentSummary.balanceDue)}
-                </p>
+
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                </div>
+                <div>
+                  <p className="text-[13px] text-gray-400">Balance Due</p>
+                  <p className="text-[15px] font-bold text-gray-900">{money(paymentSummary.balanceDue)}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-orange-500">
+                  <Clock size={16} strokeWidth={2} />
+                </div>
+                <div>
+                  <p className="text-[13px] text-gray-400">Pending Review</p>
+                  <p className="text-[15px] font-bold text-gray-900">{money(paymentSummary.pendingAmount)}</p>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-gray-50 p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Verified Paid</p>
-                <p className="mt-1 text-[15px] font-bold text-emerald-600">{money(paymentSummary.verifiedPaid)}</p>
-              </div>
-              <div className="rounded-xl bg-gray-50 p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Pending Review</p>
-                <p className="mt-1 text-[15px] font-bold text-gray-900">{money(paymentSummary.pendingAmount)}</p>
-              </div>
-            </div>
-
+            {/* Payment Upload CTA */}
             {paymentSummary.balanceDue > 0 && !hasPendingPayment && order.quotation.status === 'approved' && (
               <button
                 type="button"
                 onClick={() => navigate(`/payment/${order.id}`)}
-                className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 text-sm font-bold text-white transition active:scale-[0.98]"
+                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 text-sm font-bold text-white transition active:scale-[0.98]"
               >
                 {paymentSummary.isPartiallyPaid ? 'Upload Remaining Payment' : 'Upload Payment Proof'}
-                <ChevronRight size={17} />
+                <ChevronRight size={16} />
               </button>
             )}
 
             {hasPendingPayment && (
-              <p className="mt-4 rounded-xl bg-orange-50 px-3 py-2.5 text-xs font-medium leading-relaxed text-orange-700">
+              <p className="mt-4 rounded-xl bg-orange-50 px-3 py-2.5 text-xs font-medium text-orange-700">
                 A payment proof is under review. Your balance will update after verification.
               </p>
             )}
 
+            {/* Latest Payment */}
             {order.payment && (
-              <div className="mt-4 rounded-xl bg-gray-50 p-4">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <p className="text-sm font-bold text-gray-900">Latest Payment</p>
-                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+              <>
+                <div className="my-4 h-px bg-gray-100" />
+
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-[15px] font-bold text-gray-900">Latest Payment</h3>
+                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
                     order.payment.status === 'verified'
-                      ? 'bg-emerald-100 text-emerald-700'
+                      ? 'bg-emerald-50 text-emerald-600'
                       : order.payment.status === 'rejected'
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-orange-100 text-orange-700'
+                        ? 'bg-red-50 text-red-600'
+                        : 'bg-orange-50 text-orange-600'
                   }`}>
-                    {order.payment.status === 'verified' ? 'Verified' : order.payment.status === 'rejected' ? 'Rejected' : 'Pending'}
+                    {order.payment.status === 'verified'
+                      ? 'Verified'
+                      : order.payment.status === 'rejected'
+                        ? 'Rejected'
+                        : 'Pending'}
                   </span>
                 </div>
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between gap-4">
-                    <span className="text-gray-500">Method</span>
-                    <span className="font-bold text-gray-900">{formatPaymentMethod(order.payment.method)}</span>
+
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>
+                    </div>
+                    <div>
+                      <p className="text-[13px] text-gray-400">Method</p>
+                      <p className="text-[15px] font-semibold text-gray-900">{formatPaymentMethod(order.payment.method)}</p>
+                    </div>
                   </div>
-                  <div className="flex justify-between gap-4">
-                    <span className="text-gray-500">Amount</span>
-                    <span className="font-bold text-gray-900">{money(order.payment.amount)}</span>
+
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                    </div>
+                    <div>
+                      <p className="text-[13px] text-gray-400">Amount</p>
+                      <p className="text-[15px] font-semibold text-gray-900">{money(order.payment.amount)}</p>
+                    </div>
                   </div>
+
                   {order.payment.transactionId && (
-                    <div className="flex justify-between gap-4">
-                      <span className="shrink-0 text-gray-500">Transaction ID</span>
-                      <span className="break-all text-right font-mono text-[11px] text-gray-900">
-                        {order.payment.transactionId}
-                      </span>
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] text-gray-400">Transaction ID</p>
+                        <p className="break-all text-[13px] font-mono text-gray-900">{order.payment.transactionId}</p>
+                      </div>
                     </div>
                   )}
                 </div>
-              </div>
+              </>
+            )}
+
+            {/* Final Price Link */}
+            {!quotationReady && order.quotation && effectiveStatus !== 'payment_pending' && (
+              <>
+                <div className="my-4 h-px bg-gray-100" />
+                <button
+                  type="button"
+                  onClick={() => navigate(`/quotation/${order.id}`)}
+                  className="flex w-full items-center justify-between text-left transition active:scale-[0.99]"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
+                      <FileText size={16} strokeWidth={2} />
+                    </div>
+                    <div>
+                      <p className="text-[15px] font-semibold text-gray-900">
+                        {quotationIsReferenceOnly ? 'Final price details' : 'View final price'}
+                      </p>
+                      <p className="mt-0.5 text-[13px] font-semibold text-orange-500">
+                        Total: {money(order.quotation.totalAmount)}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="shrink-0 text-gray-400" />
+                </button>
+              </>
             )}
           </section>
         )}
 
-        {/* Delivered Actions */}
         {effectiveStatus === 'delivered' && (
           <div className="mt-8 grid grid-cols-2 gap-3">
             <button
