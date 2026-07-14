@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -33,9 +34,116 @@ type ShoppingAssistStoreDefinition =
 
 const WEB_GUIDED_STORE_KEY =
   'shop2bhutan:web-guided-shopping-store:v1';
+const WEB_GUIDED_STORE_TTL_MS =
+  30 * 60 * 1000;
+
+type StoredGuidedStore = {
+  store: ShoppingAssistStore;
+  savedAt: number;
+};
+
+function isShoppingAssistStore(
+  value: unknown,
+): value is ShoppingAssistStore {
+  return (
+    typeof value === 'string' &&
+    SHOPPING_ASSIST_STORES.some(
+      (store) => store.key === value,
+    )
+  );
+}
+
+function clearGuidedStoreFromSession() {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.sessionStorage.removeItem(
+      WEB_GUIDED_STORE_KEY,
+    );
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function rememberGuidedStoreInSession(
+  store: ShoppingAssistStoreDefinition,
+) {
+  if (typeof window === 'undefined') return;
+
+  const storedGuide: StoredGuidedStore = {
+    store: store.key,
+    savedAt: Date.now(),
+  };
+
+  try {
+    window.sessionStorage.setItem(
+      WEB_GUIDED_STORE_KEY,
+      JSON.stringify(storedGuide),
+    );
+  } catch {
+    // The guide still works without session storage.
+  }
+}
+
+function readGuidedStoreFromSession():
+  | ShoppingAssistStore
+  | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.sessionStorage.getItem(
+      WEB_GUIDED_STORE_KEY,
+    );
+
+    if (!raw) return null;
+
+    try {
+      const parsed = JSON.parse(
+        raw,
+      ) as Partial<StoredGuidedStore>;
+
+      const expired =
+        typeof parsed.savedAt !== 'number' ||
+        Date.now() - parsed.savedAt >
+          WEB_GUIDED_STORE_TTL_MS;
+
+      if (
+        !isShoppingAssistStore(parsed.store) ||
+        expired
+      ) {
+        clearGuidedStoreFromSession();
+        return null;
+      }
+
+      return parsed.store;
+    } catch {
+      // Support the earlier plain-string session value once,
+      // then migrate it to the timestamped format.
+      if (isShoppingAssistStore(raw)) {
+        const storeDefinition =
+          SHOPPING_ASSIST_STORES.find(
+            (store) => store.key === raw,
+          );
+
+        if (storeDefinition) {
+          rememberGuidedStoreInSession(
+            storeDefinition,
+          );
+        }
+
+        return raw;
+      }
+
+      clearGuidedStoreFromSession();
+      return null;
+    }
+  } catch {
+    return null;
+  }
+}
 
 function extractClipboardUrl(value: string) {
-  const match = String(value || '').match(
+  const match = value.match(
     /https?:\/\/[^\s<>"']+/i,
   );
 
@@ -87,86 +195,93 @@ export default function ShoppingAssist() {
   const locationState =
     location.state as ShoppingAssistLocationState | null;
 
-  const openStore = async (
-    store: ShoppingAssistStore,
-  ) => {
-    if (openingStore) return;
-
-    const storeDefinition =
-      SHOPPING_ASSIST_STORES.find(
-        (item) => item.key === store,
-      );
-
-    if (!storeDefinition) return;
-
-    setError('');
-    setClipboardError('');
-
-    if (!isNativeRuntime) {
-      setGuidedStore(storeDefinition);
+  const closeGuidedShopping =
+    useCallback(() => {
+      clearGuidedStoreFromSession();
+      setGuidedStore(null);
       setShowResumeStep(false);
-      return;
-    }
+      setCheckingClipboard(false);
+      setClipboardError('');
+    }, []);
 
-    setOpeningStore(store);
+  const openStore = useCallback(
+    async (store: ShoppingAssistStore) => {
+      if (openingStore) return;
 
-    try {
-      const opened = await openShoppingAssist({
-        store,
-      });
+      const storeDefinition =
+        SHOPPING_ASSIST_STORES.find(
+          (item) => item.key === store,
+        );
 
-      if (!opened) {
+      if (!storeDefinition) return;
+
+      setError('');
+      setClipboardError('');
+
+      if (!isNativeRuntime) {
+        // A newly selected store must always replace any
+        // stale guided-shopping session.
+        clearGuidedStoreFromSession();
+        setGuidedStore(storeDefinition);
+        setShowResumeStep(false);
+        return;
+      }
+
+      setOpeningStore(store);
+
+      try {
+        const opened = await openShoppingAssist({
+          store,
+        });
+
+        if (!opened) {
+          setError(
+            'S2B Shopping Assist could not open this store. You can still paste or share the product link.',
+          );
+        }
+      } catch (openError) {
+        console.warn(
+          '[ShoppingAssist] Unable to open native store:',
+          openError,
+        );
         setError(
           'S2B Shopping Assist could not open this store. You can still paste or share the product link.',
         );
+      } finally {
+        setOpeningStore(null);
       }
-    } finally {
-      setOpeningStore(null);
-    }
-  };
+    },
+    [isNativeRuntime, openingStore],
+  );
 
-  const rememberGuidedStore = (
-    store: ShoppingAssistStoreDefinition,
-  ) => {
-    try {
-      window.sessionStorage.setItem(
-        WEB_GUIDED_STORE_KEY,
-        store.key,
-      );
-    } catch {
-      // The guide still works without session storage.
-    }
-  };
-
-  const clearGuidedStore = () => {
-    try {
-      window.sessionStorage.removeItem(
-        WEB_GUIDED_STORE_KEY,
-      );
-    } catch {
-      // Ignore storage failures.
-    }
-  };
-
-  const openGuidedStore = () => {
+  const openGuidedStore = useCallback(() => {
     if (!guidedStore) return;
 
-    rememberGuidedStore(guidedStore);
-    setShowResumeStep(true);
     setClipboardError('');
 
     const opened = window.open(
       guidedStore.url,
       '_blank',
-      'noopener,noreferrer',
     );
 
     if (!opened) {
-      window.location.assign(
-        guidedStore.url,
+      setClipboardError(
+        'Your browser blocked the store tab. Allow pop-ups for Shop2Bhutan or use Paste manually.',
       );
+      return;
     }
-  };
+
+    try {
+      opened.opener = null;
+    } catch {
+      // Some browsers do not expose the opened window.
+    }
+
+    rememberGuidedStoreInSession(
+      guidedStore,
+    );
+    setShowResumeStep(true);
+  }, [guidedStore]);
 
   const useCopiedProduct = async () => {
     if (checkingClipboard) return;
@@ -191,9 +306,10 @@ export default function ShoppingAssist() {
         return;
       }
 
-      clearGuidedStore();
+      clearGuidedStoreFromSession();
       setGuidedStore(null);
       setShowResumeStep(false);
+      setClipboardError('');
 
       navigate(
         `/shopping-assist/review?url=${encodeURIComponent(
@@ -210,19 +326,29 @@ export default function ShoppingAssist() {
   };
 
   const continueWithManualPaste = () => {
-    clearGuidedStore();
+    const sourcePlatform =
+      guidedStore?.key;
+
+    closeGuidedShopping();
 
     navigate('/paste-link', {
       state: {
         source: 'guided-web-shopping',
-        sourcePlatform:
-          guidedStore?.key,
+        sourcePlatform,
       },
     });
   };
 
   useEffect(() => {
-    if (isNativeRuntime) return undefined;
+    const preferredStore =
+      locationState?.preferredStore;
+
+    if (
+      isNativeRuntime ||
+      preferredStore
+    ) {
+      return undefined;
+    }
 
     const restorePendingGuide = () => {
       if (
@@ -231,18 +357,8 @@ export default function ShoppingAssist() {
         return;
       }
 
-      let pendingStore:
-        | ShoppingAssistStore
-        | null = null;
-
-      try {
-        pendingStore =
-          window.sessionStorage.getItem(
-            WEB_GUIDED_STORE_KEY,
-          ) as ShoppingAssistStore | null;
-      } catch {
-        pendingStore = null;
-      }
+      const pendingStore =
+        readGuidedStoreFromSession();
 
       if (!pendingStore) return;
 
@@ -252,7 +368,10 @@ export default function ShoppingAssist() {
             item.key === pendingStore,
         );
 
-      if (!storeDefinition) return;
+      if (!storeDefinition) {
+        clearGuidedStoreFromSession();
+        return;
+      }
 
       setGuidedStore(storeDefinition);
       setShowResumeStep(true);
@@ -280,24 +399,33 @@ export default function ShoppingAssist() {
         restorePendingGuide,
       );
     };
-  }, [isNativeRuntime]);
+  }, [
+    isNativeRuntime,
+    locationState?.preferredStore,
+  ]);
 
   useEffect(() => {
     const preferredStore =
       locationState?.preferredStore;
 
-    if (
-      !preferredStore ||
-      autoOpenedRef.current
-    ) {
+    if (!preferredStore) {
+      autoOpenedRef.current = false;
       return;
     }
 
+    if (autoOpenedRef.current) return;
+
     autoOpenedRef.current = true;
 
-    // preferredStore is a one-time launch instruction. Clear it before
-    // opening the native Activity so an app resume/remount cannot open
-    // the same store again on top of the product review page.
+    // A direct launch instruction must win over any restored
+    // web-guided session.
+    clearGuidedStoreFromSession();
+    setGuidedStore(null);
+    setShowResumeStep(false);
+    setClipboardError('');
+
+    // Clear the one-time instruction before opening the native
+    // Activity so resume/remount cannot reopen the same store.
     navigate(location.pathname, {
       replace: true,
       state: null,
@@ -308,6 +436,47 @@ export default function ShoppingAssist() {
     location.pathname,
     locationState?.preferredStore,
     navigate,
+    openStore,
+  ]);
+
+  useEffect(() => {
+    if (
+      isNativeRuntime ||
+      !guidedStore
+    ) {
+      return undefined;
+    }
+
+    const previousOverflow =
+      document.body.style.overflow;
+
+    const handleKeyDown = (
+      event: KeyboardEvent,
+    ) => {
+      if (event.key === 'Escape') {
+        closeGuidedShopping();
+      }
+    };
+
+    document.body.style.overflow =
+      'hidden';
+    window.addEventListener(
+      'keydown',
+      handleKeyDown,
+    );
+
+    return () => {
+      document.body.style.overflow =
+        previousOverflow;
+      window.removeEventListener(
+        'keydown',
+        handleKeyDown,
+      );
+    };
+  }, [
+    closeGuidedShopping,
+    guidedStore,
+    isNativeRuntime,
   ]);
 
   return (
@@ -330,21 +499,37 @@ export default function ShoppingAssist() {
             ['1', 'Browse'],
             ['2', 'Review'],
             ['3', 'Request'],
-          ].map(([step, label], index) => (
-            <div key={step} className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-500 text-[10px] font-extrabold text-white">
-                  {step}
-                </span>
-                <span className="text-[11px] font-extrabold text-slate-600">
-                  {label}
-                </span>
+          ].map(([step, label], index) => {
+            const isCurrent = index === 0;
+
+            return (
+              <div key={step} className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold ${
+                      isCurrent
+                        ? 'bg-orange-500 text-white'
+                        : 'bg-slate-200 text-slate-500'
+                    }`}
+                  >
+                    {step}
+                  </span>
+                  <span
+                    className={`text-[11px] font-extrabold ${
+                      isCurrent
+                        ? 'text-slate-700'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    {label}
+                  </span>
+                </div>
+                {index < 2 && (
+                  <span className="h-px w-3 shrink-0 bg-slate-300" />
+                )}
               </div>
-              {index < 2 && (
-                <span className="h-px w-3 shrink-0 bg-slate-300" />
-              )}
-            </div>
-          ))}
+            );
+          })}
         </section>
 
         <section className="mt-5">
@@ -368,7 +553,10 @@ export default function ShoppingAssist() {
           </div>
 
           {/* Store cards — individual cards instead of divided list */}
-          <div className="mt-3 flex flex-col gap-2">
+          <div
+            className="mt-3 flex flex-col gap-2"
+            aria-busy={Boolean(openingStore)}
+          >
             {SHOPPING_ASSIST_STORES.map((store) => {
               const opening =
                 openingStore === store.key;
@@ -420,7 +608,11 @@ export default function ShoppingAssist() {
         </section>
 
         {error && (
-          <div className="mt-4 rounded-2xl border border-red-200 bg-white px-4 py-3 text-xs font-semibold leading-5 text-red-600">
+          <div
+            role="alert"
+            aria-live="polite"
+            className="mt-4 rounded-2xl border border-red-200 bg-white px-4 py-3 text-xs font-semibold leading-5 text-red-600"
+          >
             {error}
           </div>
         )}
@@ -474,14 +666,16 @@ export default function ShoppingAssist() {
           <button
             type="button"
             aria-label="Close guided shopping"
-            onClick={() => {
-              setGuidedStore(null);
-              setClipboardError('');
-            }}
+            onClick={closeGuidedShopping}
             className="absolute inset-0 bg-slate-950/45"
           />
 
-          <section className="relative z-10 w-full max-w-lg rounded-t-[28px] bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3 shadow-2xl">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="guided-shopping-title"
+            className="relative z-10 max-h-[92dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-[28px] bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3 shadow-2xl"
+          >
             <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-slate-200" />
 
             <div className="flex items-start gap-3">
@@ -497,7 +691,10 @@ export default function ShoppingAssist() {
                 <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
                   Guided shopping
                 </p>
-                <h2 className="mt-0.5 text-[17px] font-extrabold text-slate-950">
+                <h2
+                  id="guided-shopping-title"
+                  className="mt-0.5 text-[17px] font-extrabold text-slate-950"
+                >
                   {showResumeStep
                     ? 'Use your copied product'
                     : `Shop on ${guidedStore.name}`}
@@ -511,10 +708,7 @@ export default function ShoppingAssist() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setGuidedStore(null);
-                  setClipboardError('');
-                }}
+                onClick={closeGuidedShopping}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-500"
                 aria-label="Close"
               >
@@ -528,21 +722,50 @@ export default function ShoppingAssist() {
                 ['1', 'Open'],
                 ['2', 'Copy'],
                 ['3', 'Review'],
-              ].map(([step, label], index) => (
-                <div key={step} className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-500 text-[10px] font-extrabold text-white">
-                      {step}
-                    </span>
-                    <span className="text-[10px] font-extrabold text-slate-600">
-                      {label}
-                    </span>
+              ].map(([step, label], index) => {
+                const currentStep =
+                  showResumeStep ? 2 : 0;
+                const isCompleted =
+                  index < currentStep;
+                const isCurrent =
+                  index === currentStep;
+
+                return (
+                  <div key={step} className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold ${
+                          isCompleted
+                            ? 'bg-orange-500 text-white'
+                            : isCurrent
+                              ? 'bg-orange-50 text-orange-600 ring-1 ring-orange-200'
+                              : 'bg-slate-200 text-slate-500'
+                        }`}
+                      >
+                        {step}
+                      </span>
+                      <span
+                        className={`text-[10px] font-extrabold ${
+                          isCompleted || isCurrent
+                            ? 'text-slate-700'
+                            : 'text-slate-400'
+                        }`}
+                      >
+                        {label}
+                      </span>
+                    </div>
+                    {index < 2 && (
+                      <span
+                        className={`h-px w-3 shrink-0 ${
+                          index < currentStep
+                            ? 'bg-orange-300'
+                            : 'bg-slate-300'
+                        }`}
+                      />
+                    )}
                   </div>
-                  {index < 2 && (
-                    <span className="h-px w-3 shrink-0 bg-slate-300" />
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="mt-3 flex items-start gap-2.5 rounded-2xl border border-slate-200 bg-white px-3.5 py-3">
@@ -556,7 +779,11 @@ export default function ShoppingAssist() {
             </div>
 
             {clipboardError && (
-              <div className="mt-3 rounded-2xl border border-red-200 bg-white px-4 py-3 text-xs font-semibold leading-5 text-red-600">
+              <div
+                role="alert"
+                aria-live="polite"
+                className="mt-3 rounded-2xl border border-red-200 bg-white px-4 py-3 text-xs font-semibold leading-5 text-red-600"
+              >
                 {clipboardError}
               </div>
             )}
@@ -619,7 +846,7 @@ export default function ShoppingAssist() {
                   type="button"
                   onClick={() => {
                     setShowResumeStep(true);
-                    rememberGuidedStore(
+                    rememberGuidedStoreInSession(
                       guidedStore,
                     );
                   }}

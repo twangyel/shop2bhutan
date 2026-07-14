@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   CheckCircle,
@@ -14,6 +14,7 @@ import {
   Share2,
   Truck,
   XCircle,
+  ArrowLeft,
 } from 'lucide-react';
 import { appSettings } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,20 +24,6 @@ import { shareTextContent } from '@/lib/nativeShare';
 import type { Order, OrderStatus } from '@/types';
 
 const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
-
-const statusIcons: Record<string, ReactNode> = {
-  pending_confirmation: <Clock size={30} className="text-orange-500" strokeWidth={2} />,
-  quotation_pending: <FileText size={30} className="text-amber-500" strokeWidth={2} />,
-  quoted: <FileText size={30} className="text-violet-500" strokeWidth={2} />,
-  payment_pending: <CreditCard size={30} className="text-orange-500" strokeWidth={2} />,
-  payment_verified: <CheckCircle size={30} className="text-blue-500" strokeWidth={2} />,
-  order_placed: <Package size={30} className="text-blue-500" strokeWidth={2} />,
-  in_transit: <Truck size={30} className="text-blue-500" strokeWidth={2} />,
-  arrived_at_hub: <Package size={30} className="text-emerald-500" strokeWidth={2} />,
-  out_for_delivery: <MapPin size={30} className="text-emerald-500" strokeWidth={2} />,
-  delivered: <CheckCircle size={30} className="text-emerald-500" strokeWidth={2} />,
-  cancelled: <XCircle size={30} className="text-red-500" strokeWidth={2} />,
-};
 
 const progressSteps: Array<{
   status: OrderStatus;
@@ -182,7 +169,6 @@ function writeCachedOrderDetail(userId: string, orderId: string, value: Order | 
   }
 }
 
-
 function money(value?: number) {
   return `Nu. ${Number(value ?? 0).toLocaleString()}`;
 }
@@ -234,8 +220,8 @@ function OrderItemPrice({
 
   return (
     <div className="min-w-0">
-      <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">{price.label}</p>
-      <p className={`mt-0.5 text-sm font-black ${price.muted ? 'text-slate-400' : 'text-slate-950'}`}>
+      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{price.label}</p>
+      <p className={`mt-0.5 text-sm font-bold ${price.muted ? 'text-gray-400' : 'text-gray-900'}`}>
         {price.value}
       </p>
     </div>
@@ -408,23 +394,13 @@ function customerStageLabel(status?: OrderStatus) {
   return 'In Progress';
 }
 
-function CustomerStageBadge({ status }: { status?: OrderStatus }) {
-  const isWaiting = isWaitingForQuotation(status);
-  const className = isWaiting
-    ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-100'
-    : status === 'quoted'
-      ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-100'
-      : status === 'delivered'
-        ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
-        : status === 'cancelled'
-          ? 'bg-red-50 text-red-700 ring-1 ring-red-100'
-          : 'bg-orange-50 text-orange-700 ring-1 ring-orange-100';
-
-  return (
-    <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${className}`}>
-      {customerStageLabel(status)}
-    </span>
-  );
+function getStatusBadgeClass(status?: OrderStatus) {
+  if (status === 'cancelled') return 'bg-red-50 text-red-600';
+  if (status === 'delivered') return 'bg-emerald-50 text-emerald-600';
+  if (status === 'payment_verified') return 'bg-emerald-50 text-emerald-600';
+  if (status === 'quoted') return 'bg-violet-50 text-violet-600';
+  if (isWaitingForQuotation(status)) return 'bg-amber-50 text-amber-600';
+  return 'bg-orange-50 text-orange-600';
 }
 
 function getCompactProgress(order: Order) {
@@ -450,16 +426,6 @@ function getCompactProgress(order: Order) {
     progressPercent,
     stepLabel: `Step ${index + 1} of ${totalSteps}`,
   };
-}
-
-function getProgressCardTitle(order: Order) {
-  const effectiveStatus = getEffectiveOrderStatus(order);
-
-  if (effectiveStatus === 'cancelled') return 'Journey cancelled';
-  if (effectiveStatus === 'delivered') return isSelfPickupOrder(order) ? 'Pickup complete' : 'Delivery complete';
-
-  const currentIndex = getProgressIndex(effectiveStatus);
-  return displayProgressStep(progressSteps[currentIndex] ?? progressSteps[0], order).label;
 }
 
 function formatBhutanDateTime(value?: string) {
@@ -520,7 +486,9 @@ function OrderProgressTimeline({ order }: { order: Order }) {
   const currentIndex = effectiveStatus === 'cancelled' ? -1 : getProgressIndex(effectiveStatus);
 
   return (
-    <div className="space-y-0">
+    <div className="relative pl-7">
+      <div className="absolute left-[11px] top-2 bottom-5 w-px bg-gray-200" aria-hidden="true" />
+
       {progressSteps.map((step, index) => {
         const isCompleted = currentIndex > index;
         const isCurrent = currentIndex === index;
@@ -530,36 +498,37 @@ function OrderProgressTimeline({ order }: { order: Order }) {
         const event = latestTrackingEvent(order, step.status);
         const displayStep = displayProgressStep(step, order);
 
+        if (!isActive && !isCompleted) return null;
+
         return (
-          <div key={step.status} className="relative flex gap-3 pb-5 last:pb-0">
-            {index < progressSteps.length - 1 && (
-              <span
-                className={`absolute left-[15px] top-8 h-full w-px ${
-                  isCompleted ? 'bg-emerald-200' : 'bg-gray-200'
-                }`}
-                aria-hidden="true"
-              />
+          <div key={step.status} className="relative mb-5 last:mb-0">
+            <div className="absolute -left-7 top-0.5">
+              {isCompleted ? (
+                <div className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-orange-500">
+                  <CheckCircle size={12} className="text-white" strokeWidth={3} />
+                </div>
+              ) : isCurrent ? (
+                <div className="flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-orange-500 bg-white">
+                  <div className="h-2 w-2 rounded-full bg-orange-500" />
+                </div>
+              ) : (
+                <div className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-gray-100">
+                  <Clock size={12} className="text-gray-400" strokeWidth={2} />
+                </div>
+              )}
+            </div>
+
+            <p className={`text-sm font-bold ${isActive ? 'text-gray-900' : 'text-gray-400'}`}>
+              {displayStep.label}
+            </p>
+            {formattedTime && (
+              <p className="mt-0.5 text-xs text-gray-400">{formattedTime}</p>
             )}
-
-            <div
-              className={`relative z-10 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
-                isCompleted
-                  ? 'bg-emerald-500 text-white'
-                  : isCurrent
-                    ? 'bg-orange-500 text-white ring-4 ring-orange-100'
-                    : 'bg-gray-100 text-gray-400'
-              }`}
-            >
-              {isCompleted ? <CheckCircle size={15} strokeWidth={2.5} /> : <Clock size={14} strokeWidth={2.5} />}
-            </div>
-
-            <div className="min-w-0 flex-1 pt-0.5">
-              <p className={`text-sm font-bold ${isActive ? 'text-gray-900' : 'text-gray-400'}`}>{displayStep.label}</p>
-              <p className={`mt-0.5 text-xs ${isActive ? 'text-gray-600' : 'text-gray-400'}`}>{event?.message || displayStep.description}</p>
-              <p className={`mt-1 text-[11px] font-medium ${formattedTime ? 'text-gray-500' : 'text-gray-300'}`}>
-                {formattedTime || 'Pending'}
+            {(event?.message || displayStep.description) && (
+              <p className={`mt-1 text-xs leading-relaxed ${isActive ? 'text-gray-600' : 'text-gray-400'}`}>
+                {event?.message || displayStep.description}
               </p>
-            </div>
+            )}
           </div>
         );
       })}
@@ -621,7 +590,6 @@ export default function OrderDetail() {
   }, [authLoading, loadOrder]);
 
   const compactProgress = useMemo(() => (order ? getCompactProgress(order) : null), [order]);
-  const progressCardTitle = useMemo(() => (order ? getProgressCardTitle(order) : ''), [order]);
   const effectiveStatus = useMemo(() => (order ? getEffectiveOrderStatus(order) : undefined), [order]);
 
   const shareOrderUpdate = async () => {
@@ -631,12 +599,8 @@ export default function OrderDetail() {
     setShareFeedback('');
 
     try {
-      const status = customerStageLabel(
-        effectiveStatus ?? order.status,
-      );
-      const requestLabel = isQuotationRequestStage(
-        effectiveStatus ?? order.status,
-      )
+      const status = customerStageLabel(effectiveStatus ?? order.status);
+      const requestLabel = isQuotationRequestStage(effectiveStatus ?? order.status)
         ? 'Shopping Request'
         : 'Order';
 
@@ -667,18 +631,18 @@ export default function OrderDetail() {
 
   if (!authLoading && !user) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center bg-slate-50">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-orange-50 text-orange-500 ring-1 ring-orange-100">
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center bg-white">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
           <Package size={29} strokeWidth={2.1} />
         </div>
-        <h1 className="mt-5 text-xl font-black text-slate-950">Sign in to view</h1>
-        <p className="mt-2 text-sm text-slate-500">
+        <h1 className="mt-5 text-xl font-bold text-gray-900">Sign in to view</h1>
+        <p className="mt-2 text-sm text-gray-500">
           Your order details are securely linked to your account.
         </p>
         <button
           type="button"
           onClick={() => navigate('/login')}
-          className="mt-6 h-12 rounded-2xl bg-orange-500 px-6 text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98]"
+          className="mt-6 h-12 rounded-xl bg-orange-500 px-6 text-sm font-bold text-white transition active:scale-[0.98]"
         >
           Sign In
         </button>
@@ -688,16 +652,16 @@ export default function OrderDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="border-b border-slate-100 bg-white px-4 py-3">
+      <div className="min-h-screen bg-white">
+        <div className="border-b border-gray-100 px-4 py-3">
           <div className="mx-auto max-w-2xl">
-            <div className="h-5 w-40 animate-pulse rounded-full bg-slate-200" />
-            <div className="mt-2 h-4 w-24 animate-pulse rounded-full bg-slate-200" />
+            <div className="h-5 w-40 animate-pulse rounded-full bg-gray-100" />
+            <div className="mt-2 h-4 w-24 animate-pulse rounded-full bg-gray-100" />
           </div>
         </div>
         <div className="mx-auto max-w-2xl space-y-4 px-4 py-4">
           {[1, 2, 3, 4].map((item) => (
-            <div key={item} className="h-32 rounded-[22px] bg-white animate-pulse shadow-sm" />
+            <div key={item} className="h-28 rounded-xl bg-gray-50 animate-pulse" />
           ))}
         </div>
       </div>
@@ -706,16 +670,16 @@ export default function OrderDetail() {
 
   if (error || !order || !compactProgress) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center bg-slate-50">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-red-50 text-red-500 ring-1 ring-red-100">
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center bg-white">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-500">
           <XCircle size={29} strokeWidth={2.1} />
         </div>
-        <h1 className="mt-5 text-xl font-black text-slate-950">Order not found</h1>
-        <p className="mt-2 text-sm text-slate-500">{error || 'We could not find this order.'}</p>
+        <h1 className="mt-5 text-xl font-bold text-gray-900">Order not found</h1>
+        <p className="mt-2 text-sm text-gray-500">{error || 'We could not find this order.'}</p>
         <button
           type="button"
           onClick={() => navigate('/orders')}
-          className="mt-6 h-12 rounded-2xl bg-orange-500 px-6 text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition active:scale-[0.98]"
+          className="mt-6 h-12 rounded-xl bg-orange-500 px-6 text-sm font-bold text-white transition active:scale-[0.98]"
         >
           Back to Orders
         </button>
@@ -749,9 +713,6 @@ export default function OrderDetail() {
     ? fulfillmentDisplay.subtitle
     : `${appSettings.orderCoverage.label}. Delivery/pickup currently available in ${appSettings.deliveryHubs.hubNamesJoined}.`;
   const quotationStage = isQuotationRequestStage(effectiveStatus);
-  const detailTitle = quotationStage ? 'Shopping Request' : 'Order Details';
-  const currentStatusTitle = quotationStage ? 'Current step' : 'Current status';
-  const progressTitle = quotationStage ? 'Shopping progress' : 'Order progress';
   const itemsTitle = quotationStage ? 'Requested items' : 'Items ordered';
   const contactTitle = quotationStage
     ? 'Contact & destination'
@@ -777,209 +738,162 @@ export default function OrderDetail() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-[calc(8rem+env(safe-area-inset-bottom))]">
-      <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-orange-500">
-              {quotationStage ? 'Shopping request' : 'Order journey'}
-            </p>
-            <h1 className="mt-0.5 text-lg font-black tracking-tight text-slate-950">{detailTitle}</h1>
-            <p className="truncate text-xs font-medium text-slate-500">#{order.orderNumber}</p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <CustomerStageBadge status={effectiveStatus ?? order.status} />
-            <button
-              type="button"
-              onClick={() => void shareOrderUpdate()}
-              disabled={sharingOrder}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition active:scale-95 disabled:cursor-wait disabled:opacity-60"
-              aria-label="Share order update"
-              title="Share order update"
-            >
-              {sharingOrder ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Share2 size={16} strokeWidth={2.3} />
-              )}
-            </button>
-          </div>
-        </div>
-
-        {shareFeedback && (
-          <p
-            className="mx-auto mt-2 max-w-2xl text-right text-[11px] font-semibold text-slate-500"
-            role="status"
+    <div className="min-h-screen bg-white pb-[calc(6rem+env(safe-area-inset-bottom))]">
+      {/* Header */}
+      <header className="sticky top-0 z-30 border-b border-gray-100 bg-white/95 px-4 py-3 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-2xl items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate('/orders')}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-700 transition active:scale-95"
+            aria-label="Back"
           >
+            <ArrowLeft size={20} strokeWidth={2.2} />
+          </button>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg font-bold text-gray-900">Order Details</h1>
+          </div>
+          <button
+            type="button"
+            onClick={() => void shareOrderUpdate()}
+            disabled={sharingOrder}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-gray-600 transition active:scale-95 disabled:opacity-60"
+            aria-label="Share order update"
+          >
+            {sharingOrder ? <Loader2 size={16} className="animate-spin text-orange-500" /> : <Share2 size={17} strokeWidth={2.2} />}
+          </button>
+        </div>
+        {shareFeedback && (
+          <p className="mx-auto mt-1 max-w-2xl text-right text-[11px] font-medium text-gray-500" role="status">
             {shareFeedback}
           </p>
         )}
       </header>
 
-      <main className="mx-auto max-w-2xl space-y-3.5 px-4 py-4">
-        <section className="overflow-hidden rounded-[22px] border border-slate-200 bg-white text-slate-950 shadow-sm">
-          <div className="p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">{currentStatusTitle}</p>
-                <h2 className="mt-1.5 text-2xl font-black tracking-tight text-slate-950">
-                  {customerStageLabel(effectiveStatus ?? order.status)}
-                </h2>
-                <p className="mt-1.5 max-w-md text-sm leading-5 text-slate-600">
-                  {statusMessage(order, effectiveStatus ?? order.status)}
-                </p>
-              </div>
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] border border-orange-100 bg-orange-50 shadow-sm">
-                {statusIcons[effectiveStatus ?? order.status] ?? (
-                  <Package size={30} className="text-orange-500" strokeWidth={2} />
-                )}
-              </span>
-            </div>
-
-            <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3.5">
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Next step</p>
-                <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{compactProgress.nextText}</p>
-              </div>
-              <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-black text-slate-700">
-                {compactProgress.stepLabel}
-              </span>
-            </div>
+      <main className="mx-auto max-w-2xl px-5 py-5">
+        {/* Status Header */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-orange-500">Order Journey</p>
+            <h2 className="mt-1 text-[22px] font-bold text-gray-900">
+              {customerStageLabel(effectiveStatus ?? order.status)}
+            </h2>
+            <p className="mt-1 text-[13px] text-gray-500">#{order.orderNumber}</p>
           </div>
+          <span className={`shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-bold ${getStatusBadgeClass(effectiveStatus ?? order.status)}`}>
+            {customerStageLabel(effectiveStatus ?? order.status)}
+          </span>
+        </div>
 
-          {quotationReady && order.quotation && (
-            <button
-              type="button"
-              onClick={() => navigate(`/quotation/${order.id}`)}
-              className="flex w-full items-center justify-between gap-3 border-t border-orange-400 bg-orange-500 px-4 py-3.5 text-left transition active:bg-orange-600"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white">
-                  <FileText size={19} strokeWidth={2.4} />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-black text-white">Confirm &amp; Pay</p>
-                  <p className="mt-0.5 text-xs text-white/75">Final payable: {money(order.quotation.totalAmount)}</p>
-                </div>
-              </div>
-              <ChevronRight size={20} className="shrink-0 text-white" />
-            </button>
-          )}
+        <p className="mt-3 text-sm leading-relaxed text-gray-600">
+          {statusMessage(order, effectiveStatus ?? order.status)}
+        </p>
 
-          {showPaymentUpload && order.quotation && (
-            <button
-              type="button"
-              onClick={() => navigate(`/payment/${order.id}`)}
-              className="flex w-full items-center justify-between gap-3 border-t border-orange-400 bg-orange-500 px-4 py-3.5 text-left transition active:bg-orange-600"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white">
-                  <CreditCard size={19} strokeWidth={2.4} />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-black text-white">
-                    {paymentSummary.isPartiallyPaid ? 'Pay remaining balance' : 'Upload payment proof'}
-                  </p>
-                  <p className="mt-0.5 text-xs text-white/75">
-                    {paymentSummary.isPartiallyPaid
-                      ? `${money(paymentSummary.balanceDue)} remaining`
-                      : 'Complete payment to continue your order.'}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight size={20} className="shrink-0 text-white" />
-            </button>
-          )}
-        </section>
+        {/* Progress Bar */}
+        <div className="mt-5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-semibold text-gray-400">{compactProgress.stepLabel}</span>
+            <span className="text-[11px] font-semibold text-gray-400">{compactProgress.progressPercent}%</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+            <div
+              className={`h-full rounded-full transition-all ${effectiveStatus === 'cancelled' ? 'bg-red-500' : 'bg-orange-500'}`}
+              style={{ width: `${compactProgress.progressPercent}%` }}
+            />
+          </div>
+        </div>
 
-        <section className="overflow-hidden rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-slate-100">
+        {/* Primary CTA */}
+        {quotationReady && order.quotation && (
           <button
             type="button"
-            onClick={() => setTimelineOpen((value) => !value)}
-            className="w-full text-left"
+            onClick={() => navigate(`/quotation/${order.id}`)}
+            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 text-sm font-bold text-white transition active:scale-[0.98]"
+          >
+            <FileText size={17} strokeWidth={2.4} />
+            Confirm & Pay — {money(order.quotation.totalAmount)}
+          </button>
+        )}
+
+        {showPaymentUpload && order.quotation && (
+          <button
+            type="button"
+            onClick={() => navigate(`/payment/${order.id}`)}
+            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 text-sm font-bold text-white transition active:scale-[0.98]"
+          >
+            <CreditCard size={17} strokeWidth={2.4} />
+            {paymentSummary.isPartiallyPaid ? `Pay remaining ${money(paymentSummary.balanceDue)}` : 'Upload Payment Proof'}
+          </button>
+        )}
+
+        {/* Timeline Toggle */}
+        <section className="mt-6">
+          <button
+            type="button"
+            onClick={() => setTimelineOpen((v) => !v)}
+            className="flex w-full items-center justify-between text-left"
             aria-expanded={timelineOpen}
           >
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">{progressTitle}</p>
-                <h3 className="mt-1 text-base font-black text-slate-950">{progressCardTitle}</h3>
-                <p className="mt-1 text-xs leading-5 text-slate-500">Tap to view every update in Bhutan Time.</p>
-              </div>
-              <span className="flex h-9 shrink-0 items-center gap-1 rounded-full bg-slate-100 px-3 text-[11px] font-black text-slate-700">
-                {timelineOpen ? 'Hide' : 'Timeline'}
-                <ChevronDown size={15} className={`transition-transform ${timelineOpen ? 'rotate-180' : ''}`} />
-              </span>
+            <div>
+              <h3 className="text-[15px] font-bold text-gray-900">Status History</h3>
+              <p className="mt-0.5 text-xs text-gray-400">Tap to view every update</p>
             </div>
-
-            <div className="mt-4">
-              <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className={`h-full rounded-full transition-all ${effectiveStatus === 'cancelled' ? 'bg-red-500' : 'bg-orange-500'}`}
-                  style={{ width: `${compactProgress.progressPercent}%` }}
-                />
-              </div>
-              <div className="mt-2 flex justify-between text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
-                <span>{quotationStage ? 'Requested' : 'Received'}</span>
-                <span>{isSelfPickup ? 'Picked up' : 'Delivered'}</span>
-              </div>
-            </div>
+            <span className="flex items-center gap-1 text-[12px] font-semibold text-gray-500">
+              {timelineOpen ? 'Hide' : 'View'}
+              <ChevronDown size={15} className={`transition-transform ${timelineOpen ? 'rotate-180' : ''}`} />
+            </span>
           </button>
 
           {timelineOpen && (
-            <div className="mt-4 border-t border-slate-100 pt-4">
+            <div className="mt-4">
               <OrderProgressTimeline order={order} />
             </div>
           )}
         </section>
 
-        <section>
-          <div className="mb-3 flex items-end justify-between gap-3 px-1">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">Products</p>
-              <h3 className="mt-1 text-lg font-black tracking-tight text-slate-950">{itemsTitle}</h3>
-            </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-600">
+        {/* Items */}
+        <section className="mt-8">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-[15px] font-bold text-gray-900">{itemsTitle}</h3>
+            <span className="text-[12px] font-semibold text-gray-500">
               {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
             </span>
           </div>
 
-          <div className="overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-slate-100">
+          <div className="divide-y divide-gray-100">
             {order.items.map((item, index) => (
-              <div
-                key={item.id}
-                className={`p-3.5 ${index < order.items.length - 1 ? 'border-b border-slate-100' : ''}`}
-              >
-                <div className="flex gap-3">
-                  <img
-                    src={item.productImage || fallbackImage()}
-                    alt={item.productName || 'Order item'}
-                    className="h-[76px] w-[76px] shrink-0 rounded-[18px] bg-slate-50 object-cover ring-1 ring-slate-100"
-                    loading="lazy"
-                    onError={(e) => { (e.target as HTMLImageElement).src = fallbackImage(); }}
-                  />
-                  <div className="min-w-0 flex-1 py-0.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {item.sourcePlatform && (
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-600">
-                          {item.sourcePlatform}
-                        </span>
-                      )}
-                      <span className="text-[11px] font-semibold text-slate-400">Qty {item.quantity}</span>
-                    </div>
-                    <p className="mt-1.5 line-clamp-2 text-sm font-black leading-5 text-slate-950">{item.productName}</p>
-                    <div className="mt-2 flex items-end justify-between gap-3">
-                      <OrderItemPrice order={order} item={item} index={index} />
-                      {item.sourceUrl && /^https?:\/\//i.test(item.sourceUrl) && (
-                        <a
-                          href={item.sourceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex shrink-0 items-center gap-1 text-[11px] font-black text-blue-600"
-                        >
-                          Source <ExternalLink size={12} strokeWidth={2.5} />
-                        </a>
-                      )}
-                    </div>
+              <div key={item.id} className="flex gap-3.5 py-4 first:pt-0">
+                <img
+                  src={item.productImage || fallbackImage()}
+                  alt={item.productName || 'Order item'}
+                  className="h-16 w-16 shrink-0 rounded-xl bg-gray-50 object-cover"
+                  loading="lazy"
+                  onError={(e) => { (e.target as HTMLImageElement).src = fallbackImage(); }}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    {item.sourcePlatform && (
+                      <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-bold uppercase text-gray-500">
+                        {item.sourcePlatform}
+                      </span>
+                    )}
+                    <span className="text-[11px] text-gray-400">Qty {item.quantity}</span>
+                  </div>
+                  <p className="mt-1.5 line-clamp-2 text-sm font-bold text-gray-900 leading-snug">
+                    {item.productName}
+                  </p>
+                  <div className="mt-2 flex items-end justify-between gap-3">
+                    <OrderItemPrice order={order} item={item} index={index} />
+                    {item.sourceUrl && /^https?:\/\//i.test(item.sourceUrl) && (
+                      <a
+                        href={item.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex shrink-0 items-center gap-1 text-[11px] font-bold text-orange-500"
+                      >
+                        Source <ExternalLink size={12} strokeWidth={2.5} />
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>
@@ -987,67 +901,61 @@ export default function OrderDetail() {
           </div>
         </section>
 
-        <section>
-          <div className="mb-3 px-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">Fulfillment</p>
-            <h3 className="mt-1 text-lg font-black tracking-tight text-slate-950">
-              {quotationStage ? 'Request details' : 'Delivery details'}
-            </h3>
-          </div>
+        {/* Delivery Details */}
+        <section className="mt-8">
+          <h3 className="text-[15px] font-bold text-gray-900 mb-3">
+            {quotationStage ? 'Request Details' : 'Delivery Details'}
+          </h3>
 
-          <div className="overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-slate-100">
-            <div className="flex items-start gap-3 p-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
-                <MapPin size={18} strokeWidth={2.4} />
-              </span>
+          <div className="space-y-4">
+            <div className="flex gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-orange-500">
+                <MapPin size={18} strokeWidth={2} />
+              </div>
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{contactTitle}</p>
-                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${fulfillmentDisplay.badgeClass}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{contactTitle}</p>
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${fulfillmentDisplay.badgeClass}`}>
                     {fulfillmentDisplay.label}
                   </span>
                 </div>
-                <p className="mt-1.5 text-sm font-black text-slate-950">
+                <p className="mt-1 text-sm font-bold text-gray-900">
                   {order.shippingAddress.recipientName || 'Customer'}
                 </p>
                 {order.shippingAddress.phone && (
-                  <p className="mt-0.5 text-xs font-semibold text-slate-500">{order.shippingAddress.phone}</p>
+                  <p className="mt-0.5 text-xs text-gray-500">{order.shippingAddress.phone}</p>
                 )}
-                <p className="mt-1.5 text-xs leading-5 text-slate-600">{safeAddress(order)}</p>
+                <p className="mt-1.5 text-xs leading-relaxed text-gray-600">{safeAddress(order)}</p>
               </div>
             </div>
 
-            <div className="flex items-start gap-3 border-t border-slate-100 p-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-                <Truck size={18} strokeWidth={2.4} />
-              </span>
+            <div className="flex gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-500">
+                <Truck size={18} strokeWidth={2} />
+              </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{methodTitle}</p>
-                <p className="mt-1.5 text-sm font-black text-slate-950">{quotationFulfillmentMethodTitle}</p>
-                <p className="mt-1 text-xs leading-5 text-slate-600">{quotationFulfillmentDescription}</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{methodTitle}</p>
+                <p className="mt-1 text-sm font-bold text-gray-900">{quotationFulfillmentMethodTitle}</p>
+                <p className="mt-1 text-xs leading-relaxed text-gray-600">{quotationFulfillmentDescription}</p>
               </div>
             </div>
           </div>
         </section>
 
+        {/* Payment Summary */}
         {order.quotation && (
-          <section>
-            <div className="mb-3 flex items-end justify-between gap-3 px-1">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">Payment</p>
-                <h3 className="mt-1 text-lg font-black tracking-tight text-slate-950">Payment summary</h3>
-              </div>
-              <span
-                className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
-                  paymentSummary.isFullyPaid
-                    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
-                    : paymentSummary.isPartiallyPaid
-                      ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-100'
-                      : hasPendingPayment
-                        ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-100'
-                        : 'bg-slate-100 text-slate-600 ring-1 ring-slate-100'
-                }`}
-              >
+          <section className="mt-8">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-[15px] font-bold text-gray-900">Payment Summary</h3>
+              <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                paymentSummary.isFullyPaid
+                  ? 'bg-emerald-50 text-emerald-600'
+                  : paymentSummary.isPartiallyPaid
+                    ? 'bg-blue-50 text-blue-600'
+                    : hasPendingPayment
+                      ? 'bg-orange-50 text-orange-600'
+                      : 'bg-gray-100 text-gray-600'
+              }`}>
                 {paymentSummary.isFullyPaid
                   ? 'Fully paid'
                   : paymentSummary.isPartiallyPaid
@@ -1058,151 +966,129 @@ export default function OrderDetail() {
               </span>
             </div>
 
-            <div className="overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-slate-100">
-              <div className="p-4">
-                <div className="flex items-end justify-between gap-4">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Total payable</p>
-                    <p className="mt-1 text-2xl font-black tracking-tight text-slate-950">
-                      {money(paymentSummary.totalPayable)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Balance</p>
-                    <p className={`mt-1 text-base font-black ${paymentSummary.balanceDue > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>
-                      {money(paymentSummary.balanceDue)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-slate-50 p-1.5 ring-1 ring-slate-100">
-                  <div className="rounded-xl bg-white px-3 py-2.5 shadow-sm">
-                    <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Verified paid</p>
-                    <p className="mt-1 text-sm font-black text-emerald-600">{money(paymentSummary.verifiedPaid)}</p>
-                  </div>
-                  <div className="rounded-xl bg-white px-3 py-2.5 shadow-sm">
-                    <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Pending review</p>
-                    <p className="mt-1 text-sm font-black text-slate-950">{money(paymentSummary.pendingAmount)}</p>
-                  </div>
-                </div>
-
-                {paymentSummary.balanceDue > 0 && !hasPendingPayment && order.quotation.status === 'approved' && (
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/payment/${order.id}`)}
-                    className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-black text-white shadow-md shadow-orange-500/15 transition-transform active:scale-[0.98]"
-                  >
-                    {paymentSummary.isPartiallyPaid ? 'Upload Remaining Payment' : 'Upload Payment Proof'}
-                    <ChevronRight size={17} />
-                  </button>
-                )}
-
-                {hasPendingPayment && (
-                  <p className="mt-4 rounded-2xl bg-orange-50 px-3 py-2.5 text-xs font-semibold leading-5 text-orange-700 ring-1 ring-orange-100">
-                    A payment proof is under review. Your balance will update after verification.
-                  </p>
-                )}
+            <div className="flex items-end justify-between gap-4 mb-4">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Total Payable</p>
+                <p className="mt-1 text-[22px] font-bold text-gray-900">{money(paymentSummary.totalPayable)}</p>
               </div>
-
-              {order.payment && (
-                <div className="border-t border-slate-100 bg-slate-50/70 p-4">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <p className="text-sm font-black text-slate-950">Latest payment</p>
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
-                        order.payment.status === 'verified'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : order.payment.status === 'rejected'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-orange-100 text-orange-700'
-                      }`}
-                    >
-                      {order.payment.status === 'verified'
-                        ? 'Verified'
-                        : order.payment.status === 'rejected'
-                          ? 'Rejected'
-                          : 'Pending'}
-                    </span>
-                  </div>
-
-                  <div className="space-y-2.5 text-xs">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="font-semibold text-slate-500">Method</span>
-                      <span className="text-right font-black text-slate-950">{formatPaymentMethod(order.payment.method)}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="font-semibold text-slate-500">Amount</span>
-                      <span className="font-black text-slate-950">{money(order.payment.amount)}</span>
-                    </div>
-                    {order.payment.transactionId && (
-                      <div className="flex items-start justify-between gap-4">
-                        <span className="shrink-0 font-semibold text-slate-500">Transaction ID</span>
-                        <span className="break-all text-right font-mono text-[11px] text-slate-950">
-                          {order.payment.transactionId}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+              <div className="text-right">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Balance</p>
+                <p className={`mt-1 text-base font-bold ${paymentSummary.balanceDue > 0 ? 'text-orange-500' : 'text-emerald-600'}`}>
+                  {money(paymentSummary.balanceDue)}
+                </p>
+              </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-gray-50 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Verified Paid</p>
+                <p className="mt-1 text-[15px] font-bold text-emerald-600">{money(paymentSummary.verifiedPaid)}</p>
+              </div>
+              <div className="rounded-xl bg-gray-50 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Pending Review</p>
+                <p className="mt-1 text-[15px] font-bold text-gray-900">{money(paymentSummary.pendingAmount)}</p>
+              </div>
+            </div>
+
+            {paymentSummary.balanceDue > 0 && !hasPendingPayment && order.quotation.status === 'approved' && (
+              <button
+                type="button"
+                onClick={() => navigate(`/payment/${order.id}`)}
+                className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 text-sm font-bold text-white transition active:scale-[0.98]"
+              >
+                {paymentSummary.isPartiallyPaid ? 'Upload Remaining Payment' : 'Upload Payment Proof'}
+                <ChevronRight size={17} />
+              </button>
+            )}
+
+            {hasPendingPayment && (
+              <p className="mt-4 rounded-xl bg-orange-50 px-3 py-2.5 text-xs font-medium leading-relaxed text-orange-700">
+                A payment proof is under review. Your balance will update after verification.
+              </p>
+            )}
+
+            {order.payment && (
+              <div className="mt-4 rounded-xl bg-gray-50 p-4">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="text-sm font-bold text-gray-900">Latest Payment</p>
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                    order.payment.status === 'verified'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : order.payment.status === 'rejected'
+                        ? 'bg-red-100 text-red-700'
+                        : 'bg-orange-100 text-orange-700'
+                  }`}>
+                    {order.payment.status === 'verified' ? 'Verified' : order.payment.status === 'rejected' ? 'Rejected' : 'Pending'}
+                  </span>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between gap-4">
+                    <span className="text-gray-500">Method</span>
+                    <span className="font-bold text-gray-900">{formatPaymentMethod(order.payment.method)}</span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-gray-500">Amount</span>
+                    <span className="font-bold text-gray-900">{money(order.payment.amount)}</span>
+                  </div>
+                  {order.payment.transactionId && (
+                    <div className="flex justify-between gap-4">
+                      <span className="shrink-0 text-gray-500">Transaction ID</span>
+                      <span className="break-all text-right font-mono text-[11px] text-gray-900">
+                        {order.payment.transactionId}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </section>
         )}
 
+        {/* Delivered Actions */}
         {effectiveStatus === 'delivered' && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="mt-8 grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => navigate('/shop')}
-              className="h-12 rounded-2xl bg-orange-500 text-sm font-black text-white shadow-md shadow-orange-500/15 transition-transform active:scale-[0.98]"
+              className="h-12 rounded-xl bg-orange-500 text-sm font-bold text-white transition active:scale-[0.98]"
             >
               Order Again
             </button>
             <button
               type="button"
               onClick={() => alert('Reviews coming soon!')}
-              className="h-12 rounded-2xl bg-white text-sm font-black text-slate-800 shadow-sm ring-1 ring-slate-200 transition-transform active:scale-[0.98]"
+              className="h-12 rounded-xl border border-gray-200 bg-white text-sm font-bold text-gray-800 transition active:scale-[0.98]"
             >
               Write Review
             </button>
           </div>
         )}
 
+        {/* Quotation Reference */}
         {!quotationReady && order.quotation && effectiveStatus !== 'payment_pending' && (
           <button
             type="button"
             onClick={() => navigate(`/quotation/${order.id}`)}
-            className={`flex w-full items-center justify-between rounded-[22px] p-4 text-left shadow-sm ring-1 transition-transform active:scale-[0.99] ${
-              quotationIsReferenceOnly ? 'bg-white ring-slate-100' : 'bg-violet-50 ring-violet-100'
+            className={`mt-6 flex w-full items-center justify-between rounded-xl p-4 text-left transition active:scale-[0.99] ${
+              quotationIsReferenceOnly ? 'bg-gray-50' : 'bg-violet-50'
             }`}
           >
             <div className="flex min-w-0 items-center gap-3">
-              <span
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
-                  quotationIsReferenceOnly
-                    ? 'bg-violet-50 text-violet-600'
-                    : 'bg-white text-violet-600 shadow-sm'
-                }`}
-              >
-                <FileText size={19} strokeWidth={2.4} />
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                quotationIsReferenceOnly ? 'bg-gray-100 text-gray-600' : 'bg-white text-violet-600'
+              }`}>
+                <FileText size={18} strokeWidth={2.4} />
               </span>
               <div className="min-w-0">
-                <p className={`text-sm font-black ${quotationIsReferenceOnly ? 'text-slate-900' : 'text-violet-950'}`}>
+                <p className={`text-sm font-bold ${quotationIsReferenceOnly ? 'text-gray-900' : 'text-violet-900'}`}>
                   {quotationIsReferenceOnly ? 'Final price details' : 'View final price'}
                 </p>
-                <p
-                  className={`mt-0.5 text-xs font-semibold ${
-                    quotationIsReferenceOnly ? 'text-slate-500' : 'text-violet-700'
-                  }`}
-                >
+                <p className={`mt-0.5 text-xs ${quotationIsReferenceOnly ? 'text-gray-500' : 'text-violet-700'}`}>
                   Total: {money(order.quotation.totalAmount)}
                 </p>
               </div>
             </div>
-            <ChevronRight
-              size={19}
-              className={`shrink-0 ${quotationIsReferenceOnly ? 'text-slate-400' : 'text-violet-500'}`}
-            />
+            <ChevronRight size={19} className={`shrink-0 ${quotationIsReferenceOnly ? 'text-gray-400' : 'text-violet-500'}`} />
           </button>
         )}
       </main>
