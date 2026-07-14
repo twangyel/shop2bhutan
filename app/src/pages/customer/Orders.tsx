@@ -310,7 +310,7 @@ function stageTone(order: Order): StageTone {
   }
 
   return {
-    label: status === 'quotation_pending' ? 'Checking availability' : 'Request submitted',
+    label: status === 'quotation_pending' ? 'Checking availability' : 'Request received',
     pill: 'bg-amber-50 text-amber-700 ring-amber-100',
     bar: 'bg-amber-500',
     iconBg: 'bg-amber-50',
@@ -318,11 +318,18 @@ function stageTone(order: Order): StageTone {
   };
 }
 
-function progressPercent(order: Order) {
-  if (order.status === 'cancelled') return 100;
+function orderProgress(order: Order) {
+  if (order.status === 'cancelled') {
+    return { percent: 100, stepLabel: 'Cancelled' };
+  }
+
   const index = ORDER_PROGRESS.indexOf(order.status as (typeof ORDER_PROGRESS)[number]);
-  if (index < 0) return 10;
-  return Math.max(10, Math.round(((index + 1) / ORDER_PROGRESS.length) * 100));
+  const safeIndex = index >= 0 ? index : 0;
+
+  return {
+    percent: Math.round(((safeIndex + 1) / ORDER_PROGRESS.length) * 100),
+    stepLabel: `Step ${safeIndex + 1} of ${ORDER_PROGRESS.length}`,
+  };
 }
 
 function actionText(order: Order) {
@@ -339,7 +346,7 @@ function actionText(order: Order) {
 }
 
 function statusDescription(order: Order) {
-  if (order.status === 'pending_confirmation') return 'Your shopping request has been submitted.';
+  if (order.status === 'pending_confirmation') return 'Your shopping request has been received.';
   if (order.status === 'quotation_pending') return 'Shop2Bhutan is checking availability, selected options, prices, and delivery charges.';
   if (order.status === 'quoted') return 'Availability is confirmed and your final price is ready.';
   if (order.status === 'payment_pending') {
@@ -359,7 +366,7 @@ function statusDescription(order: Order) {
 
 function amountLabel(order: Order) {
   if (order.quotation?.totalAmount) return 'Final payable';
-  if (estimatedTotal(order) > 0) return 'Site estimate';
+  if (estimatedTotal(order) > 0) return 'Store estimate';
   return 'Final amount';
 }
 
@@ -375,7 +382,7 @@ function CustomerOrderCard({ order }: { order: Order }) {
   const count = itemCount(order);
   const total = estimatedTotal(order);
   const tone = stageTone(order);
-  const progress = progressPercent(order);
+  const progress = orderProgress(order);
   const extraItems = Math.max(0, order.items.length - 1);
 
   return (
@@ -435,12 +442,12 @@ function CustomerOrderCard({ order }: { order: Order }) {
                   {total > 0 ? money(total) : 'Final price pending'}
                 </p>
               </div>
-              <span className="text-[10px] font-bold text-slate-400">{progress}%</span>
+              <span className="text-[10px] font-bold text-slate-400">{progress.stepLabel}</span>
             </div>
           </div>
         </div>
 
-        <div className="mt-3 flex items-start gap-2.5 rounded-2xl bg-slate-50 px-3 py-2.5">
+        <div className="mt-3 flex items-start gap-2.5 border-t border-slate-100 pt-3">
           <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${tone.iconBg} ${tone.iconText}`}>
             {order.status === 'delivered' ? (
               <CheckCircle2 size={16} strokeWidth={2.4} />
@@ -460,7 +467,7 @@ function CustomerOrderCard({ order }: { order: Order }) {
             <div className="mt-2 h-1 overflow-hidden rounded-full bg-white ring-1 ring-slate-100">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${tone.bar}`}
-                style={{ width: `${progress}%` }}
+                style={{ width: `${progress.percent}%` }}
               />
             </div>
           </div>
@@ -633,7 +640,7 @@ export default function Orders() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
       <header className="border-b border-slate-100 bg-white px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.8rem)]">
         <div className="mx-auto max-w-3xl">
           <div className="flex items-center justify-between gap-3">

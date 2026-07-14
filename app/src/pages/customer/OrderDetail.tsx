@@ -197,7 +197,7 @@ function formatPaymentMethod(value?: string) {
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-function itemDisplayPrice(order: Order, item: Order['items'][number], index: number) {
+function itemPriceDisplay(order: Order, item: Order['items'][number], index: number) {
   const quotationItem =
     order.quotation?.items?.find((candidate) => candidate.orderItemId === item.id) ??
     order.quotation?.items?.[index];
@@ -206,10 +206,40 @@ function itemDisplayPrice(order: Order, item: Order['items'][number], index: num
   const quotedUnitPrice = Number(quotationItem?.unitPrice || 0);
   const orderUnitPrice = Number(item.unitPrice || 0);
 
-  if (quotedTotal > 0) return money(quotedTotal);
-  if (quotedUnitPrice > 0) return money(quotedUnitPrice * quantity);
-  if (orderUnitPrice > 0) return money(orderUnitPrice * quantity);
-  return 'Final price pending';
+  if (quotedTotal > 0) {
+    return { label: 'Final price', value: money(quotedTotal), muted: false };
+  }
+
+  if (quotedUnitPrice > 0) {
+    return { label: 'Final price', value: money(quotedUnitPrice * quantity), muted: false };
+  }
+
+  if (orderUnitPrice > 0) {
+    return { label: 'Store price', value: money(orderUnitPrice * quantity), muted: false };
+  }
+
+  return { label: 'Final price', value: 'Pending', muted: true };
+}
+
+function OrderItemPrice({
+  order,
+  item,
+  index,
+}: {
+  order: Order;
+  item: Order['items'][number];
+  index: number;
+}) {
+  const price = itemPriceDisplay(order, item, index);
+
+  return (
+    <div className="min-w-0">
+      <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">{price.label}</p>
+      <p className={`mt-0.5 text-sm font-black ${price.muted ? 'text-slate-400' : 'text-slate-950'}`}>
+        {price.value}
+      </p>
+    </div>
+  );
 }
 
 function fallbackImage() {
@@ -364,7 +394,7 @@ function isWaitingForQuotation(status?: OrderStatus) {
 }
 
 function customerStageLabel(status?: OrderStatus) {
-  if (status === 'pending_confirmation') return 'Request Submitted';
+  if (status === 'pending_confirmation') return 'Request Received';
   if (status === 'quotation_pending') return 'Checking Availability';
   if (status === 'quoted') return 'Final Price Ready';
   if (status === 'payment_pending') return 'Payment Pending';
@@ -399,23 +429,26 @@ function CustomerStageBadge({ status }: { status?: OrderStatus }) {
 
 function getCompactProgress(order: Order) {
   const effectiveStatus = getEffectiveOrderStatus(order);
+  const totalSteps = progressSteps.length;
 
   if (effectiveStatus === 'cancelled') {
     return {
       currentLabel: 'Order cancelled',
       nextText: 'This order is no longer active.',
       progressPercent: 100,
+      stepLabel: 'Cancelled',
     };
   }
 
   const index = getProgressIndex(effectiveStatus);
   const current = displayProgressStep(progressSteps[index] ?? progressSteps[0], order);
-  const progressPercent = Math.max(8, Math.round((index / Math.max(1, progressSteps.length - 1)) * 100));
+  const progressPercent = Math.round(((index + 1) / totalSteps) * 100);
 
   return {
     currentLabel: current.label,
     nextText: current.next,
     progressPercent,
+    stepLabel: `Step ${index + 1} of ${totalSteps}`,
   };
 }
 
@@ -426,15 +459,7 @@ function getProgressCardTitle(order: Order) {
   if (effectiveStatus === 'delivered') return isSelfPickupOrder(order) ? 'Pickup complete' : 'Delivery complete';
 
   const currentIndex = getProgressIndex(effectiveStatus);
-  const currentStep = displayProgressStep(progressSteps[currentIndex] ?? progressSteps[0], order);
-  const currentStageLabel = customerStageLabel(effectiveStatus);
-
-  if (currentStep.label.toLowerCase() !== currentStageLabel.toLowerCase()) {
-    return currentStep.label;
-  }
-
-  const nextStep = progressSteps[currentIndex + 1];
-  return nextStep ? `Next: ${displayProgressStep(nextStep, order).label}` : currentStep.label;
+  return displayProgressStep(progressSteps[currentIndex] ?? progressSteps[0], order).label;
 }
 
 function formatBhutanDateTime(value?: string) {
@@ -724,7 +749,6 @@ export default function OrderDetail() {
     ? fulfillmentDisplay.subtitle
     : `${appSettings.orderCoverage.label}. Delivery/pickup currently available in ${appSettings.deliveryHubs.hubNamesJoined}.`;
   const quotationStage = isQuotationRequestStage(effectiveStatus);
-  const waitingForQuotation = isWaitingForQuotation(effectiveStatus);
   const detailTitle = quotationStage ? 'Shopping Request' : 'Order Details';
   const currentStatusTitle = quotationStage ? 'Current step' : 'Current status';
   const progressTitle = quotationStage ? 'Shopping progress' : 'Order progress';
@@ -753,7 +777,7 @@ export default function OrderDetail() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-screen bg-slate-50 pb-[calc(8rem+env(safe-area-inset-bottom))]">
       <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
           <div className="min-w-0">
@@ -792,23 +816,7 @@ export default function OrderDetail() {
         )}
       </header>
 
-      <main className="mx-auto max-w-2xl space-y-4 px-4 py-4">
-        {waitingForQuotation && (
-          <section className="rounded-[22px] bg-emerald-50 px-4 py-3.5 ring-1 ring-emerald-100 shadow-sm">
-            <div className="flex items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-600 shadow-sm ring-1 ring-emerald-100">
-                <CheckCircle size={20} strokeWidth={2.5} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-black text-emerald-950">Request submitted</p>
-                <p className="mt-1 text-xs leading-5 text-emerald-800">
-                  We&apos;ll check availability, selected options, and the final price. No payment is required yet.
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
-
+      <main className="mx-auto max-w-2xl space-y-3.5 px-4 py-4">
         <section className="overflow-hidden rounded-[22px] border border-slate-200 bg-white text-slate-950 shadow-sm">
           <div className="p-4">
             <div className="flex items-start justify-between gap-4">
@@ -834,7 +842,7 @@ export default function OrderDetail() {
                 <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{compactProgress.nextText}</p>
               </div>
               <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-black text-slate-700">
-                {compactProgress.progressPercent}%
+                {compactProgress.stepLabel}
               </span>
             </div>
           </div>
@@ -959,10 +967,8 @@ export default function OrderDetail() {
                       <span className="text-[11px] font-semibold text-slate-400">Qty {item.quantity}</span>
                     </div>
                     <p className="mt-1.5 line-clamp-2 text-sm font-black leading-5 text-slate-950">{item.productName}</p>
-                    <div className="mt-2 flex items-center justify-between gap-3">
-                      <p className="text-sm font-black text-slate-950">
-                        {itemDisplayPrice(order, item, index)}
-                      </p>
+                    <div className="mt-2 flex items-end justify-between gap-3">
+                      <OrderItemPrice order={order} item={item} index={index} />
                       {item.sourceUrl && /^https?:\/\//i.test(item.sourceUrl) && (
                         <a
                           href={item.sourceUrl}
