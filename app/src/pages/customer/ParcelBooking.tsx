@@ -73,8 +73,8 @@ function formatDateTime(value?: string | null) {
 }
 
 function tripDisplayTitle(trip?: ParcelTrip | null) {
-  const origin = trip?.origin || trip?.fromLocation || 'Thimphu'
-  const destination = trip?.destination || trip?.toLocation || 'Phuentsholing'
+  const origin = trip?.origin || trip?.fromLocation || 'Pickup location'
+  const destination = trip?.destination || trip?.toLocation || 'Drop-off location'
 
   return `${origin} → ${destination}`
 }
@@ -235,8 +235,8 @@ export default function ParcelBooking() {
     ? getParcelTripBookingClosedMessage(trip)
     : 'Booking is not available for this trip.'
   const willBookAsGuest = !authLoading && (!user || isGuest)
-  const pickupLocation = trip?.origin || trip?.fromLocation || 'Thimphu'
-  const dropoffLocation = trip?.destination || trip?.toLocation || 'Phuentsholing'
+  const pickupLocation = trip?.origin || trip?.fromLocation || 'Pickup location'
+  const dropoffLocation = trip?.destination || trip?.toLocation || 'Drop-off location'
 
   function update(field: keyof typeof form, value: string | boolean) {
     setForm((prev) => ({ ...prev, [field]: value }))

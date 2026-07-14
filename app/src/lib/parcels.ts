@@ -5,6 +5,8 @@ import {
   createCustomerParcelTripOpenNotifications,
 } from '@/lib/customerOrders'
 import type {
+  ParcelLocation,
+  ParcelLocationType,
   ParcelRequest,
   ParcelRequestStatus,
   ParcelSize,
@@ -32,11 +34,20 @@ export type CreateParcelRequestInput = {
 
 export type CreateParcelTripInput = {
   title?: string
+  originLocationId?: string
+  destinationLocationId?: string
   origin?: string
   destination?: string
   goingDate: string
   bookingCutoffAt?: string | null
   status?: ParcelTripStatus
+}
+
+export type CreateParcelLocationInput = {
+  name: string
+  dzongkhag: string
+  locationType?: ParcelLocationType
+  sortOrder?: number
 }
 
 function text(value: unknown) {
@@ -126,31 +137,70 @@ export function getParcelTripBookingClosedMessage(trip?: ParcelTrip | null) {
 function fallbackTrip(): ParcelTrip {
   return {
     id: '',
-    title: 'Thimphu → Phuentsholing',
-    name: 'Thimphu → Phuentsholing',
-    origin: 'Thimphu',
-    destination: 'Phuentsholing',
-    fromLocation: 'Thimphu',
-    toLocation: 'Phuentsholing',
+    title: 'Parcel route',
+    name: 'Parcel route',
+    origin: 'Pickup location',
+    destination: 'Drop-off location',
+    originLocationId: null,
+    destinationLocationId: null,
+    originLocation: null,
+    destinationLocation: null,
+    fromLocation: 'Pickup location',
+    toLocation: 'Drop-off location',
     goingDate: '',
     returnDate: '',
     bookingCutoffAt: null,
     pickupAreas: [],
-    status: 'open',
+    status: 'draft',
     createdBy: null,
     createdAt: '',
     updatedAt: '',
     requestCount: 0,
     description: 'Lightweight parcel pickup and delivery',
-    isActive: true,
+    isActive: false,
+  }
+}
+
+function mapParcelLocation(row: Row | null | undefined): ParcelLocation | null {
+  if (!row) return null
+
+  const id = text(row.id)
+  const name = text(row.name)
+  const dzongkhag = text(row.dzongkhag)
+
+  if (!id || !name) return null
+
+  return {
+    id,
+    name,
+    dzongkhag,
+    locationType: (text(row.location_type) || 'custom') as ParcelLocationType,
+    isActive: row.is_active !== false,
+    sortOrder: Number(row.sort_order ?? 0),
+    createdBy: row.created_by ?? null,
+    createdAt: row.created_at ?? '',
+    updatedAt: row.updated_at ?? '',
   }
 }
 
 function mapTrip(row: Row | null | undefined): ParcelTrip {
   if (!row) return fallbackTrip()
 
-  const origin = text(row.origin) || 'Thimphu'
-  const destination = text(row.destination) || 'Phuentsholing'
+  const originLocation = mapParcelLocation(
+    row.origin_location || row.originLocation,
+  )
+  const destinationLocation = mapParcelLocation(
+    row.destination_location || row.destinationLocation,
+  )
+
+  const origin =
+    text(row.origin) ||
+    originLocation?.name ||
+    'Pickup location'
+  const destination =
+    text(row.destination) ||
+    destinationLocation?.name ||
+    'Drop-off location'
   const title = text(row.title) || `${origin} → ${destination}`
 
   return {
@@ -159,6 +209,16 @@ function mapTrip(row: Row | null | undefined): ParcelTrip {
     name: title,
     origin,
     destination,
+    originLocationId:
+      row.origin_location_id ??
+      originLocation?.id ??
+      null,
+    destinationLocationId:
+      row.destination_location_id ??
+      destinationLocation?.id ??
+      null,
+    originLocation,
+    destinationLocation,
     fromLocation: origin,
     toLocation: destination,
     goingDate: row.going_date ?? '',
@@ -410,6 +470,198 @@ async function fetchTrackingEventsByRequestIds(requestIds: string[]) {
   }, new Map<string, Row[]>())
 }
 
+function parcelLocationSetupMessage() {
+  return 'Dynamic parcel locations are not installed yet. Run Parcel_Dynamic_Routes.sql in Supabase, then reload the admin panel.'
+}
+
+function isMissingParcelLocationSetup(error: unknown) {
+  const message = text((error as { message?: string })?.message).toLowerCase()
+
+  return (
+    message.includes('parcel_locations') ||
+    message.includes('origin_location_id') ||
+    message.includes('destination_location_id')
+  ) && (
+    message.includes('does not exist') ||
+    message.includes('schema cache') ||
+    message.includes('could not find') ||
+    message.includes('column')
+  )
+}
+
+export async function fetchParcelLocations(options?: {
+  includeInactive?: boolean
+}): Promise<ParcelLocation[]> {
+  let query = supabase
+    .from('parcel_locations')
+    .select('*')
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true })
+
+  if (!options?.includeInactive) {
+    query = query.eq('is_active', true)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    if (isMissingParcelLocationSetup(error)) {
+      throw new Error(parcelLocationSetupMessage())
+    }
+    throw error
+  }
+
+  return (data ?? [])
+    .map((row) => mapParcelLocation(row))
+    .filter((location): location is ParcelLocation => Boolean(location))
+}
+
+export async function createParcelLocation(
+  input: CreateParcelLocationInput,
+): Promise<ParcelLocation> {
+  const userId = await getUserId()
+  const name = text(input.name)
+  const dzongkhag = text(input.dzongkhag)
+
+  if (!name) throw new Error('Location name is required.')
+  if (!dzongkhag) throw new Error('Dzongkhag is required.')
+
+  const { data, error } = await supabase
+    .from('parcel_locations')
+    .insert({
+      name,
+      dzongkhag,
+      location_type: input.locationType ?? 'custom',
+      is_active: true,
+      sort_order: Math.max(0, Math.floor(Number(input.sortOrder) || 0)),
+      created_by: userId,
+    })
+    .select('*')
+    .single()
+
+  if (error) {
+    if (isMissingParcelLocationSetup(error)) {
+      throw new Error(parcelLocationSetupMessage())
+    }
+
+    if (
+      String(error.message || '')
+        .toLowerCase()
+        .includes('duplicate')
+    ) {
+      throw new Error('This parcel location already exists.')
+    }
+
+    throw error
+  }
+
+  const location = mapParcelLocation(data)
+
+  if (!location) {
+    throw new Error('Location was created but could not be loaded.')
+  }
+
+  emitParcelTripUpdated()
+  return location
+}
+
+export async function updateParcelLocationStatus(
+  locationId: string,
+  isActive: boolean,
+): Promise<ParcelLocation> {
+  const { data, error } = await supabase
+    .from('parcel_locations')
+    .update({
+      is_active: isActive,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', locationId)
+    .select('*')
+    .single()
+
+  if (error) {
+    if (isMissingParcelLocationSetup(error)) {
+      throw new Error(parcelLocationSetupMessage())
+    }
+    throw error
+  }
+
+  const location = mapParcelLocation(data)
+
+  if (!location) {
+    throw new Error('Location was updated but could not be loaded.')
+  }
+
+  emitParcelTripUpdated()
+  return location
+}
+
+async function resolveTripLocationPair(input: CreateParcelTripInput) {
+  const originLocationId = text(input.originLocationId)
+  const destinationLocationId = text(input.destinationLocationId)
+
+  if (!originLocationId || !destinationLocationId) {
+    const origin = text(input.origin)
+    const destination = text(input.destination)
+
+    if (!origin || !destination) {
+      throw new Error('Select both From and To locations.')
+    }
+
+    if (origin.toLowerCase() === destination.toLowerCase()) {
+      throw new Error('From and To locations must be different.')
+    }
+
+    return {
+      originLocationId: null,
+      destinationLocationId: null,
+      origin,
+      destination,
+    }
+  }
+
+  if (originLocationId === destinationLocationId) {
+    throw new Error('From and To locations must be different.')
+  }
+
+  const { data, error } = await supabase
+    .from('parcel_locations')
+    .select('*')
+    .in('id', [originLocationId, destinationLocationId])
+    .eq('is_active', true)
+
+  if (error) {
+    if (isMissingParcelLocationSetup(error)) {
+      throw new Error(parcelLocationSetupMessage())
+    }
+    throw error
+  }
+
+  const locations = (data ?? [])
+    .map((row) => mapParcelLocation(row))
+    .filter((location): location is ParcelLocation => Boolean(location))
+
+  const originLocation = locations.find(
+    (location) => location.id === originLocationId,
+  )
+  const destinationLocation = locations.find(
+    (location) => location.id === destinationLocationId,
+  )
+
+  if (!originLocation || !destinationLocation) {
+    throw new Error(
+      'One of the selected parcel locations is unavailable. Refresh and select again.',
+    )
+  }
+
+  return {
+    originLocationId: originLocation.id,
+    destinationLocationId: destinationLocation.id,
+    origin: originLocation.name,
+    destination: destinationLocation.name,
+  }
+}
+
 export async function fetchOpenParcelTrips() {
   const { data, error } = await supabase
     .from('parcel_trips')
@@ -650,30 +902,42 @@ export async function fetchAdminParcelTrips() {
 export async function createParcelTrip(input: CreateParcelTripInput) {
   const userId = await getUserId()
 
-  const origin = text(input.origin) || 'Thimphu'
-  const destination = text(input.destination) || 'Phuentsholing'
-  const title = text(input.title) || `${origin} → ${destination}`
+  if (!text(input.goingDate)) {
+    throw new Error('Trip date is required.')
+  }
+
+  const route = await resolveTripLocationPair(input)
+  const title = text(input.title) || `${route.origin} → ${route.destination}`
   const status = input.status ?? 'open'
+
+  const payload: Record<string, unknown> = {
+    title,
+    origin: route.origin,
+    destination: route.destination,
+    origin_location_id: route.originLocationId,
+    destination_location_id: route.destinationLocationId,
+    going_date: input.goingDate,
+    return_date: null,
+    booking_cutoff_at: input.bookingCutoffAt
+      ? new Date(input.bookingCutoffAt).toISOString()
+      : null,
+    pickup_areas: [],
+    status,
+    created_by: userId,
+  }
 
   const { data, error } = await supabase
     .from('parcel_trips')
-    .insert({
-      title,
-      origin,
-      destination,
-      going_date: input.goingDate,
-      return_date: null,
-      booking_cutoff_at: input.bookingCutoffAt
-        ? new Date(input.bookingCutoffAt).toISOString()
-        : null,
-      pickup_areas: [],
-      status,
-      created_by: userId,
-    })
+    .insert(payload)
     .select('*')
     .single()
 
-  if (error) throw error
+  if (error) {
+    if (isMissingParcelLocationSetup(error)) {
+      throw new Error(parcelLocationSetupMessage())
+    }
+    throw error
+  }
 
   const trip = mapTrip(data)
 

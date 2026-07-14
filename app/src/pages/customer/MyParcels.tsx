@@ -106,11 +106,11 @@ const activeParcelStatuses = new Set([
 ])
 
 function routeTitle(request: ParcelRequest) {
-  const origin = request.trip?.origin || request.trip?.fromLocation || 'Thimphu'
+  const origin = request.trip?.origin || request.trip?.fromLocation || 'Pickup location'
   const destination =
     request.trip?.destination ||
     request.trip?.toLocation ||
-    'Phuentsholing'
+    'Drop-off location'
 
   return `${origin} → ${destination}`
 }
@@ -230,8 +230,7 @@ export default function MyParcels() {
             </h2>
 
             <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-neutral-500">
-              Book a parcel when an available Thimphu–Phuentsholing trip is
-              open.
+              Book a parcel whenever an available route across Bhutan is open.
             </p>
 
             <button

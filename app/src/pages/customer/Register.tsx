@@ -920,7 +920,7 @@ export default function Register() {
                         htmlFor="register-name"
                         className="mb-2 block text-sm font-bold text-neutral-800"
                       >
-                        Full name
+                        Full Name
                       </label>
                       <div className="relative">
                         <User
@@ -956,7 +956,7 @@ export default function Register() {
                           htmlFor="register-email"
                           className="text-sm font-bold text-neutral-800"
                         >
-                          Email address
+                          Email Address
                         </label>
                         <span className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-400">
                           Optional
@@ -995,7 +995,7 @@ export default function Register() {
                         htmlFor="register-phone"
                         className="mb-2 block text-sm font-bold text-neutral-800"
                       >
-                        Bhutan mobile number
+                        Phone Number
                       </label>
                       <div className="relative">
                         <Phone

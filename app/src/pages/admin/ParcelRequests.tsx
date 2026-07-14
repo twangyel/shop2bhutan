@@ -71,9 +71,9 @@ function statusClass(status: string) {
 }
 
 function tripDisplayTitle(request: ParcelRequest) {
-  const origin = request.trip?.origin || request.trip?.fromLocation || 'Thimphu'
+  const origin = request.trip?.origin || request.trip?.fromLocation || 'Pickup location'
   const destination =
-    request.trip?.destination || request.trip?.toLocation || 'Phuentsholing'
+    request.trip?.destination || request.trip?.toLocation || 'Drop-off location'
 
   return `${origin} → ${destination}`
 }

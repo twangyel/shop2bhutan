@@ -67,8 +67,8 @@ const activeParcelStatuses = new Set([
 ])
 
 function tripDisplayTitle(trip?: ParcelTrip | null) {
-  const origin = trip?.origin || trip?.fromLocation || 'Thimphu'
-  const destination = trip?.destination || trip?.toLocation || 'Phuentsholing'
+  const origin = trip?.origin || trip?.fromLocation || 'Pickup location'
+  const destination = trip?.destination || trip?.toLocation || 'Drop-off location'
 
   return `${origin} → ${destination}`
 }
@@ -181,7 +181,7 @@ export default function Parcel() {
                 Parcel Pickup & Drop
               </h1>
               <p className="mt-0.5 text-xs font-medium text-neutral-500">
-                Thimphu ↔ Phuentsholing
+                Routes across Bhutan
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-orange-50 px-3 py-1.5 text-[11px] font-bold text-orange-700 ring-1 ring-orange-100">

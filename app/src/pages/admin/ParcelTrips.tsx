@@ -1,13 +1,64 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Calendar, ChevronDown, Clock, Loader2, Plus, RefreshCw, Truck } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  Calendar,
+  ChevronDown,
+  Clock,
+  Loader2,
+  MapPin,
+  Plus,
+  RefreshCw,
+  Settings2,
+  Truck,
+} from 'lucide-react'
+import {
+  createParcelLocation,
   createParcelTrip,
   fetchAdminParcelTrips,
+  fetchParcelLocations,
+  updateParcelLocationStatus,
   updateParcelTripStatus,
 } from '@/lib/parcels'
-import type { ParcelTrip, ParcelTripStatus } from '@/types/parcel'
+import type {
+  ParcelLocation,
+  ParcelLocationType,
+  ParcelTrip,
+  ParcelTripStatus,
+} from '@/types/parcel'
 import { parcelTripStatusLabels } from '@/types/parcel'
 import { supabase } from '@/lib/supabase'
+
+const BHUTAN_DZONGKHAGS = [
+  'Bumthang',
+  'Chhukha',
+  'Dagana',
+  'Gasa',
+  'Haa',
+  'Lhuentse',
+  'Mongar',
+  'Paro',
+  'Pemagatshel',
+  'Punakha',
+  'Samdrup Jongkhar',
+  'Samtse',
+  'Sarpang',
+  'Thimphu',
+  'Trashigang',
+  'Trashiyangtse',
+  'Trongsa',
+  'Tsirang',
+  'Wangdue Phodrang',
+  'Zhemgang',
+] as const
+
+const LOCATION_TYPES: Array<{
+  value: ParcelLocationType
+  label: string
+}> = [
+  { value: 'dzongkhag', label: 'Dzongkhag / headquarters' },
+  { value: 'town', label: 'Town' },
+  { value: 'hub', label: 'Parcel hub' },
+  { value: 'custom', label: 'Other location' },
+]
 
 function formatDate(value?: string | null) {
   if (!value) return 'Not set'
@@ -32,38 +83,41 @@ function formatDateTime(value?: string | null) {
 }
 
 function tripDisplayTitle(trip: ParcelTrip) {
-  const origin = trip.origin || trip.fromLocation || 'Thimphu'
-  const destination = trip.destination || trip.toLocation || 'Phuentsholing'
+  const origin =
+    trip.origin ||
+    trip.originLocation?.name ||
+    trip.fromLocation ||
+    'Pickup location'
+  const destination =
+    trip.destination ||
+    trip.destinationLocation?.name ||
+    trip.toLocation ||
+    'Drop-off location'
 
   return `${origin} → ${destination}`
 }
 
-type ParcelRouteKey = 'thimphu_to_phuentsholing' | 'phuentsholing_to_thimphu'
+function locationLabel(location: ParcelLocation) {
+  if (
+    !location.dzongkhag ||
+    location.name.toLowerCase() === location.dzongkhag.toLowerCase()
+  ) {
+    return location.name
+  }
 
-const parcelRouteOptions: Array<{
-  key: ParcelRouteKey
-  origin: string
-  destination: string
-  label: string
-}> = [
-  {
-    key: 'thimphu_to_phuentsholing',
-    origin: 'Thimphu',
-    destination: 'Phuentsholing',
-    label: 'Thimphu → Phuentsholing',
-  },
-  {
-    key: 'phuentsholing_to_thimphu',
-    origin: 'Phuentsholing',
-    destination: 'Thimphu',
-    label: 'Phuentsholing → Thimphu',
-  },
-]
+  return `${location.name} — ${location.dzongkhag}`
+}
 
-function getRouteOption(key: ParcelRouteKey) {
+function findDefaultLocation(
+  locations: ParcelLocation[],
+  preferredName: string,
+) {
   return (
-    parcelRouteOptions.find((route) => route.key === key) ??
-    parcelRouteOptions[0]
+    locations.find(
+      (location) =>
+        location.isActive &&
+        location.name.toLowerCase() === preferredName.toLowerCase(),
+    )?.id ?? ''
   )
 }
 
@@ -76,10 +130,18 @@ function statusHelp(status?: ParcelTripStatus) {
 }
 
 function statusClass(status?: ParcelTripStatus) {
-  if (status === 'open') return 'border border-emerald-100 bg-emerald-50 text-emerald-700'
-  if (status === 'closed') return 'border border-amber-100 bg-amber-50 text-amber-700'
-  if (status === 'completed') return 'border border-blue-100 bg-blue-50 text-blue-700'
-  if (status === 'cancelled') return 'border border-red-100 bg-red-50 text-red-700'
+  if (status === 'open') {
+    return 'border border-emerald-100 bg-emerald-50 text-emerald-700'
+  }
+  if (status === 'closed') {
+    return 'border border-amber-100 bg-amber-50 text-amber-700'
+  }
+  if (status === 'completed') {
+    return 'border border-blue-100 bg-blue-50 text-blue-700'
+  }
+  if (status === 'cancelled') {
+    return 'border border-red-100 bg-red-50 text-red-700'
+  }
   return 'border border-neutral-200 bg-neutral-100 text-neutral-600'
 }
 
@@ -100,13 +162,7 @@ function tripActions(status?: ParcelTripStatus) {
     ]
   }
 
-  if (status === 'completed') {
-    return [
-      { status: 'open' as ParcelTripStatus, label: 'Re-open booking' },
-    ]
-  }
-
-  if (status === 'cancelled') {
+  if (status === 'completed' || status === 'cancelled') {
     return [
       { status: 'open' as ParcelTripStatus, label: 'Re-open booking' },
     ]
@@ -118,48 +174,125 @@ function tripActions(status?: ParcelTripStatus) {
   ]
 }
 
+type TripForm = {
+  title: string
+  originLocationId: string
+  destinationLocationId: string
+  goingDate: string
+  bookingCutoffAt: string
+}
+
+type LocationForm = {
+  name: string
+  dzongkhag: string
+  locationType: ParcelLocationType
+}
+
+const emptyTripForm: TripForm = {
+  title: '',
+  originLocationId: '',
+  destinationLocationId: '',
+  goingDate: '',
+  bookingCutoffAt: '',
+}
+
+const emptyLocationForm: LocationForm = {
+  name: '',
+  dzongkhag: 'Thimphu',
+  locationType: 'town',
+}
+
 export default function ParcelTrips() {
   const [trips, setTrips] = useState<ParcelTrip[]>([])
+  const [locations, setLocations] = useState<ParcelLocation[]>([])
   const [showForm, setShowForm] = useState(false)
+  const [showLocationManager, setShowLocationManager] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [savingLocation, setSavingLocation] = useState(false)
+  const [updatingLocationId, setUpdatingLocationId] = useState('')
   const [error, setError] = useState('')
-
-  const [form, setForm] = useState<{
-    title: string
-    routeKey: ParcelRouteKey
-    goingDate: string
-    bookingCutoffAt: string
-  }>({
-    title: '',
-    routeKey: 'thimphu_to_phuentsholing',
-    goingDate: '',
-    bookingCutoffAt: '',
-  })
-
+  const [locationError, setLocationError] = useState('')
+  const [form, setForm] = useState<TripForm>(emptyTripForm)
+  const [locationForm, setLocationForm] =
+    useState<LocationForm>(emptyLocationForm)
   const [updatingTripId, setUpdatingTripId] = useState<string | null>(null)
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
 
-  const selectedRoute = getRouteOption(form.routeKey)
+  const activeLocations = useMemo(
+    () => locations.filter((location) => location.isActive),
+    [locations],
+  )
 
-  const loadTrips = useCallback(async (options?: { silent?: boolean }) => {
-    const silent = Boolean(options?.silent)
+  const selectedOrigin = activeLocations.find(
+    (location) => location.id === form.originLocationId,
+  )
+  const selectedDestination = activeLocations.find(
+    (location) => location.id === form.destinationLocationId,
+  )
+  const routePreview =
+    selectedOrigin && selectedDestination
+      ? `${selectedOrigin.name} → ${selectedDestination.name}`
+      : 'Select From and To locations'
 
-    try {
-      if (!silent) setLoading(true)
-      setError('')
-      const rows = await fetchAdminParcelTrips()
-      setTrips(rows)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load trips.')
-    } finally {
-      if (!silent) setLoading(false)
-    }
-  }, [])
+  const applyLocationDefaults = useCallback(
+    (rows: ParcelLocation[], current: TripForm) => {
+      const active = rows.filter((location) => location.isActive)
+      const defaultOrigin =
+        current.originLocationId ||
+        findDefaultLocation(active, 'Thimphu') ||
+        active[0]?.id ||
+        ''
+      const defaultDestination =
+        current.destinationLocationId ||
+        findDefaultLocation(active, 'Phuentsholing') ||
+        active.find((location) => location.id !== defaultOrigin)?.id ||
+        ''
+
+      return {
+        ...current,
+        originLocationId: defaultOrigin,
+        destinationLocationId:
+          defaultDestination === defaultOrigin
+            ? active.find((location) => location.id !== defaultOrigin)?.id || ''
+            : defaultDestination,
+      }
+    },
+    [],
+  )
+
+  const loadData = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const silent = Boolean(options?.silent)
+
+      try {
+        if (!silent) setLoading(true)
+        setError('')
+
+        const [tripRows, locationRows] = await Promise.all([
+          fetchAdminParcelTrips(),
+          fetchParcelLocations({ includeInactive: true }),
+        ])
+
+        setTrips(tripRows)
+        setLocations(locationRows)
+        setForm((current) => applyLocationDefaults(locationRows, current))
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to load parcel trips and locations.',
+        )
+      } finally {
+        if (!silent) setLoading(false)
+      }
+    },
+    [applyLocationDefaults],
+  )
 
   useEffect(() => {
-    void loadTrips()
-  }, [loadTrips])
+    void loadData()
+  }, [loadData])
 
   useEffect(() => {
     let active = true
@@ -168,7 +301,7 @@ export default function ParcelTrips() {
     const refreshSoon = (delay = 0) => {
       const timer = window.setTimeout(() => {
         if (!active) return
-        void loadTrips({ silent: true })
+        void loadData({ silent: true })
       }, delay)
 
       timers.push(timer)
@@ -183,8 +316,14 @@ export default function ParcelTrips() {
       if (!document.hidden) handleRealtimeRefresh()
     }
 
-    window.addEventListener('shop2bhutan:parcel-trips-updated', handleRealtimeRefresh)
-    window.addEventListener('shop2bhutan:admin-parcels-updated', handleRealtimeRefresh)
+    window.addEventListener(
+      'shop2bhutan:parcel-trips-updated',
+      handleRealtimeRefresh,
+    )
+    window.addEventListener(
+      'shop2bhutan:admin-parcels-updated',
+      handleRealtimeRefresh,
+    )
     window.addEventListener('focus', handleRealtimeRefresh)
     window.addEventListener('pageshow', handleRealtimeRefresh)
     document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -201,6 +340,11 @@ export default function ParcelTrips() {
         { event: '*', schema: 'public', table: 'parcel_requests' },
         handleRealtimeRefresh,
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'parcel_locations' },
+        handleRealtimeRefresh,
+      )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') refreshSoon(0)
       })
@@ -208,16 +352,32 @@ export default function ParcelTrips() {
     return () => {
       active = false
       timers.forEach((timer) => window.clearTimeout(timer))
-      window.removeEventListener('shop2bhutan:parcel-trips-updated', handleRealtimeRefresh)
-      window.removeEventListener('shop2bhutan:admin-parcels-updated', handleRealtimeRefresh)
+      window.removeEventListener(
+        'shop2bhutan:parcel-trips-updated',
+        handleRealtimeRefresh,
+      )
+      window.removeEventListener(
+        'shop2bhutan:admin-parcels-updated',
+        handleRealtimeRefresh,
+      )
       window.removeEventListener('focus', handleRealtimeRefresh)
       window.removeEventListener('pageshow', handleRealtimeRefresh)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       void supabase.removeChannel(channel)
     }
-  }, [loadTrips])
+  }, [loadData])
 
   async function handleCreateTrip() {
+    if (!form.originLocationId || !form.destinationLocationId) {
+      setError('Select both From and To locations.')
+      return
+    }
+
+    if (form.originLocationId === form.destinationLocationId) {
+      setError('From and To locations must be different.')
+      return
+    }
+
     if (!form.goingDate) {
       setError('Trip date is required.')
       return
@@ -229,26 +389,114 @@ export default function ParcelTrips() {
 
       await createParcelTrip({
         title: form.title.trim() || undefined,
-        origin: selectedRoute.origin,
-        destination: selectedRoute.destination,
+        originLocationId: form.originLocationId,
+        destinationLocationId: form.destinationLocationId,
         goingDate: form.goingDate,
         bookingCutoffAt: form.bookingCutoffAt || null,
         status: 'open',
       })
 
-      setForm({
-        title: '',
-        routeKey: 'thimphu_to_phuentsholing',
-        goingDate: '',
-        bookingCutoffAt: '',
-      })
-
+      setForm((current) =>
+        applyLocationDefaults(locations, {
+          ...emptyTripForm,
+          originLocationId: current.originLocationId,
+          destinationLocationId: current.destinationLocationId,
+        }),
+      )
       setShowForm(false)
-      await loadTrips({ silent: true })
+      await loadData({ silent: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create trip.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleCreateLocation() {
+    if (!locationForm.name.trim()) {
+      setLocationError('Location name is required.')
+      return
+    }
+
+    if (!locationForm.dzongkhag) {
+      setLocationError('Select a dzongkhag.')
+      return
+    }
+
+    try {
+      setSavingLocation(true)
+      setLocationError('')
+
+      const created = await createParcelLocation({
+        name: locationForm.name,
+        dzongkhag: locationForm.dzongkhag,
+        locationType: locationForm.locationType,
+      })
+
+      const nextLocations = [...locations, created].sort(
+        (a, b) =>
+          a.sortOrder - b.sortOrder ||
+          a.name.localeCompare(b.name),
+      )
+
+      setLocations(nextLocations)
+      setLocationForm(emptyLocationForm)
+      setForm((current) =>
+        current.originLocationId && current.destinationLocationId
+          ? current
+          : applyLocationDefaults(nextLocations, current),
+      )
+    } catch (err) {
+      setLocationError(
+        err instanceof Error ? err.message : 'Failed to add location.',
+      )
+    } finally {
+      setSavingLocation(false)
+    }
+  }
+
+  async function toggleLocation(location: ParcelLocation) {
+    try {
+      setUpdatingLocationId(location.id)
+      setLocationError('')
+
+      const updated = await updateParcelLocationStatus(
+        location.id,
+        !location.isActive,
+      )
+
+      setLocations((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      )
+
+      if (!updated.isActive) {
+        setForm((current) => {
+          const next = {
+            ...current,
+            originLocationId:
+              current.originLocationId === updated.id
+                ? ''
+                : current.originLocationId,
+            destinationLocationId:
+              current.destinationLocationId === updated.id
+                ? ''
+                : current.destinationLocationId,
+          }
+
+          return applyLocationDefaults(
+            locations.map((item) =>
+              item.id === updated.id ? updated : item,
+            ),
+            next,
+          )
+        })
+      }
+    } catch (err) {
+      setLocationError(
+        err instanceof Error ? err.message : 'Failed to update location.',
+      )
+    } finally {
+      setUpdatingLocationId('')
     }
   }
 
@@ -257,7 +505,7 @@ export default function ParcelTrips() {
       setUpdatingTripId(tripId)
       setError('')
       await updateParcelTripStatus(tripId, status)
-      await loadTrips({ silent: true })
+      await loadData({ silent: true })
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to update trip status.',
@@ -272,9 +520,7 @@ export default function ParcelTrips() {
     trip: ParcelTrip,
     status: ParcelTripStatus,
   ) {
-    if (status === trip.status) {
-      return
-    }
+    if (status === trip.status) return
 
     if (status === 'cancelled') {
       const ok = window.confirm(
@@ -295,26 +541,41 @@ export default function ParcelTrips() {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-neutral-900">
-            Parcel Trips
-          </h2>
+          <h2 className="text-xl font-bold text-neutral-900">Parcel Trips</h2>
           <p className="text-sm text-neutral-500">
-            Admin-fixed Thimphu ⇄ Phuentsholing parcel trip dates.
+            Create dynamic parcel routes between any active Bhutan location.
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => loadTrips()}
-            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+            type="button"
+            onClick={() => void loadData()}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-60"
           >
-            <RefreshCw size={16} />
+            {loading ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <RefreshCw size={16} />
+            )}
             Refresh
           </button>
 
           <button
+            type="button"
+            onClick={() => setShowLocationManager((value) => !value)}
+            className="inline-flex items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-bold text-orange-700 hover:bg-orange-100"
+          >
+            <Settings2 size={16} />
+            Manage Locations
+          </button>
+
+          <button
+            type="button"
             onClick={() => setShowForm((value) => !value)}
-            className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold text-white hover:bg-orange-600"
+            disabled={activeLocations.length < 2}
+            className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus size={16} />
             Add Trip
@@ -328,80 +589,273 @@ export default function ParcelTrips() {
         </div>
       )}
 
-      {showForm && (
-        <div className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {showLocationManager && (
+        <section className="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-                Route Direction
-              </label>
-              <select
-                value={form.routeKey}
+              <h3 className="text-base font-black text-neutral-900">
+                Parcel Locations
+              </h3>
+              <p className="mt-0.5 text-xs leading-5 text-neutral-500">
+                The 20 dzongkhags are seeded automatically. Add towns or hubs
+                such as Gelephu, Phuentsholing, Jakar, or Bajo whenever needed.
+              </p>
+            </div>
+            <span className="w-fit rounded-full bg-neutral-100 px-3 py-1 text-xs font-bold text-neutral-600">
+              {activeLocations.length} active
+            </span>
+          </div>
+
+          {locationError && (
+            <div className="mt-4 rounded-xl bg-red-50 px-3 py-2.5 text-sm font-semibold text-red-700">
+              {locationError}
+            </div>
+          )}
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <label>
+              <span className="text-xs font-bold uppercase tracking-wide text-neutral-500">
+                Location name
+              </span>
+              <input
+                value={locationForm.name}
                 onChange={(event) =>
-                  setForm({
-                    ...form,
-                    routeKey: event.target.value as ParcelRouteKey,
-                  })
+                  setLocationForm((current) => ({
+                    ...current,
+                    name: event.target.value,
+                  }))
+                }
+                placeholder="Example: Gelephu"
+                className="mt-1.5 h-10 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20"
+              />
+            </label>
+
+            <label>
+              <span className="text-xs font-bold uppercase tracking-wide text-neutral-500">
+                Dzongkhag
+              </span>
+              <select
+                value={locationForm.dzongkhag}
+                onChange={(event) =>
+                  setLocationForm((current) => ({
+                    ...current,
+                    dzongkhag: event.target.value,
+                  }))
                 }
                 className="mt-1.5 h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20"
               >
-                {parcelRouteOptions.map((route) => (
-                  <option key={route.key} value={route.key}>
-                    {route.label}
+                {BHUTAN_DZONGKHAGS.map((dzongkhag) => (
+                  <option key={dzongkhag} value={dzongkhag}>
+                    {dzongkhag}
                   </option>
                 ))}
               </select>
-            </div>
+            </label>
 
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-                Trip Title <span className="font-medium normal-case text-neutral-400">(optional)</span>
-              </label>
+            <label>
+              <span className="text-xs font-bold uppercase tracking-wide text-neutral-500">
+                Location type
+              </span>
+              <select
+                value={locationForm.locationType}
+                onChange={(event) =>
+                  setLocationForm((current) => ({
+                    ...current,
+                    locationType: event.target.value as ParcelLocationType,
+                  }))
+                }
+                className="mt-1.5 h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20"
+              >
+                {LOCATION_TYPES.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={() => void handleCreateLocation()}
+                disabled={savingLocation}
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 px-4 text-sm font-bold text-white disabled:opacity-60"
+              >
+                {savingLocation ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Plus size={15} />
+                )}
+                Add Location
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {locations.map((location) => (
+              <div
+                key={location.id}
+                className={`flex items-center gap-3 rounded-2xl border px-3 py-2.5 ${
+                  location.isActive
+                    ? 'border-neutral-100 bg-white'
+                    : 'border-neutral-200 bg-neutral-50 opacity-70'
+                }`}
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+                  <MapPin size={16} />
+                </span>
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-neutral-900">
+                    {location.name}
+                  </p>
+                  <p className="truncate text-[11px] text-neutral-500">
+                    {location.dzongkhag} · {location.locationType}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void toggleLocation(location)}
+                  disabled={updatingLocationId === location.id}
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                    location.isActive
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : 'bg-neutral-200 text-neutral-600'
+                  }`}
+                >
+                  {updatingLocationId === location.id
+                    ? 'Saving'
+                    : location.isActive
+                      ? 'Active'
+                      : 'Inactive'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {showForm && (
+        <section className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <label>
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+                From
+              </span>
+              <select
+                value={form.originLocationId}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    originLocationId: event.target.value,
+                  }))
+                }
+                className="mt-1.5 h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20"
+              >
+                <option value="">Select pickup location</option>
+                {activeLocations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {locationLabel(location)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+                To
+              </span>
+              <select
+                value={form.destinationLocationId}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    destinationLocationId: event.target.value,
+                  }))
+                }
+                className="mt-1.5 h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20"
+              >
+                <option value="">Select drop-off location</option>
+                {activeLocations.map((location) => (
+                  <option
+                    key={location.id}
+                    value={location.id}
+                    disabled={location.id === form.originLocationId}
+                  >
+                    {locationLabel(location)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+                Trip Title
+                <span className="font-medium normal-case text-neutral-400">
+                  {' '}(optional)
+                </span>
+              </span>
               <input
                 value={form.title}
                 onChange={(event) =>
-                  setForm({ ...form, title: event.target.value })
+                  setForm((current) => ({
+                    ...current,
+                    title: event.target.value,
+                  }))
                 }
-                placeholder={selectedRoute.label}
+                placeholder={routePreview}
                 className="mt-1.5 h-10 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20"
               />
-            </div>
+            </label>
 
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+            <label>
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
                 Trip Date
-              </label>
+              </span>
               <input
                 type="date"
                 value={form.goingDate}
                 onChange={(event) =>
-                  setForm({ ...form, goingDate: event.target.value })
+                  setForm((current) => ({
+                    ...current,
+                    goingDate: event.target.value,
+                  }))
                 }
                 className="mt-1.5 h-10 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20"
               />
-            </div>
+            </label>
 
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+            <label>
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
                 Booking Cutoff
-              </label>
+              </span>
               <input
                 type="datetime-local"
                 value={form.bookingCutoffAt}
                 onChange={(event) =>
-                  setForm({ ...form, bookingCutoffAt: event.target.value })
+                  setForm((current) => ({
+                    ...current,
+                    bookingCutoffAt: event.target.value,
+                  }))
                 }
                 className="mt-1.5 h-10 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20"
               />
-            </div>
+            </label>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-3 text-xs leading-relaxed text-blue-700">
-            Route direction is now selectable for MVP: <b>Thimphu → Phuentsholing</b> for the Saturday trip and <b>Phuentsholing → Thimphu</b> for the Sunday return trip. Leave title blank to use the selected route name. Booking closes automatically after the cutoff time.
+          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-3 text-xs leading-relaxed text-blue-700">
+            <Truck size={17} className="mt-0.5 shrink-0" />
+            <p>
+              Selected route: <b>{routePreview}</b>. Customers will see this
+              route immediately when the trip is open. Existing
+              Thimphu–Phuentsholing trips remain unchanged.
+            </p>
           </div>
 
           <div className="mt-4 flex justify-end gap-2">
             <button
+              type="button"
               onClick={() => setShowForm(false)}
               className="rounded-xl bg-neutral-100 px-4 py-2 text-sm font-semibold text-neutral-700"
             >
@@ -409,17 +863,19 @@ export default function ParcelTrips() {
             </button>
 
             <button
-              onClick={handleCreateTrip}
+              type="button"
+              onClick={() => void handleCreateTrip()}
               disabled={saving}
-              className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+              className="flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
             >
+              {saving && <Loader2 size={15} className="animate-spin" />}
               {saving ? 'Creating...' : 'Create Open Trip'}
             </button>
           </div>
-        </div>
+        </section>
       )}
 
-      <div className="rounded-2xl border border-neutral-100 bg-white shadow-sm">
+      <section className="rounded-2xl border border-neutral-100 bg-white shadow-sm">
         {loading ? (
           <div className="p-8 text-center text-sm text-neutral-500">
             Loading parcel trips...
@@ -433,7 +889,7 @@ export default function ParcelTrips() {
               No parcel trips yet
             </p>
             <p className="text-xs text-neutral-400">
-              Create your first trip date to open parcel booking.
+              Create a route and trip date to open parcel booking.
             </p>
           </div>
         ) : (
@@ -475,10 +931,10 @@ export default function ParcelTrips() {
                     >
                       <td className="px-4 py-3 align-top">
                         <p className="text-sm font-bold text-neutral-900">
-                          {tripDisplayTitle(trip)}
+                          {trip.title || tripDisplayTitle(trip)}
                         </p>
                         <p className="text-xs text-neutral-500">
-                          Admin fixed trip date
+                          {tripDisplayTitle(trip)}
                         </p>
                       </td>
 
@@ -521,13 +977,16 @@ export default function ParcelTrips() {
                       <td className="px-4 py-3 align-top">
                         <div className="flex flex-col items-end gap-2">
                           <button
+                            type="button"
                             onClick={() =>
                               setOpenDropdownId(
                                 isDropdownOpen ? null : trip.id,
                               )
                             }
                             disabled={isUpdating}
-                            aria-label={`Manage trip: ${trip.title || trip.name || 'Parcel Trip'}`}
+                            aria-label={`Manage trip: ${
+                              trip.title || trip.name || 'Parcel Trip'
+                            }`}
                             className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-bold text-neutral-700 shadow-sm transition hover:border-orange-200 hover:bg-orange-50 disabled:opacity-50"
                           >
                             {isUpdating ? (
@@ -540,7 +999,9 @@ export default function ParcelTrips() {
                                 Manage
                                 <ChevronDown
                                   size={14}
-                                  className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+                                  className={`transition-transform ${
+                                    isDropdownOpen ? 'rotate-180' : ''
+                                  }`}
                                 />
                               </>
                             )}
@@ -551,8 +1012,9 @@ export default function ParcelTrips() {
                               {actions.map((action) => (
                                 <button
                                   key={action.status}
+                                  type="button"
                                   onClick={() =>
-                                    handleTripAction(trip, action.status)
+                                    void handleTripAction(trip, action.status)
                                   }
                                   disabled={isUpdating}
                                   className="block w-full px-4 py-2.5 text-left text-sm text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
@@ -571,7 +1033,7 @@ export default function ParcelTrips() {
             </table>
           </div>
         )}
-      </div>
+      </section>
     </div>
   )
 }

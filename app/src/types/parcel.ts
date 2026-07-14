@@ -30,6 +30,24 @@ export type ParcelSize =
   | 'small'
   | 'medium'
 
+export type ParcelLocationType =
+  | 'dzongkhag'
+  | 'town'
+  | 'hub'
+  | 'custom'
+
+export type ParcelLocation = {
+  id: string
+  name: string
+  dzongkhag: string
+  locationType: ParcelLocationType
+  isActive: boolean
+  sortOrder: number
+  createdBy?: string | null
+  createdAt?: string
+  updatedAt?: string
+}
+
 export type ParcelTrip = {
   id: string
 
@@ -37,6 +55,10 @@ export type ParcelTrip = {
   title?: string
   origin?: string | null
   destination?: string | null
+  originLocationId?: string | null
+  destinationLocationId?: string | null
+  originLocation?: ParcelLocation | null
+  destinationLocation?: ParcelLocation | null
   goingDate: string
   returnDate: string
   bookingCutoffAt?: string | null
