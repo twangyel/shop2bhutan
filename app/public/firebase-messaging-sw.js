@@ -110,8 +110,18 @@ if (hasRequiredConfig) {
 
     self.registration.showNotification(title, {
       body,
-      icon: data.icon || '/icon-192.png',
-      badge: data.badge || '/icon-192.png',
+      // Large image shown inside the expanded notification.
+      icon:
+        data.icon ||
+        '/brand/logo-mark-bag-transparent.png',
+
+      // Android status-bar icon. This must be a simple white monochrome
+      // image on a transparent background; a normal full-colour PWA icon
+      // may fall back to the generic notification bell.
+      badge:
+        data.badge ||
+        '/notification-badge-96.png',
+
       tag: data.tag || data.notification_id || undefined,
       renotify: false,
       data: {
