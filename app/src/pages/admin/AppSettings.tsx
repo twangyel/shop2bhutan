@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type ElementType, type ReactNode } from 'react';
 import {
   AlertCircle,
+  ArrowUpRight,
   CheckCircle,
   CircleDollarSign,
   Clock,
@@ -25,12 +26,14 @@ import {
   saveAppSettings,
   uploadAppLogo,
   validateBusinessHoursSchedule,
+  validateHomeAnnouncement,
 } from '@/lib/appSettings';
 import type {
   AcceptedPlatformKey,
   AppSettings as AppSettingsType,
   BusinessDayHours,
   BusinessDayKey,
+  HomeAnnouncementType,
 } from '@/types';
 
 type ProfitSettings = {
@@ -144,6 +147,64 @@ const platformOptions: Array<{ key: AcceptedPlatformKey; label: string }> = [
   { key: 'myntra', label: 'Myntra' },
   { key: 'meesho', label: 'Meesho' },
 ];
+
+
+const announcementTypeOptions: Array<{
+  value: HomeAnnouncementType;
+  label: string;
+  description: string;
+  cardClass: string;
+  iconClass: string;
+  badgeClass: string;
+}> = [
+  {
+    value: 'announcement',
+    label: 'Announcement',
+    description: 'General service news or customer information.',
+    cardClass: 'border-blue-100 bg-blue-50',
+    iconClass: 'bg-white text-blue-600 ring-blue-100',
+    badgeClass: 'bg-blue-100 text-blue-700',
+  },
+  {
+    value: 'promotion',
+    label: 'Promotion',
+    description: 'Offers, discounts, launches, or campaigns.',
+    cardClass: 'border-orange-100 bg-orange-50',
+    iconClass: 'bg-white text-orange-600 ring-orange-100',
+    badgeClass: 'bg-orange-100 text-orange-700',
+  },
+  {
+    value: 'warning',
+    label: 'Warning',
+    description: 'Delays, service limitations, or urgent notices.',
+    cardClass: 'border-amber-200 bg-amber-50',
+    iconClass: 'bg-white text-amber-700 ring-amber-100',
+    badgeClass: 'bg-amber-100 text-amber-800',
+  },
+  {
+    value: 'advertisement',
+    label: 'Advertisement',
+    description: 'A promotional or sponsored partner card.',
+    cardClass: 'border-violet-100 bg-violet-50',
+    iconClass: 'bg-white text-violet-600 ring-violet-100',
+    badgeClass: 'bg-violet-100 text-violet-700',
+  },
+];
+
+function toDateTimeLocal(value: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function fromDateTimeLocal(value: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+}
 
 function numberValue(value: string, fallback: number) {
   const numeric = Number(value);
@@ -307,6 +368,13 @@ export default function AppSettings() {
     if (businessHoursError) {
       setSuccess('');
       setError(businessHoursError);
+      return;
+    }
+
+    const announcementError = validateHomeAnnouncement(settings);
+    if (announcementError) {
+      setSuccess('');
+      setError(announcementError);
       return;
     }
 
@@ -770,23 +838,174 @@ export default function AppSettings() {
         </div>
       </SettingCard>
 
-      <SettingCard title="Home Announcement" icon={Megaphone}>
-        <div className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3">
+      <SettingCard title="Announcements & Promotions" icon={Megaphone}>
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3">
           <div>
-            <p className="text-sm font-semibold text-gray-900">Show Announcement</p>
-            <p className="text-xs text-neutral-500">Display a small notice on the customer home page.</p>
+            <p className="text-sm font-semibold text-gray-900">Show Customer Card</p>
+            <p className="text-xs leading-5 text-neutral-500">
+              Use one dynamic home card for announcements, offers, warnings, or advertisements.
+            </p>
           </div>
-          <ToggleSwitch checked={settings.homeAnnouncementEnabled} onChange={(value) => updateSetting('homeAnnouncementEnabled', value)} />
+          <ToggleSwitch
+            checked={settings.homeAnnouncementEnabled}
+            onChange={(value) => updateSetting('homeAnnouncementEnabled', value)}
+          />
         </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="text-sm font-medium text-gray-700">Card Type</label>
+            <select
+              value={settings.homeAnnouncementType}
+              onChange={(event) =>
+                updateSetting(
+                  'homeAnnouncementType',
+                  event.target.value as HomeAnnouncementType,
+                )
+              }
+              className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+            >
+              {announcementTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-neutral-500">
+              {announcementTypeOptions.find((option) => option.value === settings.homeAnnouncementType)?.description}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-700">Card Title</label>
+            <input
+              type="text"
+              value={settings.homeAnnouncementTitle}
+              onChange={(event) =>
+                updateSetting('homeAnnouncementTitle', event.target.value)
+              }
+              placeholder="50% off service charges"
+              className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+            />
+          </div>
+        </div>
+
         <div>
-          <label className="text-sm font-medium text-gray-700">Announcement Text</label>
+          <label className="text-sm font-medium text-gray-700">Message</label>
           <textarea
             value={settings.homeAnnouncementText}
             onChange={(event) => updateSetting('homeAnnouncementText', event.target.value)}
             rows={3}
+            placeholder="Add clear details, eligibility, or validity information."
             className="mt-1.5 w-full resize-none rounded-lg border border-neutral-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
           />
         </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="text-sm font-medium text-gray-700">Button Label <span className="font-normal text-neutral-400">(optional)</span></label>
+            <input
+              type="text"
+              value={settings.homeAnnouncementCtaLabel}
+              onChange={(event) =>
+                updateSetting('homeAnnouncementCtaLabel', event.target.value)
+              }
+              placeholder="Shop now"
+              className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700">Button Destination <span className="font-normal text-neutral-400">(optional)</span></label>
+            <input
+              type="text"
+              value={settings.homeAnnouncementLink}
+              onChange={(event) =>
+                updateSetting('homeAnnouncementLink', event.target.value)
+              }
+              placeholder="/shop or https://example.com"
+              className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+            />
+            <p className="mt-1 text-xs text-neutral-500">
+              Internal destinations begin with /. External destinations must use https://.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="text-sm font-medium text-gray-700">Starts At <span className="font-normal text-neutral-400">(optional)</span></label>
+            <input
+              type="datetime-local"
+              value={toDateTimeLocal(settings.homeAnnouncementStartAt)}
+              onChange={(event) =>
+                updateSetting(
+                  'homeAnnouncementStartAt',
+                  fromDateTimeLocal(event.target.value),
+                )
+              }
+              className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700">Ends At <span className="font-normal text-neutral-400">(optional)</span></label>
+            <input
+              type="datetime-local"
+              value={toDateTimeLocal(settings.homeAnnouncementEndAt)}
+              onChange={(event) =>
+                updateSetting(
+                  'homeAnnouncementEndAt',
+                  fromDateTimeLocal(event.target.value),
+                )
+              }
+              className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+            />
+          </div>
+        </div>
+        <p className="text-xs leading-5 text-neutral-500">
+          Leave both dates blank to keep the card active until you turn it off. Scheduled and expired cards hide automatically.
+        </p>
+
+        {(() => {
+          const preview =
+            announcementTypeOptions.find(
+              (option) => option.value === settings.homeAnnouncementType,
+            ) || announcementTypeOptions[0];
+
+          return (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">Customer Preview</p>
+              <div className={`rounded-2xl border p-4 ${preview.cardClass}`}>
+                <div className="flex items-start gap-3">
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${preview.iconClass}`}>
+                    <Megaphone size={18} strokeWidth={2.2} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${preview.badgeClass}`}>
+                        {preview.label}
+                      </span>
+                      {settings.homeAnnouncementType === 'advertisement' && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Sponsored</span>
+                      )}
+                    </div>
+                    <p className="mt-2 text-sm font-bold text-neutral-950">
+                      {settings.homeAnnouncementTitle || 'Card title'}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-neutral-600">
+                      {settings.homeAnnouncementText || 'Card message will appear here.'}
+                    </p>
+                    {settings.homeAnnouncementCtaLabel && settings.homeAnnouncementLink && (
+                      <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-neutral-900">
+                        {settings.homeAnnouncementCtaLabel}
+                        <ArrowUpRight size={13} />
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </SettingCard>
 
       <SettingCard title="Maintenance Mode" icon={Wrench}>

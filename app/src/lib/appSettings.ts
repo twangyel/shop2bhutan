@@ -5,6 +5,7 @@ import type {
   BusinessDayHours,
   BusinessDayKey,
   BusinessHoursSchedule,
+  HomeAnnouncementType,
 } from '@/types';
 
 export const BUSINESS_TIME_ZONE = 'Asia/Thimphu';
@@ -394,7 +395,13 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   partialPaymentEnabled: true,
   minimumAdvancePaymentPercent: 50,
   homeAnnouncementEnabled: false,
+  homeAnnouncementType: 'announcement',
+  homeAnnouncementTitle: 'Shop2Bhutan update',
   homeAnnouncementText: 'Orders accepted from all 20 dzongkhags. Delivery currently available in Thimphu, Paro, and Phuntsholing/Chhukha.',
+  homeAnnouncementCtaLabel: '',
+  homeAnnouncementLink: '',
+  homeAnnouncementStartAt: '',
+  homeAnnouncementEndAt: '',
   logoUrl: '/brand/logo-full-transparent.png',
   logoMarkUrl: '/brand/logo-mark-bag-transparent.png',
   acceptedPlatforms: {
@@ -460,6 +467,122 @@ function normalizePlatforms(value: unknown): AcceptedPlatformSettings {
   };
 }
 
+
+function normalizeAnnouncementType(
+  value: unknown,
+  fallback: HomeAnnouncementType,
+): HomeAnnouncementType {
+  const normalized = cleanText(value).toLowerCase();
+  if (
+    normalized === 'announcement' ||
+    normalized === 'promotion' ||
+    normalized === 'warning' ||
+    normalized === 'advertisement'
+  ) {
+    return normalized;
+  }
+  return fallback;
+}
+
+function parseSettingDate(value: unknown) {
+  const text = cleanText(value);
+  if (!text) return null;
+
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export type HomeAnnouncementStatus = {
+  isVisible: boolean;
+  state:
+    | 'disabled'
+    | 'hidden_for_maintenance'
+    | 'scheduled'
+    | 'active'
+    | 'expired'
+    | 'invalid';
+};
+
+export function getHomeAnnouncementStatus(
+  settings: Pick<
+    AppSettings,
+    | 'homeAnnouncementEnabled'
+    | 'homeAnnouncementTitle'
+    | 'homeAnnouncementText'
+    | 'homeAnnouncementStartAt'
+    | 'homeAnnouncementEndAt'
+    | 'maintenanceEnabled'
+  >,
+  date = new Date(),
+): HomeAnnouncementStatus {
+  if (!settings.homeAnnouncementEnabled) {
+    return { isVisible: false, state: 'disabled' };
+  }
+
+  if (settings.maintenanceEnabled) {
+    return { isVisible: false, state: 'hidden_for_maintenance' };
+  }
+
+  if (!cleanText(settings.homeAnnouncementTitle) || !cleanText(settings.homeAnnouncementText)) {
+    return { isVisible: false, state: 'invalid' };
+  }
+
+  const startText = cleanText(settings.homeAnnouncementStartAt);
+  const endText = cleanText(settings.homeAnnouncementEndAt);
+  const start = parseSettingDate(startText);
+  const end = parseSettingDate(endText);
+
+  if ((startText && !start) || (endText && !end)) {
+    return { isVisible: false, state: 'invalid' };
+  }
+
+  if (start && date.getTime() < start.getTime()) {
+    return { isVisible: false, state: 'scheduled' };
+  }
+
+  if (end && date.getTime() >= end.getTime()) {
+    return { isVisible: false, state: 'expired' };
+  }
+
+  return { isVisible: true, state: 'active' };
+}
+
+export function validateHomeAnnouncement(settings: AppSettings) {
+  if (!settings.homeAnnouncementEnabled) return '';
+
+  if (!cleanText(settings.homeAnnouncementTitle)) {
+    return 'Announcement title is required when the card is enabled.';
+  }
+
+  if (!cleanText(settings.homeAnnouncementText)) {
+    return 'Announcement message is required when the card is enabled.';
+  }
+
+  const startText = cleanText(settings.homeAnnouncementStartAt);
+  const endText = cleanText(settings.homeAnnouncementEndAt);
+  const start = parseSettingDate(startText);
+  const end = parseSettingDate(endText);
+
+  if (startText && !start) return 'Announcement start date and time is invalid.';
+  if (endText && !end) return 'Announcement end date and time is invalid.';
+  if (start && end && end.getTime() <= start.getTime()) {
+    return 'Announcement end date and time must be later than the start date and time.';
+  }
+
+  const ctaLabel = cleanText(settings.homeAnnouncementCtaLabel);
+  const link = cleanText(settings.homeAnnouncementLink);
+
+  if ((ctaLabel && !link) || (!ctaLabel && link)) {
+    return 'Add both a button label and destination, or leave both blank.';
+  }
+
+  if (link && !link.startsWith('/') && !/^https:\/\//i.test(link)) {
+    return 'Announcement destination must be an internal path beginning with / or a secure https:// link.';
+  }
+
+  return '';
+}
+
 function normalizeAppSettings(rows: SettingsRow[]): AppSettings {
   const base = DEFAULT_APP_SETTINGS;
   const legacyBusinessHours = cleanText(
@@ -492,7 +615,27 @@ function normalizeAppSettings(rows: SettingsRow[]): AppSettings {
       base.minimumAdvancePaymentPercent
     ),
     homeAnnouncementEnabled: bool(getRowValue(rows, 'home_announcement_enabled', base.homeAnnouncementEnabled), base.homeAnnouncementEnabled),
+    homeAnnouncementType: normalizeAnnouncementType(
+      getRowValue(rows, 'home_announcement_type', base.homeAnnouncementType),
+      base.homeAnnouncementType,
+    ),
+    homeAnnouncementTitle: cleanText(
+      getRowValue(rows, 'home_announcement_title', base.homeAnnouncementTitle),
+      base.homeAnnouncementTitle,
+    ),
     homeAnnouncementText: cleanText(getRowValue(rows, 'home_announcement_text', base.homeAnnouncementText), base.homeAnnouncementText),
+    homeAnnouncementCtaLabel: cleanText(
+      getRowValue(rows, 'home_announcement_cta_label', base.homeAnnouncementCtaLabel),
+    ),
+    homeAnnouncementLink: cleanText(
+      getRowValue(rows, 'home_announcement_link', base.homeAnnouncementLink),
+    ),
+    homeAnnouncementStartAt: cleanText(
+      getRowValue(rows, 'home_announcement_start_at', base.homeAnnouncementStartAt),
+    ),
+    homeAnnouncementEndAt: cleanText(
+      getRowValue(rows, 'home_announcement_end_at', base.homeAnnouncementEndAt),
+    ),
     logoUrl: cleanText(getRowValue(rows, 'logo_url', base.logoUrl), base.logoUrl),
     logoMarkUrl: cleanText(getRowValue(rows, 'logo_mark_url', base.logoMarkUrl), base.logoMarkUrl),
     acceptedPlatforms: normalizePlatforms(getRowValue(rows, 'accepted_platforms', base.acceptedPlatforms)),
@@ -536,7 +679,13 @@ function toRows(settings: AppSettings, userId?: string | null) {
     ['partial_payment_enabled', Boolean(settings.partialPaymentEnabled)],
     ['minimum_advance_payment_percent', clampPercent(settings.minimumAdvancePaymentPercent, DEFAULT_APP_SETTINGS.minimumAdvancePaymentPercent)],
     ['home_announcement_enabled', Boolean(settings.homeAnnouncementEnabled)],
+    ['home_announcement_type', normalizeAnnouncementType(settings.homeAnnouncementType, DEFAULT_APP_SETTINGS.homeAnnouncementType)],
+    ['home_announcement_title', cleanText(settings.homeAnnouncementTitle, DEFAULT_APP_SETTINGS.homeAnnouncementTitle)],
     ['home_announcement_text', cleanText(settings.homeAnnouncementText, DEFAULT_APP_SETTINGS.homeAnnouncementText)],
+    ['home_announcement_cta_label', cleanText(settings.homeAnnouncementCtaLabel)],
+    ['home_announcement_link', cleanText(settings.homeAnnouncementLink)],
+    ['home_announcement_start_at', cleanText(settings.homeAnnouncementStartAt)],
+    ['home_announcement_end_at', cleanText(settings.homeAnnouncementEndAt)],
     ['logo_url', cleanText(settings.logoUrl, DEFAULT_APP_SETTINGS.logoUrl)],
     ['logo_mark_url', cleanText(settings.logoMarkUrl, DEFAULT_APP_SETTINGS.logoMarkUrl)],
     ['accepted_platforms', settings.acceptedPlatforms],
@@ -597,6 +746,11 @@ export async function saveAppSettings(settings: AppSettings, userId?: string | n
 
   if (businessHoursError) {
     throw new Error(businessHoursError);
+  }
+
+  const announcementError = validateHomeAnnouncement(settings);
+  if (announcementError) {
+    throw new Error(announcementError);
   }
 
   const { error } = await supabase.from(SETTINGS_TABLE).upsert(toRows(settings, userId), { onConflict: 'key' });

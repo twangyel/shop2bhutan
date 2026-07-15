@@ -1,11 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import {
   Activity,
+  AlertTriangle,
   ArrowRight,
+  BadgePercent,
   Bell,
   ChevronDown,
   ChevronRight,
+  ExternalLink,
   Headphones,
   ShoppingBag,
   LogIn,
@@ -19,8 +24,13 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import Logo from '@/components/shared/Logo';
 import { fetchCustomerOrdersSummary, getUnreadNotificationCount } from '@/lib/customerOrders';
-import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings';
+import {
+  DEFAULT_APP_SETTINGS,
+  fetchPublicAppSettings,
+  getHomeAnnouncementStatus,
+} from '@/lib/appSettings';
 import { supabase } from '@/lib/supabase';
+import type { AppSettings, HomeAnnouncementType } from '@/types';
 
 const stores = [
   {
@@ -622,6 +632,126 @@ function ActiveUpdatesSection({
   );
 }
 
+type AnnouncementCardMeta = {
+  label: string;
+  icon: typeof Megaphone;
+  cardClass: string;
+  iconClass: string;
+  badgeClass: string;
+  actionClass: string;
+};
+
+const announcementCardMeta: Record<HomeAnnouncementType, AnnouncementCardMeta> = {
+  announcement: {
+    label: 'Announcement',
+    icon: Megaphone,
+    cardClass: 'border-blue-100 bg-blue-50',
+    iconClass: 'bg-white text-blue-600 ring-blue-100',
+    badgeClass: 'bg-blue-100 text-blue-700',
+    actionClass: 'text-blue-700',
+  },
+  promotion: {
+    label: 'Promotion',
+    icon: BadgePercent,
+    cardClass: 'border-orange-100 bg-orange-50',
+    iconClass: 'bg-white text-orange-600 ring-orange-100',
+    badgeClass: 'bg-orange-100 text-orange-700',
+    actionClass: 'text-orange-700',
+  },
+  warning: {
+    label: 'Important',
+    icon: AlertTriangle,
+    cardClass: 'border-amber-200 bg-amber-50',
+    iconClass: 'bg-white text-amber-700 ring-amber-100',
+    badgeClass: 'bg-amber-100 text-amber-800',
+    actionClass: 'text-amber-800',
+  },
+  advertisement: {
+    label: 'Featured',
+    icon: ShoppingBag,
+    cardClass: 'border-violet-100 bg-violet-50',
+    iconClass: 'bg-white text-violet-600 ring-violet-100',
+    badgeClass: 'bg-violet-100 text-violet-700',
+    actionClass: 'text-violet-700',
+  },
+};
+
+function AnnouncementCard({
+  settings,
+  onNavigate,
+}: {
+  settings: AppSettings;
+  onNavigate: (path: string) => void;
+}) {
+  const meta = announcementCardMeta[settings.homeAnnouncementType];
+  const Icon = meta.icon;
+  const link = settings.homeAnnouncementLink.trim();
+  const hasAction = Boolean(settings.homeAnnouncementCtaLabel.trim() && link);
+  const isExternal = /^https:\/\//i.test(link);
+
+  const handleAction = async () => {
+    if (!hasAction) return;
+
+    if (isExternal) {
+      if (Capacitor.isNativePlatform()) {
+        await Browser.open({ url: link });
+      } else {
+        window.open(link, '_blank', 'noopener,noreferrer');
+      }
+      return;
+    }
+
+    onNavigate(link);
+  };
+
+  return (
+    <section className="bg-white px-4 pb-3">
+      <div className={`rounded-2xl border p-4 shadow-sm shadow-slate-100 ${meta.cardClass}`}>
+        <div className="flex items-start gap-3">
+          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ${meta.iconClass}`}>
+            <Icon size={19} strokeWidth={2.2} />
+          </span>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.08em] ${meta.badgeClass}`}>
+                {meta.label}
+              </span>
+              {settings.homeAnnouncementType === 'advertisement' && (
+                <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                  Sponsored
+                </span>
+              )}
+            </div>
+
+            <h2 className="mt-2 text-[15px] font-extrabold leading-5 text-slate-950">
+              {settings.homeAnnouncementTitle}
+            </h2>
+            <p className="mt-1 text-[12.5px] leading-5 text-slate-600">
+              {settings.homeAnnouncementText}
+            </p>
+
+            {hasAction && (
+              <button
+                type="button"
+                onClick={() => void handleAction()}
+                className={`mt-3 inline-flex items-center gap-1.5 text-[12.5px] font-extrabold transition active:scale-95 ${meta.actionClass}`}
+              >
+                {settings.homeAnnouncementCtaLabel}
+                {isExternal ? (
+                  <ExternalLink size={14} strokeWidth={2.3} />
+                ) : (
+                  <ArrowRight size={14} strokeWidth={2.3} />
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    MAIN HOME COMPONENT
    ═══════════════════════════════════════════════════════════════════ */
@@ -635,6 +765,7 @@ export default function Home() {
   const [activeUpdates, setActiveUpdates] = useState<ActiveUpdate[]>([]);
   const [activeUpdateLoading, setActiveUpdateLoading] = useState(false);
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
+  const [announcementClock, setAnnouncementClock] = useState(() => Date.now());
 
   // Swipe-to-dismiss state
   const [sheetDragY, setSheetDragY] = useState(0);
@@ -724,27 +855,64 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
+    let refreshPending = false;
 
     async function loadSettings() {
+      if (refreshPending) return;
+      refreshPending = true;
+
       try {
         const loaded = await fetchPublicAppSettings();
-        if (active) setAppSettings(loaded);
+        if (active) {
+          setAppSettings(loaded);
+          setAnnouncementClock(Date.now());
+        }
       } catch (error) {
         console.warn('[Home] App settings skipped:', error);
+      } finally {
+        refreshPending = false;
       }
     }
-
-    void loadSettings();
 
     const handleSettingsUpdated = () => {
       void loadSettings();
     };
 
+    void loadSettings();
+
+    const channel = supabase
+      .channel('home-public-app-settings')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'app_settings',
+        },
+        handleSettingsUpdated,
+      )
+      .subscribe();
+
+    const refreshInterval = window.setInterval(() => {
+      if (!document.hidden) void loadSettings();
+    }, 60_000);
+
+    const clockInterval = window.setInterval(() => {
+      setAnnouncementClock(Date.now());
+    }, 30_000);
+
     window.addEventListener('shop2bhutan:app-settings-updated', handleSettingsUpdated);
+    window.addEventListener('shop2bhutan:network-restored', handleSettingsUpdated);
+    window.addEventListener('focus', handleSettingsUpdated);
 
     return () => {
       active = false;
+      window.clearInterval(refreshInterval);
+      window.clearInterval(clockInterval);
       window.removeEventListener('shop2bhutan:app-settings-updated', handleSettingsUpdated);
+      window.removeEventListener('shop2bhutan:network-restored', handleSettingsUpdated);
+      window.removeEventListener('focus', handleSettingsUpdated);
+      void supabase.removeChannel(channel);
     };
   }, []);
 
@@ -797,6 +965,15 @@ export default function Home() {
   const customerFirstName = useMemo(
     () => getCustomerFirstName(authContext?.profile, authUser?.user_metadata),
     [authContext?.profile, authUser?.user_metadata],
+  );
+
+  const announcementStatus = useMemo(
+    () =>
+      getHomeAnnouncementStatus(
+        appSettings,
+        new Date(announcementClock),
+      ),
+    [announcementClock, appSettings],
   );
 
   // Swipe-to-dismiss handlers
@@ -895,16 +1072,9 @@ export default function Home() {
           .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         `}</style>
 
-        {/* ── Announcement banner ── */}
-        {appSettings.homeAnnouncementEnabled && appSettings.homeAnnouncementText && (
-          <section className="bg-white px-4 pb-3">
-            <div className="flex items-start gap-3 rounded-xl bg-blue-50 px-4 py-3 text-blue-900">
-              <Megaphone size={17} className="mt-0.5 shrink-0 text-blue-600" />
-              <p className="text-[13px] font-medium leading-5">
-                {appSettings.homeAnnouncementText}
-              </p>
-            </div>
-          </section>
+        {/* ── Dynamic announcement / promotion / advertisement card ── */}
+        {announcementStatus.isVisible && (
+          <AnnouncementCard settings={appSettings} onNavigate={navigate} />
         )}
 
         {/* ── Hero banner (edge-to-edge, app style) ── */}

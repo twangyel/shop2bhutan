@@ -406,6 +406,12 @@ export type AcceptedPlatformKey = 'amazon' | 'flipkart' | 'myntra' | 'meesho';
 
 export type AcceptedPlatformSettings = Record<AcceptedPlatformKey, boolean>;
 
+export type HomeAnnouncementType =
+  | 'announcement'
+  | 'promotion'
+  | 'warning'
+  | 'advertisement';
+
 export interface AppSettings {
   appName: string;
   supportEmail: string;
@@ -424,7 +430,13 @@ export interface AppSettings {
   partialPaymentEnabled: boolean;
   minimumAdvancePaymentPercent: number;
   homeAnnouncementEnabled: boolean;
+  homeAnnouncementType: HomeAnnouncementType;
+  homeAnnouncementTitle: string;
   homeAnnouncementText: string;
+  homeAnnouncementCtaLabel: string;
+  homeAnnouncementLink: string;
+  homeAnnouncementStartAt: string;
+  homeAnnouncementEndAt: string;
   logoUrl: string;
   logoMarkUrl: string;
   acceptedPlatforms: AcceptedPlatformSettings;
