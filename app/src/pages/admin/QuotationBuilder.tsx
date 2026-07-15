@@ -13,6 +13,7 @@ import {
   Truck,
 } from 'lucide-react';
 import StatusBadge from '@/components/shared/StatusBadge';
+import SmartQuotationReview from '@/components/admin/SmartQuotationReview';
 import {
   calculateQuotationSettingsAmounts,
   createOrUpdateAdminQuotation,
@@ -453,6 +454,14 @@ export default function QuotationBuilder() {
           </span>
         </div>
       )}
+
+      <SmartQuotationReview
+        order={order}
+        onApplyNote={(value) => {
+          setNotes(value);
+          setSaved(false);
+        }}
+      />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="xl:col-span-2 space-y-4">

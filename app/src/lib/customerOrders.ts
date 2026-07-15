@@ -6004,3 +6004,36 @@ export async function submitRequestBagAsOrder(input: SubmitRequestBagInput): Pro
     orderNo,
   }
 }
+
+export async function sendAdminCustomerUpdate(input: {
+  order: Order
+  title?: string
+  message: string
+}) {
+  const order = input.order
+  const userId = cleanText(order.userId || order.user?.id)
+  const message = cleanText(input.message)
+
+  if (!userId) {
+    throw new Error('This order does not have a valid customer account.')
+  }
+
+  if (!message) {
+    throw new Error('Customer update message cannot be empty.')
+  }
+
+  const orderNo =
+    cleanText(order.orderNumber) || order.id.slice(0, 8).toUpperCase()
+  const title =
+    cleanText(input.title) || `Order #${orderNo}: Shop2Bhutan Update`
+
+  await createCustomerNotification({
+    userId,
+    type: 'order_update',
+    title,
+    message,
+    link: `/order/${order.id}`,
+    dedupeKey: `admin:manual-order-update:${order.id}:${Date.now()}`,
+  })
+}
+

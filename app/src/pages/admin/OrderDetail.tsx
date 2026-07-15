@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import StatusBadge from '@/components/shared/StatusBadge';
 import TrackingTimeline from '@/components/shared/TrackingTimeline';
+import SmartOrderAssistant from '@/components/admin/SmartOrderAssistant';
 import { fetchAdminOrderById, rejectCustomerPayment, updateAdminFulfillmentStatus, verifyCustomerPayment } from '@/lib/customerOrders';
 import { getFulfillmentDisplay, isSelfPickupOrder } from '@/lib/fulfillment';
 import { useAuth } from '@/contexts/AuthContext';
@@ -561,6 +562,8 @@ export default function OrderDetail() {
           </button>
         </div>
       </div>
+
+      <SmartOrderAssistant order={order} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="space-y-4">
