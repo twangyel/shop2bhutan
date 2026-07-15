@@ -140,6 +140,7 @@ export default function QuotationBuilder() {
   const [validHours, setValidHours] = useState<number>(48);
   const [additionalChargeLabel, setAdditionalChargeLabel] = useState('');
   const [additionalChargeAmount, setAdditionalChargeAmount] = useState(0);
+  const [manualServiceCharge, setManualServiceCharge] = useState<number | '' | null>(null);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -184,6 +185,13 @@ export default function QuotationBuilder() {
         setNotes(realOrder.quotation?.notes || '');
         setAdditionalChargeLabel(realOrder.quotation?.additionalChargeLabel || '');
         setAdditionalChargeAmount(realOrder.quotation?.additionalChargeAmount || 0);
+
+        const existingServiceCharge = realOrder.quotation?.serviceCharge;
+        setManualServiceCharge(
+          typeof existingServiceCharge === 'number' && Number.isFinite(existingServiceCharge)
+            ? Math.max(0, existingServiceCharge)
+            : null
+        );
       }
     } catch (err) {
       console.error('Failed to load quotation builder order:', err);
@@ -226,7 +234,13 @@ export default function QuotationBuilder() {
     });
   }, [deliveryRules, order, productTotal, serviceRules]);
 
-  const serviceCharge = settingsAmounts.serviceCharge;
+  const suggestedServiceCharge = settingsAmounts.serviceCharge;
+  const serviceChargeIsEditable = settingsAmounts.serviceNeedsReview;
+  const serviceCharge = serviceChargeIsEditable
+    ? manualServiceCharge === null
+      ? suggestedServiceCharge
+      : numberValue(manualServiceCharge)
+    : suggestedServiceCharge;
   const deliveryFee = settingsAmounts.deliveryFee;
   const safeAdditionalCharge = numberValue(additionalChargeAmount);
   const isJaigaonPickup = order ? isJaigaonPickupOrder(order) : false;
@@ -304,6 +318,13 @@ export default function QuotationBuilder() {
         setNotes(refreshedOrder.quotation?.notes || notes);
         setAdditionalChargeLabel(refreshedOrder.quotation?.additionalChargeLabel || additionalChargeLabel);
         setAdditionalChargeAmount(refreshedOrder.quotation?.additionalChargeAmount || safeAdditionalCharge);
+
+        const refreshedServiceCharge = refreshedOrder.quotation?.serviceCharge;
+        setManualServiceCharge(
+          typeof refreshedServiceCharge === 'number' && Number.isFinite(refreshedServiceCharge)
+            ? Math.max(0, refreshedServiceCharge)
+            : null
+        );
       }
     } catch (err) {
       console.error('Failed to send quotation:', err);
@@ -427,7 +448,7 @@ export default function QuotationBuilder() {
         <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700 flex items-start gap-2">
           <AlertCircle size={17} className="mt-0.5 flex-shrink-0" />
           <span>
-            {settingsAmounts.serviceNeedsReview && 'High-value service charge tier needs manual review. '}
+            {settingsAmounts.serviceNeedsReview && 'This service charge tier is set to Review. Adjust the suggested charge in Final Price Summary if needed. '}
             {settingsAmounts.deliveryNeedsManualQuote && 'Delivery destination requires manual pricing or is inactive. Use additional charges only if required.'}
           </span>
         </div>
@@ -633,11 +654,50 @@ export default function QuotationBuilder() {
                 )}
               </div>
               <div>
-                <div className="flex justify-between text-sm">
+                <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="text-neutral-600">Service Charge</span>
-                  <span className="font-semibold">{settingsLoading ? 'Loading...' : formatAmount(serviceCharge)}</span>
+                  {settingsLoading ? (
+                    <span className="font-semibold">Loading...</span>
+                  ) : serviceChargeIsEditable ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-neutral-400">Nu.</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={manualServiceCharge === null ? Math.round(suggestedServiceCharge) : manualServiceCharge}
+                        onChange={(e) => {
+                          setSaved(false);
+                          setManualServiceCharge(e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0));
+                        }}
+                        className="h-9 w-28 rounded-lg border border-orange-200 bg-orange-50/50 px-3 text-right text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                        aria-label="Editable service charge"
+                      />
+                    </div>
+                  ) : (
+                    <span className="font-semibold">{formatAmount(serviceCharge)}</span>
+                  )}
                 </div>
                 <p className="text-[11px] text-neutral-400 mt-1">{ruleSummary(settingsAmounts.serviceRule)}</p>
+                {serviceChargeIsEditable && !settingsLoading && (
+                  <div className="mt-1.5 flex items-center justify-between gap-2">
+                    <p className="text-[11px] leading-relaxed text-orange-600">
+                      Review mode: suggested {formatAmount(suggestedServiceCharge)}. You may adjust it before sending.
+                    </p>
+                    {manualServiceCharge !== null && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSaved(false);
+                          setManualServiceCharge(null);
+                        }}
+                        className="flex-shrink-0 text-[11px] font-semibold text-orange-600 hover:text-orange-700"
+                      >
+                        Use suggested
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <div className="flex justify-between text-sm">
@@ -697,7 +757,7 @@ export default function QuotationBuilder() {
             </button>
 
             <p className="text-xs text-neutral-400 mt-3">
-              Service charge and delivery fee are fetched from settings. The final price is stored in the existing quotation record using the order UUID.
+              Auto tiers use the calculated service charge. Review tiers use it as a suggestion and allow manual adjustment before sending. Delivery fees still come from settings.
             </p>
           </div>
 

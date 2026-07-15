@@ -144,7 +144,7 @@ export default function ServiceChargeSettings() {
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Service Charges</h2>
           <p className="text-sm text-neutral-500">
-            Configure Shop2Bhutan service charge tiers. Formula: max(product total × percentage, minimum charge).
+            Configure Shop2Bhutan service charge tiers. Formula: max(product total × percentage, minimum charge). Set a tier to Review to make its calculated charge editable during quotation preparation.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -210,7 +210,7 @@ export default function ServiceChargeSettings() {
               {preview.rule ? `${preview.rule.name} • ${formatRange(preview.rule)}` : 'No matching active tier'}
             </p>
             {preview.needsReview && (
-              <p className="text-xs text-orange-600 mt-1">Manual review recommended for this order value.</p>
+              <p className="text-xs text-orange-600 mt-1">Review mode: this calculated amount will be editable during quotation preparation.</p>
             )}
           </div>
         </div>
@@ -234,7 +234,7 @@ export default function ServiceChargeSettings() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Percentage</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Minimum Charge</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Manual Review</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Quotation Mode</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-neutral-500 uppercase">Action</th>
               </tr>
             </thead>
@@ -302,6 +302,8 @@ export default function ServiceChargeSettings() {
                     <button
                       type="button"
                       onClick={() => updateRule(rule.id, 'requiresManualReview', !rule.requiresManualReview)}
+                      title={rule.requiresManualReview ? 'Review: admin can edit the suggested service charge in quotation preparation' : 'Auto: calculated service charge is applied automatically'}
+                      aria-label={`Quotation mode: ${rule.requiresManualReview ? 'Review' : 'Auto'}`}
                       className={`px-3 py-1 rounded-full text-xs font-semibold ${
                         rule.requiresManualReview ? 'bg-orange-50 text-orange-600' : 'bg-neutral-100 text-neutral-500'
                       }`}
@@ -335,7 +337,7 @@ export default function ServiceChargeSettings() {
       </div>
 
       <div className="rounded-xl bg-violet-50 border border-violet-100 px-4 py-3 text-sm text-violet-700">
-        Customer quotation will show this as one simple line: Service Charge. GST/customs are not auto-applied in MVP.
+        Auto applies the calculated amount directly. Review uses the calculated amount as a suggestion and lets the admin edit it before sending the quotation. Set every tier to Review when you want every service charge to be editable.
       </div>
     </div>
   );
