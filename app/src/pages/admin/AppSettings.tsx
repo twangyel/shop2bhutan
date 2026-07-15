@@ -15,12 +15,21 @@ import {
 import Logo from '@/components/shared/Logo';
 import { useAuth } from '@/contexts/AuthContext';
 import {
+  BUSINESS_DAY_LABELS,
+  BUSINESS_DAY_ORDER,
   DEFAULT_APP_SETTINGS,
   fetchPublicAppSettings,
+  formatBusinessHoursSummary,
   saveAppSettings,
   uploadAppLogo,
+  validateBusinessHoursSchedule,
 } from '@/lib/appSettings';
-import type { AcceptedPlatformKey, AppSettings as AppSettingsType } from '@/types';
+import type {
+  AcceptedPlatformKey,
+  AppSettings as AppSettingsType,
+  BusinessDayHours,
+  BusinessDayKey,
+} from '@/types';
 
 const platformOptions: Array<{ key: AcceptedPlatformKey; label: string }> = [
   { key: 'amazon', label: 'Amazon' },
@@ -118,7 +127,68 @@ export default function AppSettings() {
     setError('');
   };
 
+  const updateBusinessDay = (
+    day: BusinessDayKey,
+    patch: Partial<BusinessDayHours>,
+  ) => {
+    setSettings((current) => {
+      const businessSchedule = {
+        ...current.businessSchedule,
+        [day]: {
+          ...current.businessSchedule[day],
+          ...patch,
+        },
+      };
+
+      return {
+        ...current,
+        businessSchedule,
+        businessHours: formatBusinessHoursSummary(businessSchedule),
+      };
+    });
+
+    setSuccess('');
+    setError('');
+  };
+
+  const applyMondayToWorkingWeek = () => {
+    setSettings((current) => {
+      const monday = current.businessSchedule.monday;
+      const businessSchedule = {
+        ...current.businessSchedule,
+        tuesday: { ...monday },
+        wednesday: { ...monday },
+        thursday: { ...monday },
+        friday: { ...monday },
+        saturday: { ...monday },
+      };
+
+      return {
+        ...current,
+        businessSchedule,
+        businessHours: formatBusinessHoursSummary(businessSchedule),
+      };
+    });
+
+    setSuccess('');
+    setError('');
+  };
+
+  const closeSunday = () => {
+    updateBusinessDay('sunday', { enabled: false });
+  };
+
   const handleSave = async () => {
+    const businessHoursError = validateBusinessHoursSchedule(
+      settings.businessSchedule,
+    );
+
+    if (businessHoursError) {
+      setSuccess('');
+      setError(businessHoursError);
+      return;
+    }
+
     setSaving(true);
     setSuccess('');
     setError('');
@@ -280,13 +350,116 @@ export default function AppSettings() {
             />
           </div>
           <div className="md:col-span-2">
-            <label className="text-sm font-medium text-gray-700">Business Hours</label>
-            <input
-              type="text"
-              value={settings.businessHours}
-              onChange={(event) => updateSetting('businessHours', event.target.value)}
-              className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-            />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <label className="text-sm font-medium text-gray-700">
+                  Business Hours
+                </label>
+                <p className="mt-0.5 text-xs text-neutral-500">
+                  Configure each day. Customer-facing text and open/closed
+                  status are generated automatically in Bhutan Time.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={applyMondayToWorkingWeek}
+                  className="h-8 rounded-lg border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50"
+                >
+                  Apply Monday to Tue–Sat
+                </button>
+                <button
+                  type="button"
+                  onClick={closeSunday}
+                  className="h-8 rounded-lg border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50"
+                >
+                  Close Sunday
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-3 overflow-hidden rounded-xl border border-neutral-200">
+              {BUSINESS_DAY_ORDER.map((day, index) => {
+                const hours = settings.businessSchedule[day];
+
+                return (
+                  <div
+                    key={day}
+                    className={`grid gap-3 px-3 py-3 sm:grid-cols-[130px_92px_1fr_1fr] sm:items-center ${
+                      index < BUSINESS_DAY_ORDER.length - 1
+                        ? 'border-b border-neutral-100'
+                        : ''
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-gray-900">
+                      {BUSINESS_DAY_LABELS[day]}
+                    </p>
+
+                    <div className="flex items-center justify-between gap-2 sm:justify-start">
+                      <ToggleSwitch
+                        checked={hours.enabled}
+                        onChange={(enabled) =>
+                          updateBusinessDay(day, { enabled })
+                        }
+                      />
+                      <span
+                        className={`text-xs font-semibold ${
+                          hours.enabled
+                            ? 'text-emerald-600'
+                            : 'text-neutral-400'
+                        }`}
+                      >
+                        {hours.enabled ? 'Open' : 'Closed'}
+                      </span>
+                    </div>
+
+                    <label>
+                      <span className="text-[11px] font-medium text-neutral-400">
+                        Opens
+                      </span>
+                      <input
+                        type="time"
+                        value={hours.open}
+                        disabled={!hours.enabled}
+                        onChange={(event) =>
+                          updateBusinessDay(day, {
+                            open: event.target.value,
+                          })
+                        }
+                        className="mt-1 h-9 w-full rounded-lg border border-neutral-200 bg-white px-2.5 text-sm outline-none focus:ring-2 focus:ring-amber-500/20 disabled:bg-neutral-50 disabled:text-neutral-300"
+                      />
+                    </label>
+
+                    <label>
+                      <span className="text-[11px] font-medium text-neutral-400">
+                        Closes
+                      </span>
+                      <input
+                        type="time"
+                        value={hours.close}
+                        disabled={!hours.enabled}
+                        onChange={(event) =>
+                          updateBusinessDay(day, {
+                            close: event.target.value,
+                          })
+                        }
+                        className="mt-1 h-9 w-full rounded-lg border border-neutral-200 bg-white px-2.5 text-sm outline-none focus:ring-2 focus:ring-amber-500/20 disabled:bg-neutral-50 disabled:text-neutral-300"
+                      />
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5">
+              <p className="text-xs font-semibold text-blue-700">
+                Customer preview
+              </p>
+              <p className="mt-1 text-sm font-bold text-gray-900">
+                {settings.businessHours}
+              </p>
+            </div>
           </div>
         </div>
       </SettingCard>

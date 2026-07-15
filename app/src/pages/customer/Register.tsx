@@ -51,6 +51,11 @@ type RegistrationStep = 1 | 2;
 const PHONE_ONLY_EMAIL_DOMAIN = 'phone.shop2bhutan.com';
 const GOOGLE_OAUTH_PENDING_KEY = 'shop2bhutan:google-oauth-pending';
 const GOOGLE_OAUTH_RETURN_TO_KEY = 'shop2bhutan:google-oauth-return-to';
+const GOOGLE_AUTH_ENABLED =
+  String(import.meta.env.VITE_GOOGLE_AUTH_ENABLED ?? '')
+    .trim()
+    .toLowerCase() === 'true';
+
 
 function makePhoneOnlyAuthEmail(phone8: string) {
   return `${phone8}@${PHONE_ONLY_EMAIL_DOMAIN}`;
@@ -521,7 +526,7 @@ export default function Register() {
   };
 
   const handleGoogleSignup = async () => {
-    if (busy) return;
+    if (!GOOGLE_AUTH_ENABLED || busy) return;
 
     setGoogleSubmitting(true);
     setSubmitError('');
@@ -830,33 +835,37 @@ export default function Register() {
             </div>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={handleGoogleSignup}
-                disabled={busy}
-                className="flex h-[54px] w-full items-center justify-center gap-3 rounded-2xl border border-neutral-200 bg-white text-[15px] font-extrabold text-neutral-800 transition hover:bg-neutral-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {googleSubmitting ? (
-                  <Loader2
-                    size={19}
-                    strokeWidth={2.4}
-                    className="animate-spin text-neutral-500"
-                  />
-                ) : (
-                  <GoogleIcon />
-                )}
-                {googleSubmitting
-                  ? 'Connecting to Google...'
-                  : 'Continue with Google'}
-              </button>
+              {GOOGLE_AUTH_ENABLED && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleGoogleSignup}
+                    disabled={busy}
+                    className="flex h-[54px] w-full items-center justify-center gap-3 rounded-2xl border border-neutral-200 bg-white text-[15px] font-extrabold text-neutral-800 transition hover:bg-neutral-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {googleSubmitting ? (
+                      <Loader2
+                        size={19}
+                        strokeWidth={2.4}
+                        className="animate-spin text-neutral-500"
+                      />
+                    ) : (
+                      <GoogleIcon />
+                    )}
+                    {googleSubmitting
+                      ? 'Connecting to Google...'
+                      : 'Continue with Google'}
+                  </button>
 
-              <div className="my-4 flex items-center gap-3">
-                <div className="h-px flex-1 bg-neutral-200" />
-                <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-neutral-400">
-                  or register manually
-                </span>
-                <div className="h-px flex-1 bg-neutral-200" />
-              </div>
+                  <div className="my-4 flex items-center gap-3">
+                    <div className="h-px flex-1 bg-neutral-200" />
+                    <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-neutral-400">
+                      or register manually
+                    </span>
+                    <div className="h-px flex-1 bg-neutral-200" />
+                  </div>
+                </>
+              )}
 
               <div className="mb-5 grid grid-cols-2 gap-2">
                 <div

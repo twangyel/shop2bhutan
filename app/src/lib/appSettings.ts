@@ -1,12 +1,388 @@
 import { supabase } from '@/lib/supabase';
-import type { AppSettings, AcceptedPlatformSettings } from '@/types';
+import type {
+  AcceptedPlatformSettings,
+  AppSettings,
+  BusinessDayHours,
+  BusinessDayKey,
+  BusinessHoursSchedule,
+} from '@/types';
+
+export const BUSINESS_TIME_ZONE = 'Asia/Thimphu';
+
+export const BUSINESS_DAY_ORDER: BusinessDayKey[] = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+];
+
+export const BUSINESS_DAY_LABELS: Record<BusinessDayKey, string> = {
+  monday: 'Monday',
+  tuesday: 'Tuesday',
+  wednesday: 'Wednesday',
+  thursday: 'Thursday',
+  friday: 'Friday',
+  saturday: 'Saturday',
+  sunday: 'Sunday',
+};
+
+const BUSINESS_DAY_SHORT_LABELS: Record<BusinessDayKey, string> = {
+  monday: 'Mon',
+  tuesday: 'Tue',
+  wednesday: 'Wed',
+  thursday: 'Thu',
+  friday: 'Fri',
+  saturday: 'Sat',
+  sunday: 'Sun',
+};
+
+function makeBusinessDay(
+  enabled: boolean,
+  open = '09:00',
+  close = '18:00',
+): BusinessDayHours {
+  return { enabled, open, close };
+}
+
+export const DEFAULT_BUSINESS_SCHEDULE: BusinessHoursSchedule = {
+  monday: makeBusinessDay(true),
+  tuesday: makeBusinessDay(true),
+  wednesday: makeBusinessDay(true),
+  thursday: makeBusinessDay(true),
+  friday: makeBusinessDay(true),
+  saturday: makeBusinessDay(true),
+  sunday: makeBusinessDay(false),
+};
+
+function cloneBusinessSchedule(
+  schedule: BusinessHoursSchedule,
+): BusinessHoursSchedule {
+  return BUSINESS_DAY_ORDER.reduce((result, day) => {
+    result[day] = { ...schedule[day] };
+    return result;
+  }, {} as BusinessHoursSchedule);
+}
+
+function validClockTime(value: unknown) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value ?? '').trim());
+}
+
+function normalizeClockTime(value: unknown, fallback: string) {
+  const clean = String(value ?? '').trim();
+  return validClockTime(clean) ? clean : fallback;
+}
+
+function clockMinutes(value: string) {
+  const [hours, minutes] = value.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+function legacyTimeTo24(
+  hoursText: string,
+  minutesText: string | undefined,
+  periodText: string | undefined,
+) {
+  let hours = Number(hoursText);
+  const minutes = Number(minutesText || 0);
+  const period = String(periodText || '').toLowerCase();
+
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return '';
+
+  if (period === 'pm' && hours < 12) hours += 12;
+  if (period === 'am' && hours === 12) hours = 0;
+
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return '';
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function parseLegacyBusinessHours(
+  value: unknown,
+): BusinessHoursSchedule | null {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+
+  const timeMatch = raw.match(
+    /(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*[-–—]\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i,
+  );
+
+  if (!timeMatch) return null;
+
+  const open = legacyTimeTo24(timeMatch[1], timeMatch[2], timeMatch[3]);
+  const close = legacyTimeTo24(timeMatch[4], timeMatch[5], timeMatch[6]);
+
+  if (!open || !close || clockMinutes(open) >= clockMinutes(close)) {
+    return null;
+  }
+
+  const dayAliases: Array<[RegExp, BusinessDayKey]> = [
+    [/mon(?:day)?/i, 'monday'],
+    [/tue(?:sday)?/i, 'tuesday'],
+    [/wed(?:nesday)?/i, 'wednesday'],
+    [/thu(?:rsday)?/i, 'thursday'],
+    [/fri(?:day)?/i, 'friday'],
+    [/sat(?:urday)?/i, 'saturday'],
+    [/sun(?:day)?/i, 'sunday'],
+  ];
+
+  const matchedDays = dayAliases
+    .filter(([pattern]) => pattern.test(raw))
+    .map(([, day]) => day);
+
+  let startIndex = 0;
+  let endIndex = 5;
+
+  if (matchedDays.length >= 2) {
+    startIndex = BUSINESS_DAY_ORDER.indexOf(matchedDays[0]);
+    endIndex = BUSINESS_DAY_ORDER.indexOf(matchedDays[1]);
+  } else if (matchedDays.length === 1) {
+    startIndex = BUSINESS_DAY_ORDER.indexOf(matchedDays[0]);
+    endIndex = startIndex;
+  }
+
+  if (startIndex < 0 || endIndex < 0) return null;
+
+  const result = cloneBusinessSchedule(DEFAULT_BUSINESS_SCHEDULE);
+
+  BUSINESS_DAY_ORDER.forEach((day) => {
+    result[day] = makeBusinessDay(false, open, close);
+  });
+
+  if (startIndex <= endIndex) {
+    for (let index = startIndex; index <= endIndex; index += 1) {
+      result[BUSINESS_DAY_ORDER[index]] = makeBusinessDay(true, open, close);
+    }
+  } else {
+    for (let index = startIndex; index < BUSINESS_DAY_ORDER.length; index += 1) {
+      result[BUSINESS_DAY_ORDER[index]] = makeBusinessDay(true, open, close);
+    }
+    for (let index = 0; index <= endIndex; index += 1) {
+      result[BUSINESS_DAY_ORDER[index]] = makeBusinessDay(true, open, close);
+    }
+  }
+
+  return result;
+}
+
+export function normalizeBusinessSchedule(
+  value: unknown,
+  legacyBusinessHours?: unknown,
+): BusinessHoursSchedule {
+  const fallback =
+    parseLegacyBusinessHours(legacyBusinessHours) ||
+    DEFAULT_BUSINESS_SCHEDULE;
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return cloneBusinessSchedule(fallback);
+  }
+
+  const raw = value as Partial<
+    Record<BusinessDayKey, Partial<BusinessDayHours>>
+  >;
+
+  return BUSINESS_DAY_ORDER.reduce((result, day) => {
+    const fallbackDay = fallback[day];
+    const candidate = raw[day];
+
+    result[day] = {
+      enabled:
+        typeof candidate?.enabled === 'boolean'
+          ? candidate.enabled
+          : fallbackDay.enabled,
+      open: normalizeClockTime(candidate?.open, fallbackDay.open),
+      close: normalizeClockTime(candidate?.close, fallbackDay.close),
+    };
+
+    return result;
+  }, {} as BusinessHoursSchedule);
+}
+
+export function formatBusinessClockTime(value: string) {
+  if (!validClockTime(value)) return value;
+
+  const [hoursText, minutesText] = value.split(':');
+  const hours = Number(hoursText);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours % 12 || 12;
+
+  return `${displayHours}:${minutesText} ${period}`;
+}
+
+function businessDayRangeLabel(
+  start: BusinessDayKey,
+  end: BusinessDayKey,
+) {
+  if (start === end) return BUSINESS_DAY_SHORT_LABELS[start];
+
+  return `${BUSINESS_DAY_SHORT_LABELS[start]}–${BUSINESS_DAY_SHORT_LABELS[end]}`;
+}
+
+export function formatBusinessHoursSummary(
+  value: BusinessHoursSchedule,
+) {
+  const schedule = normalizeBusinessSchedule(value);
+  const groups: Array<{
+    start: BusinessDayKey;
+    end: BusinessDayKey;
+    enabled: boolean;
+    open: string;
+    close: string;
+  }> = [];
+
+  BUSINESS_DAY_ORDER.forEach((day) => {
+    const current = schedule[day];
+    const previous = groups[groups.length - 1];
+
+    if (
+      previous &&
+      previous.enabled === current.enabled &&
+      previous.open === current.open &&
+      previous.close === current.close
+    ) {
+      previous.end = day;
+      return;
+    }
+
+    groups.push({
+      start: day,
+      end: day,
+      enabled: current.enabled,
+      open: current.open,
+      close: current.close,
+    });
+  });
+
+  if (groups.every((group) => !group.enabled)) {
+    return 'Closed every day';
+  }
+
+  return groups
+    .map((group) => {
+      const days = businessDayRangeLabel(group.start, group.end);
+
+      if (!group.enabled) return `${days} closed`;
+
+      return `${days}: ${formatBusinessClockTime(group.open)}–${formatBusinessClockTime(group.close)}`;
+    })
+    .join(' · ');
+}
+
+export function validateBusinessHoursSchedule(
+  value: BusinessHoursSchedule,
+) {
+  const schedule = normalizeBusinessSchedule(value);
+
+  for (const day of BUSINESS_DAY_ORDER) {
+    const hours = schedule[day];
+
+    if (!hours.enabled) continue;
+
+    if (!validClockTime(hours.open) || !validClockTime(hours.close)) {
+      return `${BUSINESS_DAY_LABELS[day]} has an invalid opening or closing time.`;
+    }
+
+    if (clockMinutes(hours.open) >= clockMinutes(hours.close)) {
+      return `${BUSINESS_DAY_LABELS[day]} closing time must be later than opening time.`;
+    }
+  }
+
+  return '';
+}
+
+function currentBhutanDayAndMinutes(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: BUSINESS_TIME_ZONE,
+    weekday: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+
+  const weekday = parts.find((part) => part.type === 'weekday')?.value.toLowerCase();
+  const hour = Number(parts.find((part) => part.type === 'hour')?.value || 0);
+  const minute = Number(parts.find((part) => part.type === 'minute')?.value || 0);
+
+  const day = BUSINESS_DAY_ORDER.find(
+    (candidate) => candidate === weekday,
+  ) || 'monday';
+
+  return {
+    day,
+    dayIndex: BUSINESS_DAY_ORDER.indexOf(day),
+    minutes: hour * 60 + minute,
+  };
+}
+
+export type BusinessHoursStatus = {
+  isOpen: boolean;
+  headline: string;
+  detail: string;
+  summary: string;
+};
+
+export function getBusinessHoursStatus(
+  value: BusinessHoursSchedule,
+  date = new Date(),
+): BusinessHoursStatus {
+  const schedule = normalizeBusinessSchedule(value);
+  const current = currentBhutanDayAndMinutes(date);
+  const today = schedule[current.day];
+  const summary = formatBusinessHoursSummary(schedule);
+
+  if (
+    today.enabled &&
+    current.minutes >= clockMinutes(today.open) &&
+    current.minutes < clockMinutes(today.close)
+  ) {
+    return {
+      isOpen: true,
+      headline: 'Open now',
+      detail: `Closes at ${formatBusinessClockTime(today.close)}`,
+      summary,
+    };
+  }
+
+  for (let offset = 0; offset <= 7; offset += 1) {
+    const dayIndex = (current.dayIndex + offset) % BUSINESS_DAY_ORDER.length;
+    const day = BUSINESS_DAY_ORDER[dayIndex];
+    const hours = schedule[day];
+
+    if (!hours.enabled) continue;
+    if (offset === 0 && current.minutes >= clockMinutes(hours.open)) continue;
+
+    const prefix =
+      offset === 0
+        ? 'Opens at'
+        : offset === 1
+          ? 'Opens tomorrow at'
+          : `Opens ${BUSINESS_DAY_SHORT_LABELS[day]} at`;
+
+    return {
+      isOpen: false,
+      headline: 'Closed now',
+      detail: `${prefix} ${formatBusinessClockTime(hours.open)}`,
+      summary,
+    };
+  }
+
+  return {
+    isOpen: false,
+    headline: 'Closed now',
+    detail: 'No opening hours scheduled',
+    summary,
+  };
+}
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   appName: 'Shop2Bhutan',
   supportEmail: 'support@shop2bhutan.com',
   supportPhone: '+975 17123456',
   whatsappNumber: '+975 17123456',
-  businessHours: 'Mon-Sat, 9 AM - 6 PM',
+  businessHours: formatBusinessHoursSummary(DEFAULT_BUSINESS_SCHEDULE),
+  businessSchedule: cloneBusinessSchedule(DEFAULT_BUSINESS_SCHEDULE),
   orderAcceptanceEnabled: true,
   maintenanceEnabled: false,
   maintenanceMessage: 'We are undergoing maintenance. Please check back soon.',
@@ -86,13 +462,22 @@ function normalizePlatforms(value: unknown): AcceptedPlatformSettings {
 
 function normalizeAppSettings(rows: SettingsRow[]): AppSettings {
   const base = DEFAULT_APP_SETTINGS;
+  const legacyBusinessHours = cleanText(
+    getRowValue(rows, 'business_hours', base.businessHours),
+    base.businessHours,
+  );
+  const businessSchedule = normalizeBusinessSchedule(
+    getRowValue(rows, 'business_hours_schedule', null),
+    legacyBusinessHours,
+  );
 
   return {
     appName: cleanText(getRowValue(rows, 'app_name', base.appName), base.appName),
     supportEmail: cleanText(getRowValue(rows, 'support_email', base.supportEmail), base.supportEmail),
     supportPhone: cleanText(getRowValue(rows, 'support_phone', base.supportPhone), base.supportPhone),
     whatsappNumber: cleanText(getRowValue(rows, 'whatsapp_number', base.whatsappNumber), base.whatsappNumber),
-    businessHours: cleanText(getRowValue(rows, 'business_hours', base.businessHours), base.businessHours),
+    businessHours: formatBusinessHoursSummary(businessSchedule),
+    businessSchedule,
     orderAcceptanceEnabled: bool(getRowValue(rows, 'order_acceptance_enabled', base.orderAcceptanceEnabled), base.orderAcceptanceEnabled),
     maintenanceEnabled: bool(getRowValue(rows, 'maintenance_enabled', base.maintenanceEnabled), base.maintenanceEnabled),
     maintenanceMessage: cleanText(getRowValue(rows, 'maintenance_message', base.maintenanceMessage), base.maintenanceMessage),
@@ -127,13 +512,19 @@ function isMissingSettingsTableError(error: unknown) {
 
 function toRows(settings: AppSettings, userId?: string | null) {
   const updatedAt = new Date().toISOString();
+  const businessSchedule = normalizeBusinessSchedule(
+    settings.businessSchedule,
+    settings.businessHours,
+  );
+  const businessHours = formatBusinessHoursSummary(businessSchedule);
 
   const entries: Array<[string, unknown]> = [
     ['app_name', cleanText(settings.appName, DEFAULT_APP_SETTINGS.appName)],
     ['support_email', cleanText(settings.supportEmail, DEFAULT_APP_SETTINGS.supportEmail)],
     ['support_phone', cleanText(settings.supportPhone, DEFAULT_APP_SETTINGS.supportPhone)],
     ['whatsapp_number', cleanText(settings.whatsappNumber, DEFAULT_APP_SETTINGS.whatsappNumber)],
-    ['business_hours', cleanText(settings.businessHours, DEFAULT_APP_SETTINGS.businessHours)],
+    ['business_hours', businessHours],
+    ['business_hours_schedule', businessSchedule],
     ['order_acceptance_enabled', Boolean(settings.orderAcceptanceEnabled)],
     ['maintenance_enabled', Boolean(settings.maintenanceEnabled)],
     ['maintenance_message', cleanText(settings.maintenanceMessage, DEFAULT_APP_SETTINGS.maintenanceMessage)],
@@ -171,6 +562,14 @@ export async function fetchPublicAppSettings(): Promise<AppSettings> {
 }
 
 export async function saveAppSettings(settings: AppSettings, userId?: string | null): Promise<AppSettings> {
+  const businessHoursError = validateBusinessHoursSchedule(
+    settings.businessSchedule,
+  );
+
+  if (businessHoursError) {
+    throw new Error(businessHoursError);
+  }
+
   const { error } = await supabase.from(SETTINGS_TABLE).upsert(toRows(settings, userId), { onConflict: 'key' });
 
   if (error) {

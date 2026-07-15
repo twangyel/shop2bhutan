@@ -382,6 +382,26 @@ export interface PaymentMethod {
   updatedAt?: string;
 }
 
+export type BusinessDayKey =
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'
+  | 'sunday';
+
+export interface BusinessDayHours {
+  enabled: boolean;
+  open: string;
+  close: string;
+}
+
+export type BusinessHoursSchedule = Record<
+  BusinessDayKey,
+  BusinessDayHours
+>;
+
 export type AcceptedPlatformKey = 'amazon' | 'flipkart' | 'myntra' | 'meesho';
 
 export type AcceptedPlatformSettings = Record<AcceptedPlatformKey, boolean>;
@@ -392,6 +412,7 @@ export interface AppSettings {
   supportPhone: string;
   whatsappNumber: string;
   businessHours: string;
+  businessSchedule: BusinessHoursSchedule;
   orderAcceptanceEnabled: boolean;
   maintenanceEnabled: boolean;
   maintenanceMessage: string;

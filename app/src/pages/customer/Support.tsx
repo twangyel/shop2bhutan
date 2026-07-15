@@ -20,7 +20,11 @@ import {
   Truck,
   X,
 } from 'lucide-react';
-import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings';
+import {
+  DEFAULT_APP_SETTINGS,
+  fetchPublicAppSettings,
+  getBusinessHoursStatus,
+} from '@/lib/appSettings';
 import { fetchPublicFaqItems, type FAQItemRecord } from '@/lib/contentPages';
 import { buildSupportDiagnostics } from '@/lib/deviceDiagnostics';
 import { shareTextContent } from '@/lib/nativeShare';
@@ -99,10 +103,19 @@ export default function Support() {
   const [loadingFaqs, setLoadingFaqs] = useState(true);
   const [sharingDiagnostics, setSharingDiagnostics] = useState(false);
   const [diagnosticsFeedback, setDiagnosticsFeedback] = useState('');
+  const [businessClock, setBusinessClock] = useState(() => Date.now());
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     document.scrollingElement?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setBusinessClock(Date.now());
+    }, 60_000);
+
+    return () => window.clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -162,6 +175,14 @@ export default function Support() {
 
   const supportPhoneHref = telHref(appSettings.supportPhone);
   const supportWhatsappHref = whatsappHref(appSettings.whatsappNumber);
+  const businessHoursStatus = useMemo(
+    () =>
+      getBusinessHoursStatus(
+        appSettings.businessSchedule,
+        new Date(businessClock),
+      ),
+    [appSettings.businessSchedule, businessClock],
+  );
   const hasSearchQuery = searchQuery.trim().length > 0;
 
   const applyQuickSearch = (query: string) => {
@@ -549,9 +570,35 @@ export default function Support() {
             </div>
 
             {appSettings.businessHours && (
-              <div className="mt-4 flex items-center justify-center gap-1.5 border-t border-white/10 pt-4">
-                <Clock size={13} className="text-neutral-400" strokeWidth={2.1} />
-                <p className="text-[11px] font-medium text-neutral-400">{appSettings.businessHours}</p>
+              <div className="mt-4 border-t border-white/10 pt-4 text-center">
+                <div className="flex items-center justify-center gap-2">
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      businessHoursStatus.isOpen
+                        ? 'bg-emerald-400'
+                        : 'bg-amber-400'
+                    }`}
+                  />
+                  <Clock
+                    size={13}
+                    className="text-neutral-400"
+                    strokeWidth={2.1}
+                  />
+                  <p
+                    className={`text-[11px] font-bold ${
+                      businessHoursStatus.isOpen
+                        ? 'text-emerald-300'
+                        : 'text-amber-300'
+                    }`}
+                  >
+                    {businessHoursStatus.headline} ·{' '}
+                    {businessHoursStatus.detail}
+                  </p>
+                </div>
+
+                <p className="mt-1.5 text-[10px] leading-4 text-neutral-500">
+                  {businessHoursStatus.summary}
+                </p>
               </div>
             )}
           </div>

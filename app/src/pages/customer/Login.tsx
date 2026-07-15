@@ -11,6 +11,11 @@ import BrandLogo from '@/components/BrandLogo';
 const AUTH_MESSAGE_STORAGE_KEY = 'shop2bhutan:auth-message';
 const GOOGLE_OAUTH_PENDING_KEY = 'shop2bhutan:google-oauth-pending';
 const GOOGLE_OAUTH_RETURN_TO_KEY = 'shop2bhutan:google-oauth-return-to';
+const GOOGLE_AUTH_ENABLED =
+  String(import.meta.env.VITE_GOOGLE_AUTH_ENABLED ?? '')
+    .trim()
+    .toLowerCase() === 'true';
+
 const DEACTIVATED_ACCOUNT_MESSAGE =
   'Your account is deactivated. Please contact Shop2Bhutan admin to reactivate it.';
 
@@ -193,7 +198,15 @@ export default function Login() {
   }, []);
 
   useEffect(() => {
-    if (authLoading || !user?.id || isGuest || oauthHandledRef.current) return;
+    if (
+      !GOOGLE_AUTH_ENABLED ||
+      authLoading ||
+      !user?.id ||
+      isGuest ||
+      oauthHandledRef.current
+    ) {
+      return;
+    }
 
     const queryParams = new URLSearchParams(location.search);
     const isGoogleCallback =
@@ -291,7 +304,7 @@ export default function Login() {
 
 
   const handleGoogleLogin = async () => {
-    if (busy) return;
+    if (!GOOGLE_AUTH_ENABLED || busy) return;
 
     setGoogleSubmitting(true);
     setTransitionMessage('Opening Google sign in...');
@@ -520,7 +533,7 @@ export default function Login() {
                 </div>
               )}
 
-              {!isAdminLogin && (
+              {!isAdminLogin && GOOGLE_AUTH_ENABLED && (
                 <>
                   <button
                     type="button"
