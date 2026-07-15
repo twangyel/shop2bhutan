@@ -587,13 +587,19 @@ function WebPushPermissionBanner() {
         hiddenRoute ||
         isNativePushRuntime()
       ) {
-        if (active) setChecking(false);
         return;
       }
 
-      const state = await getPushPermissionState();
+      // Keep the banner hidden until the browser's real permission state has
+      // been resolved. This prevents a one-frame flash on PWA launch/reload.
+      setChecking(true);
+      setError('');
 
-      if (active) {
+      try {
+        const state = await getPushPermissionState();
+
+        if (!active) return;
+
         console.info('[WebPushPermissionBanner] Permission state:', state, {
           secureContext: window.isSecureContext,
           standalone: isStandaloneWebApp(),
@@ -603,11 +609,35 @@ function WebPushPermissionBanner() {
 
         setPermissionState(state);
         setEnabled(false);
-        setChecking(false);
+      } catch (permissionError) {
+        console.warn(
+          '[WebPushPermissionBanner] Permission check skipped:',
+          permissionError,
+        );
+
+        if (active) {
+          setPermissionState('unsupported');
+        }
+      } finally {
+        if (active) {
+          setChecking(false);
+        }
       }
     }
 
-    void checkPermission();
+    if (
+      loading ||
+      isGuest ||
+      !user?.id ||
+      hiddenRoute ||
+      isNativePushRuntime()
+    ) {
+      // Authentication and route transitions are temporary states. Keep the
+      // banner fully hidden instead of showing the default permission state.
+      setChecking(true);
+    } else {
+      void checkPermission();
+    }
 
     return () => {
       active = false;
