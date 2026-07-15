@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, ChevronLeft, ChevronRight, Eye, Loader2, Package, RefreshCw, Search } from 'lucide-react';
 import StatusBadge from '@/components/shared/StatusBadge';
 import { fetchAdminOrders } from '@/lib/customerOrders';
@@ -204,8 +204,35 @@ function getOrderPaymentInfo(order: Order) {
 }
 
 
+
+function orderAgeHours(order: Order) {
+  const value = order.updatedAt || order.createdAt;
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime())
+    ? Math.max(0, (Date.now() - date.getTime()) / (60 * 60 * 1000))
+    : 0;
+}
+
+function isActionOverdue(order: Order) {
+  if (order.status === 'delivered' || order.status === 'cancelled') return false;
+  const thresholds: Partial<Record<Order['status'], number>> = {
+    pending_confirmation: 12,
+    quotation_pending: 12,
+    quoted: 48,
+    payment_pending: 72,
+    payment_verified: 24,
+    order_placed: 72,
+    in_transit: 168,
+    arrived_at_hub: 48,
+    out_for_delivery: 24,
+  };
+  return orderAgeHours(order) >= (thresholds[order.status] ?? 72);
+}
+
 export default function OrdersPanel() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const actionFocus = searchParams.get('focus');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -261,9 +288,17 @@ export default function OrdersPanel() {
         .toLowerCase();
 
       const matchesSearch = !query || searchableText.includes(query);
-      return matchesSearch && matchesStatus(order, statusFilter);
+      const matchesActionFocus =
+        actionFocus === 'quotation'
+          ? order.status === 'pending_confirmation' ||
+            order.status === 'quotation_pending' ||
+            order.quotation?.status === 'pending'
+          : actionFocus === 'overdue'
+            ? isActionOverdue(order)
+            : true;
+      return matchesSearch && matchesStatus(order, statusFilter) && matchesActionFocus;
     });
-  }, [orders, searchQuery, statusFilter]);
+  }, [actionFocus, orders, searchQuery, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
@@ -321,6 +356,19 @@ export default function OrdersPanel() {
           </div>
         </div>
       </div>
+
+      {actionFocus && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+          <span className="font-semibold">
+            {actionFocus === 'quotation'
+              ? 'Showing orders that need quotation preparation.'
+              : 'Showing active orders that may be overdue.'}
+          </span>
+          <button type="button" onClick={() => navigate('/admin/orders')} className="text-xs font-extrabold text-orange-700">
+            Clear focus
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2">

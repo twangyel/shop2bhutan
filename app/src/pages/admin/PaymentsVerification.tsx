@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
   CheckCircle,
@@ -63,9 +63,12 @@ function matchesTab(payment: AdminPaymentRecord, tab: PaymentTab) {
 
 export default function PaymentsVerification() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   usePrivacyScreen();
-  const [activeTab, setActiveTab] = useState<PaymentTab>('Pending Review');
+  const [activeTab, setActiveTab] = useState<PaymentTab>(() =>
+    searchParams.get('tab') === 'pending' ? 'Pending Review' : 'Pending Review',
+  );
   const [payments, setPayments] = useState<AdminPaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState('');

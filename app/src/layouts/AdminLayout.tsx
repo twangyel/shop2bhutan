@@ -54,7 +54,7 @@ const navGroups = [
   {
     title: 'Main',
     items: [
-      { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+      { path: '/admin', label: 'Action Centre', icon: LayoutDashboard },
       { path: '/admin/orders', label: 'Orders', icon: ClipboardList },
       { path: '/admin/parcels', label: 'Parcel Trips', icon: ClipboardCheck },
       {
@@ -107,7 +107,7 @@ type AdminSearchResult = {
 }
 
 const ADMIN_NAV_ALIASES: Record<string, string> = {
-  '/admin': 'home overview statistics collections profit',
+  '/admin': 'action centre priorities tasks home overview statistics collections profit',
   '/admin/orders': 'shopping requests quotations quote order final price',
   '/admin/parcels': 'parcel trips routes schedule',
   '/admin/parcel-requests': 'parcel booking requests delivery',
@@ -315,7 +315,7 @@ export default function AdminLayout() {
         (i) =>
           i.path === location.pathname ||
           (i.path !== '/admin' && location.pathname.startsWith(i.path)),
-      )?.label || 'Dashboard'
+      )?.label || 'Action Centre'
 
 
   const loadAdminSearchData = useCallback(

@@ -3,14 +3,17 @@ import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
   ArrowDownRight,
+  ArrowRight,
   ArrowUpRight,
   CircleDollarSign,
   ClipboardList,
+  Clock3,
   Eye,
   FileText,
   Loader2,
   PackageSearch,
   ReceiptText,
+  ShieldAlert,
   RefreshCw,
   TrendingUp,
   Truck,
@@ -38,6 +41,8 @@ import {
   type AdminPaymentRecord,
 } from "@/lib/customerOrders";
 import type { Order, OrderItem, OrderStatus } from "@/types";
+import { fetchAdminParcelRequests, fetchAdminParcelTrips } from "@/lib/parcels";
+import type { ParcelRequest, ParcelTrip } from "@/types/parcel";
 
 type DashboardPeriod = "7d" | "30d" | "month";
 
@@ -148,6 +153,65 @@ const STATUS_COLORS: Partial<Record<OrderStatus, string>> = {
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+
+type ActionCentreItem = {
+  id: string;
+  title: string;
+  description: string;
+  count: number;
+  urgency: "critical" | "attention" | "normal";
+  path: string;
+  icon: typeof ClipboardList;
+};
+
+function hoursSince(value?: string | null) {
+  const date = getDate(value);
+  return date ? Math.max(0, (Date.now() - date.getTime()) / (60 * 60 * 1000)) : 0;
+}
+
+function orderActionAgeHours(order: Order) {
+  return hoursSince(order.updatedAt || order.createdAt);
+}
+
+function isOrderOverdue(order: Order) {
+  if (order.status === "delivered" || order.status === "cancelled") return false;
+
+  const age = orderActionAgeHours(order);
+  const thresholds: Partial<Record<OrderStatus, number>> = {
+    pending_confirmation: 12,
+    quotation_pending: 12,
+    quoted: 48,
+    payment_pending: 72,
+    payment_verified: 24,
+    order_placed: 72,
+    in_transit: 7 * 24,
+    arrived_at_hub: 48,
+    out_for_delivery: 24,
+  };
+
+  return age >= (thresholds[order.status] ?? 72);
+}
+
+function parcelRequestDate(request: ParcelRequest) {
+  const row = request as ParcelRequest & {
+    updatedAt?: string;
+    updated_at?: string;
+    createdAt?: string;
+    created_at?: string;
+  };
+  return row.updatedAt || row.updated_at || row.createdAt || row.created_at || "";
+}
+
+function tripDate(trip: ParcelTrip) {
+  const row = trip as ParcelTrip & {
+    goingDate?: string;
+    going_date?: string;
+    departureDate?: string;
+    departure_date?: string;
+  };
+  return getDate(row.goingDate || row.going_date || row.departureDate || row.departure_date);
+}
 
 function numericAmount(value: unknown) {
   const numeric = Number(value ?? 0);
@@ -461,6 +525,8 @@ export default function Dashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<AdminCustomerRecord[]>([]);
   const [payments, setPayments] = useState<AdminPaymentRecord[]>([]);
+  const [parcelRequests, setParcelRequests] = useState<ParcelRequest[]>([]);
+  const [parcelTrips, setParcelTrips] = useState<ParcelTrip[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<DashboardPeriod>("7d");
   const [profitPeriod, setProfitPeriod] = useState<DashboardPeriod>("month");
   const [profitSettings, setProfitSettings] = useState<ProfitSettings>(DEFAULT_PROFIT_SETTINGS);
@@ -480,17 +546,23 @@ export default function Dashboard() {
         realCustomers,
         realPayments,
         realProfitSettings,
+        realParcelRequests,
+        realParcelTrips,
       ] = await Promise.all([
         fetchAdminOrders(),
         fetchAdminCustomers(),
         fetchAdminPayments(),
         fetchProfitSettings(),
+        fetchAdminParcelRequests(),
+        fetchAdminParcelTrips(),
       ]);
 
       setOrders(realOrders);
       setCustomers(realCustomers);
       setPayments(realPayments);
       setProfitSettings(realProfitSettings);
+      setParcelRequests(realParcelRequests);
+      setParcelTrips(realParcelTrips);
     } catch (err) {
       console.error("Failed to load admin dashboard:", err);
       setError(
@@ -654,6 +726,102 @@ export default function Dashboard() {
     [metrics],
   );
 
+
+  const actionCentre = useMemo(() => {
+    const quotationOrders = orders.filter(
+      (order) =>
+        order.status === "pending_confirmation" ||
+        order.status === "quotation_pending" ||
+        order.quotation?.status === "pending",
+    );
+    const pendingPayments = payments.filter(
+      (payment) => String(payment.status).toLowerCase() === "pending",
+    );
+    const overdueOrders = orders.filter(isOrderOverdue);
+    const pendingParcels = parcelRequests.filter(
+      (request) => request.status === "pending",
+    );
+    const staleParcels = parcelRequests.filter(
+      (request) =>
+        !["delivered", "rejected", "cancelled"].includes(request.status) &&
+        hoursSince(parcelRequestDate(request)) >= 48,
+    );
+
+    const now = new Date();
+    const nextTrip = [...parcelTrips]
+      .filter((trip) => {
+        const date = tripDate(trip);
+        return Boolean(date && date >= startOfDay(now) && trip.status !== "cancelled" && trip.status !== "completed");
+      })
+      .sort((a, b) => (tripDate(a)?.getTime() ?? 0) - (tripDate(b)?.getTime() ?? 0))[0];
+
+    const items: ActionCentreItem[] = [
+      {
+        id: "quotations",
+        title: "Prepare quotations",
+        description:
+          quotationOrders.length > 0
+            ? `${quotationOrders.length} customer request${quotationOrders.length === 1 ? " is" : "s are"} waiting for a final price.`
+            : "No quotation is waiting right now.",
+        count: quotationOrders.length,
+        urgency: quotationOrders.some((order) => orderActionAgeHours(order) >= 12)
+          ? "critical"
+          : quotationOrders.length > 0
+            ? "attention"
+            : "normal",
+        path: "/admin/orders?focus=quotation",
+        icon: FileText,
+      },
+      {
+        id: "payments",
+        title: "Review payments",
+        description:
+          pendingPayments.length > 0
+            ? `${pendingPayments.length} uploaded payment proof${pendingPayments.length === 1 ? " needs" : "s need"} verification.`
+            : "All uploaded payment proofs are reviewed.",
+        count: pendingPayments.length,
+        urgency: pendingPayments.some((payment) => hoursSince(payment.createdAt) >= 12)
+          ? "critical"
+          : pendingPayments.length > 0
+            ? "attention"
+            : "normal",
+        path: "/admin/payments?tab=pending",
+        icon: ReceiptText,
+      },
+      {
+        id: "overdue",
+        title: "Check delayed orders",
+        description:
+          overdueOrders.length > 0
+            ? `${overdueOrders.length} active order${overdueOrders.length === 1 ? " has" : "s have"} not progressed within the expected time.`
+            : "No active order currently looks delayed.",
+        count: overdueOrders.length,
+        urgency: overdueOrders.length > 0 ? "critical" : "normal",
+        path: "/admin/orders?focus=overdue",
+        icon: Clock3,
+      },
+      {
+        id: "parcels",
+        title: "Handle parcel requests",
+        description:
+          pendingParcels.length > 0
+            ? `${pendingParcels.length} parcel booking${pendingParcels.length === 1 ? " is" : "s are"} waiting for acceptance.`
+            : staleParcels.length > 0
+              ? `${staleParcels.length} active parcel${staleParcels.length === 1 ? " needs" : "s need"} a status review.`
+              : "Parcel requests are up to date.",
+        count: pendingParcels.length || staleParcels.length,
+        urgency: staleParcels.length > 0 ? "critical" : pendingParcels.length > 0 ? "attention" : "normal",
+        path: "/admin/parcel-requests?status=pending",
+        icon: Truck,
+      },
+    ];
+
+    const urgentCount = items.filter((item) => item.count > 0).length;
+    const totalActions = items.reduce((sum, item) => sum + item.count, 0);
+
+    return { items, urgentCount, totalActions, nextTrip };
+  }, [orders, parcelRequests, parcelTrips, payments]);
+
   const profitSnapshot = useMemo<ProfitSnapshot>(() => {
     const start = periodStart(profitPeriod);
     const now = new Date();
@@ -742,6 +910,91 @@ export default function Dashboard() {
           <span>{error}</span>
         </div>
       )}
+
+      <section className="overflow-hidden rounded-2xl border border-orange-100 bg-white shadow-card">
+        <div className="border-b border-orange-100 bg-orange-50/60 px-4 py-4 md:px-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-sm">
+                <ShieldAlert size={21} strokeWidth={2.3} />
+              </span>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-base font-black text-neutral-950">Admin Action Centre</h2>
+                  {!loading && actionCentre.totalActions > 0 && (
+                    <span className="rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-extrabold text-red-700">
+                      {actionCentre.totalActions} action{actionCentre.totalActions === 1 ? "" : "s"}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs leading-5 text-neutral-600">
+                  Your priority work in one place, so you can manage Shop2Bhutan quickly after office.
+                </p>
+              </div>
+            </div>
+
+            {!loading && (
+              <div className="rounded-xl border border-white bg-white px-3 py-2 text-xs font-bold text-neutral-600 shadow-sm">
+                {actionCentre.totalActions > 0
+                  ? `${actionCentre.urgentCount} area${actionCentre.urgentCount === 1 ? "" : "s"} need attention`
+                  : "Everything is under control"}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-3 p-4 md:grid-cols-2 md:p-5 xl:grid-cols-4">
+          {actionCentre.items.map((item) => {
+            const Icon = item.icon;
+            const active = item.count > 0;
+            const style =
+              item.urgency === "critical"
+                ? "border-red-100 bg-red-50/50 text-red-600"
+                : item.urgency === "attention"
+                  ? "border-amber-100 bg-amber-50/60 text-amber-600"
+                  : "border-emerald-100 bg-emerald-50/40 text-emerald-600";
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => navigate(item.path)}
+                className={`group rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${style}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm">
+                    <Icon size={19} strokeWidth={2.2} />
+                  </span>
+                  <span className={`text-xl font-black ${active ? "text-neutral-950" : "text-neutral-400"}`}>
+                    {loading ? "…" : item.count}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm font-extrabold text-neutral-900">{item.title}</p>
+                <p className="mt-1 min-h-[40px] text-xs leading-5 text-neutral-600">{item.description}</p>
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-extrabold">
+                  {active ? "Open tasks" : "View section"}
+                  <ArrowRight size={14} className="transition group-hover:translate-x-0.5" />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-col gap-2 border-t border-neutral-100 bg-neutral-50/70 px-4 py-3 text-xs text-neutral-600 sm:flex-row sm:items-center sm:justify-between md:px-5">
+          <span>
+            {actionCentre.nextTrip
+              ? `Next active parcel trip: ${tripDate(actionCentre.nextTrip)?.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Thimphu" })}`
+              : "No upcoming active parcel trip is scheduled."}
+          </span>
+          <button
+            type="button"
+            onClick={() => navigate("/admin/parcels")}
+            className="inline-flex items-center gap-1 font-extrabold text-orange-600"
+          >
+            Manage trips <ArrowRight size={14} />
+          </button>
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 xl:grid-cols-4">
         {statCards.map((card) => {

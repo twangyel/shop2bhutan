@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Check, Package, RefreshCw, Truck, X, XCircle } from 'lucide-react'
 import {
   fetchAdminParcelRequests,
@@ -124,8 +125,12 @@ function finalStatusText(status: ParcelRequestStatus) {
 }
 
 export default function ParcelRequests() {
+  const [searchParams] = useSearchParams()
+  const initialStatus = searchParams.get('status')
   const [requests, setRequests] = useState<ParcelRequest[]>([])
-  const [filter, setFilter] = useState<'all' | ParcelRequestStatus>('all')
+  const [filter, setFilter] = useState<'all' | ParcelRequestStatus>(
+    initialStatus === 'pending' ? 'pending' : 'all',
+  )
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState('')
   const [error, setError] = useState('')
