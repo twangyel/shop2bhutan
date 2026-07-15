@@ -25,20 +25,30 @@ import {
   Loader2,
   Trash2,
   AlertTriangle,
+  type LucideIcon,
 } from 'lucide-react'
 import { useApp } from '@/contexts/AppContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import BrandLogo from '@/components/BrandLogo'
 import { supabase } from '@/lib/supabase'
 import {
   fetchAdminNotifications,
+  fetchAdminOrders,
+  fetchAdminCustomers,
+  fetchAdminPayments,
   getUnreadAdminNotificationCount,
   markAdminNotificationRead,
   markAllAdminNotificationsRead,
   deleteAllAdminNotifications,
+  type AdminCustomerRecord,
+  type AdminPaymentRecord,
 } from '@/lib/customerOrders'
-import type { Notification as AppNotification, NotificationType } from '@/types'
+import type {
+  Notification as AppNotification,
+  NotificationType,
+  Order,
+} from '@/types'
 
 const navGroups = [
   {
@@ -84,7 +94,74 @@ const navGroups = [
   },
 ]
 
+type AdminSearchKind = 'page' | 'order' | 'customer' | 'payment'
+
+type AdminSearchResult = {
+  id: string
+  kind: AdminSearchKind
+  title: string
+  subtitle: string
+  path: string
+  icon: LucideIcon
+  keywords: string
+}
+
+const ADMIN_NAV_ALIASES: Record<string, string> = {
+  '/admin': 'home overview statistics collections profit',
+  '/admin/orders': 'shopping requests quotations quote order final price',
+  '/admin/parcels': 'parcel trips routes schedule',
+  '/admin/parcel-requests': 'parcel booking requests delivery',
+  '/admin/payments': 'payment proof verification collections transactions',
+  '/admin/customers': 'users profiles phone email accounts',
+  '/admin/products': 'catalog items inventory products',
+  '/admin/categories': 'catalog product groups categories',
+  '/admin/banners': 'home banner promotion image',
+  '/admin/delivery-fees': 'shipping delivery destination charges',
+  '/admin/service-charges': 'commission percentage service fee charges',
+  '/admin/payment-methods': 'bank account qr payment methods',
+  '/admin/settings': 'application support business hours profit settings',
+  '/admin/faq': 'faq terms privacy return policy content',
+}
+
+function normalizeAdminSearch(value: unknown) {
+  return String(value ?? '')
+    .normalize('NFKD')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function adminSearchTokens(value: string) {
+  return normalizeAdminSearch(value).split(' ').filter(Boolean)
+}
+
+function matchesAdminSearch(searchable: string, query: string) {
+  const normalizedSearchable = normalizeAdminSearch(searchable)
+  const normalizedQuery = normalizeAdminSearch(query)
+  if (!normalizedQuery) return false
+  if (normalizedSearchable.includes(normalizedQuery)) return true
+
+  const tokens = adminSearchTokens(normalizedQuery)
+  return tokens.length > 0 && tokens.every((token) => normalizedSearchable.includes(token))
+}
+
+function statusSearchLabel(value: unknown) {
+  return String(value ?? '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase())
+}
+
+function paymentSearchValue(payment: AdminPaymentRecord, keys: string[]) {
+  const row = payment as unknown as Record<string, unknown>
+  for (const key of keys) {
+    const value = row[key]
+    if (value !== undefined && value !== null && String(value).trim()) return String(value)
+  }
+  return ''
+}
+
 const BHUTAN_TIME_ZONE = 'Asia/Thimphu'
+
 
 function formatAdminNotificationTime(value?: string) {
   if (!value) return 'Just now'
@@ -198,6 +275,13 @@ export default function AdminLayout() {
   const { logout } = useApp()
   const { loading: authLoading, user, context, signOut, isGuest } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
+  const [adminSearchOpen, setAdminSearchOpen] = useState(false)
+  const [adminSearchLoading, setAdminSearchLoading] = useState(false)
+  const [adminSearchLoaded, setAdminSearchLoaded] = useState(false)
+  const [adminSearchError, setAdminSearchError] = useState('')
+  const [adminSearchOrders, setAdminSearchOrders] = useState<Order[]>([])
+  const [adminSearchCustomers, setAdminSearchCustomers] = useState<AdminCustomerRecord[]>([])
+  const [adminSearchPayments, setAdminSearchPayments] = useState<AdminPaymentRecord[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
@@ -211,6 +295,8 @@ export default function AdminLayout() {
   const [adminUnreadCount, setAdminUnreadCount] = useState(0)
   const [loggingOut, setLoggingOut] = useState(false)
   const notificationPanelRef = useRef<HTMLDivElement>(null)
+  const adminSearchRef = useRef<HTMLDivElement>(null)
+  const adminSearchLastLoadedAtRef = useRef(0)
 
   const requestedAdminPath =
     `${location.pathname}${location.search}${location.hash}` || '/admin'
@@ -230,6 +316,199 @@ export default function AdminLayout() {
           i.path === location.pathname ||
           (i.path !== '/admin' && location.pathname.startsWith(i.path)),
       )?.label || 'Dashboard'
+
+
+  const loadAdminSearchData = useCallback(
+    async (force = false) => {
+      if (!canAccessAdmin || adminSearchLoading) return
+
+      const isFresh =
+        adminSearchLoaded &&
+        Date.now() - adminSearchLastLoadedAtRef.current < 30_000
+
+      if (!force && isFresh) return
+
+      setAdminSearchLoading(true)
+      setAdminSearchError('')
+
+      try {
+        const [orders, customers, payments] = await Promise.all([
+          fetchAdminOrders(),
+          fetchAdminCustomers(),
+          fetchAdminPayments(),
+        ])
+
+        setAdminSearchOrders(orders)
+        setAdminSearchCustomers(customers)
+        setAdminSearchPayments(payments)
+        setAdminSearchLoaded(true)
+        adminSearchLastLoadedAtRef.current = Date.now()
+      } catch (error) {
+        console.error('[AdminLayout] Global search data failed:', error)
+        setAdminSearchError(
+          error instanceof Error
+            ? error.message
+            : 'Unable to load live admin search data.',
+        )
+      } finally {
+        setAdminSearchLoading(false)
+      }
+    },
+    [adminSearchLoaded, adminSearchLoading, canAccessAdmin],
+  )
+
+  const adminSearchResults = useMemo<AdminSearchResult[]>(() => {
+    const query = searchQuery.trim()
+    if (query.length < 2) return []
+
+    const pageResults = navGroups
+      .flatMap((group) =>
+        group.items.map((item) => ({
+          id: `page:${item.path}`,
+          kind: 'page' as const,
+          title: item.label,
+          subtitle: `${group.title} page`,
+          path: item.path,
+          icon: item.icon,
+          keywords: `${group.title} ${item.label} ${ADMIN_NAV_ALIASES[item.path] || ''}`,
+        })),
+      )
+      .filter((result) => matchesAdminSearch(result.keywords, query))
+      .slice(0, 5)
+
+    const orderResults = adminSearchOrders
+      .filter((order) => {
+        const searchable = [
+          order.id,
+          order.orderNumber,
+          order.status,
+          order.user?.name,
+          order.user?.email,
+          order.user?.phone,
+          order.shippingAddress?.recipientName,
+          order.shippingAddress?.phone,
+          order.shippingAddress?.dzongkhag,
+          ...(order.items || []).flatMap((item) => [
+            item.productName,
+            item.sourcePlatform,
+            item.sourceUrl,
+          ]),
+        ]
+          .filter(Boolean)
+          .join(' ')
+
+        return matchesAdminSearch(searchable, query)
+      })
+      .slice(0, 6)
+      .map((order) => {
+        const customerName =
+          order.user?.name ||
+          order.shippingAddress?.recipientName ||
+          order.user?.phone ||
+          'Customer'
+        const orderNumber = order.orderNumber || order.id.slice(0, 8)
+
+        return {
+          id: `order:${order.id}`,
+          kind: 'order' as const,
+          title: `#${orderNumber}`,
+          subtitle: `${customerName} • ${statusSearchLabel(order.status)}`,
+          path: `/admin/orders/${order.id}`,
+          icon: ClipboardList,
+          keywords: '',
+        }
+      })
+
+    const customerResults = adminSearchCustomers
+      .filter((customer) =>
+        matchesAdminSearch(
+          [
+            customer.id,
+            customer.name,
+            customer.email,
+            customer.phone,
+            customer.dzongkhag,
+            customer.accountStatus,
+            customer.accountType,
+          ]
+            .filter(Boolean)
+            .join(' '),
+          query,
+        ),
+      )
+      .slice(0, 5)
+      .map((customer) => ({
+        id: `customer:${customer.id}`,
+        kind: 'customer' as const,
+        title: customer.name || customer.phone || 'Customer',
+        subtitle:
+          [customer.phone, customer.email, customer.dzongkhag]
+            .filter(Boolean)
+            .join(' • ') || 'Customer account',
+        path: `/admin/customers?search=${encodeURIComponent(
+          customer.phone || customer.email || customer.name,
+        )}`,
+        icon: Users,
+        keywords: '',
+      }))
+
+    const paymentResults = adminSearchPayments
+      .filter((payment) => {
+        const searchable = [
+          payment.id,
+          payment.orderId,
+          payment.orderNumber,
+          payment.customerName,
+          payment.customerEmail,
+          payment.customerPhone,
+          payment.status,
+          payment.paymentType,
+          paymentSearchValue(payment, ['transactionId', 'transaction_id', 'referenceNumber']),
+          paymentSearchValue(payment, ['paymentMethod', 'payment_method', 'method']),
+          payment.amount,
+        ]
+          .filter(Boolean)
+          .join(' ')
+
+        return matchesAdminSearch(searchable, query)
+      })
+      .slice(0, 4)
+      .map((payment) => ({
+        id: `payment:${payment.id}`,
+        kind: 'payment' as const,
+        title: `Payment • #${payment.orderNumber || String(payment.orderId || payment.id).slice(0, 8)}`,
+        subtitle: `${payment.customerName || 'Customer'} • ${statusSearchLabel(payment.status)} • Nu. ${Number(payment.amount || 0).toLocaleString()}`,
+        path: `/admin/payments?search=${encodeURIComponent(
+          payment.orderNumber || payment.id,
+        )}`,
+        icon: CreditCard,
+        keywords: '',
+      }))
+
+    return [
+      ...orderResults,
+      ...customerResults,
+      ...paymentResults,
+      ...pageResults,
+    ].slice(0, 14)
+  }, [
+    adminSearchCustomers,
+    adminSearchOrders,
+    adminSearchPayments,
+    searchQuery,
+  ])
+
+  const openAdminSearchResult = (result: AdminSearchResult) => {
+    setAdminSearchOpen(false)
+    setSearchQuery('')
+    navigate(result.path)
+  }
+
+  const clearAdminSearch = () => {
+    setSearchQuery('')
+    setAdminSearchOpen(false)
+    setAdminSearchError('')
+  }
 
   useEffect(() => {
     if (authLoading) return
@@ -255,9 +534,11 @@ export default function AdminLayout() {
     user,
   ])
 
-  // Close sidebar on route change (mobile)
+  // Close transient navigation panels on route change.
   useEffect(() => {
     setSidebarOpen(false)
+    setAdminSearchOpen(false)
+    setSearchQuery('')
   }, [location.pathname])
 
   // Prevent body scroll when mobile sidebar is open
@@ -420,6 +701,22 @@ export default function AdminLayout() {
       void supabase.removeChannel(channel)
     }
   }, [canAccessAdmin, loadAdminNotifications, user])
+
+  useEffect(() => {
+    function handleAdminSearchClickOutside(event: MouseEvent) {
+      if (!adminSearchRef.current) return
+      if (!adminSearchRef.current.contains(event.target as Node)) {
+        setAdminSearchOpen(false)
+      }
+    }
+
+    if (adminSearchOpen) {
+      document.addEventListener('mousedown', handleAdminSearchClickOutside)
+    }
+
+    return () =>
+      document.removeEventListener('mousedown', handleAdminSearchClickOutside)
+  }, [adminSearchOpen])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -785,18 +1082,137 @@ export default function AdminLayout() {
 
           {/* Right: Search + Bell + Profile */}
           <div className="flex items-center gap-2 md:gap-4 shrink-0">
-            <div className="relative hidden sm:block">
+            <div className="relative hidden sm:block" ref={adminSearchRef}>
               <Search
                 size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
               />
               <input
-                type="text"
-                placeholder="Search..."
+                type="search"
+                placeholder="Search orders, customers..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-48 lg:w-64 h-9 pl-9 pr-4 bg-neutral-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                onFocus={() => {
+                  setAdminSearchOpen(true)
+                  void loadAdminSearchData()
+                }}
+                onChange={(event) => {
+                  setSearchQuery(event.target.value)
+                  setAdminSearchOpen(true)
+                  if (event.target.value.trim().length >= 2) {
+                    void loadAdminSearchData()
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    setAdminSearchOpen(false)
+                    return
+                  }
+
+                  if (event.key === 'Enter' && adminSearchResults[0]) {
+                    event.preventDefault()
+                    openAdminSearchResult(adminSearchResults[0])
+                  }
+                }}
+                className="h-9 w-52 rounded-full bg-neutral-100 pl-9 pr-9 text-sm outline-none transition focus:bg-white focus:ring-2 focus:ring-amber-500/20 lg:w-72"
               />
+
+              {adminSearchLoading ? (
+                <Loader2
+                  size={15}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-amber-500"
+                />
+              ) : searchQuery ? (
+                <button
+                  type="button"
+                  onClick={clearAdminSearch}
+                  className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-neutral-400 transition hover:bg-neutral-200 hover:text-neutral-700"
+                  aria-label="Clear admin search"
+                >
+                  <X size={14} />
+                </button>
+              ) : null}
+
+              {adminSearchOpen && searchQuery.trim() && (
+                <div className="absolute right-0 top-11 z-50 w-[min(430px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl">
+                  <div className="border-b border-neutral-100 px-4 py-3">
+                    <p className="text-sm font-bold text-neutral-900">Admin search</p>
+                    <p className="mt-0.5 text-xs text-neutral-500">
+                      Live results from orders, customers, payments, and admin pages
+                    </p>
+                  </div>
+
+                  <div className="max-h-[430px] overflow-y-auto p-2">
+                    {searchQuery.trim().length < 2 ? (
+                      <div className="px-4 py-7 text-center">
+                        <Search size={22} className="mx-auto text-neutral-300" />
+                        <p className="mt-2 text-sm font-semibold text-neutral-700">
+                          Type at least 2 characters
+                        </p>
+                      </div>
+                    ) : adminSearchError && adminSearchResults.length === 0 ? (
+                      <div className="rounded-xl border border-red-100 bg-red-50 px-3 py-3 text-sm text-red-600">
+                        {adminSearchError}
+                      </div>
+                    ) : adminSearchResults.length > 0 ? (
+                      <div className="space-y-1">
+                        {adminSearchResults.map((result) => {
+                          const ResultIcon = result.icon
+
+                          return (
+                            <button
+                              key={result.id}
+                              type="button"
+                              onClick={() => openAdminSearchResult(result)}
+                              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-neutral-50"
+                            >
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                                <ResultIcon size={17} />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-bold text-neutral-900">
+                                  {result.title}
+                                </span>
+                                <span className="mt-0.5 block truncate text-xs text-neutral-500">
+                                  {result.subtitle}
+                                </span>
+                              </span>
+                              <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+                                {result.kind}
+                              </span>
+                            </button>
+                          )
+                        })}
+
+                        {adminSearchLoading && (
+                          <div className="flex items-center justify-center gap-2 px-3 py-3 text-xs text-neutral-400">
+                            <Loader2 size={14} className="animate-spin text-amber-500" />
+                            Refreshing live results...
+                          </div>
+                        )}
+                      </div>
+                    ) : adminSearchLoading ? (
+                      <div className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-neutral-500">
+                        <Loader2 size={17} className="animate-spin text-amber-500" />
+                        Searching live admin data...
+                      </div>
+                    ) : (
+                      <div className="px-4 py-8 text-center">
+                        <Search size={24} className="mx-auto text-neutral-300" />
+                        <p className="mt-2 text-sm font-semibold text-neutral-800">
+                          No matching results
+                        </p>
+                        <p className="mt-1 text-xs text-neutral-400">
+                          Try an order number, customer name, phone, email, or page name.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border-t border-neutral-100 bg-neutral-50 px-4 py-2 text-[11px] text-neutral-400">
+                    Press Enter to open the first result • Esc to close
+                  </div>
+                </div>
+              )}
             </div>
             <div className="relative" ref={notificationPanelRef}>
               <button

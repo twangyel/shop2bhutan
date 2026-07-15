@@ -39,6 +39,105 @@ function whatsappHref(value: string) {
   return digits ? `https://wa.me/${digits}` : undefined;
 }
 
+
+const SEARCH_STOP_WORDS = new Set([
+  'a',
+  'an',
+  'and',
+  'are',
+  'can',
+  'do',
+  'for',
+  'how',
+  'i',
+  'in',
+  'is',
+  'me',
+  'my',
+  'of',
+  'on',
+  'or',
+  'the',
+  'to',
+  'what',
+  'where',
+  'with',
+  'your',
+]);
+
+const SEARCH_SYNONYMS: Record<string, string[]> = {
+  track: ['tracking', 'status', 'progress'],
+  tracking: ['track', 'status', 'progress'],
+  pay: ['payment', 'paid'],
+  payment: ['pay', 'paid', 'transaction'],
+  delivery: ['deliver', 'shipping', 'shipment'],
+  pickup: ['collect', 'collection', 'hub'],
+  return: ['returns', 'refund', 'cancel', 'cancellation'],
+  refund: ['return', 'returns', 'cancel', 'cancellation'],
+  cancel: ['cancellation', 'cancelled', 'return', 'refund'],
+  secure: ['safe', 'security', 'verified', 'verification'],
+  proof: ['screenshot', 'receipt', 'transaction'],
+  order: ['request', 'quotation', 'purchase'],
+};
+
+function normalizeSearchText(value: string) {
+  return value
+    .normalize('NFKD')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function searchTokenVariants(token: string) {
+  const variants = new Set<string>([token, ...(SEARCH_SYNONYMS[token] || [])]);
+
+  if (token.length > 4 && token.endsWith('s')) variants.add(token.slice(0, -1));
+  if (token.length > 5 && token.endsWith('ing')) variants.add(token.slice(0, -3));
+  if (token.length > 4 && token.endsWith('ed')) variants.add(token.slice(0, -2));
+
+  return Array.from(variants).filter(Boolean);
+}
+
+function faqSearchScore(faq: FAQItemRecord, rawQuery: string) {
+  const query = normalizeSearchText(rawQuery);
+  if (!query) return 1;
+
+  const category = normalizeSearchText(faq.category || '');
+  const question = normalizeSearchText(faq.question || '');
+  const answer = normalizeSearchText(faq.answer || '');
+  const combined = `${category} ${question} ${answer}`.trim();
+
+  const tokens = query
+    .split(' ')
+    .filter(Boolean)
+    .filter((token) => !SEARCH_STOP_WORDS.has(token));
+
+  const meaningfulTokens = tokens.length > 0 ? tokens : query.split(' ').filter(Boolean);
+  let score = combined.includes(query) ? 60 : 0;
+  let matchedTokens = 0;
+
+  meaningfulTokens.forEach((token) => {
+    const variants = searchTokenVariants(token);
+    const questionMatch = variants.some((variant) => question.includes(variant));
+    const categoryMatch = variants.some((variant) => category.includes(variant));
+    const answerMatch = variants.some((variant) => answer.includes(variant));
+
+    if (!questionMatch && !categoryMatch && !answerMatch) return;
+
+    matchedTokens += 1;
+    if (questionMatch) score += 12;
+    if (categoryMatch) score += 8;
+    if (answerMatch) score += 4;
+  });
+
+  const requiredMatches =
+    meaningfulTokens.length <= 2
+      ? meaningfulTokens.length
+      : Math.max(2, Math.ceil(meaningfulTokens.length * 0.6));
+
+  return matchedTokens >= requiredMatches ? score + matchedTokens * 2 : 0;
+}
+
 const quickActions = [
   {
     icon: Truck,
@@ -165,12 +264,18 @@ export default function Support() {
   }, []);
 
   const filteredFaqs = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = searchQuery.trim();
+    if (!query) return faqItems;
 
-    return faqItems.filter((faq) => {
-      const searchable = [faq.category, faq.question, faq.answer].join(' ').toLowerCase();
-      return !query || searchable.includes(query);
-    });
+    return faqItems
+      .map((faq, index) => ({
+        faq,
+        index,
+        score: faqSearchScore(faq, query),
+      }))
+      .filter((result) => result.score > 0)
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .map((result) => result.faq);
   }, [faqItems, searchQuery]);
 
   const supportPhoneHref = telHref(appSettings.supportPhone);
