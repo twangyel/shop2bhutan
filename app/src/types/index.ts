@@ -28,6 +28,19 @@ export type ShoppingAssistCaptureMethod =
   | 'visible_page'
   | 'page_fallback';
 
+export type ShoppingAssistPriceStatus =
+  | 'high'
+  | 'verify'
+  | 'missing';
+
+export interface ShoppingAssistPriceCandidateDiagnostic {
+  value: number;
+  score: number;
+  confidence: number;
+  agreement: number;
+  sources: string[];
+}
+
 export interface ShoppingAssistCapture {
   sourceUrl: string;
   canonicalUrl: string;
@@ -39,6 +52,13 @@ export interface ShoppingAssistCapture {
   variant: string;
   captureMethod: ShoppingAssistCaptureMethod;
   confidence: number;
+  priceConfidence?: number;
+  priceStatus?: ShoppingAssistPriceStatus;
+  priceSource?: string;
+  priceAgreement?: number;
+  priceReason?: string;
+  originalPrice?: number;
+  priceDiagnostics?: ShoppingAssistPriceCandidateDiagnostic[];
   capturedAt: number;
 }
 

@@ -11,6 +11,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowInsetsController;
@@ -102,6 +103,7 @@ public class ShoppingAssistActivity extends AppCompatActivity {
     private TextView pageTitle;
     private TextView detectionStatus;
     private TextView detectedPrice;
+    private TextView priceConfidence;
     private Button addButton;
     private View backButton;
     private View forwardButton;
@@ -115,6 +117,7 @@ public class ShoppingAssistActivity extends AppCompatActivity {
     private int strongestScore = 0;
     private String activePageUrl = "";
     private boolean finishingWithCapture = false;
+    private long lastInteractionCaptureAt = 0L;
 
     public static String resolveStartUrl(
         String store,
@@ -260,6 +263,10 @@ public class ShoppingAssistActivity extends AppCompatActivity {
             findViewById(
                 R.id.shopping_assist_price
             );
+        priceConfidence =
+            findViewById(
+                R.id.shopping_assist_price_confidence
+            );
         addButton =
             findViewById(
                 R.id.shopping_assist_add
@@ -347,6 +354,14 @@ public class ShoppingAssistActivity extends AppCompatActivity {
             webView,
             true
         );
+
+        webView.setOnTouchListener((view, event) -> {
+            if (event.getAction() == MotionEvent.ACTION_UP) {
+                scheduleInteractionCapture();
+            }
+
+            return false;
+        });
 
         webView.setWebChromeClient(
             new WebChromeClient() {
@@ -532,6 +547,38 @@ public class ShoppingAssistActivity extends AppCompatActivity {
         }
     }
 
+    private void scheduleInteractionCapture() {
+        if (
+            finishingWithCapture ||
+            webView == null ||
+            !isLikelyProductUrl(webView.getUrl())
+        ) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+
+        if (now - lastInteractionCaptureAt < 650L) {
+            return;
+        }
+
+        lastInteractionCaptureAt = now;
+
+        int[] delays = {
+            450,
+            1100,
+            2200,
+            3800
+        };
+
+        for (int delay : delays) {
+            handler.postDelayed(
+                () -> captureCurrentProduct(false),
+                delay
+            );
+        }
+    }
+
     private void resetCaptureForPage(
         String url
     ) {
@@ -548,6 +595,9 @@ public class ShoppingAssistActivity extends AppCompatActivity {
             "Checking this page…"
         );
         detectedPrice.setVisibility(
+            View.GONE
+        );
+        priceConfidence.setVisibility(
             View.GONE
         );
     }
@@ -733,6 +783,22 @@ public class ShoppingAssistActivity extends AppCompatActivity {
                             ""
                         )
                     ) +
+                    " priceConfidence=" +
+                    capture.optInt(
+                        "priceConfidence",
+                        0
+                    ) +
+                    " priceStatus=" + safeString(
+                        capture.optString(
+                            "priceStatus",
+                            "missing"
+                        )
+                    ) +
+                    " priceAgreement=" +
+                    capture.optInt(
+                        "priceAgreement",
+                        0
+                    ) +
                     " imageSource=" + safeString(
                         capture.optString(
                             "imageSource",
@@ -857,6 +923,56 @@ public class ShoppingAssistActivity extends AppCompatActivity {
                 "capturedAt",
                 System.currentTimeMillis()
             );
+
+            double displayedPrice = capture.optDouble(
+                "displayedPrice",
+                0
+            );
+            int detectedConfidence = Math.max(
+                0,
+                Math.min(
+                    100,
+                    capture.optInt(
+                        "priceConfidence",
+                        0
+                    )
+                )
+            );
+            String status = safeString(
+                capture.optString(
+                    "priceStatus",
+                    displayedPrice > 0
+                        ? "verify"
+                        : "missing"
+                )
+            ).toLowerCase(Locale.ROOT);
+
+            if (
+                !"high".equals(status) &&
+                !"verify".equals(status) &&
+                !"missing".equals(status)
+            ) {
+                status = displayedPrice > 0
+                    ? "verify"
+                    : "missing";
+            }
+
+            if (displayedPrice <= 0) {
+                status = "missing";
+                detectedConfidence = 0;
+                capture.put("originalPrice", 0);
+            } else if (
+                "high".equals(status) &&
+                detectedConfidence < 80
+            ) {
+                status = "verify";
+            }
+
+            capture.put(
+                "priceConfidence",
+                detectedConfidence
+            );
+            capture.put("priceStatus", status);
         } catch (Exception ignored) {
             // JSONObject is best-effort.
         }
@@ -887,6 +1003,23 @@ public class ShoppingAssistActivity extends AppCompatActivity {
             );
         }
 
+        String priceStatus = safeString(
+            capture.optString(
+                "priceStatus",
+                price > 0 ? "verify" : "missing"
+            )
+        ).toLowerCase(Locale.ROOT);
+        int detectedConfidence = Math.max(
+            0,
+            Math.min(
+                100,
+                capture.optInt(
+                    "priceConfidence",
+                    0
+                )
+            )
+        );
+
         if (price > 0) {
             detectedPrice.setText(
                 "₹" + formatPrice(price)
@@ -894,18 +1027,49 @@ public class ShoppingAssistActivity extends AppCompatActivity {
             detectedPrice.setVisibility(
                 View.VISIBLE
             );
+
+            if ("high".equals(priceStatus)) {
+                priceConfidence.setText(
+                    "High confidence · " +
+                    detectedConfidence + "%"
+                );
+                priceConfidence.setTextColor(
+                    Color.parseColor("#15803D")
+                );
+            } else {
+                priceConfidence.setText(
+                    "Please verify · " +
+                    detectedConfidence + "%"
+                );
+                priceConfidence.setTextColor(
+                    Color.parseColor("#B45309")
+                );
+            }
+
+            priceConfidence.setVisibility(
+                View.VISIBLE
+            );
         } else {
             detectedPrice.setText(
-                "Price to verify"
+                "Price not found"
             );
             detectedPrice.setVisibility(
+                View.VISIBLE
+            );
+            priceConfidence.setText(
+                "Review before adding"
+            );
+            priceConfidence.setTextColor(
+                Color.parseColor("#64748B")
+            );
+            priceConfidence.setVisibility(
                 View.VISIBLE
             );
         }
 
         addButton.setEnabled(score >= 25);
         addButton.setText(
-            score >= 55
+            score >= 55 && "high".equals(priceStatus)
                 ? "Add to Request Bag"
                 : "Review product"
         );
@@ -965,6 +1129,14 @@ public class ShoppingAssistActivity extends AppCompatActivity {
                 "page_fallback"
             );
             capture.put("confidence", 25);
+            capture.put("priceConfidence", 0);
+            capture.put("priceStatus", "missing");
+            capture.put("priceAgreement", 0);
+            capture.put(
+                "priceReason",
+                "No reliable current selling price was found."
+            );
+            capture.put("originalPrice", 0);
             capture.put(
                 "capturedAt",
                 System.currentTimeMillis()
@@ -1065,7 +1237,20 @@ public class ShoppingAssistActivity extends AppCompatActivity {
         }
 
         if (price > 0) {
-            score += 25;
+            int detectedConfidence = Math.max(
+                0,
+                Math.min(
+                    100,
+                    capture.optInt(
+                        "priceConfidence",
+                        60
+                    )
+                )
+            );
+
+            score += detectedConfidence >= 85
+                ? 25
+                : 18;
         }
 
         if (
@@ -1115,6 +1300,18 @@ public class ShoppingAssistActivity extends AppCompatActivity {
         }
 
         return false;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        if (webView != null) {
+            handler.postDelayed(
+                () -> captureCurrentProduct(false),
+                500
+            );
+        }
     }
 
     private void updateNavigationButtons() {

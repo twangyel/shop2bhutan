@@ -193,6 +193,62 @@ function normalizeStore(
   return null;
 }
 
+function normalizePriceStatus(
+  value: unknown,
+  displayedPrice: number,
+) {
+  const status = cleanText(value).toLowerCase();
+
+  if (
+    status === 'high' ||
+    status === 'verify' ||
+    status === 'missing'
+  ) {
+    return displayedPrice > 0 ? status : 'missing';
+  }
+
+  return displayedPrice > 0 ? 'verify' : 'missing';
+}
+
+function normalizePriceDiagnostics(value: unknown) {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+
+      const row = item as Record<string, unknown>;
+      const price = Number(row.value);
+      const score = Number(row.score);
+      const confidence = Number(row.confidence);
+      const agreement = Number(row.agreement);
+      const sources = Array.isArray(row.sources)
+        ? row.sources
+            .map((source) => cleanText(source))
+            .filter(Boolean)
+            .slice(0, 8)
+        : [];
+
+      if (!Number.isFinite(price) || price <= 0) {
+        return null;
+      }
+
+      return {
+        value: price,
+        score: Number.isFinite(score) ? score : 0,
+        confidence: Number.isFinite(confidence)
+          ? Math.max(0, Math.min(100, confidence))
+          : 0,
+        agreement: Number.isFinite(agreement)
+          ? Math.max(0, Math.round(agreement))
+          : 0,
+        sources,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    .slice(0, 5);
+}
+
 function normalizeCapture(
   value: Partial<ShoppingAssistCapture> | null | undefined,
 ): ShoppingAssistCapture | null {
@@ -206,7 +262,14 @@ function normalizeCapture(
   }
 
   const displayedPrice = Number(value.displayedPrice);
+  const normalizedDisplayedPrice =
+    Number.isFinite(displayedPrice) && displayedPrice > 0
+      ? displayedPrice
+      : 0;
   const confidence = Number(value.confidence);
+  const priceConfidence = Number(value.priceConfidence);
+  const priceAgreement = Number(value.priceAgreement);
+  const originalPrice = Number(value.originalPrice);
   const capturedAt = Number(value.capturedAt);
 
   return {
@@ -218,11 +281,7 @@ function normalizeCapture(
     image: /^https:\/\//i.test(cleanText(value.image))
       ? cleanText(value.image)
       : '',
-    displayedPrice:
-      Number.isFinite(displayedPrice) &&
-      displayedPrice > 0
-        ? displayedPrice
-        : 0,
+    displayedPrice: normalizedDisplayedPrice,
     currency: 'INR',
     variant: cleanText(value.variant),
     captureMethod:
@@ -237,6 +296,29 @@ function normalizeCapture(
       Number.isFinite(confidence)
         ? Math.max(0, Math.min(100, confidence))
         : 0,
+    priceConfidence:
+      normalizedDisplayedPrice > 0 &&
+      Number.isFinite(priceConfidence)
+        ? Math.max(0, Math.min(100, priceConfidence))
+        : 0,
+    priceStatus: normalizePriceStatus(
+      value.priceStatus,
+      normalizedDisplayedPrice,
+    ),
+    priceSource: cleanText(value.priceSource).slice(0, 80),
+    priceAgreement:
+      Number.isFinite(priceAgreement)
+        ? Math.max(0, Math.round(priceAgreement))
+        : 0,
+    priceReason: cleanText(value.priceReason).slice(0, 300),
+    originalPrice:
+      Number.isFinite(originalPrice) &&
+      originalPrice > normalizedDisplayedPrice
+        ? originalPrice
+        : 0,
+    priceDiagnostics: normalizePriceDiagnostics(
+      value.priceDiagnostics,
+    ),
     capturedAt:
       Number.isFinite(capturedAt) && capturedAt > 0
         ? capturedAt

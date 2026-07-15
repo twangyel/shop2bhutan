@@ -170,20 +170,39 @@
                     android:textColor="#0F172A" />
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/shopping_assist_price"
+            <LinearLayout
                 android:layout_width="wrap_content"
-                android:layout_height="34dp"
-                android:minWidth="78dp"
-                android:gravity="center"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:text="₹0"
-                android:textStyle="bold"
-                android:textSize="12sp"
-                android:textColor="#C2410C"
-                android:visibility="gone"
-                android:background="@drawable/s2b_price_chip" />
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="end">
+
+                <TextView
+                    android:id="@+id/shopping_assist_price"
+                    android:layout_width="wrap_content"
+                    android:layout_height="34dp"
+                    android:minWidth="78dp"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:text="₹0"
+                    android:textStyle="bold"
+                    android:textSize="12sp"
+                    android:textColor="#C2410C"
+                    android:visibility="gone"
+                    android:background="@drawable/s2b_price_chip" />
+
+                <TextView
+                    android:id="@+id/shopping_assist_price_confidence"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:maxLines="1"
+                    android:text="Checking price"
+                    android:textStyle="bold"
+                    android:textSize="9sp"
+                    android:textColor="#64748B"
+                    android:visibility="gone" />
+            </LinearLayout>
         </LinearLayout>
 
         <Button

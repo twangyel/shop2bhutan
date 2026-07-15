@@ -5,6 +5,7 @@ import {
   useState,
 } from 'react';
 import {
+  AlertTriangle,
   ArrowLeft,
   CheckCircle2,
   ImageOff,
@@ -13,6 +14,7 @@ import {
   Package,
   Plus,
   RotateCcw,
+  ShieldCheck,
   ShoppingBag,
   Sparkles,
 } from 'lucide-react';
@@ -54,6 +56,17 @@ function storeLabel(store: ShoppingAssistStore) {
 function priceText(value: number) {
   if (!value || value <= 0) return 'To be verified';
   return `₹${Math.round(value).toLocaleString('en-IN')}`;
+}
+
+
+function priceSourceLabel(value?: string) {
+  if (!value) return 'Page analysis';
+  if (value.includes('_selector')) return 'Store price area';
+  if (value === 'json_ld') return 'Product data';
+  if (value === 'metadata') return 'Page metadata';
+  if (value === 'visible_page') return 'Visible page price';
+  if (value === 'open_graph') return 'Shared link preview';
+  return 'Page analysis';
 }
 
 function isUsefulTitle(value: string) {
@@ -254,6 +267,28 @@ export default function ShoppingAssistReview() {
             preview?.fetched
               ? 70
               : 35,
+          priceConfidence:
+            preview?.price && preview.price > 0
+              ? 60
+              : 0,
+          priceStatus:
+            preview?.price && preview.price > 0
+              ? 'verify'
+              : 'missing',
+          priceSource:
+            preview?.price && preview.price > 0
+              ? 'open_graph'
+              : '',
+          priceAgreement:
+            preview?.price && preview.price > 0
+              ? 1
+              : 0,
+          priceReason:
+            preview?.price && preview.price > 0
+              ? 'A likely price was found from the shared link. Please verify it on the store page.'
+              : 'No reliable current selling price was found.',
+          originalPrice: 0,
+          priceDiagnostics: [],
           capturedAt:
             sharedTarget.receivedAt,
         };
@@ -354,6 +389,13 @@ export default function ShoppingAssistReview() {
 
         if (!active || !preview) return;
 
+        const fallbackPrice =
+          captureSnapshot.displayedPrice ||
+          preview.price ||
+          0;
+        const nativePriceAvailable =
+          captureSnapshot.displayedPrice > 0;
+
         const next: ShoppingAssistCapture = {
           ...captureSnapshot,
           title:
@@ -372,14 +414,42 @@ export default function ShoppingAssistReview() {
               : captureSnapshot.image ||
                 preview.image ||
                 '',
-          displayedPrice:
-            captureSnapshot.displayedPrice ||
-            preview.price ||
-            0,
+          displayedPrice: fallbackPrice,
           confidence: Math.max(
             captureSnapshot.confidence,
             preview.fetched ? 70 : 35,
           ),
+          priceConfidence:
+            nativePriceAvailable
+              ? captureSnapshot.priceConfidence ??
+                captureSnapshot.confidence
+              : fallbackPrice > 0
+                ? 60
+                : 0,
+          priceStatus:
+            nativePriceAvailable
+              ? captureSnapshot.priceStatus ?? 'verify'
+              : fallbackPrice > 0
+                ? 'verify'
+                : 'missing',
+          priceSource:
+            nativePriceAvailable
+              ? captureSnapshot.priceSource
+              : fallbackPrice > 0
+                ? 'open_graph'
+                : '',
+          priceAgreement:
+            nativePriceAvailable
+              ? captureSnapshot.priceAgreement ?? 1
+              : fallbackPrice > 0
+                ? 1
+                : 0,
+          priceReason:
+            nativePriceAvailable
+              ? captureSnapshot.priceReason
+              : fallbackPrice > 0
+                ? 'A likely price was found from the shared link. Please verify it on the store page.'
+                : 'No reliable current selling price was found.',
         };
 
         setCapture(next);
@@ -500,6 +570,34 @@ export default function ShoppingAssistReview() {
       </div>
     );
   }
+
+  const detectedPriceStatus =
+    capture.priceStatus ??
+    (displayedPrice > 0
+      ? capture.confidence >= 85
+        ? 'high'
+        : 'verify'
+      : 'missing');
+  const detectedPriceConfidence =
+    displayedPrice > 0
+      ? Math.max(
+          0,
+          Math.min(
+            100,
+            capture.priceConfidence ?? capture.confidence,
+          ),
+        )
+      : 0;
+  const detectedOriginalPrice =
+    capture.originalPrice &&
+    capture.originalPrice > displayedPrice
+      ? capture.originalPrice
+      : 0;
+  const priceHighConfidence =
+    detectedPriceStatus === 'high';
+  const priceMissing =
+    detectedPriceStatus === 'missing' ||
+    displayedPrice <= 0;
 
   const addProductToRequestBag = async () => {
     setError('');
@@ -826,6 +924,86 @@ export default function ShoppingAssistReview() {
                   >
                     <Plus size={15} />
                   </button>
+                </div>
+              </div>
+            </div>
+
+            <div
+              className={`flex items-start gap-3 rounded-2xl border p-3.5 ${
+                priceMissing
+                  ? 'border-slate-200 bg-slate-50'
+                  : priceHighConfidence
+                    ? 'border-emerald-100 bg-emerald-50/70'
+                    : 'border-amber-100 bg-amber-50/70'
+              }`}
+            >
+              <span
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm ${
+                  priceMissing
+                    ? 'text-slate-500'
+                    : priceHighConfidence
+                      ? 'text-emerald-600'
+                      : 'text-amber-600'
+                }`}
+              >
+                {priceHighConfidence ? (
+                  <ShieldCheck size={17} strokeWidth={2.3} />
+                ) : (
+                  <AlertTriangle size={17} strokeWidth={2.3} />
+                )}
+              </span>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p
+                    className={`text-xs font-extrabold ${
+                      priceMissing
+                        ? 'text-slate-700'
+                        : priceHighConfidence
+                          ? 'text-emerald-800'
+                          : 'text-amber-800'
+                    }`}
+                  >
+                    {priceMissing
+                      ? 'Price not detected'
+                      : priceHighConfidence
+                        ? 'High-confidence price'
+                        : 'Please verify this price'}
+                  </p>
+
+                  {!priceMissing && (
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[9px] font-extrabold text-slate-500 shadow-sm">
+                      {detectedPriceConfidence}%
+                    </span>
+                  )}
+                </div>
+
+                <p
+                  className={`mt-1 text-[11px] leading-5 ${
+                    priceMissing
+                      ? 'text-slate-500'
+                      : priceHighConfidence
+                        ? 'text-emerald-700'
+                        : 'text-amber-700'
+                  }`}
+                >
+                  {capture.priceReason ||
+                    (priceMissing
+                      ? 'Shop2Bhutan could not safely identify the current selling price. It will be verified during quotation.'
+                      : priceHighConfidence
+                        ? 'The current store price was confirmed across the product page.'
+                        : 'The amount appears likely, but the product page showed limited or conflicting evidence.')}
+                </p>
+
+                <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold text-slate-500">
+                  <span>
+                    Source: {priceSourceLabel(capture.priceSource)}
+                  </span>
+                  {detectedOriginalPrice > 0 && (
+                    <span>
+                      MRP: ₹{Math.round(detectedOriginalPrice).toLocaleString('en-IN')}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
