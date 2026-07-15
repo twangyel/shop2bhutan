@@ -887,10 +887,20 @@ export default function RequestBag() {
       return false;
     }
 
+    if (!isSelfPickup && !savedAddress?.formattedAddress) {
+      void hapticWarning();
+      setReviewStep(2);
+      setError(
+        'Please add and select a saved delivery address before choosing delivery.',
+      );
+      scrollReviewToTop();
+      return false;
+    }
+
     if (
       !isSelfPickup &&
       !normalizeSupportedDeliveryDestination(
-        customer.deliveryAddress,
+        savedAddress?.formattedAddress || customer.deliveryAddress,
         dzongkhagOptions,
       )
     ) {
@@ -931,13 +941,6 @@ export default function RequestBag() {
 
     if (reviewStep === 2) {
       if (!validateContactStep()) return;
-
-      // A saved address is optional. Customers without one continue to the
-      // delivery step and choose only the supported delivery area there.
-      if (!savedAddress?.formattedAddress) {
-        setUseSavedAddress(false);
-      }
-
       goToReviewStep(3);
     }
   };
@@ -977,13 +980,6 @@ export default function RequestBag() {
     setError('');
   };
 
-  const continueWithoutSavedAddress = () => {
-    if (!validateContactStep()) return;
-
-    setUseSavedAddress(false);
-    setDestinationPickerOpen(false);
-    goToReviewStep(3);
-  };
 
   const openAddressManager = () => {
     if (submitting) return;
@@ -1010,7 +1006,9 @@ export default function RequestBag() {
         email: user.email,
         customerName: customer.name.trim(),
         customerPhone: customer.phone.trim(),
-        deliveryAddress: isSelfPickup ? `Pickup — ${selectedPickupHub.name}` : customer.deliveryAddress.trim(),
+        deliveryAddress: isSelfPickup
+          ? `Pickup — ${selectedPickupHub.name}`
+          : (savedAddress?.formattedAddress || customer.deliveryAddress).trim(),
         customerNotes: customer.notes.trim() || 'Shopping request submitted by customer.',
         fulfillmentMode,
         pickupHubId: isSelfPickup ? selectedPickupHub.id : null,
@@ -1220,8 +1218,8 @@ export default function RequestBag() {
                     {reviewStep === 1
                       ? 'Confirm the products and add any final request notes.'
                       : reviewStep === 2
-                        ? 'Confirm your name and phone. Saving a delivery address is optional.'
-                        : 'Choose delivery or pickup before submitting your request.'}
+                        ? 'Confirm your contact details. A saved address is required only for home delivery.'
+                        : 'Choose delivery with a saved address, or select a pickup option.'}
                   </p>
                 </div>
 
@@ -1595,31 +1593,31 @@ export default function RequestBag() {
                         </div>
                       </div>
                     ) : (
-                      <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3.5">
-                        <p className="text-sm font-extrabold text-blue-800">
-                          Saved address is optional
+                      <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3.5">
+                        <p className="text-sm font-extrabold text-amber-800">
+                          Saved address required for delivery
                         </p>
-                        <p className="mt-1 text-xs leading-5 text-blue-700">
-                          You can continue now and choose only your delivery
-                          area in the next step. A full saved address can be
-                          added later for faster future requests.
+                        <p className="mt-1 text-xs leading-5 text-amber-700">
+                          Add a complete saved address before choosing
+                          “Deliver to me”. You can still continue and choose a
+                          self-pickup option without saving an address.
                         </p>
 
                         <div className="mt-3 grid grid-cols-2 gap-2.5">
                           <button
                             type="button"
                             onClick={openAddressManager}
-                            className="h-10 rounded-xl bg-white px-3 text-xs font-extrabold text-blue-700 ring-1 ring-blue-200"
+                            className="h-10 rounded-xl bg-amber-600 px-3 text-xs font-extrabold text-white transition active:scale-[0.98]"
                           >
-                            Save address
+                            Add saved address
                           </button>
 
                           <button
                             type="button"
-                            onClick={continueWithoutSavedAddress}
-                            className="h-10 rounded-xl bg-blue-600 px-3 text-xs font-extrabold text-white transition active:scale-[0.98]"
+                            onClick={() => goToReviewStep(3)}
+                            className="h-10 rounded-xl bg-white px-3 text-xs font-extrabold text-amber-700 ring-1 ring-amber-200"
                           >
-                            Continue without saving
+                            Choose pickup
                           </button>
                         </div>
                       </div>
@@ -1753,6 +1751,14 @@ export default function RequestBag() {
                       <button
                         type="button"
                         onClick={() => {
+                          if (!savedAddress?.formattedAddress) {
+                            setError(
+                              'Add a saved delivery address before selecting home delivery.',
+                            );
+                            goToReviewStep(2);
+                            return;
+                          }
+
                           setFulfillmentMode('delivery');
                           setError('');
                         }}
@@ -1766,7 +1772,7 @@ export default function RequestBag() {
                           Deliver to me
                         </span>
                         <span className="mt-1 block text-xs leading-4 opacity-75">
-                          Saved address or delivery area
+                          Saved address required
                         </span>
                       </button>
 
@@ -1835,14 +1841,13 @@ export default function RequestBag() {
                                 : 'Delivery area'}
                             </p>
                             <p className="mt-1 text-sm font-extrabold text-slate-950">
-                              {useSavedAddress && savedAddress?.formattedAddress
+                              {savedAddress?.formattedAddress
                                 ? savedAddress.label || 'Default address'
-                                : selectedDeliveryZone ||
-                                  'No delivery area selected'}
+                                : 'Saved address required'}
                             </p>
                             <p className="mt-1.5 break-words text-xs leading-5 text-slate-500 [overflow-wrap:anywhere]">
-                              {customer.deliveryAddress ||
-                                'Choose an address or delivery area.'}
+                              {savedAddress?.formattedAddress ||
+                                'Add a saved address to use home delivery.'}
                             </p>
                             {selectedDeliveryZone && (
                               <span className="mt-2 inline-flex rounded-full bg-slate-50 px-2.5 py-1 text-[10px] font-extrabold text-slate-600">
@@ -1870,94 +1875,6 @@ export default function RequestBag() {
                       </div>
                     )}
 
-                    {!isSelfPickup &&
-                      (!savedAddress?.formattedAddress || !useSavedAddress) && (
-                        <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-1.5">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setDestinationPickerOpen((previous) => !previous)
-                            }
-                            className="flex min-h-[50px] w-full items-center justify-between gap-3 rounded-xl px-3 text-left transition active:scale-[0.99]"
-                            aria-expanded={destinationPickerOpen}
-                          >
-                            <span className="flex min-w-0 items-center gap-2.5">
-                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-orange-500">
-                                <MapPin size={17} strokeWidth={2.2} />
-                              </span>
-                              <span className="min-w-0">
-                                <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                                  Delivery area
-                                </span>
-                                <span className="block truncate text-sm font-extrabold text-slate-950">
-                                  {selectedDeliveryZone ||
-                                    'Choose Thimphu, Paro, or Chhukha'}
-                                </span>
-                              </span>
-                            </span>
-
-                            <ChevronDown
-                              size={18}
-                              strokeWidth={2.4}
-                              className={`shrink-0 text-slate-400 transition-transform ${
-                                destinationPickerOpen ? 'rotate-180' : ''
-                              }`}
-                            />
-                          </button>
-
-                          {destinationPickerOpen && (
-                            <div className="mt-1.5 grid gap-1.5 border-t border-slate-100 pt-1.5">
-                              {DELIVERY_DESTINATION_OPTIONS.map((destination) => {
-                                const selected =
-                                  selectedDeliveryZone === destination;
-
-                                return (
-                                  <button
-                                    key={destination}
-                                    type="button"
-                                    onClick={() => {
-                                      setUseSavedAddress(false);
-                                      setCustomer((previous) => ({
-                                        ...previous,
-                                        deliveryAddress: destination,
-                                      }));
-                                      setDestinationPickerOpen(false);
-                                      setError('');
-                                    }}
-                                    className={`flex min-h-[46px] items-center justify-between rounded-xl px-3 text-left transition active:scale-[0.99] ${
-                                      selected
-                                        ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-100'
-                                        : 'bg-white text-slate-700 active:bg-slate-50'
-                                    }`}
-                                  >
-                                    <span className="flex items-center gap-2.5">
-                                      <span
-                                        className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                                          selected
-                                            ? 'bg-white text-orange-500'
-                                            : 'bg-slate-50 text-slate-400'
-                                        }`}
-                                      >
-                                        <MapPin size={15} strokeWidth={2.3} />
-                                      </span>
-                                      <span className="text-sm font-bold">
-                                        {destination}
-                                      </span>
-                                    </span>
-
-                                    {selected && (
-                                      <CheckCircle
-                                        size={17}
-                                        strokeWidth={2.5}
-                                      />
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )}
                   </section>
 
                   <section className="rounded-2xl border border-slate-100 bg-white p-4">
