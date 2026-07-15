@@ -278,6 +278,26 @@ export default function Support() {
       .map((result) => result.faq);
   }, [faqItems, searchQuery]);
 
+  const filteredPolicies = useMemo(() => {
+    const query = normalizeSearchText(searchQuery);
+    if (!query) return [];
+
+    const tokens = query
+      .split(' ')
+      .filter(Boolean)
+      .filter((token) => !SEARCH_STOP_WORDS.has(token));
+    const meaningfulTokens = tokens.length > 0 ? tokens : query.split(' ').filter(Boolean);
+
+    return policyLinks.filter((policy) => {
+      const searchable = normalizeSearchText(`${policy.label} ${policy.description}`);
+      if (searchable.includes(query)) return true;
+
+      return meaningfulTokens.every((token) =>
+        searchTokenVariants(token).some((variant) => searchable.includes(variant)),
+      );
+    });
+  }, [searchQuery]);
+
   const supportPhoneHref = telHref(appSettings.supportPhone);
   const supportWhatsappHref = whatsappHref(appSettings.whatsappNumber);
   const businessHoursStatus = useMemo(
@@ -295,7 +315,7 @@ export default function Support() {
     setExpandedFaq(null);
 
     requestAnimationFrame(() => {
-      document.getElementById('support-faqs')?.scrollIntoView({
+      document.getElementById('support-search-title')?.scrollIntoView({
         behavior: 'smooth',
         block: 'start',
       });
@@ -402,9 +422,119 @@ export default function Support() {
                 </button>
               )}
             </div>
+
+            {hasSearchQuery && (
+              <div
+                id="support-live-results"
+                className="mt-3 overflow-hidden rounded-2xl border border-orange-100 bg-white shadow-sm"
+                aria-live="polite"
+              >
+                <div className="flex items-center justify-between gap-3 border-b border-neutral-100 px-3.5 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-orange-600">
+                      Live results
+                    </p>
+                    <p className="mt-0.5 truncate text-[11px] text-neutral-500">
+                      Matching “{searchQuery.trim()}”
+                    </p>
+                  </div>
+
+                  {!loadingFaqs && (
+                    <span className="shrink-0 rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-extrabold text-orange-700">
+                      {filteredFaqs.length + filteredPolicies.length}
+                    </span>
+                  )}
+                </div>
+
+                {loadingFaqs ? (
+                  <div className="flex items-center justify-center gap-2 px-4 py-7 text-sm font-semibold text-neutral-500">
+                    <Loader2 size={17} className="animate-spin text-orange-500" />
+                    Searching help content...
+                  </div>
+                ) : filteredFaqs.length > 0 || filteredPolicies.length > 0 ? (
+                  <div className="max-h-[420px] overflow-y-auto">
+                    {filteredPolicies.map((policy) => {
+                      const Icon = policy.icon;
+
+                      return (
+                        <button
+                          key={policy.path}
+                          type="button"
+                          onClick={() => navigate(policy.path)}
+                          className="flex w-full items-center gap-3 border-b border-neutral-100 px-3.5 py-3.5 text-left transition active:bg-neutral-50"
+                        >
+                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${policy.iconClass}`}>
+                            <Icon size={17} strokeWidth={2.1} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-extrabold text-neutral-900">{policy.label}</span>
+                            <span className="mt-0.5 block truncate text-[11px] text-neutral-500">{policy.description}</span>
+                          </span>
+                          <ArrowUpRight size={16} className="shrink-0 text-neutral-300" />
+                        </button>
+                      );
+                    })}
+
+                    {filteredFaqs.map((faq, index) => {
+                      const isExpanded = expandedFaq === faq.id;
+                      const hasDivider = index < filteredFaqs.length - 1;
+
+                      return (
+                        <article
+                          key={faq.id}
+                          className={hasDivider ? 'border-b border-neutral-100' : ''}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setExpandedFaq(isExpanded ? null : faq.id)}
+                            aria-expanded={isExpanded}
+                            className="flex w-full items-start justify-between gap-3 px-3.5 py-3.5 text-left transition active:bg-neutral-50"
+                          >
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-bold leading-5 text-neutral-900">{faq.question}</span>
+                              {faq.category && (
+                                <span className="mt-1 block text-[10px] font-extrabold uppercase tracking-[0.08em] text-neutral-400">
+                                  {faq.category}
+                                </span>
+                              )}
+                            </span>
+                            <span
+                              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition ${
+                                isExpanded ? 'bg-orange-50 text-orange-600' : 'bg-neutral-50 text-neutral-400'
+                              }`}
+                            >
+                              <ChevronDown
+                                size={16}
+                                strokeWidth={2.2}
+                                className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                              />
+                            </span>
+                          </button>
+
+                          {isExpanded && (
+                            <div className="px-3.5 pb-4 pr-12">
+                              <p className="whitespace-pre-line text-[13px] leading-6 text-neutral-600">{faq.answer}</p>
+                            </div>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="px-5 py-7 text-center">
+                    <Search size={21} className="mx-auto text-neutral-300" />
+                    <p className="mt-2 text-sm font-extrabold text-neutral-900">No matching content</p>
+                    <p className="mt-1 text-xs leading-5 text-neutral-500">
+                      Try a simpler keyword such as order, payment, delivery, refund, or privacy.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </section>
 
+        {!hasSearchQuery && (
         <section aria-labelledby="quick-help-title">
           <div className="mb-3 flex items-end justify-between gap-3">
             <div>
@@ -436,7 +566,9 @@ export default function Support() {
             })}
           </div>
         </section>
+        )}
 
+        {!hasSearchQuery && (
         <section aria-labelledby="policies-title">
           <div className="mb-3">
             <h2 id="policies-title" className="text-base font-extrabold tracking-[-0.01em] text-neutral-950">
@@ -473,7 +605,9 @@ export default function Support() {
             })}
           </div>
         </section>
+        )}
 
+        {!hasSearchQuery && (
         <section id="support-faqs" aria-labelledby="faq-title" className="scroll-mt-24">
           <div className="mb-3 flex items-end justify-between gap-3">
             <div>
@@ -563,6 +697,7 @@ export default function Support() {
             </div>
           )}
         </section>
+        )}
 
         <section aria-labelledby="support-diagnostics-title">
           <div className="rounded-[26px] border border-blue-100 bg-blue-50/60 p-4">

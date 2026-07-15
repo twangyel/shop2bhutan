@@ -561,6 +561,35 @@ export async function fetchPublicAppSettings(): Promise<AppSettings> {
   return normalizeAppSettings((data ?? []) as SettingsRow[]);
 }
 
+
+export const CUSTOMER_MAINTENANCE_ERROR =
+  'Shop2Bhutan is currently under maintenance. Please try again later.';
+
+export const NEW_SHOPPING_REQUESTS_PAUSED_ERROR =
+  'New shopping requests are temporarily paused. You can still view existing orders and payments.';
+
+export async function assertCustomerAppAvailable(): Promise<AppSettings> {
+  const settings = await fetchPublicAppSettings();
+
+  if (settings.maintenanceEnabled) {
+    const detail = cleanText(settings.maintenanceMessage);
+    throw new Error(detail || CUSTOMER_MAINTENANCE_ERROR);
+  }
+
+  return settings;
+}
+
+export async function assertNewShoppingRequestsAllowed(): Promise<AppSettings> {
+  const settings = await assertCustomerAppAvailable();
+
+  if (!settings.orderAcceptanceEnabled) {
+    throw new Error(NEW_SHOPPING_REQUESTS_PAUSED_ERROR);
+  }
+
+  return settings;
+}
+
+
 export async function saveAppSettings(settings: AppSettings, userId?: string | null): Promise<AppSettings> {
   const businessHoursError = validateBusinessHoursSchedule(
     settings.businessSchedule,

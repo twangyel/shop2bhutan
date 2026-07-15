@@ -1,4 +1,8 @@
 import { supabase } from '@/lib/supabase'
+import {
+  assertCustomerAppAvailable,
+  assertNewShoppingRequestsAllowed,
+} from '@/lib/appSettings'
 import type {
   Address,
   DeliveryFeeRule,
@@ -3712,6 +3716,10 @@ export async function fetchAdminOrderById(orderIdOrNumber: string) {
 }
 
 export async function updateQuotationStatus(quotationId: string, status: QuotationStatus) {
+  if (status === 'approved' || status === 'rejected') {
+    await assertCustomerAppAvailable()
+  }
+
   const now = new Date().toISOString()
   const statusCandidates =
     status === 'approved'
@@ -4019,6 +4027,8 @@ export async function updateAdminFulfillmentStatus(input: {
 
 
 export async function acceptCustomerQuotation(input: { orderId: string; quotationId?: string }) {
+  await assertCustomerAppAvailable()
+
   const orderId = cleanText(input.orderId)
   const quotationId = cleanText(input.quotationId)
 
@@ -4510,6 +4520,8 @@ function makeConfirmedDeliveryAddressSnapshot(input: ConfirmCustomerDeliveryAddr
 }
 
 export async function updateCustomerOrderDeliveryAddress(input: ConfirmCustomerDeliveryAddressInput) {
+  await assertCustomerAppAvailable()
+
   const orderId = cleanText(input.orderId)
   if (!orderId) throw new Error('Order ID is required.')
 
@@ -4596,6 +4608,8 @@ export async function updateCustomerOrderDeliveryAddress(input: ConfirmCustomerD
 
 
 export async function submitCustomerPaymentProof(input: PaymentProofInput) {
+  await assertCustomerAppAvailable()
+
   const { order, userId, file, paymentMethodName, paymentMethodId, paymentMethodType, transactionId, amount, paymentType, note } = input
   const paymentAmount = numericAmount(amount)
   const payments = order.payments ?? (order.payment ? [order.payment] : [])
@@ -5499,6 +5513,7 @@ async function addCustomerSubmittedTrackingEvent(orderId: string, userId: string
 
 export async function submitPasteLinkOrder(input: SubmitPasteLinkOrderInput): Promise<SubmitPasteLinkOrderResult> {
   if (!input.userId) throw new Error('Please sign in before submitting your order.')
+  await assertNewShoppingRequestsAllowed()
   if (!cleanText(input.customerName)) throw new Error('Customer name is required.')
   if (!cleanText(input.customerPhone)) throw new Error('Phone number is required.')
 
@@ -5762,6 +5777,7 @@ async function uploadRequestBagScreenshot(userId: string, bagId: string, file: F
 
 export async function addItemToRequestBag(input: AddRequestBagItemInput) {
   if (!input.userId) throw new Error('Please sign in before adding items to your Request Bag.')
+  await assertNewShoppingRequestsAllowed()
 
   const sourceUrl = input.item.sourceUrl ? normalizeProductUrl(input.item.sourceUrl) || cleanText(input.item.sourceUrl) : ''
   const screenshotFile = input.item.screenshotFile
@@ -5818,6 +5834,7 @@ export async function updateRequestBagItem(
   patch: Partial<Pick<RequestBagItem, 'productName' | 'priceShown' | 'quantity' | 'notes'>>
 ) {
   if (!userId || !itemId) throw new Error('Missing Request Bag item.')
+  await assertCustomerAppAvailable()
 
   const payload: AnyRow = {
     updated_at: new Date().toISOString(),
@@ -5845,6 +5862,7 @@ export async function updateRequestBagItem(
 
 export async function removeRequestBagItem(userId: string, itemId: string) {
   if (!userId || !itemId) throw new Error('Missing Request Bag item.')
+  await assertCustomerAppAvailable()
 
   const { data: existing } = await supabase
     .from('customer_request_bag_items')
@@ -5883,6 +5901,7 @@ function isMissingRequestBagSubmissionRpc(error: unknown) {
 
 export async function submitRequestBagAsOrder(input: SubmitRequestBagInput): Promise<SubmitPasteLinkOrderResult> {
   if (!input.userId) throw new Error('Please sign in before requesting a quotation.')
+  await assertNewShoppingRequestsAllowed()
   if (!input.bagId) throw new Error('Request Bag not found.')
   if (!cleanText(input.customerName)) throw new Error('Customer name is required.')
   if (!cleanText(input.customerPhone)) throw new Error('Phone number is required.')

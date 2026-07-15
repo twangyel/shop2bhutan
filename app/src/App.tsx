@@ -1,6 +1,19 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { BellRing, CheckCircle2, Download, Loader2, Wifi, WifiOff, X } from 'lucide-react';
+import {
+  BellRing,
+  CheckCircle2,
+  Download,
+  Loader2,
+  MessageCircle,
+  Phone,
+  RefreshCw,
+  ShieldCheck,
+  Wifi,
+  WifiOff,
+  Wrench,
+  X,
+} from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Network, type ConnectionStatus } from '@capacitor/network';
@@ -21,6 +34,12 @@ import {
   setNumberPreference,
 } from '@/lib/preferences';
 import { applyShopSystemBars } from '@/lib/systemBars';
+import {
+  DEFAULT_APP_SETTINGS,
+  fetchPublicAppSettings,
+} from '@/lib/appSettings';
+import Logo from '@/components/shared/Logo';
+import type { AppSettings as AppSettingsType } from '@/types';
 
 // Layouts
 import CustomerLayout from '@/layouts/CustomerLayout';
@@ -1394,6 +1413,302 @@ function RouteScrollToTop() {
   return null;
 }
 
+
+const CUSTOMER_MAINTENANCE_REFRESH_MS = 15_000;
+
+function maintenancePhoneHref(value: string) {
+  const clean = value.replace(/[^+\d]/g, '');
+  return clean ? `tel:${clean}` : '';
+}
+
+function maintenanceWhatsappHref(value: string) {
+  const digits = value.replace(/\D/g, '');
+  return digits ? `https://wa.me/${digits}` : '';
+}
+
+function CustomerMaintenanceScreen({
+  settings,
+  refreshing,
+  error,
+  isAdmin,
+  onRetry,
+}: {
+  settings: AppSettingsType;
+  refreshing: boolean;
+  error: string;
+  isAdmin: boolean;
+  onRetry: () => Promise<void>;
+}) {
+  const navigate = useNavigate();
+  const phoneHref = maintenancePhoneHref(settings.supportPhone);
+  const whatsappHref = maintenanceWhatsappHref(settings.whatsappNumber);
+
+  return (
+    <div className="fixed inset-0 z-[140] overflow-y-auto bg-white">
+      <div className="mx-auto flex min-h-full w-full max-w-lg flex-col px-5 pb-[calc(2rem+env(safe-area-inset-bottom,0px))] pt-[calc(1.25rem+var(--s2b-safe-area-top,env(safe-area-inset-top,0px)))]">
+        <div className="flex items-center justify-center">
+          {settings.logoUrl ? (
+            <img
+              src={settings.logoUrl}
+              alt={settings.appName || 'Shop2Bhutan'}
+              className="h-12 max-w-[210px] object-contain"
+            />
+          ) : (
+            <Logo size="lg" />
+          )}
+        </div>
+
+        <div className="flex flex-1 items-center py-8">
+          <section className="w-full rounded-[30px] border border-orange-100 bg-white p-6 text-center shadow-[0_24px_70px_rgba(15,23,42,0.08)]">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-orange-50 text-orange-600">
+              <Wrench size={30} strokeWidth={2.1} />
+            </div>
+
+            <p className="mt-5 text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange-600">
+              Scheduled maintenance
+            </p>
+            <h1 className="mt-2 text-2xl font-black tracking-[-0.03em] text-neutral-950">
+              We&apos;ll be back shortly
+            </h1>
+            <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-neutral-600">
+              {settings.maintenanceMessage ||
+                'Shop2Bhutan is temporarily unavailable while we complete maintenance.'}
+            </p>
+
+            <div className="mt-5 rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-left">
+              <div className="flex items-start gap-3">
+                <ShieldCheck
+                  size={19}
+                  className="mt-0.5 shrink-0 text-blue-600"
+                  strokeWidth={2.2}
+                />
+                <div>
+                  <p className="text-sm font-extrabold text-neutral-900">
+                    Your account information is safe
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-neutral-600">
+                    Please retry after a moment. The app will also reopen
+                    automatically when maintenance is switched off.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void onRetry()}
+              disabled={refreshing}
+              className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 px-4 text-sm font-extrabold text-white transition active:scale-[0.99] disabled:cursor-wait disabled:opacity-60"
+            >
+              {refreshing ? (
+                <Loader2 size={17} className="animate-spin" />
+              ) : (
+                <RefreshCw size={17} strokeWidth={2.3} />
+              )}
+              {refreshing ? 'Checking availability...' : 'Try again'}
+            </button>
+
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              {phoneHref ? (
+                <a
+                  href={phoneHref}
+                  className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-white text-sm font-bold text-neutral-700 transition active:scale-[0.99]"
+                >
+                  <Phone size={16} strokeWidth={2.2} />
+                  Call support
+                </a>
+              ) : (
+                <span className="flex h-11 cursor-not-allowed items-center justify-center gap-2 rounded-2xl border border-neutral-100 bg-neutral-50 text-sm font-bold text-neutral-300">
+                  <Phone size={16} />
+                  Call support
+                </span>
+              )}
+
+              {whatsappHref ? (
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 text-sm font-bold text-emerald-700 transition active:scale-[0.99]"
+                >
+                  <MessageCircle size={16} strokeWidth={2.2} />
+                  WhatsApp
+                </a>
+              ) : (
+                <span className="flex h-11 cursor-not-allowed items-center justify-center gap-2 rounded-2xl border border-neutral-100 bg-neutral-50 text-sm font-bold text-neutral-300">
+                  <MessageCircle size={16} />
+                  WhatsApp
+                </span>
+              )}
+            </div>
+
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => navigate('/admin')}
+                className="mt-3 h-11 w-full rounded-2xl bg-neutral-950 px-4 text-sm font-extrabold text-white transition active:scale-[0.99]"
+              >
+                Open Admin Panel
+              </button>
+            )}
+
+            {error && (
+              <p
+                role="alert"
+                className="mt-4 rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold leading-5 text-red-600"
+              >
+                {error}
+              </p>
+            )}
+          </section>
+        </div>
+
+        <p className="text-center text-[11px] leading-5 text-neutral-400">
+          Normal announcements and customer actions remain hidden until
+          maintenance is disabled.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function CustomerMaintenanceGate({ children }: { children: ReactNode }) {
+  const { context } = useAuth();
+  const [settings, setSettings] = useState<AppSettingsType>(
+    DEFAULT_APP_SETTINGS,
+  );
+  const [checking, setChecking] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const mountedRef = useRef(true);
+
+  const loadSettings = useCallback(async (manual = false) => {
+    if (manual) setRefreshing(true);
+    setError('');
+
+    try {
+      const loaded = await fetchPublicAppSettings();
+      if (mountedRef.current) setSettings(loaded);
+    } catch (loadError) {
+      console.warn('[Maintenance] Availability check skipped:', loadError);
+
+      if (mountedRef.current && manual) {
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : 'Unable to check availability. Please try again.',
+        );
+      }
+    } finally {
+      if (mountedRef.current) {
+        setChecking(false);
+        setRefreshing(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    void loadSettings(false);
+
+    const refresh = () => {
+      void loadSettings(false);
+    };
+
+    const handleVisibility = () => {
+      if (!document.hidden) refresh();
+    };
+
+    window.addEventListener(
+      'shop2bhutan:app-settings-updated',
+      refresh,
+    );
+    window.addEventListener('shop2bhutan:network-restored', refresh);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    const interval = window.setInterval(() => {
+      if (!document.hidden) refresh();
+    }, CUSTOMER_MAINTENANCE_REFRESH_MS);
+
+    const channel = supabase
+      .channel('customer-maintenance-settings')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'app_settings',
+        },
+        (payload) => {
+          const nextKey = String(
+            (payload.new as { key?: string } | null)?.key ??
+              (payload.old as { key?: string } | null)?.key ??
+              '',
+          );
+
+          if (
+            !nextKey ||
+            nextKey === 'maintenance_enabled' ||
+            nextKey === 'maintenance_message' ||
+            nextKey === 'support_phone' ||
+            nextKey === 'whatsapp_number' ||
+            nextKey === 'logo_url' ||
+            nextKey === 'app_name'
+          ) {
+            refresh();
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      mountedRef.current = false;
+      window.clearInterval(interval);
+      window.removeEventListener(
+        'shop2bhutan:app-settings-updated',
+        refresh,
+      );
+      window.removeEventListener('shop2bhutan:network-restored', refresh);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      void supabase.removeChannel(channel);
+    };
+  }, [loadSettings]);
+
+  if (checking) {
+    return (
+      <div className="fixed inset-0 z-[140] flex items-center justify-center bg-white px-6">
+        <div className="text-center">
+          <Loader2
+            size={28}
+            className="mx-auto animate-spin text-orange-500"
+          />
+          <p className="mt-3 text-sm font-bold text-neutral-800">
+            Checking Shop2Bhutan availability
+          </p>
+          <p className="mt-1 text-xs text-neutral-400">
+            This will only take a moment.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!settings.maintenanceEnabled) {
+    return <>{children}</>;
+  }
+
+  return (
+    <CustomerMaintenanceScreen
+      settings={settings}
+      refreshing={refreshing}
+      error={error}
+      isAdmin={Boolean(context?.is_admin || context?.is_super_admin)}
+      onRetry={() => loadSettings(true)}
+    />
+  );
+}
+
+
 function PasswordChangeGate({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { loading, context, isGuest } = useAuth();
@@ -1442,11 +1757,13 @@ export default function App() {
         {/* Customer Routes */}
         <Route
           element={
-            <PasswordChangeGate>
-              <GoogleProfileCompletionGate>
-                <CustomerLayout />
-              </GoogleProfileCompletionGate>
-            </PasswordChangeGate>
+            <CustomerMaintenanceGate>
+              <PasswordChangeGate>
+                <GoogleProfileCompletionGate>
+                  <CustomerLayout />
+                </GoogleProfileCompletionGate>
+              </PasswordChangeGate>
+            </CustomerMaintenanceGate>
           }
         >
           {/* Public browsing routes */}
