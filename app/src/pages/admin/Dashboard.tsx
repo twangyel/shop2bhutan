@@ -4,13 +4,16 @@ import {
   AlertCircle,
   ArrowDownRight,
   ArrowUpRight,
+  CircleDollarSign,
   ClipboardList,
   Eye,
   FileText,
   Loader2,
   PackageSearch,
+  ReceiptText,
   RefreshCw,
   TrendingUp,
+  Truck,
   Users,
 } from "lucide-react";
 import {
@@ -26,6 +29,7 @@ import {
   YAxis,
 } from "recharts";
 import StatusBadge from "@/components/shared/StatusBadge";
+import { supabase } from "@/lib/supabase";
 import {
   fetchAdminCustomers,
   fetchAdminOrders,
@@ -64,6 +68,36 @@ type TopProductPoint = {
   unitsSold: number;
   revenue: number;
 };
+
+type ProfitSettings = {
+  includeServiceCharge: boolean;
+  includeDeliveryFee: boolean;
+  verifiedPaymentsOnly: boolean;
+};
+
+type ProfitSettingRow = {
+  key: string;
+  value: unknown;
+};
+
+type ProfitSnapshot = {
+  total: number;
+  serviceCharge: number;
+  deliveryFee: number;
+  orderCount: number;
+};
+
+const DEFAULT_PROFIT_SETTINGS: ProfitSettings = {
+  includeServiceCharge: true,
+  includeDeliveryFee: true,
+  verifiedPaymentsOnly: true,
+};
+
+const PROFIT_SETTING_KEYS = {
+  includeServiceCharge: "profit_include_service_charge",
+  includeDeliveryFee: "profit_include_delivery_fee",
+  verifiedPaymentsOnly: "profit_verified_payments_only",
+} as const;
 
 const PERIODS: { key: DashboardPeriod; label: string }[] = [
   { key: "7d", label: "7 Days" },
@@ -118,6 +152,90 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 function numericAmount(value: unknown) {
   const numeric = Number(value ?? 0);
   return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function booleanSettingValue(value: unknown, fallback: boolean) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (["true", "1", "yes", "on", "enabled"].includes(normalized)) return true;
+  if (["false", "0", "no", "off", "disabled"].includes(normalized)) return false;
+  return fallback;
+}
+
+async function fetchProfitSettings(): Promise<ProfitSettings> {
+  const { data, error } = await supabase
+    .from("app_settings")
+    .select("key,value")
+    .in("key", Object.values(PROFIT_SETTING_KEYS));
+
+  if (error) {
+    // Profit settings are optional. Keep the dashboard working with safe
+    // defaults if the app_settings table or the new keys are unavailable.
+    console.warn("[Dashboard] Profit settings fallback:", error);
+    return DEFAULT_PROFIT_SETTINGS;
+  }
+
+  const rows = (data ?? []) as ProfitSettingRow[];
+  const getValue = (key: string, fallback: boolean) =>
+    booleanSettingValue(rows.find((row) => row.key === key)?.value, fallback);
+
+  return {
+    includeServiceCharge: getValue(
+      PROFIT_SETTING_KEYS.includeServiceCharge,
+      DEFAULT_PROFIT_SETTINGS.includeServiceCharge,
+    ),
+    includeDeliveryFee: getValue(
+      PROFIT_SETTING_KEYS.includeDeliveryFee,
+      DEFAULT_PROFIT_SETTINGS.includeDeliveryFee,
+    ),
+    verifiedPaymentsOnly: getValue(
+      PROFIT_SETTING_KEYS.verifiedPaymentsOnly,
+      DEFAULT_PROFIT_SETTINGS.verifiedPaymentsOnly,
+    ),
+  };
+}
+
+function firstVerifiedPaymentDate(
+  order: Order,
+  verifiedPayments: AdminPaymentRecord[],
+) {
+  const dates = verifiedPayments
+    .filter((payment) => payment.orderId === order.id)
+    .map(paymentDate)
+    .filter((date): date is Date => Boolean(date))
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  if (dates.length > 0) return dates[0];
+
+  const embeddedPayments = [
+    ...(order.payments ?? []),
+    ...(order.payment ? [order.payment] : []),
+  ]
+    .filter(
+      (payment) =>
+        String(payment.status || "").toLowerCase() === "verified",
+    )
+    .map((payment) => getDate(payment.verifiedAt) || getDate(payment.createdAt))
+    .filter((date): date is Date => Boolean(date))
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  return embeddedPayments[0] ?? null;
+}
+
+function quotationRecognitionDate(
+  order: Order,
+  verifiedPayments: AdminPaymentRecord[],
+  verifiedOnly: boolean,
+) {
+  if (verifiedOnly) return firstVerifiedPaymentDate(order, verifiedPayments);
+
+  return (
+    getDate(order.quotation?.respondedAt) ||
+    getDate(order.quotation?.createdAt) ||
+    orderDate(order)
+  );
 }
 
 function getDate(value?: string | null) {
@@ -344,6 +462,8 @@ export default function Dashboard() {
   const [customers, setCustomers] = useState<AdminCustomerRecord[]>([]);
   const [payments, setPayments] = useState<AdminPaymentRecord[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<DashboardPeriod>("7d");
+  const [profitPeriod, setProfitPeriod] = useState<DashboardPeriod>("month");
+  const [profitSettings, setProfitSettings] = useState<ProfitSettings>(DEFAULT_PROFIT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -355,15 +475,22 @@ export default function Dashboard() {
     setError("");
 
     try {
-      const [realOrders, realCustomers, realPayments] = await Promise.all([
+      const [
+        realOrders,
+        realCustomers,
+        realPayments,
+        realProfitSettings,
+      ] = await Promise.all([
         fetchAdminOrders(),
         fetchAdminCustomers(),
         fetchAdminPayments(),
+        fetchProfitSettings(),
       ]);
 
       setOrders(realOrders);
       setCustomers(realCustomers);
       setPayments(realPayments);
+      setProfitSettings(realProfitSettings);
     } catch (err) {
       console.error("Failed to load admin dashboard:", err);
       setError(
@@ -527,6 +654,46 @@ export default function Dashboard() {
     [metrics],
   );
 
+  const profitSnapshot = useMemo<ProfitSnapshot>(() => {
+    const start = periodStart(profitPeriod);
+    const now = new Date();
+
+    return orders.reduce<ProfitSnapshot>(
+      (snapshot, order) => {
+        if (order.status === "cancelled" || !order.quotation) return snapshot;
+
+        const recognizedAt = quotationRecognitionDate(
+          order,
+          verifiedPayments,
+          profitSettings.verifiedPaymentsOnly,
+        );
+
+        if (!recognizedAt || recognizedAt < start || recognizedAt > now) {
+          return snapshot;
+        }
+
+        const serviceCharge = profitSettings.includeServiceCharge
+          ? numericAmount(order.quotation.serviceCharge)
+          : 0;
+        const deliveryFee = profitSettings.includeDeliveryFee
+          ? numericAmount(order.quotation.deliveryFee)
+          : 0;
+
+        snapshot.serviceCharge += serviceCharge;
+        snapshot.deliveryFee += deliveryFee;
+        snapshot.total += serviceCharge + deliveryFee;
+        snapshot.orderCount += 1;
+        return snapshot;
+      },
+      {
+        total: 0,
+        serviceCharge: 0,
+        deliveryFee: 0,
+        orderCount: 0,
+      },
+    );
+  }, [orders, profitPeriod, profitSettings, verifiedPayments]);
+
   const revenueData = useMemo(
     () =>
       payments.length
@@ -626,6 +793,122 @@ export default function Dashboard() {
           );
         })}
       </div>
+
+      <section className="rounded-xl bg-white p-4 shadow-card md:p-5">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                <CircleDollarSign size={19} />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">
+                  Estimated Gross Profit
+                </h3>
+                <p className="text-xs text-neutral-500">
+                  Service charge + delivery charge saved in eligible quotations
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-1">
+            {PERIODS.map((period) => (
+              <button
+                key={period.key}
+                type="button"
+                onClick={() => setProfitPeriod(period.key)}
+                className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium ${
+                  profitPeriod === period.key
+                    ? "bg-emerald-500 text-white"
+                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                }`}
+              >
+                {period.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium text-emerald-700">
+                  Gross Profit
+                </p>
+                <p className="mt-1 text-xl font-bold text-gray-900">
+                  {loading ? "..." : formatCurrency(profitSnapshot.total)}
+                </p>
+              </div>
+              <CircleDollarSign size={22} className="text-emerald-600" />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium text-neutral-500">
+                  Service Charges
+                </p>
+                <p className="mt-1 text-lg font-bold text-gray-900">
+                  {loading
+                    ? "..."
+                    : formatCurrency(profitSnapshot.serviceCharge)}
+                </p>
+              </div>
+              <ReceiptText size={21} className="text-violet-500" />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium text-neutral-500">
+                  Delivery Charges
+                </p>
+                <p className="mt-1 text-lg font-bold text-gray-900">
+                  {loading
+                    ? "..."
+                    : formatCurrency(profitSnapshot.deliveryFee)}
+                </p>
+              </div>
+              <Truck size={21} className="text-blue-500" />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium text-neutral-500">
+                  {profitSettings.verifiedPaymentsOnly
+                    ? "Paid Orders Counted"
+                    : "Quoted Orders Counted"}
+                </p>
+                <p className="mt-1 text-lg font-bold text-gray-900">
+                  {loading ? "..." : profitSnapshot.orderCount.toLocaleString()}
+                </p>
+              </div>
+              <ClipboardList size={21} className="text-amber-500" />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-col gap-2 border-t border-neutral-100 pt-3 text-xs text-neutral-500 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            {profitSettings.verifiedPaymentsOnly
+              ? "Only orders with at least one verified payment are counted."
+              : "Profit is estimated from saved quotations even before payment verification."}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate("/admin/settings")}
+            className="self-start font-semibold text-emerald-700 hover:text-emerald-800 sm:self-auto"
+          >
+            Manage profit settings
+          </button>
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 gap-3 md:gap-4 lg:grid-cols-3">
         <div className="rounded-xl bg-white p-4 shadow-card md:p-5 lg:col-span-2">

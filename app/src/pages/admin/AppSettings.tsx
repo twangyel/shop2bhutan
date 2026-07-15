@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type Elemen
 import {
   AlertCircle,
   CheckCircle,
+  CircleDollarSign,
   Clock,
   Image,
   Loader2,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 import Logo from '@/components/shared/Logo';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import {
   BUSINESS_DAY_LABELS,
   BUSINESS_DAY_ORDER,
@@ -30,6 +32,111 @@ import type {
   BusinessDayHours,
   BusinessDayKey,
 } from '@/types';
+
+type ProfitSettings = {
+  includeServiceCharge: boolean;
+  includeDeliveryFee: boolean;
+  verifiedPaymentsOnly: boolean;
+};
+
+type ProfitSettingRow = {
+  key: string;
+  value: unknown;
+};
+
+const DEFAULT_PROFIT_SETTINGS: ProfitSettings = {
+  includeServiceCharge: true,
+  includeDeliveryFee: true,
+  verifiedPaymentsOnly: true,
+};
+
+const PROFIT_SETTING_KEYS = {
+  includeServiceCharge: 'profit_include_service_charge',
+  includeDeliveryFee: 'profit_include_delivery_fee',
+  verifiedPaymentsOnly: 'profit_verified_payments_only',
+} as const;
+
+function booleanValue(value: unknown, fallback: boolean) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (['true', '1', 'yes', 'on', 'enabled'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'off', 'disabled'].includes(normalized)) return false;
+  return fallback;
+}
+
+async function fetchProfitSettings(): Promise<ProfitSettings> {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('key,value')
+    .in('key', Object.values(PROFIT_SETTING_KEYS));
+
+  if (error) {
+    // Keep the existing App Settings page usable when the settings table has
+    // not been installed yet. The main loader will show its normal fallback.
+    if (error.code === '42P01' || error.code === 'PGRST205') {
+      return DEFAULT_PROFIT_SETTINGS;
+    }
+    throw error;
+  }
+
+  const rows = (data ?? []) as ProfitSettingRow[];
+  const getValue = (key: string, fallback: boolean) =>
+    booleanValue(rows.find((row) => row.key === key)?.value, fallback);
+
+  return {
+    includeServiceCharge: getValue(
+      PROFIT_SETTING_KEYS.includeServiceCharge,
+      DEFAULT_PROFIT_SETTINGS.includeServiceCharge,
+    ),
+    includeDeliveryFee: getValue(
+      PROFIT_SETTING_KEYS.includeDeliveryFee,
+      DEFAULT_PROFIT_SETTINGS.includeDeliveryFee,
+    ),
+    verifiedPaymentsOnly: getValue(
+      PROFIT_SETTING_KEYS.verifiedPaymentsOnly,
+      DEFAULT_PROFIT_SETTINGS.verifiedPaymentsOnly,
+    ),
+  };
+}
+
+async function saveProfitSettings(
+  profitSettings: ProfitSettings,
+  userId?: string | null,
+) {
+  const updatedAt = new Date().toISOString();
+  const rows = [
+    {
+      key: PROFIT_SETTING_KEYS.includeServiceCharge,
+      value: profitSettings.includeServiceCharge,
+      updated_at: updatedAt,
+      updated_by: userId || null,
+    },
+    {
+      key: PROFIT_SETTING_KEYS.includeDeliveryFee,
+      value: profitSettings.includeDeliveryFee,
+      updated_at: updatedAt,
+      updated_by: userId || null,
+    },
+    {
+      key: PROFIT_SETTING_KEYS.verifiedPaymentsOnly,
+      value: profitSettings.verifiedPaymentsOnly,
+      updated_at: updatedAt,
+      updated_by: userId || null,
+    },
+  ];
+
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert(rows, { onConflict: 'key' });
+
+  if (error) throw error;
+
+  window.dispatchEvent(
+    new CustomEvent('shop2bhutan:profit-settings-updated'),
+  );
+}
 
 const platformOptions: Array<{ key: AcceptedPlatformKey; label: string }> = [
   { key: 'amazon', label: 'Amazon' },
@@ -84,6 +191,7 @@ export default function AppSettings() {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [settings, setSettings] = useState<AppSettingsType>(DEFAULT_APP_SETTINGS);
+  const [profitSettings, setProfitSettings] = useState<ProfitSettings>(DEFAULT_PROFIT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -95,8 +203,12 @@ export default function AppSettings() {
     setError('');
 
     try {
-      const loaded = await fetchPublicAppSettings();
+      const [loaded, loadedProfitSettings] = await Promise.all([
+        fetchPublicAppSettings(),
+        fetchProfitSettings(),
+      ]);
       setSettings(loaded);
+      setProfitSettings(loadedProfitSettings);
     } catch (err) {
       console.error('Failed to load app settings:', err);
       setError(err instanceof Error ? err.message : 'Unable to load app settings.');
@@ -111,6 +223,15 @@ export default function AppSettings() {
 
   const updateSetting = <K extends keyof AppSettingsType>(key: K, value: AppSettingsType[K]) => {
     setSettings((current) => ({ ...current, [key]: value }));
+    setSuccess('');
+    setError('');
+  };
+
+  const updateProfitSetting = <K extends keyof ProfitSettings>(
+    key: K,
+    value: ProfitSettings[K],
+  ) => {
+    setProfitSettings((current) => ({ ...current, [key]: value }));
     setSuccess('');
     setError('');
   };
@@ -194,9 +315,12 @@ export default function AppSettings() {
     setError('');
 
     try {
-      const saved = await saveAppSettings(settings, user?.id);
+      const [saved] = await Promise.all([
+        saveAppSettings(settings, user?.id),
+        saveProfitSettings(profitSettings, user?.id),
+      ]);
       setSettings(saved);
-      setSuccess('App settings saved successfully.');
+      setSuccess('App settings and profit calculation saved successfully.');
     } catch (err) {
       console.error('Failed to save app settings:', err);
       setError(err instanceof Error ? err.message : 'Unable to save app settings.');
@@ -527,6 +651,87 @@ export default function AppSettings() {
           />
           <p className="mt-1 text-xs text-neutral-500">Example: 50 means customer must pay at least 50% first.</p>
         </div>
+      </SettingCard>
+
+      <SettingCard title="Profit Calculation" icon={CircleDollarSign}>
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+            Current formula
+          </p>
+          <p className="mt-1 text-sm font-bold text-gray-900">
+            Estimated Gross Profit = enabled quotation charges
+          </p>
+          <p className="mt-1 text-xs leading-5 text-neutral-600">
+            Product value is never counted as profit. The dashboard uses the
+            service and delivery amounts saved with each quotation, so later fee
+            changes do not alter old orders.
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3">
+            <div className="pr-4">
+              <p className="text-sm font-semibold text-gray-900">
+                Include Service Charge
+              </p>
+              <p className="text-xs text-neutral-500">
+                Add the saved service charge to gross profit.
+              </p>
+            </div>
+            <ToggleSwitch
+              checked={profitSettings.includeServiceCharge}
+              onChange={(value) =>
+                updateProfitSetting('includeServiceCharge', value)
+              }
+            />
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3">
+            <div className="pr-4">
+              <p className="text-sm font-semibold text-gray-900">
+                Include Delivery Charge
+              </p>
+              <p className="text-xs text-neutral-500">
+                Add the saved delivery or pickup fee to gross profit.
+              </p>
+            </div>
+            <ToggleSwitch
+              checked={profitSettings.includeDeliveryFee}
+              onChange={(value) =>
+                updateProfitSetting('includeDeliveryFee', value)
+              }
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+          <div className="pr-4">
+            <p className="text-sm font-semibold text-gray-900">
+              Verified Payments Only
+            </p>
+            <p className="text-xs leading-5 text-neutral-500">
+              Recommended. Profit is counted only after at least one payment for
+              the order has been verified.
+            </p>
+          </div>
+          <ToggleSwitch
+            checked={profitSettings.verifiedPaymentsOnly}
+            onChange={(value) =>
+              updateProfitSetting('verifiedPaymentsOnly', value)
+            }
+          />
+        </div>
+
+        {!profitSettings.includeServiceCharge &&
+          !profitSettings.includeDeliveryFee && (
+            <div className="flex items-start gap-2 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
+              <AlertCircle size={17} className="mt-0.5 shrink-0" />
+              <span>
+                Both profit sources are disabled, so the dashboard profit will
+                show Nu. 0.
+              </span>
+            </div>
+          )}
       </SettingCard>
 
       <SettingCard title="Shopping Platforms" icon={ShoppingBag}>
