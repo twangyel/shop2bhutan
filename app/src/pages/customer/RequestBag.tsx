@@ -931,6 +931,13 @@ export default function RequestBag() {
 
     if (reviewStep === 2) {
       if (!validateContactStep()) return;
+
+      // A saved address is optional. Customers without one continue to the
+      // delivery step and choose only the supported delivery area there.
+      if (!savedAddress?.formattedAddress) {
+        setUseSavedAddress(false);
+      }
+
       goToReviewStep(3);
     }
   };
@@ -968,6 +975,14 @@ export default function RequestBag() {
     }));
     setDestinationPickerOpen(true);
     setError('');
+  };
+
+  const continueWithoutSavedAddress = () => {
+    if (!validateContactStep()) return;
+
+    setUseSavedAddress(false);
+    setDestinationPickerOpen(false);
+    goToReviewStep(3);
   };
 
   const openAddressManager = () => {
@@ -1198,14 +1213,14 @@ export default function RequestBag() {
                     {reviewStep === 1
                       ? 'Review products'
                       : reviewStep === 2
-                        ? 'Contact & address'
+                        ? 'Contact details'
                         : 'Delivery preference'}
                   </h2>
                   <p className="mt-1 text-sm leading-5 text-slate-500">
                     {reviewStep === 1
                       ? 'Confirm the products and add any final request notes.'
                       : reviewStep === 2
-                        ? 'Confirm how Shop2Bhutan should contact you and your delivery area.'
+                        ? 'Confirm your name and phone. Saving a delivery address is optional.'
                         : 'Choose delivery or pickup before submitting your request.'}
                   </p>
                 </div>
@@ -1580,21 +1595,33 @@ export default function RequestBag() {
                         </div>
                       </div>
                     ) : (
-                      <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3.5">
-                        <p className="text-sm font-extrabold text-amber-800">
-                          No saved delivery address found
+                      <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3.5">
+                        <p className="text-sm font-extrabold text-blue-800">
+                          Saved address is optional
                         </p>
-                        <p className="mt-1 text-xs leading-5 text-amber-700">
-                          Add a complete address for easier future requests, or
-                          choose a supported delivery area below.
+                        <p className="mt-1 text-xs leading-5 text-blue-700">
+                          You can continue now and choose only your delivery
+                          area in the next step. A full saved address can be
+                          added later for faster future requests.
                         </p>
-                        <button
-                          type="button"
-                          onClick={openAddressManager}
-                          className="mt-3 h-10 rounded-xl bg-white px-4 text-xs font-extrabold text-amber-700 ring-1 ring-amber-200"
-                        >
-                          Add saved address
-                        </button>
+
+                        <div className="mt-3 grid grid-cols-2 gap-2.5">
+                          <button
+                            type="button"
+                            onClick={openAddressManager}
+                            className="h-10 rounded-xl bg-white px-3 text-xs font-extrabold text-blue-700 ring-1 ring-blue-200"
+                          >
+                            Save address
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={continueWithoutSavedAddress}
+                            className="h-10 rounded-xl bg-blue-600 px-3 text-xs font-extrabold text-white transition active:scale-[0.98]"
+                          >
+                            Continue without saving
+                          </button>
+                        </div>
                       </div>
                     )}
 
@@ -1739,7 +1766,7 @@ export default function RequestBag() {
                           Deliver to me
                         </span>
                         <span className="mt-1 block text-xs leading-4 opacity-75">
-                          Use saved address
+                          Saved address or delivery area
                         </span>
                       </button>
 
@@ -1826,14 +1853,111 @@ export default function RequestBag() {
 
                           <button
                             type="button"
-                            onClick={() => goToReviewStep(2)}
+                            onClick={() => {
+                              if (savedAddress?.formattedAddress) {
+                                goToReviewStep(2);
+                                return;
+                              }
+
+                              setDestinationPickerOpen((previous) => !previous);
+                              setError('');
+                            }}
                             className="shrink-0 rounded-full bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 transition active:scale-[0.97]"
                           >
-                            {customer.deliveryAddress ? 'Change' : 'Choose'}
+                            {customer.deliveryAddress ? 'Change' : 'Choose area'}
                           </button>
                         </div>
                       </div>
                     )}
+
+                    {!isSelfPickup &&
+                      (!savedAddress?.formattedAddress || !useSavedAddress) && (
+                        <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDestinationPickerOpen((previous) => !previous)
+                            }
+                            className="flex min-h-[50px] w-full items-center justify-between gap-3 rounded-xl px-3 text-left transition active:scale-[0.99]"
+                            aria-expanded={destinationPickerOpen}
+                          >
+                            <span className="flex min-w-0 items-center gap-2.5">
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-orange-500">
+                                <MapPin size={17} strokeWidth={2.2} />
+                              </span>
+                              <span className="min-w-0">
+                                <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                  Delivery area
+                                </span>
+                                <span className="block truncate text-sm font-extrabold text-slate-950">
+                                  {selectedDeliveryZone ||
+                                    'Choose Thimphu, Paro, or Chhukha'}
+                                </span>
+                              </span>
+                            </span>
+
+                            <ChevronDown
+                              size={18}
+                              strokeWidth={2.4}
+                              className={`shrink-0 text-slate-400 transition-transform ${
+                                destinationPickerOpen ? 'rotate-180' : ''
+                              }`}
+                            />
+                          </button>
+
+                          {destinationPickerOpen && (
+                            <div className="mt-1.5 grid gap-1.5 border-t border-slate-100 pt-1.5">
+                              {DELIVERY_DESTINATION_OPTIONS.map((destination) => {
+                                const selected =
+                                  selectedDeliveryZone === destination;
+
+                                return (
+                                  <button
+                                    key={destination}
+                                    type="button"
+                                    onClick={() => {
+                                      setUseSavedAddress(false);
+                                      setCustomer((previous) => ({
+                                        ...previous,
+                                        deliveryAddress: destination,
+                                      }));
+                                      setDestinationPickerOpen(false);
+                                      setError('');
+                                    }}
+                                    className={`flex min-h-[46px] items-center justify-between rounded-xl px-3 text-left transition active:scale-[0.99] ${
+                                      selected
+                                        ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-100'
+                                        : 'bg-white text-slate-700 active:bg-slate-50'
+                                    }`}
+                                  >
+                                    <span className="flex items-center gap-2.5">
+                                      <span
+                                        className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                                          selected
+                                            ? 'bg-white text-orange-500'
+                                            : 'bg-slate-50 text-slate-400'
+                                        }`}
+                                      >
+                                        <MapPin size={15} strokeWidth={2.3} />
+                                      </span>
+                                      <span className="text-sm font-bold">
+                                        {destination}
+                                      </span>
+                                    </span>
+
+                                    {selected && (
+                                      <CheckCircle
+                                        size={17}
+                                        strokeWidth={2.5}
+                                      />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
                   </section>
 
                   <section className="rounded-2xl border border-slate-100 bg-white p-4">
