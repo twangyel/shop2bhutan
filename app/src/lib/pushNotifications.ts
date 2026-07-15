@@ -7,6 +7,8 @@ const NATIVE_APP_ID = 'com.shop2bhutan.app'
 const WEB_APP_ID = 'com.shop2bhutan.web'
 const WEB_FIREBASE_APP_NAME = 'shop2bhutan-web-push'
 const WEB_PUSH_SCOPE = '/firebase-cloud-messaging-push-scope/'
+const WEB_NOTIFICATION_ICON = '/brand/logo-mark.png'
+const WEB_NOTIFICATION_BADGE = '/notification-badge-96.png'
 
 let nativeListenersReady = false
 let webListenersReady = false
@@ -276,6 +278,49 @@ async function getWebMessagingContext() {
       window.dispatchEvent(
         new Event('shop2bhutan:notifications-updated'),
       )
+
+      // Firebase does not automatically place a web notification in the
+      // Android status bar while the PWA is open. Display it through the
+      // registered service worker so foreground and background behavior match.
+      if (Notification.permission === 'granted') {
+        const data = payload.data ?? {}
+        const notification = payload.notification ?? {}
+        const title = String(
+          data.title || notification.title || 'Shop2Bhutan update',
+        ).trim()
+        const body = String(
+          data.body ||
+            data.message ||
+            notification.body ||
+            'You have a new Shop2Bhutan notification.',
+        ).trim()
+        const link = String(
+          data.link || data.url || data.action_url || '/notifications',
+        ).trim()
+        const tag = String(
+          data.tag || data.notification_id || '',
+        ).trim()
+
+        void serviceWorkerRegistration
+          .showNotification(title, {
+            body,
+            icon: String(data.icon || WEB_NOTIFICATION_ICON),
+            badge: String(data.badge || WEB_NOTIFICATION_BADGE),
+            tag: tag || undefined,
+            data: {
+              ...data,
+              link: link.startsWith('/') && !link.startsWith('//')
+                ? link
+                : '/notifications',
+            },
+          })
+          .catch((error) => {
+            console.warn(
+              '[pushNotifications] Foreground notification display failed:',
+              error,
+            )
+          })
+      }
     })
 
     webListenersReady = true

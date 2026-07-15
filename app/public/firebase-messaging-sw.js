@@ -95,9 +95,10 @@ if (hasRequiredConfig) {
   const messaging = firebase.messaging()
 
   messaging.onBackgroundMessage((payload) => {
-    /* Notification payloads are normally displayed automatically by FCM.
-     * Only create our own notification for data-only messages to avoid
-     * duplicate notifications.
+    /* Web/PWA messages from send-push-notification are data-only so this
+     * worker controls the Android notification icon, badge, and deep link.
+     * Keep the guard for any legacy notification-payload sender to avoid a
+     * duplicate beside Firebase's automatic notification.
      */
     if (payload.notification) return
 
@@ -108,20 +109,10 @@ if (hasRequiredConfig) {
       data.message ||
       'You have a new Shop2Bhutan notification.'
 
-    self.registration.showNotification(title, {
+    return self.registration.showNotification(title, {
       body,
-      // Large image shown inside the expanded notification.
-      icon:
-        data.icon ||
-        '/brand/logo-mark-bag-transparent.png',
-
-      // Android status-bar icon. This must be a simple white monochrome
-      // image on a transparent background; a normal full-colour PWA icon
-      // may fall back to the generic notification bell.
-      badge:
-        data.badge ||
-        '/notification-badge-96.png',
-
+      icon: data.icon || '/brand/logo-mark.png',
+      badge: data.badge || '/notification-badge-96.png',
       tag: data.tag || data.notification_id || undefined,
       renotify: false,
       data: {
