@@ -3,7 +3,9 @@ import {
   AlertCircle,
   ArrowUpRight,
   CheckCircle,
+  ChevronDown,
   BellRing,
+  Bot,
   CircleDollarSign,
   Clock,
   Image,
@@ -12,6 +14,7 @@ import {
   Phone,
   Save,
   Send,
+  Sparkles,
   Settings,
   ShoppingBag,
   Wrench,
@@ -30,6 +33,16 @@ import {
   validateBusinessHoursSchedule,
   validateHomeAnnouncement,
 } from '@/lib/appSettings';
+import {
+  DEFAULT_ADMIN_AI_SETTINGS,
+  fetchAdminAiSettings,
+  fetchAdminAiUsage,
+  saveAdminAiSettings,
+  testAdminAiAssistant,
+  type AdminAiSettings,
+  type AdminAiTone,
+  type AdminAiUsage,
+} from '@/lib/adminAiAssistant';
 import type {
   AcceptedPlatformKey,
   AppSettings as AppSettingsType,
@@ -389,6 +402,29 @@ function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (chec
   );
 }
 
+function settingSectionStorageKey(title: string) {
+  return `shop2bhutan:admin-settings-section:${title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')}`;
+}
+
+function initialSettingCardOpen(title: string) {
+  if (typeof window === 'undefined') return true;
+
+  try {
+    const saved = window.localStorage.getItem(settingSectionStorageKey(title));
+    if (saved === 'open') return true;
+    if (saved === 'closed') return false;
+  } catch {
+    // Local storage is optional. Fall back to the responsive default.
+  }
+
+  // Keep the full desktop settings view familiar, while starting sections
+  // collapsed on phones so admins do not need to scroll through every form.
+  return window.matchMedia('(min-width: 768px)').matches;
+}
+
 function SettingCard({
   title,
   icon: Icon,
@@ -398,13 +434,56 @@ function SettingCard({
   icon: ElementType;
   children: ReactNode;
 }) {
+  const [open, setOpen] = useState(() => initialSettingCardOpen(title));
+  const contentId = `settings-section-${title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')}`;
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        settingSectionStorageKey(title),
+        open ? 'open' : 'closed',
+      );
+    } catch {
+      // Keep collapse/expand working even when storage is unavailable.
+    }
+  }, [open, title]);
+
   return (
     <section className="overflow-hidden rounded-xl bg-white shadow-card">
-      <div className="flex items-center gap-2 border-b border-neutral-100 px-5 py-4">
-        <Icon size={18} className="text-neutral-500" />
-        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-      </div>
-      <div className="space-y-4 p-5">{children}</div>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        aria-controls={contentId}
+        className={`flex w-full items-center gap-3 px-4 py-4 text-left transition-colors sm:px-5 ${
+          open ? 'border-b border-neutral-100 bg-white' : 'hover:bg-neutral-50'
+        }`}
+      >
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-neutral-50 text-neutral-500">
+          <Icon size={18} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-gray-900">{title}</span>
+          <span className="mt-0.5 block text-[11px] font-medium text-neutral-400 md:hidden">
+            {open ? 'Tap to collapse' : 'Tap to open'}
+          </span>
+        </span>
+        <ChevronDown
+          size={18}
+          className={`shrink-0 text-neutral-400 transition-transform duration-200 ${
+            open ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+
+      {open && (
+        <div id={contentId} className="space-y-4 p-4 sm:p-5">
+          {children}
+        </div>
+      )}
     </section>
   );
 }
@@ -415,6 +494,11 @@ export default function AppSettings() {
   const [settings, setSettings] = useState<AppSettingsType>(DEFAULT_APP_SETTINGS);
   const [profitSettings, setProfitSettings] = useState<ProfitSettings>(DEFAULT_PROFIT_SETTINGS);
   const [adminDigestSettings, setAdminDigestSettings] = useState<AdminDigestSettings>(DEFAULT_ADMIN_DIGEST_SETTINGS);
+  const [adminAiSettings, setAdminAiSettings] = useState<AdminAiSettings>(DEFAULT_ADMIN_AI_SETTINGS);
+  const [adminAiUsage, setAdminAiUsage] = useState<AdminAiUsage | null>(null);
+  const [adminAiUsageError, setAdminAiUsageError] = useState('');
+  const [loadingAiUsage, setLoadingAiUsage] = useState(false);
+  const [testingAdminAi, setTestingAdminAi] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -427,14 +511,35 @@ export default function AppSettings() {
     setError('');
 
     try {
-      const [loaded, loadedProfitSettings, loadedAdminDigestSettings] = await Promise.all([
+      const [
+        loaded,
+        loadedProfitSettings,
+        loadedAdminDigestSettings,
+        loadedAdminAiSettings,
+      ] = await Promise.all([
         fetchPublicAppSettings(),
         fetchProfitSettings(),
         fetchAdminDigestSettings(),
+        fetchAdminAiSettings(),
       ]);
       setSettings(loaded);
       setProfitSettings(loadedProfitSettings);
       setAdminDigestSettings(loadedAdminDigestSettings);
+      setAdminAiSettings(loadedAdminAiSettings);
+
+      try {
+        const usage = await fetchAdminAiUsage();
+        setAdminAiUsage(usage);
+        setAdminAiUsageError('');
+      } catch (usageError) {
+        console.warn('[AppSettings] AI usage unavailable:', usageError);
+        setAdminAiUsage(null);
+        setAdminAiUsageError(
+          usageError instanceof Error
+            ? usageError.message
+            : 'AI usage is unavailable until the Edge Function is deployed.',
+        );
+      }
     } catch (err) {
       console.error('Failed to load app settings:', err);
       setError(err instanceof Error ? err.message : 'Unable to load app settings.');
@@ -467,6 +572,15 @@ export default function AppSettings() {
     value: AdminDigestSettings[K],
   ) => {
     setAdminDigestSettings((current) => ({ ...current, [key]: value }));
+    setSuccess('');
+    setError('');
+  };
+
+  const updateAdminAiSetting = <K extends keyof AdminAiSettings>(
+    key: K,
+    value: AdminAiSettings[K],
+  ) => {
+    setAdminAiSettings((current) => ({ ...current, [key]: value }));
     setSuccess('');
     setError('');
   };
@@ -561,9 +675,10 @@ export default function AppSettings() {
         saveAppSettings(settings, user?.id),
         saveProfitSettings(profitSettings, user?.id),
         saveAdminDigestSettings(adminDigestSettings, user?.id),
+        saveAdminAiSettings(adminAiSettings, user?.id),
       ]);
       setSettings(saved);
-      setSuccess('App settings, profit rules, and admin brief settings saved successfully.');
+      setSuccess('App settings, profit rules, admin brief, and AI assistant settings saved successfully.');
     } catch (err) {
       console.error('Failed to save app settings:', err);
       setError(err instanceof Error ? err.message : 'Unable to save app settings.');
@@ -620,6 +735,56 @@ export default function AppSettings() {
     }
   };
 
+  const refreshAdminAiUsage = async () => {
+    if (loadingAiUsage) return;
+
+    setLoadingAiUsage(true);
+    setAdminAiUsageError('');
+
+    try {
+      const usage = await fetchAdminAiUsage();
+      setAdminAiUsage(usage);
+    } catch (usageError) {
+      setAdminAiUsageError(
+        usageError instanceof Error
+          ? usageError.message
+          : 'Unable to load AI usage.',
+      );
+    } finally {
+      setLoadingAiUsage(false);
+    }
+  };
+
+  const handleTestAdminAi = async () => {
+    if (testingAdminAi) return;
+
+    setTestingAdminAi(true);
+    setSuccess('');
+    setError('');
+
+    try {
+      await saveAdminAiSettings(adminAiSettings, user?.id);
+      const result = await testAdminAiAssistant();
+
+      if (!result.customerMessage) {
+        throw new Error('The AI test returned an empty response.');
+      }
+
+      if (result.usage) setAdminAiUsage(result.usage);
+      setAdminAiUsageError('');
+      setSuccess('AI connection is working. A safe sample customer message was generated successfully.');
+    } catch (testError) {
+      console.error('Failed to test admin AI assistant:', testError);
+      setError(
+        testError instanceof Error
+          ? testError.message
+          : 'Unable to test the AI assistant.',
+      );
+    } finally {
+      setTestingAdminAi(false);
+    }
+  };
+
   const handleLogoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -657,7 +822,7 @@ export default function AppSettings() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">App Settings</h2>
-          <p className="text-sm text-neutral-500">Control global Shop2Bhutan behavior from one place.</p>
+          <p className="text-sm text-neutral-500">Control global Shop2Bhutan behavior from one place. Tap any section to expand or collapse it.</p>
         </div>
         <button
           type="button"
@@ -1431,6 +1596,182 @@ export default function AppSettings() {
             )}
             {testingDigest ? 'Sending...' : 'Send Test Brief'}
           </button>
+        </div>
+      </SettingCard>
+
+      <SettingCard title="AI Admin Assistant" icon={Bot}>
+        <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">
+            Optional real AI polishing
+          </p>
+          <p className="mt-1 text-sm font-bold text-gray-900">
+            Improve customer replies, summaries, risk explanations, and quotation notes.
+          </p>
+          <p className="mt-1 text-xs leading-5 text-neutral-600">
+            AI runs only after an admin presses an AI button. Rule-based checks remain available when AI is disabled or unavailable.
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3">
+            <div className="pr-4">
+              <p className="text-sm font-semibold text-gray-900">Enable AI Assistant</p>
+              <p className="text-xs leading-5 text-neutral-500">
+                Allows admin-only, button-triggered AI drafting.
+              </p>
+            </div>
+            <ToggleSwitch
+              checked={adminAiSettings.enabled}
+              onChange={(value) => updateAdminAiSetting('enabled', value)}
+            />
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3">
+            <div className="pr-4">
+              <p className="text-sm font-semibold text-gray-900">Include Customer First Name</p>
+              <p className="text-xs leading-5 text-neutral-500">
+                Sends only the first name to the AI for a natural greeting.
+              </p>
+            </div>
+            <ToggleSwitch
+              checked={adminAiSettings.includeCustomerName}
+              onChange={(value) =>
+                updateAdminAiSetting('includeCustomerName', value)
+              }
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className="text-sm font-medium text-gray-700">Writing Tone</label>
+            <select
+              value={adminAiSettings.tone}
+              onChange={(event) =>
+                updateAdminAiSetting('tone', event.target.value as AdminAiTone)
+              }
+              className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+            >
+              <option value="professional_friendly">Professional &amp; friendly</option>
+              <option value="concise">Concise</option>
+              <option value="warm">Warm &amp; reassuring</option>
+              <option value="formal">Formal</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-700">Daily Request Limit</label>
+            <input
+              type="number"
+              min="1"
+              max="100"
+              value={adminAiSettings.dailyLimit}
+              onChange={(event) =>
+                updateAdminAiSetting(
+                  'dailyLimit',
+                  boundedNumber(event.target.value, 20, 1, 100),
+                )
+              }
+              className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+            />
+            <p className="mt-1 text-xs text-neutral-500">Controls cost and accidental overuse.</p>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-700">Maximum Output Characters</label>
+            <input
+              type="number"
+              min="200"
+              max="2000"
+              step="100"
+              value={adminAiSettings.maxOutputChars}
+              onChange={(event) =>
+                updateAdminAiSetting(
+                  'maxOutputChars',
+                  boundedNumber(event.target.value, 800, 200, 2000),
+                )
+              }
+              className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+            />
+            <p className="mt-1 text-xs text-neutral-500">Recommended: 800 characters.</p>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-neutral-100 bg-neutral-50 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">AI Usage</p>
+              <p className="text-xs leading-5 text-neutral-500">
+                Request counts are tracked per admin in Bhutan Time. Token totals are informational.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void refreshAdminAiUsage()}
+              disabled={loadingAiUsage}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-60"
+            >
+              {loadingAiUsage ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Sparkles size={14} />
+              )}
+              Refresh Usage
+            </button>
+          </div>
+
+          {adminAiUsage ? (
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-lg bg-white px-3 py-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Today</p>
+                <p className="mt-1 text-lg font-bold text-gray-900">
+                  {adminAiUsage.todayCount} / {adminAiUsage.dailyLimit}
+                </p>
+              </div>
+              <div className="rounded-lg bg-white px-3 py-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">This month</p>
+                <p className="mt-1 text-lg font-bold text-gray-900">{adminAiUsage.monthCount}</p>
+              </div>
+              <div className="rounded-lg bg-white px-3 py-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Input tokens</p>
+                <p className="mt-1 text-lg font-bold text-gray-900">{adminAiUsage.inputTokens.toLocaleString()}</p>
+              </div>
+              <div className="rounded-lg bg-white px-3 py-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Model</p>
+                <p className="mt-1 truncate text-sm font-bold text-gray-900">{adminAiUsage.model || 'Configured in Edge Function'}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-3 text-xs leading-5 text-neutral-500">
+              {adminAiUsageError || 'Deploy the AI Edge Function and usage SQL to display usage.'}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3 rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Test the AI connection</p>
+            <p className="text-xs leading-5 text-neutral-500">
+              Saves these settings and generates one safe sample message. This uses one request from the daily limit.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleTestAdminAi}
+            disabled={testingAdminAi || saving || !adminAiSettings.enabled}
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-semibold text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {testingAdminAi ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Sparkles size={16} />
+            )}
+            {testingAdminAi ? 'Testing...' : 'Test AI Assistant'}
+          </button>
+        </div>
+
+        <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
+          AI never verifies payments, changes order status, calculates quotation totals, sends final prices, cancels orders, issues refunds, or contacts customers without your explicit action.
         </div>
       </SettingCard>
 

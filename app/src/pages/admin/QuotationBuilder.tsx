@@ -457,6 +457,7 @@ export default function QuotationBuilder() {
 
       <SmartQuotationReview
         order={order}
+        currentNote={notes}
         onApplyNote={(value) => {
           setNotes(value);
           setSaved(false);

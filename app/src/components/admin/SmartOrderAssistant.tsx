@@ -16,6 +16,10 @@ import {
   type AdminSmartDraftKind,
   type AdminSmartIssueSeverity,
 } from '@/lib/adminSmartAssistant';
+import {
+  generateAdminAiDraft,
+  type AdminAiTask,
+} from '@/lib/adminAiAssistant';
 import { sendAdminCustomerUpdate } from '@/lib/customerOrders';
 import type { Order } from '@/types';
 
@@ -53,12 +57,17 @@ export default function SmartOrderAssistant({ order }: { order: Order }) {
     buildAdminSmartDraft(order, defaultKind, analysis),
   );
   const [sending, setSending] = useState(false);
+  const [aiBusy, setAiBusy] = useState<AdminAiTask | ''>('');
+  const [aiSummary, setAiSummary] = useState('');
+  const [aiRiskExplanation, setAiRiskExplanation] = useState('');
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
     setKind(defaultKind);
     setDraft(buildAdminSmartDraft(order, defaultKind, analysis));
+    setAiSummary('');
+    setAiRiskExplanation('');
     setFeedback('');
     setError('');
   }, [analysis, defaultKind, order]);
@@ -77,6 +86,51 @@ export default function SmartOrderAssistant({ order }: { order: Order }) {
       window.setTimeout(() => setFeedback(''), 2200);
     } catch {
       setError('Unable to copy the draft on this device.');
+    }
+  };
+
+  const runAi = async (task: AdminAiTask) => {
+    if (aiBusy) return;
+
+    setAiBusy(task);
+    setFeedback('');
+    setError('');
+
+    try {
+      const result = await generateAdminAiDraft({
+        order,
+        analysis,
+        task,
+        currentText: task === 'customer_message' ? draft : '',
+        draftKind: kind,
+      });
+
+      if (task === 'customer_message') {
+        if (!result.customerMessage) {
+          throw new Error('The AI assistant returned an empty customer message.');
+        }
+        setDraft(result.customerMessage);
+        setFeedback('AI-polished draft applied. Review it before sending.');
+      } else if (task === 'order_summary') {
+        if (!result.summary) {
+          throw new Error('The AI assistant returned an empty summary.');
+        }
+        setAiSummary(result.summary);
+      } else if (task === 'risk_explanation') {
+        if (!result.riskExplanation) {
+          throw new Error('The AI assistant returned no risk explanation.');
+        }
+        setAiRiskExplanation(result.riskExplanation);
+      }
+    } catch (aiError) {
+      console.error('[SmartOrderAssistant] AI generation failed:', aiError);
+      setError(
+        aiError instanceof Error
+          ? aiError.message
+          : 'Unable to use the AI assistant. The rule-based draft is still available.',
+      );
+    } finally {
+      setAiBusy('');
     }
   };
 
@@ -118,11 +172,11 @@ export default function SmartOrderAssistant({ order }: { order: Order }) {
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-sm font-bold text-neutral-900">S2B Admin Copilot</h3>
               <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700 ring-1 ring-violet-100">
-                Smart rules
+                Smart rules + optional AI
               </span>
             </div>
             <p className="mt-1 text-xs leading-5 text-neutral-600">
-              Reviews order facts, highlights risk, and prepares editable customer updates.
+              Rule checks run automatically. AI runs only when you press an AI button.
             </p>
           </div>
         </div>
@@ -143,9 +197,24 @@ export default function SmartOrderAssistant({ order }: { order: Order }) {
       <div className="space-y-5 p-5">
         <div className="grid gap-4 lg:grid-cols-2">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">
-              Smart summary
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">
+                Smart summary
+              </p>
+              <button
+                type="button"
+                onClick={() => void runAi('order_summary')}
+                disabled={Boolean(aiBusy)}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-2.5 text-[11px] font-bold text-violet-700 hover:bg-violet-50 disabled:opacity-50"
+              >
+                {aiBusy === 'order_summary' ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Sparkles size={13} />
+                )}
+                AI Summary
+              </button>
+            </div>
             <div className="mt-2 space-y-2">
               {analysis.summary.map((line) => (
                 <div key={line} className="flex items-start gap-2 text-sm text-neutral-700">
@@ -154,12 +223,37 @@ export default function SmartOrderAssistant({ order }: { order: Order }) {
                 </div>
               ))}
             </div>
+            {aiSummary && (
+              <div className="mt-3 rounded-xl border border-violet-100 bg-violet-50 px-3.5 py-3">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-violet-600">
+                  AI summary
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-violet-950">
+                  {aiSummary}
+                </p>
+              </div>
+            )}
           </div>
 
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">
-              Recommended next action
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">
+                Recommended next action
+              </p>
+              <button
+                type="button"
+                onClick={() => void runAi('risk_explanation')}
+                disabled={Boolean(aiBusy)}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-2.5 text-[11px] font-bold text-violet-700 hover:bg-violet-50 disabled:opacity-50"
+              >
+                {aiBusy === 'risk_explanation' ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Sparkles size={13} />
+                )}
+                Explain Risks
+              </button>
+            </div>
             <div className="mt-2 rounded-xl border border-violet-100 bg-violet-50 px-3.5 py-3">
               <div className="flex items-start gap-2">
                 <Sparkles size={16} className="mt-0.5 shrink-0 text-violet-600" />
@@ -168,6 +262,16 @@ export default function SmartOrderAssistant({ order }: { order: Order }) {
                 </p>
               </div>
             </div>
+            {aiRiskExplanation && (
+              <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 px-3.5 py-3">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                  AI risk explanation
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-amber-950">
+                  {aiRiskExplanation}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -248,11 +352,24 @@ export default function SmartOrderAssistant({ order }: { order: Order }) {
 
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[11px] leading-5 text-neutral-500">
-              Review every message before sending. This assistant never verifies payments,
-              changes status, or sends a quotation automatically.
+              AI only polishes text. It never verifies payments, changes status,
+              calculates totals, or contacts the customer without your Send Update tap.
             </p>
 
-            <div className="flex shrink-0 gap-2">
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void runAi('customer_message')}
+                disabled={!draft.trim() || Boolean(aiBusy) || sending}
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 text-sm font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+              >
+                {aiBusy === 'customer_message' ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Sparkles size={15} />
+                )}
+                Improve with AI
+              </button>
               <button
                 type="button"
                 onClick={copyDraft}
@@ -265,7 +382,7 @@ export default function SmartOrderAssistant({ order }: { order: Order }) {
               <button
                 type="button"
                 onClick={sendDraft}
-                disabled={!draft.trim() || sending}
+                disabled={!draft.trim() || sending || Boolean(aiBusy)}
                 className="inline-flex h-10 items-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
               >
                 {sending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
