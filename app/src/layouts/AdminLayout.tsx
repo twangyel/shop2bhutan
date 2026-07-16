@@ -56,6 +56,7 @@ const navGroups = [
     title: 'Main',
     items: [
       { path: '/admin', label: 'Action Centre', icon: LayoutDashboard },
+      { path: '/admin/notifications', label: 'Notifications', icon: Bell },
       { path: '/admin/orders', label: 'Orders', icon: ClipboardList },
       { path: '/admin/parcels', label: 'Parcel Trips', icon: ClipboardCheck },
       {
@@ -110,6 +111,7 @@ type AdminSearchResult = {
 
 const ADMIN_NAV_ALIASES: Record<string, string> = {
   '/admin': 'action centre priorities tasks home overview statistics collections profit',
+  '/admin/notifications': 'notifications alerts unread updates orders payments parcels customers activity',
   '/admin/orders': 'shopping requests quotations quote order final price',
   '/admin/parcels': 'parcel trips routes schedule',
   '/admin/parcel-requests': 'parcel booking requests delivery',
@@ -608,6 +610,7 @@ export default function AdminLayout() {
   useEffect(() => {
     setSidebarOpen(false)
     setAdminSearchOpen(false)
+    setNotificationOpen(false)
     setSearchQuery('')
   }, [location.pathname])
 
@@ -664,6 +667,24 @@ export default function AdminLayout() {
   useEffect(() => {
     void loadAdminNotifications({ silent: true })
   }, [loadAdminNotifications, location.pathname])
+
+  useEffect(() => {
+    const refreshNotifications = () => {
+      void loadAdminNotifications({ silent: true })
+    }
+
+    window.addEventListener(
+      'shop2bhutan:notifications-updated',
+      refreshNotifications,
+    )
+
+    return () => {
+      window.removeEventListener(
+        'shop2bhutan:notifications-updated',
+        refreshNotifications,
+      )
+    }
+  }, [loadAdminNotifications])
 
   useEffect(() => {
     if (!user) return undefined
@@ -1425,6 +1446,20 @@ export default function AdminLayout() {
                         })}
                       </div>
                     )}
+                  </div>
+
+                  <div className="border-t border-neutral-100 bg-neutral-50 p-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNotificationOpen(false)
+                        navigate('/admin/notifications')
+                      }}
+                      className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-white text-sm font-bold text-amber-700 ring-1 ring-neutral-200 transition hover:bg-amber-50"
+                    >
+                      <Bell size={15} />
+                      View all notifications
+                    </button>
                   </div>
                 </div>
               )}
