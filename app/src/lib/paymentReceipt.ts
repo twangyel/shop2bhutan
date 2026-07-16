@@ -44,7 +44,7 @@ type PdfObject = {
 };
 
 const RECEIPT_DIRECTORY = 'Shop2Bhutan/Receipts';
-const DEFAULT_LOGO_PATH = '/brand/logo-full-final.png';
+const DEFAULT_LOGO_PATH = '/brand/logo-full-ui.png';
 const DEFAULT_APP_URL = 'https://shop2bhutan.vercel.app';
 const textEncoder = new TextEncoder();
 
@@ -232,7 +232,7 @@ async function loadReceiptLogo(path?: string) {
     new Set([
       asciiText(path),
       DEFAULT_LOGO_PATH,
-      '/brand/logo-full-ui.png',
+      '/brand/logo-full-final.png',
       '/brand/logo-short.png',
       '/brand/logo-mark.png',
     ].filter(Boolean)),
@@ -264,13 +264,12 @@ function makeQrPayload(
   return [
     'SHOP2BHUTAN VERIFIED PAYMENT RECEIPT',
     `Receipt: ${receiptNumber}`,
-    `Payment ID: ${asciiText(data.paymentId)}`,
-    data.orderId ? `Order ID: ${asciiText(data.orderId)}` : '',
     `Order: ${asciiText(data.orderNumber)}`,
     `Amount: ${asciiText(data.amountLabel)}`,
+    `Payment Type: ${asciiText(data.paymentType) || 'Payment'}`,
     `Status: ${asciiText(data.status) || 'Verified'}`,
     `Verified: ${asciiText(data.verifiedAt)}`,
-    `App: ${asciiText(data.appUrl) || DEFAULT_APP_URL}`,
+    `Official app: ${asciiText(data.appUrl) || DEFAULT_APP_URL}`,
   ].filter(Boolean).join('\n');
 }
 
@@ -353,6 +352,11 @@ function makePdf(objects: PdfObject[]) {
 async function buildReceiptPdf(data: PaymentReceiptData) {
   const receiptNumber = receiptNumberFromPaymentId(data.paymentId);
   const appUrl = asciiText(data.appUrl) || DEFAULT_APP_URL;
+  const hasOnlineVerification = Boolean(asciiText(data.verificationUrl));
+  const qrInstruction = hasOnlineVerification
+    ? 'Scan the QR code to verify this payment securely online.'
+    : 'Scan the QR code to view a compact receipt summary.';
+
   const [logo, qrImage] = await Promise.all([
     loadReceiptLogo(data.logoPath),
     makeQrImage(makeQrPayload(data, receiptNumber)),
@@ -367,60 +371,77 @@ async function buildReceiptPdf(data: PaymentReceiptData) {
   let nextObjectId = 6;
 
   if (logo) {
-    imageResources.push({ name: 'Logo', image: logo, objectId: nextObjectId });
+    imageResources.push({
+      name: 'Logo',
+      image: logo,
+      objectId: nextObjectId,
+    });
     nextObjectId += 1;
   }
 
-  imageResources.push({ name: 'Qr', image: qrImage, objectId: nextObjectId });
+  imageResources.push({
+    name: 'Qr',
+    image: qrImage,
+    objectId: nextObjectId,
+  });
   nextObjectId += 1;
-  const contentObjectId = nextObjectId;
 
+  const contentObjectId = nextObjectId;
   const xObjectDictionary = imageResources
     .map((resource) => `/${resource.name} ${resource.objectId} 0 R`)
     .join(' ');
 
   const contentLines: string[] = [
-    // Page background and top brand card.
+    // Pure-white page and header. The white header lets a transparent/white
+    // logo blend naturally without the previous grey rectangle.
     '1 1 1 rg 0 0 595 842 re f',
-    '0.973 0.98 0.988 rg 32 706 531 104 re f',
-    '0.961 0.369 0.031 rg 32 706 6 104 re f',
+    '0.88 0.89 0.91 RG 32 716 531 94 re S',
+    '0.961 0.369 0.031 rg 32 716 5 94 re f',
   ];
 
   if (logo) {
-    contentLines.push(imageDrawOperator('Logo', logo, 50, 738, 165, 52));
+    contentLines.push(
+      imageDrawOperator('Logo', logo, 48, 735, 190, 58),
+    );
   } else {
     contentLines.push(
       '0.047 0.235 0.627 rg',
-      textOperator('Shop2Bhutan', 52, 765, 22, 'F2'),
+      textOperator('Shop2Bhutan', 50, 765, 23, 'F2'),
     );
   }
 
   contentLines.push(
     '0.067 0.094 0.153 rg',
-    textOperator('VERIFIED PAYMENT RECEIPT', 326, 775, 11, 'F2'),
-    '0.42 0.45 0.5 rg',
-    textOperator('Receipt No.', 326, 754, 8, 'F1'),
-    '0.067 0.094 0.153 rg',
-    textOperator(receiptNumber, 382, 754, 9, 'F2'),
-    '0.42 0.45 0.5 rg',
-    textOperator('Order', 326, 734, 8, 'F1'),
-    '0.067 0.094 0.153 rg',
-    textOperator(`#${clipText(data.orderNumber, 24)}`, 382, 734, 10, 'F2'),
+    textOperator('VERIFIED PAYMENT RECEIPT', 318, 778, 11.5, 'F2'),
 
-    // Summary cards.
-    '0.976 0.98 0.984 rg 32 626 354 62 re f',
     '0.42 0.45 0.5 rg',
-    textOperator('AMOUNT RECEIVED', 48, 667, 8, 'F2'),
+    textOperator('Receipt No.', 318, 753, 8.2, 'F1'),
     '0.067 0.094 0.153 rg',
-    textOperator(clipText(data.amountLabel, 28), 48, 641, 22, 'F2'),
-    '0.925 0.98 0.945 rg 400 626 163 62 re f',
+    textOperator(receiptNumber, 381, 753, 9.4, 'F2'),
+
+    '0.42 0.45 0.5 rg',
+    textOperator('Order', 318, 731, 8.2, 'F1'),
+    '0.067 0.094 0.153 rg',
+    textOperator(`#${clipText(data.orderNumber, 25)}`, 381, 731, 9.4, 'F2'),
+
+    // Summary.
+    '0.98 0.98 0.985 rg 32 632 354 64 re f',
+    '0.90 0.91 0.93 RG 32 632 354 64 re S',
+    '0.42 0.45 0.5 rg',
+    textOperator('AMOUNT RECEIVED', 48, 674, 8.2, 'F2'),
+    '0.067 0.094 0.153 rg',
+    textOperator(clipText(data.amountLabel, 28), 48, 646, 22, 'F2'),
+
+    '0.925 0.98 0.945 rg 400 632 163 64 re f',
+    '0.77 0.91 0.82 RG 400 632 163 64 re S',
     '0.02 0.49 0.27 rg',
-    textOperator('PAYMENT VERIFIED', 420, 656, 10, 'F2'),
-    textOperator('Confirmed by Shop2Bhutan', 416, 639, 8, 'F1'),
+    textOperator('PAYMENT VERIFIED', 420, 663, 10, 'F2'),
+    textOperator('Confirmed by Shop2Bhutan', 415, 644, 8, 'F1'),
 
+    // Details.
     '0.067 0.094 0.153 rg',
-    textOperator('PAYMENT DETAILS', 32, 597, 10, 'F2'),
-    '0.88 0.89 0.91 RG 32 588 531 0.7 re S',
+    textOperator('PAYMENT DETAILS', 32, 604, 10.2, 'F2'),
+    '0.86 0.88 0.90 RG 32 594 531 0.7 re S',
   );
 
   const leftRows: Array<[string, string]> = [
@@ -441,7 +462,7 @@ async function buildReceiptPdf(data: PaymentReceiptData) {
     ['Phone', maskPhone(data.customerPhone) || 'Not provided'],
   ];
 
-  let rowY = 561;
+  let rowY = 566;
 
   for (let index = 0; index < leftRows.length; index += 1) {
     const [leftLabel, leftValue] = leftRows[index];
@@ -449,40 +470,51 @@ async function buildReceiptPdf(data: PaymentReceiptData) {
 
     contentLines.push(
       '0.42 0.45 0.5 rg',
-      textOperator(leftLabel, 40, rowY, 8, 'F1'),
-      textOperator(rightLabel, 310, rowY, 8, 'F1'),
+      textOperator(leftLabel, 40, rowY, 8.4, 'F1'),
+      textOperator(rightLabel, 310, rowY, 8.4, 'F1'),
+
       '0.067 0.094 0.153 rg',
-      textOperator(clipText(leftValue, 29), 130, rowY, 9, 'F2'),
-      textOperator(clipText(rightValue, 24), 406, rowY, 9, 'F2'),
+      textOperator(clipText(leftValue, 29), 130, rowY, 9.4, 'F2'),
+      textOperator(clipText(rightValue, 25), 406, rowY, 9.4, 'F2'),
     );
 
-    rowY -= 31;
+    rowY -= 32;
   }
 
   contentLines.push(
-    '0.88 0.89 0.91 RG 32 365 531 0.7 re S',
+    '0.86 0.88 0.90 RG 32 382 531 0.7 re S',
 
-    // QR/reference card.
-    '0.973 0.98 0.988 rg 32 211 531 136 re f',
+    // Receipt reference and QR.
+    '0.975 0.985 0.998 rg 32 228 531 136 re f',
+    '0.87 0.90 0.95 RG 32 228 531 136 re S',
+
     '0.067 0.094 0.153 rg',
-    textOperator('RECEIPT REFERENCE', 48, 320, 9, 'F2'),
-    textOperator(receiptNumber, 48, 297, 12, 'F2'),
+    textOperator('RECEIPT REFERENCE', 48, 337, 9, 'F2'),
+    textOperator(receiptNumber, 48, 313, 12, 'F2'),
+
+    '0.32 0.36 0.43 rg',
+    textOperator(qrInstruction, 48, 283, 9, 'F1'),
+    textOperator('Only receipt-safe payment details are displayed.', 48, 263, 8.4, 'F1'),
+
     '0.42 0.45 0.5 rg',
-    textOperator(`Payment ID: ${clipText(data.paymentId, 34)}`, 48, 275, 8, 'F1'),
-    textOperator('Scan the QR code to view the encoded receipt details.', 48, 250, 9, 'F1'),
-    textOperator(appUrl, 48, 230, 8, 'F2'),
-    imageDrawOperator('Qr', qrImage, 433, 224, 112, 112),
-
+    textOperator('Official app', 48, 242, 8, 'F1'),
     '0.067 0.094 0.153 rg',
-    textOperator('Receipt note', 32, 180, 10, 'F2'),
+    textOperator(appUrl, 106, 242, 8.4, 'F2'),
+
+    imageDrawOperator('Qr', qrImage, 443, 247, 96, 96),
+
+    // Note.
+    '0.067 0.094 0.153 rg',
+    textOperator('Receipt note', 32, 194, 10, 'F2'),
   );
 
   const noteLines = wrapText(
-    'This receipt confirms that Shop2Bhutan has verified the payment listed above. Please keep this document for your records and quote the order number or receipt number when contacting support.',
+    'This receipt confirms that Shop2Bhutan has verified the payment listed above. Keep this document for your records and quote the order number or receipt number when contacting support.',
     91,
   );
 
-  let noteY = 157;
+  let noteY = 170;
+
   for (const line of noteLines.slice(0, 3)) {
     contentLines.push(
       '0.25 0.28 0.33 rg',
@@ -493,12 +525,24 @@ async function buildReceiptPdf(data: PaymentReceiptData) {
 
   contentLines.push(
     '0.42 0.45 0.5 rg',
-    textOperator('Generated by the Shop2Bhutan customer app.', 32, 78, 8, 'F1'),
-    textOperator('This is a system-generated receipt and does not require a signature.', 32, 63, 8, 'F1'),
-    '0.961 0.369 0.031 rg 0 0 595 9 re f',
+    textOperator(
+      'Generated by the Shop2Bhutan customer app.',
+      32,
+      84,
+      8,
+      'F1',
+    ),
+    textOperator(
+      'This is a system-generated receipt and does not require a signature.',
+      32,
+      68,
+      8,
+      'F1',
+    ),
+    '0.961 0.369 0.031 rg 0 0 595 8 re f',
   );
 
-  const content = textEncoder.encode(contentLines.join('\n'));
+  const content = textEncoder.encode(contentLines.join('\\n'));
 
   const pageResources = xObjectDictionary
     ? `/Resources << /Font << /F1 4 0 R /F2 5 0 R >> /XObject << ${xObjectDictionary} >> >>`
@@ -510,8 +554,12 @@ async function buildReceiptPdf(data: PaymentReceiptData) {
     {
       body: `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] ${pageResources} /Contents ${contentObjectId} 0 R >>`,
     },
-    { body: '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>' },
-    { body: '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>' },
+    {
+      body: '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    },
+    {
+      body: '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>',
+    },
   ];
 
   for (const resource of imageResources) {

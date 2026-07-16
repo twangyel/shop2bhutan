@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import PaymentReceiptVerification from '@/pages/public/PaymentReceiptVerification';
 import {
   BellRing,
   CheckCircle2,
@@ -363,6 +364,7 @@ function PwaInstallBanner() {
   const iosSafari = isIosSafari();
   const shouldHideForRoute =
     location.pathname.startsWith('/admin') ||
+    location.pathname.startsWith('/verify-payment/') ||
     location.pathname === '/download';
 
   useEffect(() => {
@@ -563,6 +565,7 @@ function WebPushPermissionBanner() {
 
   const hiddenRoute =
     location.pathname.startsWith('/admin') ||
+    location.pathname.startsWith('/verify-payment/') ||
     location.pathname === '/login' ||
     location.pathname === '/register' ||
     location.pathname === '/forgot-password' ||
@@ -1751,6 +1754,12 @@ export default function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+
+        {/* Public payment receipt verification - No login or layout */}
+        <Route
+          path="/verify-payment/:token"
+          element={<PaymentReceiptVerification />}
+        />
 
         {/* Public download/install page - No customer layout */}
         <Route path="/download" element={<DownloadApp />} />

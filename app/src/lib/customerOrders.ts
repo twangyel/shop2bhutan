@@ -80,6 +80,7 @@ export type CustomerPaymentHistoryRecord = {
   orderNumber: string
   quotationId: string
   transactionId: string
+  receiptVerificationToken: string
   amount: number
   currency: string
   orderTotal: number
@@ -1281,6 +1282,11 @@ async function mapCustomerPaymentHistoryRow(
     orderNumber: orderNumberFromPaymentHistoryOrder(orderRow, orderId),
     quotationId: firstString(payment, ['quotation_id'], ''),
     transactionId: firstString(payment, ['transaction_id', 'reference_id', 'txn_id'], ''),
+    receiptVerificationToken: firstString(
+      payment,
+      ['receipt_verification_token', 'receiptVerificationToken'],
+      '',
+    ),
     amount,
     currency: firstString(payment, ['currency'], 'BTN'),
     orderTotal,
@@ -1337,7 +1343,7 @@ export async function fetchCustomerPaymentHistory(userId: string): Promise<Custo
   if (!cleanUserId) return makeEmptyCustomerPaymentHistory()
 
   const primarySelect =
-    'id, order_id, quotation_id, user_id, payment_type, payment_method, payment_method_name, transaction_id, amount, currency, proof_file_path, status, submitted_at, verified_at, rejection_reason, admin_notes, created_at, updated_at'
+    'id, order_id, quotation_id, user_id, payment_type, payment_method, payment_method_name, transaction_id, receipt_verification_token, amount, currency, proof_file_path, status, submitted_at, verified_at, rejection_reason, admin_notes, created_at, updated_at'
 
   let paymentData: AnyRow[] = []
   let lastPaymentError: unknown = null

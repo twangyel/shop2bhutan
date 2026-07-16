@@ -25,6 +25,7 @@ import {
 import { usePrivacyScreen } from '@/lib/privacyScreen';
 
 const BHUTAN_TIME_ZONE = 'Asia/Thimphu';
+const SHOP2BHUTAN_APP_URL = 'https://shop2bhutan.vercel.app';
 
 type PaymentFilter = 'all' | 'pending' | 'verified' | 'rejected';
 
@@ -388,8 +389,13 @@ export default function PaymentHistory() {
           status: paymentStatusLabel(payment.status),
           customerName: payment.customerName,
           customerPhone: payment.customerPhone,
-          logoPath: '/brand/logo-full-final.png',
-          appUrl: 'https://shop2bhutan.vercel.app',
+          logoPath: '/brand/logo-full-ui.png',
+          appUrl: SHOP2BHUTAN_APP_URL,
+          verificationUrl: payment.receiptVerificationToken
+            ? `${SHOP2BHUTAN_APP_URL}/verify-payment/${encodeURIComponent(
+                payment.receiptVerificationToken,
+              )}`
+            : undefined,
         });
 
       if (result.mode === 'opened') {
