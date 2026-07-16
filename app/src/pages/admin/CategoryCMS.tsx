@@ -1,28 +1,62 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2, GripVertical } from 'lucide-react';
 import { categories } from '@/data/mockData';
+import { useAppToast } from '@/components/shared/AppToast';
 
 export default function CategoryCMS() {
+  const toast = useAppToast();
   const [categoryList, setCategoryList] = useState(categories);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCatName, setNewCatName] = useState('');
 
   const toggleStatus = (id: string) => {
-    setCategoryList(prev => prev.map(c => c.id === id ? { ...c, isActive: !c.isActive } : c));
+    const category = categoryList.find((item) => item.id === id);
+    if (!category) return;
+
+    const nextActive = !category.isActive;
+    setCategoryList((previous) =>
+      previous.map((item) =>
+        item.id === id ? { ...item, isActive: nextActive } : item,
+      ),
+    );
+    toast.info(
+      'Category preview updated',
+      `${category.name} is now ${nextActive ? 'active' : 'inactive'} in this local preview. This CMS is not connected to Supabase yet.`,
+    );
   };
 
   const handleAdd = () => {
-    if (!newCatName.trim()) return;
-    setCategoryList(prev => [...prev, {
-      id: `cat-${Date.now()}`,
-      name: newCatName,
-      icon: 'Package',
-      image: '',
-      sortOrder: prev.length + 1,
-      isActive: true,
-    }]);
+    const cleanName = newCatName.trim();
+
+    if (!cleanName) {
+      toast.warning('Category name required', 'Enter a category name before adding it.');
+      return;
+    }
+
+    setCategoryList((previous) => [
+      ...previous,
+      {
+        id: `cat-${Date.now()}`,
+        name: cleanName,
+        icon: 'Package',
+        image: '',
+        sortOrder: previous.length + 1,
+        isActive: true,
+      },
+    ]);
     setNewCatName('');
     setShowAddForm(false);
+    toast.success(
+      'Category added to preview',
+      `${cleanName} was added locally. This CMS is not connected to Supabase yet, so the change resets after reload.`,
+    );
+  };
+
+  const showCategoryEditorNotice = () => {
+    toast.info(
+      'Category action not connected',
+      'Edit, delete, sort, and reorder actions will be enabled when the Categories backend is connected.',
+    );
   };
 
   return (
@@ -82,7 +116,7 @@ export default function CategoryCMS() {
               {categoryList.map(cat => (
                 <tr key={cat.id} className="border-b border-neutral-50 last:border-0 hover:bg-neutral-50 transition-colors">
                   <td className="px-4 py-3">
-                    <button className="text-neutral-400 hover:text-neutral-600 cursor-grab">
+                    <button type="button" onClick={showCategoryEditorNotice} className="text-neutral-400 hover:text-neutral-600 cursor-grab">
                       <GripVertical size={16} />
                     </button>
                   </td>
@@ -108,10 +142,10 @@ export default function CategoryCMS() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
-                      <button className="p-1.5 text-neutral-400 hover:text-amber-600 transition-colors">
+                      <button type="button" onClick={showCategoryEditorNotice} className="p-1.5 text-neutral-400 hover:text-amber-600 transition-colors">
                         <Pencil size={14} />
                       </button>
-                      <button className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors">
+                      <button type="button" onClick={showCategoryEditorNotice} className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors">
                         <Trash2 size={14} />
                       </button>
                     </div>

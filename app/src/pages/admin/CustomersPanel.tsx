@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronRight,
   Copy,
-  Eye,
   KeyRound,
   Loader2,
   RefreshCw,
@@ -15,6 +15,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import VerificationBadge, { getVerificationBadgeLabel } from '@/components/shared/VerificationBadge';
+import { useAppToast } from '@/components/shared/AppToast';
 import type { VerificationBadge as VerificationBadgeType } from '@/types';
 import {
   deactivateCustomerAccount,
@@ -42,19 +43,6 @@ function formatDate(value?: string) {
   });
 }
 
-function formatDateTime(value?: string) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return `${date.toLocaleString('en-GB', {
-    timeZone: 'Asia/Thimphu',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })} BTT`;
-}
 
 function isDeactivated(customer: AdminCustomerRecord) {
   return customer.accountStatus === 'deactivated' || customer.isActive === false;
@@ -67,18 +55,18 @@ function statusBadgeClass(customer: AdminCustomerRecord) {
 }
 
 export default function CustomersPanel() {
+  const toast = useAppToast();
   const navigate = useNavigate();
   const [customers, setCustomers] = useState<AdminCustomerRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [reactivatingId, setReactivatingId] = useState('');
-  const [deactivatingId, setDeactivatingId] = useState('');
+  const [, setReactivatingId] = useState('');
+  const [, setDeactivatingId] = useState('');
   const [updatingVerificationId, setUpdatingVerificationId] = useState('');
   const [deactivationReason, setDeactivationReason] = useState('');
-  const [resettingId, setResettingId] = useState('');
+  const [, setResettingId] = useState('');
   const [resetResult, setResetResult] = useState<{
     customer: AdminCustomerRecord;
     temporaryPassword: string;
@@ -88,6 +76,8 @@ export default function CustomersPanel() {
     type: 'deactivate' | 'reactivate' | 'reset-password';
     customer: AdminCustomerRecord;
   } | null>(null);
+  const [manageCustomer, setManageCustomer] =
+    useState<AdminCustomerRecord | null>(null);
 
   const loadCustomers = useCallback(async () => {
     setLoading(true);
@@ -153,7 +143,6 @@ export default function CustomersPanel() {
 
   function handleReactivate(customer: AdminCustomerRecord) {
     setError('');
-    setSuccess('');
     setConfirmAction({ type: 'reactivate', customer });
   }
 
@@ -161,19 +150,20 @@ export default function CustomersPanel() {
     if (isDeactivated(customer)) return;
 
     setError('');
-    setSuccess('');
     setDeactivationReason('');
     setConfirmAction({ type: 'deactivate', customer });
   }
 
   function handleResetPassword(customer: AdminCustomerRecord) {
     if (isDeactivated(customer)) {
-      setError('Reactivate this customer before resetting the password.');
+      toast.warning(
+        'Customer is deactivated',
+        'Reactivate this customer before resetting the password.',
+      );
       return;
     }
 
     setError('');
-    setSuccess('');
     setConfirmAction({ type: 'reset-password', customer });
   }
 
@@ -184,21 +174,21 @@ export default function CustomersPanel() {
     try {
       setUpdatingVerificationId(customer.id);
       setError('');
-      setSuccess('');
-
+  
       await updateCustomerVerificationBadge(customer.id, badge);
-      setSuccess(
+      toast.success(
+        badge === 'none' ? 'Verification badge removed' : 'Verification badge updated',
         badge === 'none'
           ? `Verification badge removed for ${customer.name || 'customer'}.`
           : `${getVerificationBadgeLabel(badge)} badge assigned to ${customer.name || 'customer'}.`,
       );
       await loadCustomers();
     } catch (err) {
-      setError(
+      const message =
         err instanceof Error
           ? err.message
-          : 'Unable to update verification badge.',
-      );
+          : 'Unable to update verification badge.';
+      toast.error('Verification badge update failed', message);
     } finally {
       setUpdatingVerificationId('');
     }
@@ -208,15 +198,14 @@ export default function CustomersPanel() {
     try {
       setReactivatingId(customer.id);
       setError('');
-      setSuccess('');
-
+  
       await reactivateCustomerAccount(customer.id);
-      setSuccess(`${customer.name || 'Customer'} has been reactivated.`);
+      toast.success('Customer reactivated', `${customer.name || 'Customer'} can sign in again.`);
       await loadCustomers();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Unable to reactivate customer.',
-      );
+      const message =
+        err instanceof Error ? err.message : 'Unable to reactivate customer.';
+      toast.error('Customer reactivation failed', message);
     } finally {
       setReactivatingId('');
     }
@@ -226,19 +215,18 @@ export default function CustomersPanel() {
     try {
       setDeactivatingId(customer.id);
       setError('');
-      setSuccess('');
-
+  
       await deactivateCustomerAccount(
         customer.id,
         deactivationReason || 'Deactivated by admin',
       );
 
-      setSuccess(`${customer.name || 'Customer'} has been deactivated.`);
+      toast.success('Customer deactivated', `${customer.name || 'Customer'} can no longer sign in.`);
       await loadCustomers();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Unable to deactivate customer.',
-      );
+      const message =
+        err instanceof Error ? err.message : 'Unable to deactivate customer.';
+      toast.error('Customer deactivation failed', message);
     } finally {
       setDeactivatingId('');
       setDeactivationReason('');
@@ -249,8 +237,7 @@ export default function CustomersPanel() {
     try {
       setResettingId(customer.id);
       setError('');
-      setSuccess('');
-      setResetResult(null);
+        setResetResult(null);
 
       const result = await resetCustomerTemporaryPassword(customer.id);
       setResetResult({
@@ -258,14 +245,17 @@ export default function CustomersPanel() {
         temporaryPassword: result.temporaryPassword,
         copied: false,
       });
-      setSuccess(`Temporary password generated for ${customer.name || 'customer'}.`);
+      toast.success(
+        'Temporary password generated',
+        `Share it securely with ${customer.name || 'the customer'}.`,
+      );
       await loadCustomers();
     } catch (err) {
-      setError(
+      const message =
         err instanceof Error
           ? err.message
-          : 'Unable to generate temporary password.',
-      );
+          : 'Unable to generate temporary password.';
+      toast.error('Temporary password failed', message);
     } finally {
       setResettingId('');
     }
@@ -298,8 +288,12 @@ export default function CustomersPanel() {
       setResetResult((current) =>
         current ? { ...current, copied: true } : current,
       );
+      toast.success('Temporary password copied', 'It is ready to share securely with the customer.');
     } catch {
-      setError('Unable to copy automatically. Please select and copy the password manually.');
+      toast.error(
+        'Unable to copy automatically',
+        'Please select and copy the temporary password manually.',
+      );
     }
   }
 
@@ -376,57 +370,36 @@ export default function CustomersPanel() {
         </div>
       )}
 
-      {success && (
-        <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          <CheckCircle2 size={17} className="mt-0.5 flex-shrink-0" />
-          <span>{success}</span>
-        </div>
-      )}
-
       <div className="overflow-hidden rounded-xl bg-white shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1360px]">
-            <thead>
-              <tr className="border-b border-neutral-200 bg-neutral-50">
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-neutral-500">
+          <table className="w-full min-w-[1120px]">
+            <thead className="sticky top-0 z-10 bg-neutral-50">
+              <tr className="border-b border-neutral-200">
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
                   Customer
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-neutral-500">
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
                   Contact
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-neutral-500">
-                  Dzongkhag
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                  Account & Badge
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-neutral-500">
-                  Account
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                  Orders / Spend
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-neutral-500">
-                  Badge
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                  Activity
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-neutral-500">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-neutral-500">
-                  Orders
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-neutral-500">
-                  Verified Spend
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-neutral-500">
-                  Joined
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-neutral-500">
-                  Last Order
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-neutral-500">
+                <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
                   Action
                 </th>
               </tr>
             </thead>
+
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={11} className="px-4 py-10 text-center text-sm text-neutral-500">
+                  <td colSpan={6} className="px-4 py-10 text-center text-sm text-neutral-500">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 size={18} className="animate-spin text-amber-500" />
                       Loading customers...
@@ -437,7 +410,7 @@ export default function CustomersPanel() {
 
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="px-4 py-12 text-center">
+                  <td colSpan={6} className="px-4 py-12 text-center">
                     <p className="text-sm font-medium text-neutral-600">
                       No customers found
                     </p>
@@ -451,20 +424,20 @@ export default function CustomersPanel() {
               {!loading &&
                 filtered.map((customer) => {
                   const deactivated = isDeactivated(customer);
-                  const isReactivating = reactivatingId === customer.id;
-                  const isDeactivating = deactivatingId === customer.id;
-                  const isResetting = resettingId === customer.id;
-                  const isUpdatingVerification = updatingVerificationId === customer.id;
+                  const isUpdatingVerification =
+                    updatingVerificationId === customer.id;
+                  const orderLabel =
+                    customer.orders === 1 ? '1 order' : `${customer.orders} orders`;
 
                   return (
                     <tr
                       key={customer.id}
-                      className="border-b border-neutral-100 transition-colors last:border-0 hover:bg-neutral-50"
+                      className="border-b border-neutral-100 align-middle transition-colors last:border-0 hover:bg-neutral-50/80"
                     >
-                      <td className="px-4 py-3 align-top">
-                        <div className="flex items-center gap-3">
+                      <td className="px-4 py-2.5">
+                        <div className="flex min-w-0 items-center gap-3">
                           <div
-                            className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold ${
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
                               deactivated
                                 ? 'bg-rose-100 text-rose-700'
                                 : 'bg-amber-100 text-amber-700'
@@ -474,51 +447,78 @@ export default function CustomersPanel() {
                               .charAt(0)
                               .toUpperCase()}
                           </div>
-                          <div>
+
+                          <div className="min-w-0">
                             <div className="flex min-w-0 items-center gap-1.5">
-                              <p className="truncate text-sm font-semibold text-gray-900">
+                              <p className="max-w-[210px] truncate text-sm font-semibold text-gray-900">
                                 {customer.name || 'Customer'}
                               </p>
-                              <VerificationBadge badge={customer.verificationBadge} size="xs" />
+                              <VerificationBadge
+                                badge={customer.verificationBadge}
+                                size="xs"
+                              />
                             </div>
-                            <p className="text-xs text-neutral-400">
-                              {deactivated
-                                ? 'Deactivated customer profile'
-                                : customer.mustChangePassword
-                                  ? 'Temporary password active'
-                                  : 'Active customer profile'}
+                            <p className="mt-0.5 truncate text-xs leading-4 text-neutral-400">
+                              {customer.dzongkhag || 'Dzongkhag not set'}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 align-top text-sm text-neutral-600">
-                        <div>{customer.phone || '-'}</div>
-                        <div className="text-xs text-neutral-400">
-                          {customer.email || 'No email provided'}
+
+                      <td className="px-4 py-2.5">
+                        <p className="text-sm font-medium text-neutral-700">
+                          {customer.phone || 'No phone'}
+                        </p>
+                        <p className="mt-0.5 max-w-[210px] truncate text-xs leading-4 text-neutral-400">
+                          {customer.email || 'No email'}
+                        </p>
+                      </td>
+
+                      <td className="min-w-[250px] px-4 py-2.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                              customer.accountType === 'email'
+                                ? 'bg-blue-50 text-blue-700'
+                                : 'bg-amber-50 text-amber-700'
+                            }`}
+                          >
+                            {customer.accountType === 'email'
+                              ? 'Email account'
+                              : 'Phone-only'}
+                          </span>
+
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${statusBadgeClass(
+                              customer,
+                            )}`}
+                          >
+                            {deactivated ? (
+                              <XCircle size={11} />
+                            ) : (
+                              <CheckCircle2 size={11} />
+                            )}
+                            {deactivated ? 'Deactivated' : 'Active'}
+                          </span>
+
+                          {customer.mustChangePassword && !deactivated && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                              <ShieldAlert size={11} />
+                              Password change required
+                            </span>
+                          )}
                         </div>
-                      </td>
-                      <td className="px-4 py-3 align-top text-sm text-neutral-600">
-                        {customer.dzongkhag || '-'}
-                      </td>
-                      <td className="px-4 py-3 align-top">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
-                            customer.accountType === 'email'
-                              ? 'bg-blue-50 text-blue-700'
-                              : 'bg-amber-50 text-amber-700'
-                          }`}
-                        >
-                          {customer.accountType === 'email'
-                            ? 'Email account'
-                            : 'Phone-only'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 align-top">
-                        <div className="space-y-2">
-                          {customer.verificationBadge && customer.verificationBadge !== 'none' ? (
-                            <VerificationBadge badge={customer.verificationBadge} size="sm" showLabel />
+
+                        <div className="mt-1.5 flex items-center gap-2">
+                          {customer.verificationBadge &&
+                          customer.verificationBadge !== 'none' ? (
+                            <VerificationBadge
+                              badge={customer.verificationBadge}
+                              size="xs"
+                              showLabel
+                            />
                           ) : (
-                            <span className="inline-flex rounded-full border border-neutral-100 bg-neutral-50 px-2.5 py-1 text-xs font-bold text-neutral-400">
+                            <span className="text-xs font-medium text-neutral-400">
                               No badge
                             </span>
                           )}
@@ -532,121 +532,72 @@ export default function CustomersPanel() {
                                 event.target.value as VerificationBadgeType,
                               )
                             }
-                            className="h-8 w-full min-w-[170px] rounded-lg border border-neutral-200 bg-white px-2 text-xs font-semibold text-neutral-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 disabled:opacity-60"
+                            aria-label={`Change verification badge for ${
+                              customer.name || 'customer'
+                            }`}
+                            className="h-7 rounded-lg border border-neutral-200 bg-white px-2 text-[11px] font-semibold text-neutral-600 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 disabled:opacity-60"
                           >
                             <option value="none">No badge</option>
                             <option value="blue">Verified Contact</option>
-                            <option value="gold">Trusted Customer 🇧🇹</option>
+                            <option value="gold">
+                              Trusted Customer 🇧🇹
+                            </option>
                           </select>
                         </div>
-                      </td>
-                      <td className="px-4 py-3 align-top">
-                        <div className="space-y-1.5">
-                          <span
-                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${statusBadgeClass(
-                              customer,
-                            )}`}
+
+                        {deactivated && customer.deactivationReason && (
+                          <p
+                            className="mt-1 max-w-[240px] truncate text-[11px] leading-4 text-rose-500"
+                            title={customer.deactivationReason}
                           >
-                            {deactivated ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
-                            {deactivated ? 'Deactivated' : 'Active'}
-                          </span>
+                            {customer.deactivationReason}
+                          </p>
+                        )}
+                      </td>
 
-                          {customer.mustChangePassword && !deactivated && (
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">
-                              <ShieldAlert size={12} />
-                              Must change password
-                            </span>
-                          )}
+                      <td className="px-4 py-2.5">
+                        <p className="text-sm font-semibold text-gray-900">
+                          {orderLabel}
+                        </p>
+                        <p className="mt-0.5 whitespace-nowrap text-xs font-medium leading-4 text-neutral-500">
+                          {formatCurrency(customer.totalSpent)} verified
+                        </p>
+                      </td>
 
-                          {customer.passwordResetByAdminAt && (
-                            <p className="text-[11px] text-neutral-400">
-                              Reset: {formatDateTime(customer.passwordResetByAdminAt)}
-                            </p>
-                          )}
+                      <td className="min-w-[170px] px-4 py-2.5">
+                        <p className="text-xs font-medium leading-4 text-neutral-600">
+                          Joined {formatDate(customer.joined)}
+                        </p>
+                        <p className="mt-0.5 text-xs leading-4 text-neutral-400">
+                          {customer.lastOrderAt
+                            ? `Last order ${formatDate(customer.lastOrderAt)}`
+                            : 'No orders yet'}
+                        </p>
+                        {customer.passwordResetByAdminAt && (
+                          <p className="mt-0.5 max-w-[190px] truncate text-[10px] leading-4 text-neutral-400">
+                            Password reset {formatDate(customer.passwordResetByAdminAt)}
+                          </p>
+                        )}
+                      </td>
 
-                          {deactivated && customer.deactivatedAt && (
-                            <p className="text-[11px] text-neutral-400">
-                              {formatDateTime(customer.deactivatedAt)}
-                            </p>
-                          )}
-
-                          {deactivated && customer.deactivationReason && (
-                            <p className="max-w-[220px] truncate text-[11px] text-neutral-500">
-                              Reason: {customer.deactivationReason}
-                            </p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 align-top text-sm font-semibold text-gray-900">
-                        {customer.orders}
-                      </td>
-                      <td className="px-4 py-3 align-top text-sm font-semibold text-gray-900">
-                        {formatCurrency(customer.totalSpent)}
-                      </td>
-                      <td className="px-4 py-3 align-top text-sm text-neutral-500">
-                        {formatDate(customer.joined)}
-                      </td>
-                      <td className="px-4 py-3 align-top text-sm text-neutral-500">
-                        {formatDate(customer.lastOrderAt)}
-                      </td>
-                      <td className="px-4 py-3 align-top">
-                        <div className="flex justify-end gap-1.5">
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center justify-end gap-2">
                           <button
                             type="button"
                             onClick={() => navigate('/admin/orders')}
-                            className="rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-amber-600"
-                            aria-label="View customer orders"
+                            className="inline-flex h-8 items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 text-xs font-bold text-neutral-600 transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700"
                           >
-                            <Eye size={16} />
+                            View
+                            <ChevronRight size={14} />
                           </button>
 
-                          {!deactivated && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => void handleResetPassword(customer)}
-                                disabled={isResetting}
-                                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-amber-600 disabled:opacity-60"
-                              >
-                                {isResetting ? (
-                                  <Loader2 size={14} className="animate-spin" />
-                                ) : (
-                                  <KeyRound size={14} />
-                                )}
-                                Reset Password
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => void handleDeactivate(customer)}
-                                disabled={isDeactivating}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-100 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-60"
-                              >
-                                {isDeactivating ? (
-                                  <Loader2 size={14} className="animate-spin" />
-                                ) : (
-                                  <UserX size={14} />
-                                )}
-                                Deactivate
-                              </button>
-                            </>
-                          )}
-
-                          {deactivated && (
-                            <button
-                              type="button"
-                              onClick={() => void handleReactivate(customer)}
-                              disabled={isReactivating}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-600 disabled:opacity-60"
-                            >
-                              {isReactivating ? (
-                                <Loader2 size={14} className="animate-spin" />
-                              ) : (
-                                <RotateCcw size={14} />
-                              )}
-                              Reactivate
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setManageCustomer(customer)}
+                            className="h-8 rounded-lg bg-neutral-100 px-2.5 text-xs font-bold text-neutral-600 transition hover:bg-neutral-200 hover:text-neutral-800"
+                          >
+                            Manage
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -656,6 +607,106 @@ export default function CustomersPanel() {
           </table>
         </div>
       </div>
+
+      {manageCustomer && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+          <div className="w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="border-b border-neutral-100 px-5 py-4">
+              <h3 className="text-base font-bold text-neutral-900">
+                Manage Customer
+              </h3>
+              <p className="mt-1 text-sm text-neutral-500">
+                {manageCustomer.name ||
+                  manageCustomer.phone ||
+                  manageCustomer.email ||
+                  'Customer'}
+              </p>
+            </div>
+
+            <div className="space-y-2 px-5 py-4">
+              {!isDeactivated(manageCustomer) ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const customer = manageCustomer;
+                      setManageCustomer(null);
+                      handleResetPassword(customer);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-2xl border border-neutral-200 px-4 py-3 text-left transition hover:bg-neutral-50"
+                  >
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                      <KeyRound size={18} />
+                    </span>
+                    <span>
+                      <span className="block text-sm font-bold text-neutral-900">
+                        Reset Password
+                      </span>
+                      <span className="block text-xs text-neutral-500">
+                        Generate a temporary password.
+                      </span>
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const customer = manageCustomer;
+                      setManageCustomer(null);
+                      handleDeactivate(customer);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-2xl border border-rose-100 px-4 py-3 text-left transition hover:bg-rose-50"
+                  >
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+                      <UserX size={18} />
+                    </span>
+                    <span>
+                      <span className="block text-sm font-bold text-rose-700">
+                        Deactivate Customer
+                      </span>
+                      <span className="block text-xs text-rose-500">
+                        Prevent this customer from signing in.
+                      </span>
+                    </span>
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const customer = manageCustomer;
+                    setManageCustomer(null);
+                    handleReactivate(customer);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-2xl border border-emerald-100 px-4 py-3 text-left transition hover:bg-emerald-50"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                    <RotateCcw size={18} />
+                  </span>
+                  <span>
+                    <span className="block text-sm font-bold text-emerald-700">
+                      Reactivate Customer
+                    </span>
+                    <span className="block text-xs text-emerald-600">
+                      Restore account access.
+                    </span>
+                  </span>
+                </button>
+              )}
+            </div>
+
+            <div className="border-t border-neutral-100 bg-neutral-50 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setManageCustomer(null)}
+                className="h-11 w-full rounded-2xl border border-neutral-200 bg-white text-sm font-bold text-neutral-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmAction && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">

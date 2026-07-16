@@ -55,6 +55,7 @@ type ProfitSettings = {
   includeServiceCharge: boolean;
   includeDeliveryFee: boolean;
   verifiedPaymentsOnly: boolean;
+  monthlyTarget: number;
 };
 
 type ProfitSettingRow = {
@@ -66,12 +67,14 @@ const DEFAULT_PROFIT_SETTINGS: ProfitSettings = {
   includeServiceCharge: true,
   includeDeliveryFee: true,
   verifiedPaymentsOnly: true,
+  monthlyTarget: 10000,
 };
 
 const PROFIT_SETTING_KEYS = {
   includeServiceCharge: 'profit_include_service_charge',
   includeDeliveryFee: 'profit_include_delivery_fee',
   verifiedPaymentsOnly: 'profit_verified_payments_only',
+  monthlyTarget: 'profit_monthly_target',
 } as const;
 
 function booleanValue(value: unknown, fallback: boolean) {
@@ -82,6 +85,11 @@ function booleanValue(value: unknown, fallback: boolean) {
   if (['true', '1', 'yes', 'on', 'enabled'].includes(normalized)) return true;
   if (['false', '0', 'no', 'off', 'disabled'].includes(normalized)) return false;
   return fallback;
+}
+
+function numericSettingValue(value: unknown, fallback: number) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : fallback;
 }
 
 async function fetchProfitSettings(): Promise<ProfitSettings> {
@@ -116,6 +124,12 @@ async function fetchProfitSettings(): Promise<ProfitSettings> {
       PROFIT_SETTING_KEYS.verifiedPaymentsOnly,
       DEFAULT_PROFIT_SETTINGS.verifiedPaymentsOnly,
     ),
+    monthlyTarget: numericSettingValue(
+      rows.find(
+        (row) => row.key === PROFIT_SETTING_KEYS.monthlyTarget,
+      )?.value,
+      DEFAULT_PROFIT_SETTINGS.monthlyTarget,
+    ),
   };
 }
 
@@ -140,6 +154,12 @@ async function saveProfitSettings(
     {
       key: PROFIT_SETTING_KEYS.verifiedPaymentsOnly,
       value: profitSettings.verifiedPaymentsOnly,
+      updated_at: updatedAt,
+      updated_by: userId || null,
+    },
+    {
+      key: PROFIT_SETTING_KEYS.monthlyTarget,
+      value: Math.max(0, Number(profitSettings.monthlyTarget) || 0),
       updated_at: updatedAt,
       updated_by: userId || null,
     },
@@ -1205,6 +1225,28 @@ export default function AppSettings() {
               updateProfitSetting('verifiedPaymentsOnly', value)
             }
           />
+        </div>
+
+        <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3">
+          <label className="text-sm font-semibold text-gray-900">
+            Monthly Net Profit Target (Nu.)
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="500"
+            value={profitSettings.monthlyTarget}
+            onChange={(event) =>
+              updateProfitSetting(
+                'monthlyTarget',
+                Math.max(0, numberValue(event.target.value, 10000)),
+              )
+            }
+            className="mt-2 h-10 w-full rounded-lg border border-violet-200 bg-white px-3 text-sm font-bold text-neutral-900 outline-none focus:ring-2 focus:ring-violet-500/15"
+          />
+          <p className="mt-1 text-xs leading-5 text-neutral-500">
+            Used by the Profit & Trip Tracker to show monthly target progress.
+          </p>
         </div>
 
         {!profitSettings.includeServiceCharge &&

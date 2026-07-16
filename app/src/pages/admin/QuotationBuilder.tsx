@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowLeft,
-  CheckCircle,
   ExternalLink,
   Eye,
   Loader2,
@@ -14,6 +13,7 @@ import {
 } from 'lucide-react';
 import StatusBadge from '@/components/shared/StatusBadge';
 import SmartQuotationReview from '@/components/admin/SmartQuotationReview';
+import { useAppToast } from '@/components/shared/AppToast';
 import {
   calculateQuotationSettingsAmounts,
   createOrUpdateAdminQuotation,
@@ -133,6 +133,7 @@ function deliveryRuleSummary(rule?: DeliveryFeeRule, order?: Order | null) {
 export default function QuotationBuilder() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const toast = useAppToast();
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<QuoteItemState[]>([]);
   const [serviceRules, setServiceRules] = useState<ServiceChargeRule[]>([]);
@@ -145,7 +146,6 @@ export default function QuotationBuilder() {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(true);
   const [error, setError] = useState('');
 
@@ -161,7 +161,9 @@ export default function QuotationBuilder() {
       setDeliveryRules(realDeliveryRules);
     } catch (err) {
       console.error('Failed to load quotation settings:', err);
-      setError(err instanceof Error ? err.message : 'Unable to load quotation settings.');
+      const message = err instanceof Error ? err.message : 'Unable to load quotation settings.';
+      setError(message);
+      toast.error('Quotation settings unavailable', message);
     } finally {
       setSettingsLoading(false);
     }
@@ -254,12 +256,10 @@ export default function QuotationBuilder() {
     : 'Delivery Fee';
 
   const updateQuotedPrice = (orderItemId: string, price: number) => {
-    setSaved(false);
     setItems((prev) => prev.map((item) => (item.orderItemId === orderItemId ? { ...item, quotedUnitPrice: price } : item)));
   };
 
   const updateAdminNotes = (orderItemId: string, value: string) => {
-    setSaved(false);
     setItems((prev) => prev.map((item) => (item.orderItemId === orderItemId ? { ...item, adminNotes: value } : item)));
   };
 
@@ -268,26 +268,29 @@ export default function QuotationBuilder() {
 
     if (settingsLoading) {
       setError('Please wait for service charge and delivery fee settings to finish loading.');
+      toast.warning('Quotation settings are loading', 'Please wait for service charge and delivery fee settings to finish loading.');
       return;
     }
 
     if (items.length === 0) {
       setError('This shopping request has no items to price.');
+      toast.warning('No items to price', 'This shopping request has no items to price.');
       return;
     }
 
     if (items.some((item) => numberValue(item.quotedUnitPrice) <= 0)) {
       setError('Please enter a confirmed unit price for every item.');
+      toast.warning('Confirmed prices required', 'Please enter a confirmed unit price for every item.');
       return;
     }
 
     if (safeAdditionalCharge > 0 && !additionalChargeLabel.trim()) {
       setError('Please enter a label for the additional charge.');
+      toast.warning('Charge label required', 'Please enter a label for the additional charge.');
       return;
     }
 
     setSaving(true);
-    setSaved(false);
     setError('');
 
     try {
@@ -311,7 +314,10 @@ export default function QuotationBuilder() {
         validUntil: validUntilFromHours(validHours),
       });
 
-      setSaved(true);
+      toast.success(
+        'Final price sent',
+        'The customer can now review the confirmed price and continue to payment.',
+      );
       const refreshedOrder = await fetchAdminOrderById(order.id);
       if (refreshedOrder) {
         setOrder(refreshedOrder);
@@ -329,7 +335,9 @@ export default function QuotationBuilder() {
       }
     } catch (err) {
       console.error('Failed to send quotation:', err);
-      setError(err instanceof Error ? err.message : 'Unable to send final price.');
+      const message = err instanceof Error ? err.message : 'Unable to send final price.';
+      setError(message);
+      toast.error('Final price was not sent', message);
     } finally {
       setSaving(false);
     }
@@ -431,20 +439,6 @@ export default function QuotationBuilder() {
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2">
-          <AlertCircle size={17} className="mt-0.5 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {saved && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 flex items-start gap-2">
-          <CheckCircle size={17} className="mt-0.5 flex-shrink-0" />
-          <span>Final price sent successfully. The customer can now review and continue to payment.</span>
-        </div>
-      )}
-
       {(settingsAmounts.serviceNeedsReview || settingsAmounts.deliveryNeedsManualQuote) && (
         <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700 flex items-start gap-2">
           <AlertCircle size={17} className="mt-0.5 flex-shrink-0" />
@@ -460,8 +454,7 @@ export default function QuotationBuilder() {
         currentNote={notes}
         onApplyNote={(value) => {
           setNotes(value);
-          setSaved(false);
-        }}
+              }}
       />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -610,8 +603,7 @@ export default function QuotationBuilder() {
                   type="text"
                   value={additionalChargeLabel}
                   onChange={(e) => {
-                    setSaved(false);
-                    setAdditionalChargeLabel(e.target.value);
+                                    setAdditionalChargeLabel(e.target.value);
                   }}
                   className="w-full h-10 mt-1 px-3 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                   placeholder="Customs / import charge, if applicable"
@@ -623,8 +615,7 @@ export default function QuotationBuilder() {
                   type="number"
                   value={additionalChargeAmount}
                   onChange={(e) => {
-                    setSaved(false);
-                    setAdditionalChargeAmount(numberValue(e.target.value));
+                                    setAdditionalChargeAmount(numberValue(e.target.value));
                   }}
                   className="w-full h-10 mt-1 px-3 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                 />
@@ -637,8 +628,7 @@ export default function QuotationBuilder() {
             <textarea
               value={notes}
               onChange={(e) => {
-                setSaved(false);
-                setNotes(e.target.value);
+                            setNotes(e.target.value);
               }}
               rows={3}
               className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
@@ -677,8 +667,7 @@ export default function QuotationBuilder() {
                         step="1"
                         value={manualServiceCharge === null ? Math.round(suggestedServiceCharge) : manualServiceCharge}
                         onChange={(e) => {
-                          setSaved(false);
-                          setManualServiceCharge(e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0));
+                                                setManualServiceCharge(e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0));
                         }}
                         className="h-9 w-28 rounded-lg border border-orange-200 bg-orange-50/50 px-3 text-right text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
                         aria-label="Editable service charge"
@@ -698,8 +687,7 @@ export default function QuotationBuilder() {
                       <button
                         type="button"
                         onClick={() => {
-                          setSaved(false);
-                          setManualServiceCharge(null);
+                                                setManualServiceCharge(null);
                         }}
                         className="flex-shrink-0 text-[11px] font-semibold text-orange-600 hover:text-orange-700"
                       >

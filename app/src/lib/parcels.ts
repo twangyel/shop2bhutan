@@ -1004,6 +1004,38 @@ export async function updateParcelTripStatus(
   return trip
 }
 
+
+export async function deleteParcelTrip(tripId: string) {
+  const cleanTripId = text(tripId)
+
+  if (!cleanTripId) {
+    throw new Error('Parcel trip ID is required.')
+  }
+
+  const { data, error } = await supabase.rpc('delete_empty_parcel_trip', {
+    p_trip_id: cleanTripId,
+  })
+
+  if (error) {
+    const message = text(error.message)
+
+    if (
+      error.code === 'PGRST202' ||
+      error.code === '42883' ||
+      message.toLowerCase().includes('delete_empty_parcel_trip')
+    ) {
+      throw new Error(
+        'The parcel trip delete function is not installed yet. Run the supplied parcel_trip_safe_delete.sql in Supabase.',
+      )
+    }
+
+    throw new Error(message || 'Failed to delete parcel trip.')
+  }
+
+  emitParcelTripUpdated()
+  return data
+}
+
 export async function fetchAdminParcelRequests() {
   const { data, error } = await supabase
     .from('parcel_requests')

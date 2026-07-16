@@ -16,6 +16,7 @@ import {
 import StatusBadge from '@/components/shared/StatusBadge';
 import TrackingTimeline from '@/components/shared/TrackingTimeline';
 import SmartOrderAssistant from '@/components/admin/SmartOrderAssistant';
+import { useAppToast } from '@/components/shared/AppToast';
 import { fetchAdminOrderById, rejectCustomerPayment, updateAdminFulfillmentStatus, verifyCustomerPayment } from '@/lib/customerOrders';
 import { getFulfillmentDisplay, isSelfPickupOrder } from '@/lib/fulfillment';
 import { useAuth } from '@/contexts/AuthContext';
@@ -317,13 +318,12 @@ export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const toast = useAppToast();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reviewBusyId, setReviewBusyId] = useState('');
-  const [reviewError, setReviewError] = useState('');
   const [fulfillmentBusyStatus, setFulfillmentBusyStatus] = useState<OrderStatus | ''>('');
-  const [fulfillmentError, setFulfillmentError] = useState('');
   const [sellerReference, setSellerReference] = useState('');
   const [fulfillmentNote, setFulfillmentNote] = useState('');
   const [estimatedDeliveryFrom, setEstimatedDeliveryFrom] = useState('');
@@ -393,12 +393,13 @@ export default function OrderDetail() {
     const reason = rejectPaymentReason.trim();
 
     if (isReject && !reason) {
-      setPaymentReviewError('Please enter a clear reason before rejecting this payment proof.');
+      const message = 'Please enter a clear reason before rejecting this payment proof.';
+      setPaymentReviewError(message);
+      toast.warning('Rejection reason required', message);
       return;
     }
 
     setReviewBusyId(payment.id);
-    setReviewError('');
     setPaymentReviewError('');
 
     try {
@@ -417,14 +418,23 @@ export default function OrderDetail() {
         });
       }
 
+      toast.success(
+        isReject ? 'Payment rejected' : 'Payment verified',
+        isReject
+          ? 'The customer can now upload a corrected payment proof.'
+          : 'The verified payment has been added to the order ledger.',
+      );
       setPendingPaymentReview(null);
       setRejectPaymentReason('');
       await loadOrder();
     } catch (err) {
       console.error(`Failed to ${isReject ? 'reject' : 'verify'} payment:`, err);
       const message = err instanceof Error ? err.message : `Unable to ${isReject ? 'reject' : 'verify'} payment.`;
-      setReviewError(message);
       setPaymentReviewError(message);
+      toast.error(
+        isReject ? 'Unable to reject payment' : 'Unable to verify payment',
+        message,
+      );
     } finally {
       setReviewBusyId('');
     }
@@ -434,7 +444,6 @@ export default function OrderDetail() {
     const action = fulfillmentActions.find((item) => item.status === status);
     if (!order || !action) return;
 
-    setFulfillmentError('');
     setPendingFulfillmentAction(action);
   };
 
@@ -443,7 +452,6 @@ export default function OrderDetail() {
 
     const status = pendingFulfillmentAction.status;
     setFulfillmentBusyStatus(status);
-    setFulfillmentError('');
 
     try {
       await updateAdminFulfillmentStatus({
@@ -456,12 +464,17 @@ export default function OrderDetail() {
         estimatedDeliveryTo: estimatedDeliveryTo || undefined,
         estimatedDeliveryNote: estimatedDeliveryNote.trim() || undefined,
       });
+      toast.success(
+        'Order status updated',
+        `${displayFulfillmentAction(pendingFulfillmentAction, order).label} was completed successfully.`,
+      );
       setFulfillmentNote('');
       setPendingFulfillmentAction(null);
       await loadOrder();
     } catch (err) {
       console.error('Failed to update fulfillment status:', err);
-      setFulfillmentError(err instanceof Error ? err.message : 'Unable to update fulfillment status.');
+      const message = err instanceof Error ? err.message : 'Unable to update fulfillment status.';
+      toast.error('Order status update failed', message);
       setPendingFulfillmentAction(null);
     } finally {
       setFulfillmentBusyStatus('');
@@ -748,12 +761,6 @@ export default function OrderDetail() {
               </span>
             </div>
 
-            {reviewError && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-                {reviewError}
-              </div>
-            )}
-
             {paymentSummary.coverage === 'partial_paid' && (
               <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 p-3">
                 <p className="text-sm font-semibold text-blue-800">Partial payment verified</p>
@@ -884,12 +891,6 @@ export default function OrderDetail() {
                   : 'Waiting for verified payment'}
               </span>
             </div>
-
-            {fulfillmentError && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-                {fulfillmentError}
-              </div>
-            )}
 
             {!fulfillmentReady && (
               <div className="mb-4 rounded-xl border border-dashed border-orange-200 bg-orange-50 p-4">

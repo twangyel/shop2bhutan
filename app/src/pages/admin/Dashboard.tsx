@@ -43,6 +43,11 @@ import {
 import type { Order, OrderItem, OrderStatus } from "@/types";
 import { fetchAdminParcelRequests, fetchAdminParcelTrips } from "@/lib/parcels";
 import type { ParcelRequest, ParcelTrip } from "@/types/parcel";
+import {
+  DEFAULT_BUSINESS_FINANCE_SUMMARY,
+  fetchBusinessFinanceSummary,
+} from "@/lib/businessFinance";
+import type { BusinessFinanceSummary } from "@/types/businessFinance";
 
 type DashboardPeriod = "7d" | "30d" | "month";
 
@@ -530,6 +535,9 @@ export default function Dashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState<DashboardPeriod>("7d");
   const [profitPeriod, setProfitPeriod] = useState<DashboardPeriod>("month");
   const [profitSettings, setProfitSettings] = useState<ProfitSettings>(DEFAULT_PROFIT_SETTINGS);
+  const [businessFinance, setBusinessFinance] = useState<BusinessFinanceSummary>(
+    DEFAULT_BUSINESS_FINANCE_SUMMARY,
+  );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -548,6 +556,7 @@ export default function Dashboard() {
         realProfitSettings,
         realParcelRequests,
         realParcelTrips,
+        realBusinessFinance,
       ] = await Promise.all([
         fetchAdminOrders(),
         fetchAdminCustomers(),
@@ -555,6 +564,7 @@ export default function Dashboard() {
         fetchProfitSettings(),
         fetchAdminParcelRequests(),
         fetchAdminParcelTrips(),
+        fetchBusinessFinanceSummary(undefined, { allowMissing: true }),
       ]);
 
       setOrders(realOrders);
@@ -563,6 +573,7 @@ export default function Dashboard() {
       setProfitSettings(realProfitSettings);
       setParcelRequests(realParcelRequests);
       setParcelTrips(realParcelTrips);
+      setBusinessFinance(realBusinessFinance);
     } catch (err) {
       console.error("Failed to load admin dashboard:", err);
       setError(
@@ -911,67 +922,74 @@ export default function Dashboard() {
         </div>
       )}
 
-      <section className="overflow-hidden rounded-2xl border border-orange-100 bg-white shadow-card">
-        <div className="border-b border-orange-100 bg-orange-50/60 px-4 py-4 md:px-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-sm">
-                <ShieldAlert size={21} strokeWidth={2.3} />
-              </span>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-base font-black text-neutral-950">Admin Action Centre</h2>
-                  {!loading && actionCentre.totalActions > 0 && (
-                    <span className="rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-extrabold text-red-700">
-                      {actionCentre.totalActions} action{actionCentre.totalActions === 1 ? "" : "s"}
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-xs leading-5 text-neutral-600">
-                  Your priority work in one place, so you can manage Shop2Bhutan quickly after office.
-                </p>
-              </div>
+      <section className="rounded-xl bg-white p-4 shadow-card md:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-semibold text-gray-900">Admin Action Centre</h2>
+              {!loading && actionCentre.totalActions > 0 && (
+                <span className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-600">
+                  {actionCentre.totalActions} action{actionCentre.totalActions === 1 ? "" : "s"}
+                </span>
+              )}
             </div>
-
-            {!loading && (
-              <div className="rounded-xl border border-white bg-white px-3 py-2 text-xs font-bold text-neutral-600 shadow-sm">
-                {actionCentre.totalActions > 0
-                  ? `${actionCentre.urgentCount} area${actionCentre.urgentCount === 1 ? "" : "s"} need attention`
-                  : "Everything is under control"}
-              </div>
-            )}
+            <p className="mt-1 text-sm text-neutral-500">
+              Priority work that needs your attention today.
+            </p>
           </div>
+
+          {!loading && (
+            <div className="w-fit rounded-lg bg-neutral-100 px-3 py-2 text-xs font-medium text-neutral-600">
+              {actionCentre.totalActions > 0
+                ? `${actionCentre.urgentCount} area${actionCentre.urgentCount === 1 ? "" : "s"} need attention`
+                : "Everything is under control"}
+            </div>
+          )}
         </div>
 
-        <div className="grid gap-3 p-4 md:grid-cols-2 md:p-5 xl:grid-cols-4">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {actionCentre.items.map((item) => {
             const Icon = item.icon;
             const active = item.count > 0;
-            const style =
+            const iconStyle =
               item.urgency === "critical"
-                ? "border-red-100 bg-red-50/50 text-red-600"
+                ? "bg-red-50 text-red-600"
                 : item.urgency === "attention"
-                  ? "border-amber-100 bg-amber-50/60 text-amber-600"
-                  : "border-emerald-100 bg-emerald-50/40 text-emerald-600";
+                  ? "bg-amber-50 text-amber-600"
+                  : "bg-emerald-50 text-emerald-600";
 
             return (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => navigate(item.path)}
-                className={`group rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${style}`}
+                className="group rounded-xl border border-neutral-100 bg-neutral-50/60 p-4 text-left transition hover:border-amber-200 hover:bg-white hover:shadow-sm"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm">
-                    <Icon size={19} strokeWidth={2.2} />
+                  <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconStyle}`}>
+                    <Icon size={18} strokeWidth={2.1} />
                   </span>
-                  <span className={`text-xl font-black ${active ? "text-neutral-950" : "text-neutral-400"}`}>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-sm font-bold ${
+                      active
+                        ? item.urgency === "critical"
+                          ? "bg-red-50 text-red-600"
+                          : item.urgency === "attention"
+                            ? "bg-amber-50 text-amber-600"
+                            : "bg-emerald-50 text-emerald-600"
+                        : "bg-neutral-100 text-neutral-400"
+                    }`}
+                  >
                     {loading ? "…" : item.count}
                   </span>
                 </div>
-                <p className="mt-3 text-sm font-extrabold text-neutral-900">{item.title}</p>
-                <p className="mt-1 min-h-[40px] text-xs leading-5 text-neutral-600">{item.description}</p>
-                <span className="mt-3 inline-flex items-center gap-1 text-xs font-extrabold">
+
+                <p className="mt-3 text-sm font-semibold text-gray-900">{item.title}</p>
+                <p className="mt-1 min-h-[40px] text-xs leading-5 text-neutral-500">
+                  {item.description}
+                </p>
+
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-amber-600">
                   {active ? "Open tasks" : "View section"}
                   <ArrowRight size={14} className="transition group-hover:translate-x-0.5" />
                 </span>
@@ -980,7 +998,7 @@ export default function Dashboard() {
           })}
         </div>
 
-        <div className="flex flex-col gap-2 border-t border-neutral-100 bg-neutral-50/70 px-4 py-3 text-xs text-neutral-600 sm:flex-row sm:items-center sm:justify-between md:px-5">
+        <div className="mt-4 flex flex-col gap-2 border-t border-neutral-100 pt-3 text-xs text-neutral-500 sm:flex-row sm:items-center sm:justify-between">
           <span>
             {actionCentre.nextTrip
               ? `Next active parcel trip: ${tripDate(actionCentre.nextTrip)?.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Thimphu" })}`
@@ -989,7 +1007,7 @@ export default function Dashboard() {
           <button
             type="button"
             onClick={() => navigate("/admin/parcels")}
-            className="inline-flex items-center gap-1 font-extrabold text-orange-600"
+            className="inline-flex items-center gap-1 font-semibold text-amber-600"
           >
             Manage trips <ArrowRight size={14} />
           </button>
@@ -1046,6 +1064,85 @@ export default function Dashboard() {
           );
         })}
       </div>
+
+      <section className="rounded-xl border border-blue-100 bg-white p-4 shadow-card md:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <ReceiptText size={20} />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-semibold text-gray-900">
+                  Net Profit This Month
+                </h3>
+                {!businessFinance.installed && !loading && (
+                  <span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700">
+                    Setup required
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs leading-5 text-neutral-500">
+                Contribution minus fuel, meals, refunds, handling, and other recorded costs.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate("/admin/business")}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700"
+          >
+            Open Profit & Trips
+            <ArrowRight size={16} />
+          </button>
+        </div>
+
+        {businessFinance.installed ? (
+          <>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-xl bg-emerald-50 px-4 py-3">
+                <p className="text-xs font-medium text-emerald-700">Contribution</p>
+                <p className="mt-1 text-lg font-bold text-gray-900">
+                  {loading ? "..." : formatCurrency(businessFinance.contribution)}
+                </p>
+              </div>
+              <div className="rounded-xl bg-rose-50 px-4 py-3">
+                <p className="text-xs font-medium text-rose-700">Expenses</p>
+                <p className="mt-1 text-lg font-bold text-gray-900">
+                  {loading ? "..." : formatCurrency(businessFinance.expenses)}
+                </p>
+              </div>
+              <div className="rounded-xl bg-blue-50 px-4 py-3">
+                <p className="text-xs font-medium text-blue-700">Net Profit</p>
+                <p className={`mt-1 text-lg font-bold ${
+                  businessFinance.netProfit >= 0 ? "text-emerald-700" : "text-red-700"
+                }`}>
+                  {loading ? "..." : formatCurrency(businessFinance.netProfit)}
+                </p>
+              </div>
+              <div className="rounded-xl bg-violet-50 px-4 py-3">
+                <p className="text-xs font-medium text-violet-700">Target Progress</p>
+                <p className="mt-1 text-lg font-bold text-gray-900">
+                  {loading ? "..." : `${businessFinance.progressPercent}%`}
+                </p>
+              </div>
+            </div>
+
+            {businessFinance.atRiskTripCount > 0 && (
+              <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-800">
+                <ShieldAlert size={16} className="mt-0.5 shrink-0" />
+                {businessFinance.atRiskTripCount} planned trip
+                {businessFinance.atRiskTripCount === 1 ? "" : "s"} may cost more than the expected contribution.
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="mt-4 rounded-xl border border-dashed border-amber-200 bg-amber-50/60 px-4 py-4 text-sm text-amber-800">
+            Run the Phase 3A Supabase SQL to activate expense, trip, and net-profit tracking.
+          </div>
+        )}
+      </section>
 
       <section className="rounded-xl bg-white p-4 shadow-card md:p-5">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">

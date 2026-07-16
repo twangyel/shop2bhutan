@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2, GripVertical } from 'lucide-react';
 import { banners } from '@/data/mockData';
+import { useAppToast } from '@/components/shared/AppToast';
 
 const positions = [
   { key: 'home_top', label: 'Home Top' },
@@ -9,20 +10,40 @@ const positions = [
 ];
 
 export default function BannerCMS() {
+  const toast = useAppToast();
   const [activePosition, setActivePosition] = useState('home_top');
   const [bannerList, setBannerList] = useState(banners);
 
   const filtered = bannerList.filter(b => b.position === activePosition);
 
   const toggleStatus = (id: string) => {
-    setBannerList(prev => prev.map(b => b.id === id ? { ...b, isActive: !b.isActive } : b));
+    const banner = bannerList.find((item) => item.id === id);
+    if (!banner) return;
+
+    const nextActive = !banner.isActive;
+    setBannerList((previous) =>
+      previous.map((item) =>
+        item.id === id ? { ...item, isActive: nextActive } : item,
+      ),
+    );
+    toast.info(
+      'Banner preview updated',
+      `${banner.title} is now ${nextActive ? 'active' : 'inactive'} in this local preview. This CMS is not connected to Supabase yet.`,
+    );
+  };
+
+  const showBannerEditorNotice = () => {
+    toast.info(
+      'Banner editor not connected',
+      'This Banners screen currently uses local demo data. Add, edit, delete, and reorder actions will be enabled when its backend is connected.',
+    );
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-gray-900">Banners</h2>
-        <button className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2">
+        <button type="button" onClick={showBannerEditorNotice} className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2">
           <Plus size={16} />
           Add Banner
         </button>
@@ -47,7 +68,7 @@ export default function BannerCMS() {
       <div className="space-y-3">
         {filtered.map((banner) => (
           <div key={banner.id} className="bg-white rounded-xl p-4 shadow-card flex items-center gap-4">
-            <button className="text-neutral-400 hover:text-neutral-600 cursor-grab">
+            <button type="button" onClick={showBannerEditorNotice} className="text-neutral-400 hover:text-neutral-600 cursor-grab">
               <GripVertical size={18} />
             </button>
             <img src={banner.image} alt="" className="w-24 h-14 rounded-lg object-cover bg-neutral-100" />
@@ -68,10 +89,10 @@ export default function BannerCMS() {
               {banner.isActive ? 'Active' : 'Inactive'}
             </button>
             <div className="flex gap-1">
-              <button className="p-1.5 text-neutral-400 hover:text-amber-600 transition-colors">
+              <button type="button" onClick={showBannerEditorNotice} className="p-1.5 text-neutral-400 hover:text-amber-600 transition-colors">
                 <Pencil size={14} />
               </button>
-              <button className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors">
+              <button type="button" onClick={showBannerEditorNotice} className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors">
                 <Trash2 size={14} />
               </button>
             </div>

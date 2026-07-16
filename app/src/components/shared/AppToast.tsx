@@ -168,7 +168,7 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
       className="pointer-events-none fixed left-1/2 flex w-[calc(100%-1.5rem)] max-w-[430px] -translate-x-1/2 flex-col gap-2.5 sm:left-auto sm:right-5 sm:w-[400px] sm:translate-x-0"
       style={{
         top: isAdminRoute
-          ? 'calc(var(--s2b-safe-area-top, 0px) + 5.75rem)'
+          ? 'calc(var(--s2b-safe-area-top, 0px) + 4.5rem)'
           : 'calc(var(--s2b-safe-area-top, 0px) + 0.75rem)',
         zIndex: 2147483000,
       }}

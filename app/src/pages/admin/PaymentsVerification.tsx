@@ -18,6 +18,7 @@ import {
 } from '@/lib/customerOrders';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePrivacyScreen } from '@/lib/privacyScreen';
+import { useAppToast } from '@/components/shared/AppToast';
 
 const tabs = ['Pending Review', 'Verified', 'Rejected', 'All'] as const;
 type PaymentTab = (typeof tabs)[number];
@@ -65,6 +66,7 @@ export default function PaymentsVerification() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const toast = useAppToast();
   usePrivacyScreen();
   const [activeTab, setActiveTab] = useState<PaymentTab>(() =>
     searchParams.get('tab') === 'pending' ? 'Pending Review' : 'Pending Review',
@@ -127,7 +129,13 @@ export default function PaymentsVerification() {
 
   const copyToClipboard = async (text: string) => {
     if (!text) return;
-    await navigator.clipboard.writeText(text);
+
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Reference copied', 'The transaction reference was copied to your clipboard.');
+    } catch {
+      toast.error('Unable to copy', 'Please select and copy the transaction reference manually.');
+    }
   };
 
   const handleVerify = async (paymentId: string) => {
@@ -136,10 +144,12 @@ export default function PaymentsVerification() {
 
     try {
       await verifyAdminPaymentById(paymentId, user?.id);
+      toast.success('Payment verified', 'The payment has been added to verified collections.');
       await loadPayments();
     } catch (err) {
       console.error('Failed to verify payment:', err);
-      setError(err instanceof Error ? err.message : 'Unable to verify payment.');
+      const message = err instanceof Error ? err.message : 'Unable to verify payment.';
+      toast.error('Payment verification failed', message);
     } finally {
       setUpdatingId('');
     }
@@ -154,10 +164,12 @@ export default function PaymentsVerification() {
 
     try {
       await rejectAdminPaymentById(paymentId, user?.id, reason);
+      toast.success('Payment rejected', 'The customer can now upload a corrected payment proof.');
       await loadPayments();
     } catch (err) {
       console.error('Failed to reject payment:', err);
-      setError(err instanceof Error ? err.message : 'Unable to reject payment.');
+      const message = err instanceof Error ? err.message : 'Unable to reject payment.';
+      toast.error('Payment rejection failed', message);
     } finally {
       setUpdatingId('');
     }

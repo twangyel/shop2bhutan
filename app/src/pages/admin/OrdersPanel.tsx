@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircle, ChevronLeft, ChevronRight, Eye, Loader2, Package, RefreshCw, Search } from 'lucide-react';
+import { AlertCircle, ChevronLeft, ChevronRight, Loader2, Package, RefreshCw, Search } from 'lucide-react';
 import StatusBadge from '@/components/shared/StatusBadge';
 import { fetchAdminOrders } from '@/lib/customerOrders';
 import { getFulfillmentDisplay, isSelfPickupOrder } from '@/lib/fulfillment';
@@ -87,6 +87,16 @@ function formatCurrency(value?: number) {
   return `Nu. ${amount.toLocaleString()}`;
 }
 
+function shortOrderReference(value?: string) {
+  const clean = String(value || '').trim();
+  if (!clean) return '#—';
+
+  const numericSuffix = clean.match(/(\d{4,})$/)?.[1];
+  if (numericSuffix) return `#${numericSuffix.slice(-5)}`;
+
+  return clean.startsWith('#') ? clean : `#${clean}`;
+}
+
 
 type OrderWithEta = Order & {
   estimatedDeliveryFrom?: string;
@@ -151,6 +161,7 @@ function getOrderPaymentInfo(order: Order) {
       typeLabel: paymentTypeLabel(pendingPayment.paymentType),
       method: readablePaymentMethod(pendingPayment.method),
       amountLabel: `Proof: ${formatCurrency(pendingPayment.amount)}`,
+      summaryLabel: `${formatCurrency(pendingPayment.amount)} proof uploaded`,
       balanceDue,
       searchableText: `pending review ${paymentTypeLabel(pendingPayment.paymentType)} ${pendingPayment.method || ''}`,
     };
@@ -163,6 +174,7 @@ function getOrderPaymentInfo(order: Order) {
       typeLabel: paymentTypeLabel(displayPayment?.paymentType),
       method: readablePaymentMethod(displayPayment?.method),
       amountLabel: `Verified: ${formatCurrency(verifiedPaid)}`,
+      summaryLabel: `${formatCurrency(verifiedPaid)} verified`,
       balanceDue,
       searchableText: `fully paid verified ${paymentTypeLabel(displayPayment?.paymentType)} ${displayPayment?.method || ''}`,
     };
@@ -175,6 +187,7 @@ function getOrderPaymentInfo(order: Order) {
       typeLabel: paymentTypeLabel(displayPayment?.paymentType),
       method: readablePaymentMethod(displayPayment?.method),
       amountLabel: `Verified: ${formatCurrency(verifiedPaid)}`,
+      summaryLabel: `${formatCurrency(verifiedPaid)} verified · ${formatCurrency(balanceDue)} due`,
       balanceDue,
       searchableText: `partial paid verified ${paymentTypeLabel(displayPayment?.paymentType)} ${displayPayment?.method || ''}`,
     };
@@ -187,6 +200,7 @@ function getOrderPaymentInfo(order: Order) {
       typeLabel: paymentTypeLabel(rejectedPayment.paymentType),
       method: readablePaymentMethod(rejectedPayment.method),
       amountLabel: `Rejected: ${formatCurrency(rejectedPayment.amount)}`,
+      summaryLabel: `${formatCurrency(rejectedPayment.amount)} rejected`,
       balanceDue,
       searchableText: `payment rejected ${paymentTypeLabel(rejectedPayment.paymentType)} ${rejectedPayment.method || ''}`,
     };
@@ -198,6 +212,7 @@ function getOrderPaymentInfo(order: Order) {
     typeLabel: totalPayable > 0 ? 'Waiting for payment' : 'Checking availability & price',
     method: '',
     amountLabel: totalPayable > 0 ? 'No proof uploaded' : 'No final price yet',
+    summaryLabel: totalPayable > 0 ? `${formatCurrency(totalPayable)} due` : 'Awaiting final price',
     balanceDue,
     searchableText: totalPayable > 0 ? 'unpaid waiting for payment' : 'final price pending checking availability price',
   };
@@ -377,27 +392,45 @@ export default function OrdersPanel() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-neutral-50 border-b border-neutral-200">
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Order #</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Customer</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Phone</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Fulfillment / Address</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Payment</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Items</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Total</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Date</th>
-                <th className="px-4 py-3" />
+      <div className="overflow-hidden rounded-xl bg-white shadow-card">
+        <div className="max-h-[calc(100vh-15rem)] overflow-auto">
+          <table className="w-full min-w-[1180px]">
+            <thead className="sticky top-0 z-10 bg-neutral-50">
+              <tr className="border-b border-neutral-200">
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                  Order
+                </th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                  Customer
+                </th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                  Fulfilment
+                </th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                  Payment
+                </th>
+                <th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                  Items
+                </th>
+                <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                  Total
+                </th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                  Status
+                </th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                  Date
+                </th>
+                <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                  Action
+                </th>
               </tr>
             </thead>
+
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-10 text-center text-sm text-neutral-500">
+                  <td colSpan={9} className="px-4 py-10 text-center text-sm text-neutral-500">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 size={18} className="animate-spin text-amber-500" />
                       Loading orders...
@@ -408,11 +441,13 @@ export default function OrdersPanel() {
 
               {!loading && paginatedOrders.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center">
+                  <td colSpan={9} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-2 text-neutral-500">
                       <Package size={34} className="text-neutral-300" />
                       <p className="text-sm font-medium">No orders found</p>
-                      <p className="text-xs">New paste-link requests will appear here after customers submit them.</p>
+                      <p className="text-xs">
+                        New paste-link requests will appear here after customers submit them.
+                      </p>
                     </div>
                   </td>
                 </tr>
@@ -423,94 +458,143 @@ export default function OrdersPanel() {
                   const deliveryAddressText = fullDeliveryAddress(order);
                   const paymentInfo = getOrderPaymentInfo(order);
                   const etaLabel = getOrderEtaLabel(order);
+                  const fulfillment = getFulfillmentDisplay(order);
+                  const customerPhone =
+                    order.user.phone || order.shippingAddress.phone || 'No phone';
+                  const fulfillmentLocation = isSelfPickupOrder(order)
+                    ? fulfillment.title
+                    : deliveryAddressText || order.shippingAddress.dzongkhag || 'Address pending';
+                  const quotedTotal = Number(order.quotation?.totalAmount || 0);
 
                   return (
-                  <tr
-                    key={order.id}
-                    className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/admin/orders/${order.id}`)}
-                  >
-                    <td className="px-4 py-3 text-sm font-semibold text-gray-900">#{order.orderNumber}</td>
-                    <td className="px-4 py-3 text-sm text-neutral-700">
-                      <div className="font-medium text-gray-900">{order.user.name}</div>
-                      <div className="text-xs text-neutral-500 truncate max-w-[190px]">{order.user.email || '-'}</div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-neutral-600">{order.user.phone || order.shippingAddress.phone || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-neutral-600 max-w-[240px]">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${getFulfillmentDisplay(order).badgeClass}`}>
-                          {getFulfillmentDisplay(order).label}
+                    <tr
+                      key={order.id}
+                      className="cursor-pointer border-b border-neutral-100 align-middle transition-colors last:border-0 hover:bg-neutral-50/80"
+                      onClick={() => navigate(`/admin/orders/${order.id}`)}
+                    >
+                      <td className="px-4 py-2.5">
+                        <div
+                          className="whitespace-nowrap text-sm font-bold text-gray-900"
+                          title={order.orderNumber}
+                        >
+                          {shortOrderReference(order.orderNumber)}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-2.5">
+                        <div className="max-w-[190px] truncate text-sm font-semibold text-gray-900">
+                          {order.user.name || 'Customer'}
+                        </div>
+                        <div className="mt-0.5 text-xs leading-4 text-neutral-500">
+                          {customerPhone}
+                        </div>
+                      </td>
+
+                      <td className="max-w-[280px] px-4 py-2.5">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${fulfillment.badgeClass}`}
+                        >
+                          {fulfillment.label}
                         </span>
-                        <span className="font-medium text-neutral-700">{isSelfPickupOrder(order) ? getFulfillmentDisplay(order).title : order.shippingAddress.dzongkhag || '-'}</span>
-                      </div>
-                      <div className="mt-1 text-xs text-neutral-400 truncate">{deliveryAddressText || '-'}</div>
-                      {etaLabel && (
-                        <div className="mt-1 text-xs font-semibold text-blue-600">ETA: {etaLabel}</div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-neutral-600 min-w-[210px]">
-                      <div className="flex flex-col gap-1">
-                        <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-bold ${paymentInfo.statusClass}`}>
+                        <div
+                          className="mt-1 truncate text-xs font-medium leading-4 text-neutral-700"
+                          title={fulfillmentLocation}
+                        >
+                          {fulfillmentLocation}
+                        </div>
+                        {etaLabel && (
+                          <div className="mt-0.5 text-xs font-semibold leading-4 text-blue-600">
+                            {etaLabel}
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="min-w-[180px] px-4 py-2.5">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${paymentInfo.statusClass}`}
+                        >
                           {paymentInfo.statusLabel}
                         </span>
-                        <div className="text-xs font-semibold text-neutral-700">
-                          {paymentInfo.method ? `${paymentInfo.typeLabel} · ${paymentInfo.method}` : paymentInfo.typeLabel}
+                        <div className="mt-1 whitespace-nowrap text-xs font-medium leading-4 text-neutral-600">
+                          {paymentInfo.summaryLabel}
                         </div>
-                        <div className="text-xs text-neutral-500">{paymentInfo.amountLabel}</div>
-                        <div className={`text-xs font-medium ${paymentInfo.balanceDue > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                          Balance: {formatCurrency(paymentInfo.balanceDue)}
+                      </td>
+
+                      <td className="px-4 py-2.5 text-center text-sm font-semibold tabular-nums text-neutral-700">
+                        {order.items.length}
+                      </td>
+
+                      <td className="px-4 py-2.5 text-right">
+                        {quotedTotal > 0 ? (
+                          <span className="whitespace-nowrap text-sm font-bold tabular-nums text-gray-900">
+                            {formatCurrency(quotedTotal)}
+                          </span>
+                        ) : (
+                          <span className="text-xs font-semibold text-neutral-400">
+                            Pending
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-2.5">
+                        <StatusBadge status={order.status} size="sm" />
+                      </td>
+
+                      <td className="px-4 py-2.5">
+                        <div className="whitespace-nowrap text-xs font-semibold text-neutral-700">
+                          {formatBhutanDate(order.createdAt)}
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-neutral-600">{order.items.length}</td>
-                    <td className="px-4 py-3 text-sm font-medium">Nu. {order.quotation?.totalAmount?.toLocaleString() || '-'}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={order.status} size="sm" />
-                    </td>
-                    <td className="px-4 py-3 text-sm text-neutral-500">
-                      <div className="font-medium text-neutral-700">{formatBhutanDate(order.createdAt)}</div>
-                      <div className="mt-0.5 text-xs text-neutral-400">{formatBhutanTime(order.createdAt)}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/admin/orders/${order.id}`);
-                        }}
-                        className="p-1.5 text-neutral-400 hover:text-amber-600 transition-colors"
-                        aria-label="View order"
-                      >
-                        <Eye size={16} />
-                      </button>
-                    </td>
-                  </tr>
+                        <div className="mt-0.5 whitespace-nowrap text-[11px] leading-4 text-neutral-400">
+                          {formatBhutanTime(order.createdAt)}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-2.5 text-right">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            navigate(`/admin/orders/${order.id}`);
+                          }}
+                          className="inline-flex h-8 items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 text-xs font-bold text-neutral-600 transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700"
+                          aria-label={`View ${shortOrderReference(order.orderNumber)}`}
+                        >
+                          View
+                          <ChevronRight size={14} />
+                        </button>
+                      </td>
+                    </tr>
                   );
                 })}
             </tbody>
           </table>
         </div>
 
-        <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-100">
+        <div className="flex items-center justify-between border-t border-neutral-100 px-4 py-3">
           <p className="text-xs text-neutral-500">
-            Showing {filteredOrders.length === 0 ? 0 : Math.min((safePage - 1) * pageSize + 1, filteredOrders.length)}-
-            {Math.min(safePage * pageSize, filteredOrders.length)} of {filteredOrders.length}
+            Showing{' '}
+            {filteredOrders.length === 0
+              ? 0
+              : Math.min((safePage - 1) * pageSize + 1, filteredOrders.length)}
+            -{Math.min(safePage * pageSize, filteredOrders.length)} of{' '}
+            {filteredOrders.length}
           </p>
+
           <div className="flex gap-1">
             <button
               type="button"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
               disabled={safePage === 1}
-              className="p-1.5 rounded-lg bg-neutral-100 text-neutral-600 disabled:opacity-50 hover:bg-neutral-200 transition-colors"
+              className="rounded-lg bg-neutral-100 p-1.5 text-neutral-600 transition-colors hover:bg-neutral-200 disabled:opacity-50"
               aria-label="Previous page"
             >
               <ChevronLeft size={16} />
             </button>
             <button
               type="button"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
               disabled={safePage === totalPages}
-              className="p-1.5 rounded-lg bg-neutral-100 text-neutral-600 disabled:opacity-50 hover:bg-neutral-200 transition-colors"
+              className="rounded-lg bg-neutral-100 p-1.5 text-neutral-600 transition-colors hover:bg-neutral-200 disabled:opacity-50"
               aria-label="Next page"
             >
               <ChevronRight size={16} />

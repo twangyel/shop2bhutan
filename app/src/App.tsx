@@ -96,6 +96,7 @@ import AppSettings from '@/pages/admin/AppSettings';
 import FAQCMS from '@/pages/admin/FAQCMS';
 import AdminParcelTrips from '@/pages/admin/ParcelTrips';
 import AdminParcelRequests from '@/pages/admin/ParcelRequests';
+import BusinessFinance from '@/pages/admin/BusinessFinance';
 
 
 type BeforeInstallPromptEvent = Event & {
@@ -1895,6 +1896,7 @@ export default function App() {
           <Route path="parcel-requests" element={<AdminParcelRequests />} />
           <Route path="payments" element={<PaymentsVerification />} />
           <Route path="customers" element={<CustomersPanel />} />
+          <Route path="business" element={<BusinessFinance />} />
           <Route path="products" element={<ProductCMS />} />
           <Route path="banners" element={<BannerCMS />} />
           <Route path="categories" element={<CategoryCMS />} />

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle, Loader2, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { AlertCircle, Loader2, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
 import {
   calculateServiceChargeFromRules,
   deleteServiceChargeRule,
   fetchServiceChargeRules,
   saveServiceChargeRules,
 } from '@/lib/customerOrders';
+import { useAppToast } from '@/components/shared/AppToast';
 import type { ServiceChargeRule } from '@/types';
 
 function cleanNumber(value: string | number) {
@@ -37,18 +38,17 @@ function formatRange(rule: ServiceChargeRule) {
 }
 
 export default function ServiceChargeSettings() {
+  const toast = useAppToast();
   const [rules, setRules] = useState<ServiceChargeRule[]>([]);
   const [previewAmount, setPreviewAmount] = useState(3000);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState('');
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
   const loadRules = useCallback(async () => {
     setLoading(true);
     setError('');
-    setSaved(false);
 
     try {
       const realRules = await fetchServiceChargeRules();
@@ -68,12 +68,10 @@ export default function ServiceChargeSettings() {
   const preview = useMemo(() => calculateServiceChargeFromRules(previewAmount, rules), [previewAmount, rules]);
 
   const updateRule = <K extends keyof ServiceChargeRule>(id: string, field: K, value: ServiceChargeRule[K]) => {
-    setSaved(false);
     setRules((prev) => prev.map((rule) => (rule.id === id ? { ...rule, [field]: value } : rule)));
   };
 
   const addRule = () => {
-    setSaved(false);
     setRules((prev) => [...prev, makeTempRule()]);
   };
 
@@ -82,20 +80,26 @@ export default function ServiceChargeSettings() {
 
     if (isTemp) {
       setRules((prev) => prev.filter((item) => item.id !== rule.id));
+      toast.info('Draft removed', 'The unsaved service charge tier was removed.');
       return;
     }
 
     setDeletingId(rule.id);
     setError('');
-    setSaved(false);
 
     try {
       const updatedRules = await deleteServiceChargeRule(rule);
       setRules(updatedRules);
-      setSaved(true);
+      toast.success(
+        'Service charge tier deleted',
+        'The pricing tier was removed successfully.',
+      );
     } catch (err) {
       console.error('Failed to delete service charge rule:', err);
-      setError(err instanceof Error ? err.message : 'Unable to delete service charge rule.');
+      toast.error(
+        'Unable to delete service charge tier',
+        err instanceof Error ? err.message : 'Please try again.',
+      );
     } finally {
       setDeletingId('');
     }
@@ -104,21 +108,29 @@ export default function ServiceChargeSettings() {
   const handleSave = async () => {
     const invalid = rules.find((rule) => !rule.name.trim());
     if (invalid) {
-      setError('Tier name is required for every service charge row.');
+      toast.warning(
+        'Tier name required',
+        'Enter a name for every service charge row before saving.',
+      );
       return;
     }
 
     setSaving(true);
     setError('');
-    setSaved(false);
 
     try {
       const updatedRules = await saveServiceChargeRules(rules);
       setRules(updatedRules);
-      setSaved(true);
+      toast.success(
+        'Service charges saved',
+        'Quotation service-charge rules were updated successfully.',
+      );
     } catch (err) {
       console.error('Failed to save service charge settings:', err);
-      setError(err instanceof Error ? err.message : 'Unable to save service charge settings.');
+      toast.error(
+        'Unable to save service charges',
+        err instanceof Error ? err.message : 'Please try again.',
+      );
     } finally {
       setSaving(false);
     }
@@ -181,13 +193,6 @@ export default function ServiceChargeSettings() {
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2">
           <AlertCircle size={17} className="mt-0.5 flex-shrink-0" />
           <span>{error}</span>
-        </div>
-      )}
-
-      {saved && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 flex items-start gap-2">
-          <CheckCircle size={17} className="mt-0.5 flex-shrink-0" />
-          <span>Service charge settings saved.</span>
         </div>
       )}
 

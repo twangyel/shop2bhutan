@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   AlertCircle,
   Building2,
-  CheckCircle,
   Loader2,
   Pencil,
   Plus,
@@ -16,6 +15,7 @@ import {
   fetchPaymentMethods,
   savePaymentMethods,
 } from '@/lib/customerOrders';
+import { useAppToast } from '@/components/shared/AppToast';
 import type { PaymentMethod } from '@/types';
 
 function makeTempMethod(): PaymentMethod {
@@ -41,18 +41,17 @@ function paymentMethodTypeLabel(type: string) {
 }
 
 export default function PaymentMethodSettings() {
+  const toast = useAppToast();
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState('');
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
   const loadMethods = useCallback(async () => {
     setLoading(true);
     setError('');
-    setSaved(false);
 
     try {
       const realMethods = await fetchPaymentMethods({ includeInactive: true });
@@ -70,19 +69,16 @@ export default function PaymentMethodSettings() {
   }, [loadMethods]);
 
   const updateMethod = <K extends keyof PaymentMethod>(id: string, field: K, value: PaymentMethod[K]) => {
-    setSaved(false);
     setMethods((prev) => prev.map((method) => (method.id === id ? { ...method, [field]: value } : method)));
   };
 
   const addMethod = () => {
     const method = makeTempMethod();
-    setSaved(false);
     setMethods((prev) => [...prev, method]);
     setEditingId(method.id);
   };
 
   const toggleStatus = (id: string) => {
-    setSaved(false);
     setMethods((prev) => prev.map((method) => (method.id === id ? { ...method, isActive: !method.isActive } : method)));
   };
 
@@ -91,6 +87,7 @@ export default function PaymentMethodSettings() {
 
     if (isTemp) {
       setMethods((prev) => prev.filter((item) => item.id !== method.id));
+      toast.info('Draft removed', 'The unsaved payment method was removed.');
       return;
     }
 
@@ -98,16 +95,21 @@ export default function PaymentMethodSettings() {
 
     setDeletingId(method.id);
     setError('');
-    setSaved(false);
 
     try {
       const updatedMethods = await deletePaymentMethod(method);
       setMethods(updatedMethods);
       setEditingId(null);
-      setSaved(true);
+      toast.success(
+        'Payment method deleted',
+        'The payment option is no longer shown to customers.',
+      );
     } catch (err) {
       console.error('Failed to delete payment method:', err);
-      setError(err instanceof Error ? err.message : 'Unable to delete payment method.');
+      toast.error(
+        'Unable to delete payment method',
+        err instanceof Error ? err.message : 'Please try again.',
+      );
     } finally {
       setDeletingId('');
     }
@@ -116,16 +118,21 @@ export default function PaymentMethodSettings() {
   const handleSave = async () => {
     setSaving(true);
     setError('');
-    setSaved(false);
 
     try {
       const updatedMethods = await savePaymentMethods(methods);
       setMethods(updatedMethods);
       setEditingId(null);
-      setSaved(true);
+      toast.success(
+        'Payment methods saved',
+        'Customer payment options were updated successfully.',
+      );
     } catch (err) {
       console.error('Failed to save payment methods:', err);
-      setError(err instanceof Error ? err.message : 'Unable to save payment methods.');
+      toast.error(
+        'Unable to save payment methods',
+        err instanceof Error ? err.message : 'Please try again.',
+      );
     } finally {
       setSaving(false);
     }
@@ -189,13 +196,6 @@ export default function PaymentMethodSettings() {
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2">
           <AlertCircle size={16} className="mt-0.5 shrink-0" />
           <span>{error}</span>
-        </div>
-      )}
-
-      {saved && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 flex items-center gap-2">
-          <CheckCircle size={16} />
-          Payment methods saved successfully.
         </div>
       )}
 

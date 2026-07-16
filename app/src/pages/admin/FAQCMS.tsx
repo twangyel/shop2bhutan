@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
-  CheckCircle2,
   ChevronDown,
   Eye,
   Loader2,
@@ -24,6 +23,7 @@ import {
   type ContentPageSlug,
   type FAQItemRecord,
 } from '@/lib/contentPages';
+import { useAppToast } from '@/components/shared/AppToast';
 
 type ContentTabKey = 'faq' | ContentPageSlug;
 
@@ -73,6 +73,7 @@ function tabLabel(key: ContentTabKey) {
 }
 
 export default function FAQCMS() {
+  const toast = useAppToast();
   const [activeTab, setActiveTab] = useState<ContentTabKey>('faq');
   const [faqList, setFaqList] = useState<FAQItemRecord[]>([]);
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
@@ -84,7 +85,6 @@ export default function FAQCMS() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   const categories = useMemo(() => {
     const values = new Set(defaultCategories);
@@ -156,7 +156,6 @@ export default function FAQCMS() {
 
   function startAddFaq() {
     setError('');
-    setSuccess('');
     setFaqForm({
       ...emptyFaqForm,
       sortOrder: faqList.length + 1,
@@ -166,7 +165,6 @@ export default function FAQCMS() {
 
   function startEditFaq(faq: FAQItemRecord) {
     setError('');
-    setSuccess('');
     setExpandedFaq(faq.id);
     setFaqForm({
       id: faq.id,
@@ -181,28 +179,39 @@ export default function FAQCMS() {
 
   async function saveFaq() {
     if (!faqForm.question.trim() || !faqForm.answer.trim()) {
-      setError('Question and answer are required.');
+      toast.warning(
+        'Complete the FAQ',
+        'Question and answer are required before saving.',
+      );
       return;
     }
 
     setSaving(true);
     setError('');
-    setSuccess('');
 
     try {
       if (faqForm.id) {
         await updateFaqItem(faqForm.id, faqForm);
-        setSuccess('FAQ updated successfully.');
+        toast.success(
+          'FAQ updated',
+          'The customer FAQ was updated successfully.',
+        );
       } else {
         await createFaqItem(faqForm);
-        setSuccess('FAQ added successfully.');
+        toast.success(
+          'FAQ added',
+          'The new customer FAQ was published successfully.',
+        );
       }
 
       resetFaqForm();
       await loadFaqs();
       window.dispatchEvent(new CustomEvent('shop2bhutan:content-updated'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to save FAQ.');
+      toast.error(
+        'Unable to save FAQ',
+        err instanceof Error ? err.message : 'Please try again.',
+      );
     } finally {
       setSaving(false);
     }
@@ -214,15 +223,20 @@ export default function FAQCMS() {
 
     setDeletingId(faq.id);
     setError('');
-    setSuccess('');
 
     try {
       await deleteFaqItem(faq.id);
-      setSuccess('FAQ deleted successfully.');
+      toast.success(
+        'FAQ deleted',
+        'The FAQ was removed from customer content.',
+      );
       await loadFaqs();
       window.dispatchEvent(new CustomEvent('shop2bhutan:content-updated'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to delete FAQ.');
+      toast.error(
+        'Unable to delete FAQ',
+        err instanceof Error ? err.message : 'Please try again.',
+      );
     } finally {
       setDeletingId('');
     }
@@ -233,15 +247,20 @@ export default function FAQCMS() {
 
     setSaving(true);
     setError('');
-    setSuccess('');
 
     try {
       await saveContentPage(pageDraft);
-      setSuccess(`${pageDraft.title || tabLabel(activeTab)} saved successfully.`);
+      toast.success(
+        'Content saved',
+        `${pageDraft.title || tabLabel(activeTab)} was saved successfully.`,
+      );
       await loadContentPage(activeTab);
       window.dispatchEvent(new CustomEvent('shop2bhutan:content-updated'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to save content page.');
+      toast.error(
+        'Unable to save content',
+        err instanceof Error ? err.message : 'Please try again.',
+      );
     } finally {
       setSaving(false);
     }
@@ -276,7 +295,6 @@ export default function FAQCMS() {
             onClick={() => {
               setActiveTab(tab.key);
               setError('');
-              setSuccess('');
               setShowAddForm(false);
             }}
             className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
@@ -294,13 +312,6 @@ export default function FAQCMS() {
         <div className="flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
           <AlertCircle size={17} className="mt-0.5 shrink-0" />
           <span>{error}</span>
-        </div>
-      )}
-
-      {success && (
-        <div className="flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          <CheckCircle2 size={17} className="mt-0.5 shrink-0" />
-          <span>{success}</span>
         </div>
       )}
     </>

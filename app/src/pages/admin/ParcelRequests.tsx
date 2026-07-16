@@ -12,6 +12,7 @@ import {
 } from '@/types/parcel'
 import type { ParcelRequest, ParcelRequestStatus } from '@/types/parcel'
 import { supabase } from '@/lib/supabase'
+import { useAppToast } from '@/components/shared/AppToast'
 
 const tabs: { key: 'all' | ParcelRequestStatus; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -125,6 +126,7 @@ function finalStatusText(status: ParcelRequestStatus) {
 }
 
 export default function ParcelRequests() {
+  const toast = useAppToast()
   const [searchParams] = useSearchParams()
   const initialStatus = searchParams.get('status')
   const [requests, setRequests] = useState<ParcelRequest[]>([])
@@ -239,11 +241,15 @@ export default function ParcelRequests() {
       await loadRequests({ silent: true })
       window.dispatchEvent(new CustomEvent('shop2bhutan:admin-parcels-updated'))
       window.dispatchEvent(new CustomEvent('shop2bhutan:parcels-updated'))
+      toast.success(
+        'Parcel request updated',
+        `${actionLabel(status)} was completed successfully.`,
+      )
       return true
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to update parcel request.',
-      )
+      const message =
+        err instanceof Error ? err.message : 'Failed to update parcel request.'
+      toast.error('Parcel update failed', message)
       return false
     } finally {
       setUpdatingId('')

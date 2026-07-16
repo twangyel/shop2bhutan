@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Search, Plus, Pencil, Eye, EyeOff } from 'lucide-react';
 import { products, categories } from '@/data/mockData';
+import { useAppToast } from '@/components/shared/AppToast';
 
 export default function ProductCMS() {
+  const toast = useAppToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [productList, setProductList] = useState(products);
@@ -14,14 +16,33 @@ export default function ProductCMS() {
   });
 
   const toggleStatus = (id: string) => {
-    setProductList(prev => prev.map(p => p.id === id ? { ...p, isActive: !p.isActive } : p));
+    const product = productList.find((item) => item.id === id);
+    if (!product) return;
+
+    const nextActive = !product.isActive;
+    setProductList((previous) =>
+      previous.map((item) =>
+        item.id === id ? { ...item, isActive: nextActive } : item,
+      ),
+    );
+    toast.info(
+      'Product preview updated',
+      `${product.name} is now ${nextActive ? 'active' : 'inactive'} in this local preview. This CMS is not connected to Supabase yet.`,
+    );
+  };
+
+  const showProductEditorNotice = () => {
+    toast.info(
+      'Product editor not connected',
+      'This Products screen currently uses local demo data. Add and edit actions will be enabled when the catalog backend is connected.',
+    );
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-gray-900">Products</h2>
-        <button className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2">
+        <button type="button" onClick={showProductEditorNotice} className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2">
           <Plus size={16} />
           Add Product
         </button>
@@ -92,7 +113,7 @@ export default function ProductCMS() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
-                        <button className="p-1.5 text-neutral-400 hover:text-amber-600 transition-colors">
+                        <button type="button" onClick={showProductEditorNotice} className="p-1.5 text-neutral-400 hover:text-amber-600 transition-colors">
                           <Pencil size={14} />
                         </button>
                         <button

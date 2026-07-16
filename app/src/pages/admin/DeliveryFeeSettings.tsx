@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle, Loader2, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { AlertCircle, Loader2, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
 import {
   deleteDeliveryFeeRule,
   fetchDeliveryFeeRules,
   saveDeliveryFeeRules,
 } from '@/lib/customerOrders';
+import { useAppToast } from '@/components/shared/AppToast';
 import type { DeliveryFeeRule } from '@/types';
 
 function cleanNumber(value: string | number) {
@@ -32,17 +33,16 @@ function makeTempRule(): DeliveryFeeRule {
 }
 
 export default function DeliveryFeeSettings() {
+  const toast = useAppToast();
   const [rules, setRules] = useState<DeliveryFeeRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState('');
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
   const loadRules = useCallback(async () => {
     setLoading(true);
     setError('');
-    setSaved(false);
 
     try {
       const realRules = await fetchDeliveryFeeRules();
@@ -63,12 +63,10 @@ export default function DeliveryFeeSettings() {
   const manualRules = useMemo(() => rules.filter((rule) => rule.manualQuote || !rule.isActive), [rules]);
 
   const updateRule = <K extends keyof DeliveryFeeRule>(id: string, field: K, value: DeliveryFeeRule[K]) => {
-    setSaved(false);
     setRules((prev) => prev.map((rule) => (rule.id === id ? { ...rule, [field]: value } : rule)));
   };
 
   const addRule = () => {
-    setSaved(false);
     setRules((prev) => [...prev, makeTempRule()]);
   };
 
@@ -77,20 +75,26 @@ export default function DeliveryFeeSettings() {
 
     if (isTemp) {
       setRules((prev) => prev.filter((item) => item.id !== rule.id));
+      toast.info('Draft removed', 'The unsaved delivery destination was removed.');
       return;
     }
 
     setDeletingId(rule.id);
     setError('');
-    setSaved(false);
 
     try {
       const updatedRules = await deleteDeliveryFeeRule(rule);
       setRules(updatedRules);
-      setSaved(true);
+      toast.success(
+        'Delivery destination deleted',
+        'The delivery fee rule was removed successfully.',
+      );
     } catch (err) {
       console.error('Failed to delete delivery fee rule:', err);
-      setError(err instanceof Error ? err.message : 'Unable to delete delivery fee rule.');
+      toast.error(
+        'Unable to delete delivery destination',
+        err instanceof Error ? err.message : 'Please try again.',
+      );
     } finally {
       setDeletingId('');
     }
@@ -99,21 +103,29 @@ export default function DeliveryFeeSettings() {
   const handleSave = async () => {
     const invalid = rules.find((rule) => !rule.destination.trim());
     if (invalid) {
-      setError('Destination name is required for every delivery fee row.');
+      toast.warning(
+        'Destination required',
+        'Enter a destination name for every delivery fee row before saving.',
+      );
       return;
     }
 
     setSaving(true);
     setError('');
-    setSaved(false);
 
     try {
       const updatedRules = await saveDeliveryFeeRules(rules);
       setRules(updatedRules);
-      setSaved(true);
+      toast.success(
+        'Delivery fees saved',
+        'Destination-based delivery rules were updated successfully.',
+      );
     } catch (err) {
       console.error('Failed to save delivery fee settings:', err);
-      setError(err instanceof Error ? err.message : 'Unable to save delivery fee settings.');
+      toast.error(
+        'Unable to save delivery fees',
+        err instanceof Error ? err.message : 'Please try again.',
+      );
     } finally {
       setSaving(false);
     }
@@ -176,13 +188,6 @@ export default function DeliveryFeeSettings() {
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2">
           <AlertCircle size={17} className="mt-0.5 flex-shrink-0" />
           <span>{error}</span>
-        </div>
-      )}
-
-      {saved && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 flex items-start gap-2">
-          <CheckCircle size={17} className="mt-0.5 flex-shrink-0" />
-          <span>Delivery fee settings saved.</span>
         </div>
       )}
 

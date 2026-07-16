@@ -8,11 +8,13 @@ import {
   Plus,
   RefreshCw,
   Settings2,
+  Trash2,
   Truck,
 } from 'lucide-react'
 import {
   createParcelLocation,
   createParcelTrip,
+  deleteParcelTrip,
   fetchAdminParcelTrips,
   fetchParcelLocations,
   updateParcelLocationStatus,
@@ -26,6 +28,7 @@ import type {
 } from '@/types/parcel'
 import { parcelTripStatusLabels } from '@/types/parcel'
 import { supabase } from '@/lib/supabase'
+import { useAppToast } from '@/components/shared/AppToast'
 
 const BHUTAN_DZONGKHAGS = [
   'Bumthang',
@@ -203,6 +206,7 @@ const emptyLocationForm: LocationForm = {
 }
 
 export default function ParcelTrips() {
+  const toast = useAppToast()
   const [trips, setTrips] = useState<ParcelTrip[]>([])
   const [locations, setLocations] = useState<ParcelLocation[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -217,6 +221,7 @@ export default function ParcelTrips() {
   const [locationForm, setLocationForm] =
     useState<LocationForm>(emptyLocationForm)
   const [updatingTripId, setUpdatingTripId] = useState<string | null>(null)
+  const [deletingTripId, setDeletingTripId] = useState<string | null>(null)
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
 
   const activeLocations = useMemo(
@@ -369,17 +374,17 @@ export default function ParcelTrips() {
 
   async function handleCreateTrip() {
     if (!form.originLocationId || !form.destinationLocationId) {
-      setError('Select both From and To locations.')
+      toast.warning('Route locations required', 'Select both From and To locations.')
       return
     }
 
     if (form.originLocationId === form.destinationLocationId) {
-      setError('From and To locations must be different.')
+      toast.warning('Choose different locations', 'From and To locations must be different.')
       return
     }
 
     if (!form.goingDate) {
-      setError('Trip date is required.')
+      toast.warning('Trip date required', 'Trip date is required.')
       return
     }
 
@@ -404,9 +409,11 @@ export default function ParcelTrips() {
         }),
       )
       setShowForm(false)
+      toast.success('Parcel trip created', `${routePreview} is now open for booking.`)
       await loadData({ silent: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create trip.')
+      const message = err instanceof Error ? err.message : 'Failed to create trip.'
+      toast.error('Unable to create trip', message)
     } finally {
       setSaving(false)
     }
@@ -446,10 +453,10 @@ export default function ParcelTrips() {
           ? current
           : applyLocationDefaults(nextLocations, current),
       )
+      toast.success('Parcel location added', `${created.name} is ready to use in trip routes.`)
     } catch (err) {
-      setLocationError(
-        err instanceof Error ? err.message : 'Failed to add location.',
-      )
+      const message = err instanceof Error ? err.message : 'Failed to add location.'
+      toast.error('Unable to add location', message)
     } finally {
       setSavingLocation(false)
     }
@@ -467,6 +474,11 @@ export default function ParcelTrips() {
 
       setLocations((current) =>
         current.map((item) => (item.id === updated.id ? updated : item)),
+      )
+
+      toast.success(
+        updated.isActive ? 'Location enabled' : 'Location disabled',
+        `${updated.name} ${updated.isActive ? 'can now be used' : 'will no longer appear'} in new parcel routes.`,
       )
 
       if (!updated.isActive) {
@@ -492,9 +504,8 @@ export default function ParcelTrips() {
         })
       }
     } catch (err) {
-      setLocationError(
-        err instanceof Error ? err.message : 'Failed to update location.',
-      )
+      const message = err instanceof Error ? err.message : 'Failed to update location.'
+      toast.error('Location update failed', message)
     } finally {
       setUpdatingLocationId('')
     }
@@ -505,14 +516,53 @@ export default function ParcelTrips() {
       setUpdatingTripId(tripId)
       setError('')
       await updateParcelTripStatus(tripId, status)
+      toast.success('Trip status updated', `The trip is now ${parcelTripStatusLabels[status] || status}.`)
       await loadData({ silent: true })
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to update trip status.',
-      )
+      const message = err instanceof Error ? err.message : 'Failed to update trip status.'
+      toast.error('Trip status update failed', message)
     } finally {
       setUpdatingTripId(null)
       setOpenDropdownId(null)
+    }
+  }
+
+
+  async function handleDeleteTrip(trip: ParcelTrip) {
+    const requestCount = Math.max(0, Number(trip.requestCount || 0))
+
+    if (requestCount > 0) {
+      setOpenDropdownId(null)
+      toast.warning(
+        'Trip cannot be deleted',
+        `This trip has ${requestCount} parcel request${requestCount === 1 ? '' : 's'}. Cancel or complete it instead so customer history remains available.`,
+      )
+      return
+    }
+
+    const tripName = trip.title || tripDisplayTitle(trip)
+    const confirmed = window.confirm(
+      `Permanently delete this parcel trip?\n\n${tripName}\n\nThis action cannot be undone.`,
+    )
+    if (!confirmed) return
+
+    try {
+      setDeletingTripId(trip.id)
+      setOpenDropdownId(null)
+      setError('')
+
+      await deleteParcelTrip(trip.id)
+      toast.success(
+        'Parcel trip deleted',
+        `${tripName} was permanently removed.`,
+      )
+      await loadData({ silent: true })
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to delete parcel trip.'
+      toast.error('Unable to delete trip', message)
+    } finally {
+      setDeletingTripId(null)
     }
   }
 
@@ -921,7 +971,9 @@ export default function ParcelTrips() {
               <tbody>
                 {trips.map((trip) => {
                   const actions = tripActions(trip.status)
-                  const isUpdating = updatingTripId === trip.id
+                  const isUpdating =
+                    updatingTripId === trip.id || deletingTripId === trip.id
+                  const isDeleting = deletingTripId === trip.id
                   const isDropdownOpen = openDropdownId === trip.id
 
                   return (
@@ -992,7 +1044,7 @@ export default function ParcelTrips() {
                             {isUpdating ? (
                               <>
                                 <Loader2 size={14} className="animate-spin" />
-                                Updating...
+                                {isDeleting ? 'Deleting...' : 'Updating...'}
                               </>
                             ) : (
                               <>
@@ -1022,6 +1074,18 @@ export default function ParcelTrips() {
                                   {action.label}
                                 </button>
                               ))}
+
+                              <div className="border-t border-neutral-100">
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDeleteTrip(trip)}
+                                  disabled={isUpdating}
+                                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                                >
+                                  <Trash2 size={14} />
+                                  Delete trip
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>

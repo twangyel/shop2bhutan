@@ -25,6 +25,7 @@ import {
   Loader2,
   Trash2,
   AlertTriangle,
+  CircleDollarSign,
   type LucideIcon,
 } from 'lucide-react'
 import { useApp } from '@/contexts/AppContext'
@@ -63,6 +64,7 @@ const navGroups = [
         icon: Package,
       },
       { path: '/admin/payments', label: 'Payments', icon: CreditCard },
+      { path: '/admin/business', label: 'Profit & Trips', icon: CircleDollarSign },
       { path: '/admin/customers', label: 'Customers', icon: Users },
     ],
   },
@@ -112,6 +114,7 @@ const ADMIN_NAV_ALIASES: Record<string, string> = {
   '/admin/parcels': 'parcel trips routes schedule',
   '/admin/parcel-requests': 'parcel booking requests delivery',
   '/admin/payments': 'payment proof verification collections transactions',
+  '/admin/business': 'profit expenses costs trips finance net contribution target fuel meals',
   '/admin/customers': 'users profiles phone email accounts',
   '/admin/products': 'catalog items inventory products',
   '/admin/categories': 'catalog product groups categories',
