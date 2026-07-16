@@ -584,7 +584,17 @@ export default function CustomersPanel() {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             type="button"
-                            onClick={() => navigate('/admin/orders')}
+                            onClick={() => {
+                              const params = new URLSearchParams({
+                                customer: customer.id,
+                                customerName:
+                                  customer.name ||
+                                  customer.phone ||
+                                  customer.email ||
+                                  'Customer',
+                              });
+                              navigate(`/admin/orders?${params.toString()}`);
+                            }}
                             className="inline-flex h-8 items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 text-xs font-bold text-neutral-600 transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700"
                           >
                             View

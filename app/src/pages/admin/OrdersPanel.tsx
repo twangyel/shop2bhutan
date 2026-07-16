@@ -248,6 +248,8 @@ export default function OrdersPanel() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const actionFocus = searchParams.get('focus');
+  const customerId = searchParams.get('customer');
+  const customerName = searchParams.get('customerName');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -303,6 +305,8 @@ export default function OrdersPanel() {
         .toLowerCase();
 
       const matchesSearch = !query || searchableText.includes(query);
+      const matchesCustomer =
+        !customerId || order.user.id === customerId;
       const matchesActionFocus =
         actionFocus === 'quotation'
           ? order.status === 'pending_confirmation' ||
@@ -311,9 +315,20 @@ export default function OrdersPanel() {
           : actionFocus === 'overdue'
             ? isActionOverdue(order)
             : true;
-      return matchesSearch && matchesStatus(order, statusFilter) && matchesActionFocus;
+      return (
+        matchesSearch &&
+        matchesCustomer &&
+        matchesStatus(order, statusFilter) &&
+        matchesActionFocus
+      );
     });
-  }, [actionFocus, orders, searchQuery, statusFilter]);
+  }, [
+    actionFocus,
+    customerId,
+    orders,
+    searchQuery,
+    statusFilter,
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
@@ -321,7 +336,7 @@ export default function OrdersPanel() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter]);
+  }, [actionFocus, customerId, searchQuery, statusFilter]);
 
   return (
     <div className="space-y-4">
@@ -371,6 +386,26 @@ export default function OrdersPanel() {
           </div>
         </div>
       </div>
+
+      {customerId && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <div>
+            <span className="font-semibold">
+              Order history for {customerName || 'selected customer'}
+            </span>
+            <p className="mt-0.5 text-xs text-blue-600">
+              Search and status filters now apply only to this customer.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/admin/orders')}
+            className="shrink-0 text-xs font-extrabold text-blue-700"
+          >
+            Show all orders
+          </button>
+        </div>
+      )}
 
       {actionFocus && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm text-orange-800">
@@ -446,7 +481,9 @@ export default function OrdersPanel() {
                       <Package size={34} className="text-neutral-300" />
                       <p className="text-sm font-medium">No orders found</p>
                       <p className="text-xs">
-                        New paste-link requests will appear here after customers submit them.
+                        {customerId
+                          ? 'This customer has no orders matching the current filters.'
+                          : 'New paste-link requests will appear here after customers submit them.'}
                       </p>
                     </div>
                   </td>
