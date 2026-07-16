@@ -542,7 +542,7 @@ async function buildReceiptPdf(data: PaymentReceiptData) {
     '0.961 0.369 0.031 rg 0 0 595 8 re f',
   );
 
-  const content = textEncoder.encode(contentLines.join('\\n'));
+  const content = textEncoder.encode(contentLines.join('\n'));
 
   const pageResources = xObjectDictionary
     ? `/Resources << /Font << /F1 4 0 R /F2 5 0 R >> /XObject << ${xObjectDictionary} >> >>`
