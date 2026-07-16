@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import BrandLogo from '@/components/BrandLogo';
+import { useAppToast } from '@/components/shared/AppToast';
 
 const PHONE_ONLY_EMAIL_SUFFIX = '@phone.shop2bhutan.com';
 
@@ -48,6 +49,7 @@ function isPhoneOnlyEmail(value?: string | null) {
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
+  const { showToast } = useAppToast();
 
   const [identifier, setIdentifier] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -55,6 +57,40 @@ export default function ForgotPassword() {
   const [adminNotified, setAdminNotified] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!error) return;
+
+    showToast({
+      type: 'error',
+      title: 'Reset request failed',
+      message: error,
+    });
+  }, [error, showToast]);
+
+  useEffect(() => {
+    if (!submitted) return;
+
+    showToast({
+      type: 'success',
+      title: 'Reset link requested',
+      message: adminNotified
+        ? 'Check your email for the latest reset link. Shop2Bhutan admin was also notified.'
+        : 'Check your email for the latest password reset link.',
+    });
+  }, [adminNotified, showToast, submitted]);
+
+  useEffect(() => {
+    if (!supportReset) return;
+
+    showToast({
+      type: 'info',
+      title: 'Admin reset requested',
+      message: adminNotified
+        ? 'Shop2Bhutan admin has been notified to prepare a temporary password.'
+        : 'Please contact Shop2Bhutan support to request a temporary password.',
+    });
+  }, [adminNotified, showToast, supportReset]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -331,13 +367,6 @@ export default function ForgotPassword() {
 
           <div className="p-6">
             <form onSubmit={handleSubmit} className="space-y-5">
-              {error && (
-                <div className="flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-red-700">
-                  <AlertCircle size={18} className="mt-0.5 shrink-0" />
-                  <p className="text-sm font-medium leading-5">{error}</p>
-                </div>
-              )}
-
               <div>
                 <label
                   htmlFor="reset-identifier"

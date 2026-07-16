@@ -25,6 +25,7 @@ import {
   NATIVE_CAMERA_RESTORED_EVENT,
   pickNativeImageFile,
 } from '@/lib/camera';
+import { useAppToast } from '@/components/shared/AppToast';
 
 type ProfileLike = {
   id?: string | null;
@@ -138,6 +139,7 @@ function getProfileVerificationBadge(profile: ProfileLike | null) {
 
 export default function Profile() {
   const navigate = useNavigate();
+  const { showToast } = useAppToast();
   const location = useLocation();
   const { user, context, refreshContext, signOut } = useAuth();
 
@@ -167,6 +169,33 @@ export default function Profile() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    if (!error) return;
+
+    showToast({
+      type: 'error',
+      title: 'Profile update failed',
+      message: error,
+    });
+  }, [error, showToast]);
+
+  useEffect(() => {
+    if (!success) return;
+
+    const normalized = success.toLowerCase();
+    const title = normalized.includes('picture')
+      ? 'Profile picture updated'
+      : normalized.includes('completed')
+        ? 'Profile completed'
+        : 'Profile updated';
+
+    showToast({
+      type: 'success',
+      title,
+      message: success,
+    });
+  }, [showToast, success]);
 
   const displayEmail = getDisplayEmail(context?.email || user?.email);
   const verificationBadge = getProfileVerificationBadge(profile);
@@ -665,19 +694,6 @@ export default function Profile() {
         )}
 
         <form onSubmit={handleSave} className="mt-4 space-y-4">
-          {error && (
-            <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-              <CheckCircle size={16} strokeWidth={2.5} />
-              <span>{success}</span>
-            </div>
-          )}
-
           <section className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
             <div className="mb-4">
               <h2 className="text-base font-black text-gray-950">

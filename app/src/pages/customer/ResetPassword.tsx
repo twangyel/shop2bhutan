@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AlertCircle,
   CheckCircle,
   Eye,
   EyeOff,
@@ -12,9 +11,11 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import BrandLogo from '@/components/BrandLogo';
+import { useAppToast } from '@/components/shared/AppToast';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
+  const { showToast } = useAppToast();
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -23,6 +24,26 @@ export default function ResetPassword() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!error) return;
+
+    showToast({
+      type: 'error',
+      title: 'Password reset issue',
+      message: error,
+    });
+  }, [error, showToast]);
+
+  useEffect(() => {
+    if (!success) return;
+
+    showToast({
+      type: 'success',
+      title: 'Password updated',
+      message: 'Your new password is ready. You can now sign in securely.',
+    });
+  }, [showToast, success]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -197,13 +218,6 @@ export default function ResetPassword() {
           </div>
 
           <div className="p-6">
-            {error && (
-              <div className="mb-5 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-red-700">
-                <AlertCircle size={18} className="mt-0.5 shrink-0" />
-                <p className="text-sm font-medium leading-5">{error}</p>
-              </div>
-            )}
-
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label

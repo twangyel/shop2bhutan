@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAppToast } from '@/components/shared/AppToast';
 
 type RouteState = {
   forced?: boolean;
@@ -84,6 +85,7 @@ function clearPasswordChangeCompletion() {
 
 export default function ChangePassword() {
   const navigate = useNavigate();
+  const { showToast } = useAppToast();
   const location = useLocation();
   const { user, context, refreshContext } = useAuth();
 
@@ -121,6 +123,28 @@ export default function ChangePassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!error) return;
+
+    showToast({
+      type: 'error',
+      title: 'Password change failed',
+      message: error,
+    });
+  }, [error, showToast]);
+
+  useEffect(() => {
+    if (!completion) return;
+
+    showToast({
+      type: 'success',
+      title: 'Password updated',
+      message: completion.forced
+        ? 'Your temporary password has been replaced successfully.'
+        : 'Your Shop2Bhutan password has been updated successfully.',
+    });
+  }, [completion, showToast]);
 
   useEffect(() => {
     const resetScroll = () => {
@@ -348,12 +372,6 @@ export default function ChangePassword() {
             <p className="text-xs leading-relaxed text-amber-700">
               For your security, create a new password before using the app. You do not need to enter the temporary password again.
             </p>
-          </div>
-        )}
-
-        {error && (
-          <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
           </div>
         )}
 

@@ -6,6 +6,7 @@ import { AlertCircle, Loader2, Mail, Lock, Eye, EyeOff, User, Phone, ShieldCheck
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import BrandLogo from '@/components/BrandLogo';
+import { useAppToast } from '@/components/shared/AppToast';
 
 
 const AUTH_MESSAGE_STORAGE_KEY = 'shop2bhutan:auth-message';
@@ -146,6 +147,7 @@ async function getPostLoginDestination(returnTo: string) {
 
 export default function Login() {
   const navigate = useNavigate();
+  const { showToast } = useAppToast();
   const location = useLocation();
   const {
     loading: authLoading,
@@ -167,6 +169,25 @@ export default function Login() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!submitError) return;
+
+    const normalized = submitError.toLowerCase();
+    const title = normalized.includes('deactivated')
+      ? 'Account deactivated'
+      : normalized.includes('google')
+        ? 'Google sign-in failed'
+        : normalized.includes('invalid login')
+          ? 'Sign in failed'
+          : 'Unable to sign in';
+
+    showToast({
+      type: 'error',
+      title,
+      message: submitError,
+    });
+  }, [showToast, submitError]);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [transitionMessage, setTransitionMessage] = useState('');
   const oauthHandledRef = useRef(false);
@@ -253,6 +274,15 @@ export default function Login() {
             : 'Welcome to Shop2Bhutan',
         );
         await wait(180);
+        showToast({
+          type: 'success',
+          title: destination.startsWith('/admin')
+            ? 'Admin access ready'
+            : 'Welcome back',
+          message: destination.startsWith('/admin')
+            ? 'Opening your Shop2Bhutan administration panel.'
+            : 'You have signed in successfully.',
+        });
         navigate(destination, { replace: true });
       } catch (error) {
         console.error('[Login] Google sign-in completion failed:', error);
@@ -271,6 +301,7 @@ export default function Login() {
     navigate,
     refreshContext,
     returnTo,
+    showToast,
     user?.id,
   ]);
 
@@ -381,6 +412,11 @@ export default function Login() {
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      showToast({
+        type: 'warning',
+        title: 'Check your sign-in details',
+        message: 'Enter your registered email or Bhutan phone number and password.',
+      });
       return;
     }
 
@@ -447,6 +483,15 @@ export default function Login() {
     );
     await wait(180);
     setSubmitting(false);
+    showToast({
+      type: 'success',
+      title: destination.startsWith('/admin')
+        ? 'Admin access ready'
+        : 'Welcome back',
+      message: destination.startsWith('/admin')
+        ? 'Opening your Shop2Bhutan administration panel.'
+        : 'You have signed in successfully.',
+    });
     navigate(destination, { replace: true });
   };
 
@@ -522,17 +567,6 @@ export default function Login() {
             </div>
 
             <div className="mt-5 rounded-[28px] border border-neutral-100 bg-white p-5 shadow-[0_18px_55px_rgba(15,23,42,0.07)] sm:p-6">
-              {submitError && (
-                <div className="mb-4 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
-                    <AlertCircle size={16} strokeWidth={2.5} />
-                  </div>
-                  <p className="text-sm font-medium leading-5 text-red-700">
-                    {submitError}
-                  </p>
-                </div>
-              )}
-
               {!isAdminLogin && GOOGLE_AUTH_ENABLED && (
                 <>
                   <button

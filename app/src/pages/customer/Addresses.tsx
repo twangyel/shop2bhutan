@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAppToast } from '@/components/shared/AppToast';
 
 const DELIVERY_DZONGKHAGS = ['Thimphu', 'Paro', 'Chhukha'] as const;
 const ADDRESS_LABELS = ['Home', 'Office', 'Family', 'Other'] as const;
@@ -157,6 +158,7 @@ function ModernSelect({ label, value, placeholder = 'Select', options, onChange 
 
 export default function Addresses() {
   const navigate = useNavigate();
+  const { showToast } = useAppToast();
   const { user, context } = useAuth();
 
   const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
@@ -167,6 +169,35 @@ export default function Addresses() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    if (!error) return;
+
+    showToast({
+      type: 'error',
+      title: 'Address action failed',
+      message: error,
+    });
+  }, [error, showToast]);
+
+  useEffect(() => {
+    if (!success) return;
+
+    const normalized = success.toLowerCase();
+    const title = normalized.includes('deleted')
+      ? 'Address deleted'
+      : normalized.includes('default')
+        ? 'Default address updated'
+        : normalized.includes('added')
+          ? 'Address added'
+          : 'Address updated';
+
+    showToast({
+      type: 'success',
+      title,
+      message: success,
+    });
+  }, [showToast, success]);
 
   const profile = context?.profile as { full_name?: string | null; name?: string | null; phone?: string | null } | null;
   const hasAddresses = addresses.length > 0;
@@ -378,19 +409,6 @@ export default function Addresses() {
       </header>
 
       <main className="mx-auto max-w-md px-4 py-4">
-        {error && (
-          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="mb-4 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            <Check size={16} strokeWidth={2.5} />
-            {success}
-          </div>
-        )}
-
         {showForm && (
           <form onSubmit={saveAddress} className="mb-4 space-y-4 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between">
