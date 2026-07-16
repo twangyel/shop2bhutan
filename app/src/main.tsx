@@ -9,6 +9,7 @@ import { LocalNotifications } from '@capacitor/local-notifications'
 import App from './App'
 import './index.css'
 import { AuthProvider } from './contexts/AuthContext'
+import { AppToastProvider } from './components/shared/AppToast'
 
 const isNativeApp = Capacitor.isNativePlatform()
 
@@ -78,9 +79,11 @@ setupNativeNotificationActions()
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
+      <AppToastProvider>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </AppToastProvider>
     </BrowserRouter>
   </React.StrictMode>
 )

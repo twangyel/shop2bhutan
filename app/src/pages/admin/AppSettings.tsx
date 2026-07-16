@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type Elemen
 import {
   AlertCircle,
   ArrowUpRight,
-  CheckCircle,
   ChevronDown,
   BellRing,
   Bot,
@@ -20,6 +19,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import Logo from '@/components/shared/Logo';
+import { useAppToast } from '@/components/shared/AppToast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import {
@@ -488,8 +488,31 @@ function SettingCard({
   );
 }
 
+
+function adminToastTitle(message: string, type: 'success' | 'error') {
+  const normalized = message.toLowerCase();
+
+  if (type === 'error') {
+    if (normalized.includes('business hour')) return 'Check business hours';
+    if (normalized.includes('announcement')) return 'Check announcement';
+    if (normalized.includes('ai')) return 'AI assistant unavailable';
+    if (normalized.includes('brief')) return 'Admin brief failed';
+    if (normalized.includes('logo')) return 'Logo upload failed';
+    return 'Unable to complete action';
+  }
+
+  if (normalized.includes('logo uploaded')) return 'Logo uploaded';
+  if (normalized.includes('ai connection')) return 'AI connection confirmed';
+  if (normalized.includes('admin brief') || normalized.includes('test completed')) {
+    return 'Admin brief complete';
+  }
+
+  return 'Settings updated';
+}
+
 export default function AppSettings() {
   const { user } = useAuth();
+  const { showToast } = useAppToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [settings, setSettings] = useState<AppSettingsType>(DEFAULT_APP_SETTINGS);
   const [profitSettings, setProfitSettings] = useState<ProfitSettings>(DEFAULT_PROFIT_SETTINGS);
@@ -505,6 +528,27 @@ export default function AppSettings() {
   const [testingDigest, setTestingDigest] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!success) return;
+
+    showToast({
+      type: 'success',
+      title: adminToastTitle(success, 'success'),
+      message: success,
+    });
+  }, [showToast, success]);
+
+  useEffect(() => {
+    if (!error) return;
+
+    showToast({
+      type: 'error',
+      title: adminToastTitle(error, 'error'),
+      message: error,
+    });
+  }, [error, showToast]);
+
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -678,7 +722,7 @@ export default function AppSettings() {
         saveAdminAiSettings(adminAiSettings, user?.id),
       ]);
       setSettings(saved);
-      setSuccess('App settings, profit rules, admin brief, and AI assistant settings saved successfully.');
+      setSuccess('Your Shop2Bhutan settings were saved successfully.');
     } catch (err) {
       console.error('Failed to save app settings:', err);
       setError(err instanceof Error ? err.message : 'Unable to save app settings.');
@@ -834,21 +878,6 @@ export default function AppSettings() {
           Save All Settings
         </button>
       </div>
-
-      {error && (
-        <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          <AlertCircle size={17} className="mt-0.5 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {success && (
-        <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          <CheckCircle size={17} className="mt-0.5 shrink-0" />
-          <span>{success}</span>
-        </div>
-      )}
-
       <SettingCard title="App Logo" icon={Image}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border border-neutral-100 bg-neutral-50 p-2">
