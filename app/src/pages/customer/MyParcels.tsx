@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAppToast } from '@/components/shared/AppToast'
 import {
   Calendar,
   CheckCircle2,
@@ -127,12 +128,23 @@ function latestStatusEvent(request: ParcelRequest, status: string) {
 
 export default function MyParcels() {
   const navigate = useNavigate()
+  const { showToast } = useAppToast()
   const { user, loading: authLoading, isGuest } = useAuth()
 
   const [requests, setRequests] = useState<ParcelRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [historyOpen, setHistoryOpen] = useState(false)
+
+  useEffect(() => {
+    if (!error) return
+
+    showToast({
+      type: 'error',
+      title: 'Unable to load parcels',
+      message: error,
+    })
+  }, [error, showToast])
 
   async function loadParcels() {
     try {
@@ -325,9 +337,9 @@ export default function MyParcels() {
 }
 
 function ParcelCard({ request }: { request: ParcelRequest }) {
+  const { showToast } = useAppToast()
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [sharing, setSharing] = useState(false)
-  const [shareFeedback, setShareFeedback] = useState('')
 
   const displayStatus = normalizeStatus(request.status)
   const currentIndex = timeline.indexOf(
@@ -352,7 +364,6 @@ function ParcelCard({ request }: { request: ParcelRequest }) {
     if (sharing) return
 
     setSharing(true)
-    setShareFeedback('')
 
     try {
       const status =
@@ -375,13 +386,19 @@ function ParcelCard({ request }: { request: ParcelRequest }) {
       })
 
       if (result === 'copied') {
-        setShareFeedback('Parcel update copied')
-        window.setTimeout(() => setShareFeedback(''), 2200)
+        showToast({
+          type: 'success',
+          title: 'Parcel update copied',
+          message: 'The parcel status is ready to paste and share.',
+        })
       }
     } catch (shareError) {
       console.warn('Unable to share parcel update:', shareError)
-      setShareFeedback('Unable to share right now')
-      window.setTimeout(() => setShareFeedback(''), 2600)
+      showToast({
+        type: 'error',
+        title: 'Unable to share',
+        message: 'The parcel update could not be shared right now.',
+      })
     } finally {
       setSharing(false)
     }
@@ -513,14 +530,6 @@ function ParcelCard({ request }: { request: ParcelRequest }) {
           </button>
         </div>
 
-        {shareFeedback && (
-          <p
-            className="mt-2 text-right text-[11px] font-semibold text-neutral-500"
-            role="status"
-          >
-            {shareFeedback}
-          </p>
-        )}
       </div>
 
       {detailsOpen && (

@@ -16,6 +16,7 @@ import {
   User,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAppToast } from '@/components/shared/AppToast';
 import { supabase } from '@/lib/supabase';
 import {
   hapticError,
@@ -560,6 +561,7 @@ function BagItemCard({
 
 export default function RequestBag() {
   const navigate = useNavigate();
+  const { showToast } = useAppToast();
   const { user, context, loading: authLoading, isGuest } = useAuth();
   const profile = (context?.profile ?? null) as ProfileLike | null;
 
@@ -585,6 +587,23 @@ export default function RequestBag() {
     deliveryAddress: '',
     notes: '',
   });
+
+  useEffect(() => {
+    if (!error) return;
+
+    const normalized = error.toLowerCase();
+    const isWarning =
+      normalized.startsWith('please') ||
+      normalized.includes('empty') ||
+      normalized.includes('sign in') ||
+      normalized.includes('select');
+
+    showToast({
+      type: isWarning ? 'warning' : 'error',
+      title: isWarning ? 'Check your request' : 'Request Bag action failed',
+      message: error,
+    });
+  }, [error, showToast]);
 
   const hasItems = Boolean(bag?.items.length);
   const selectedPickupHub = getSelfPickupOptionById(pickupHubId);
@@ -791,6 +810,11 @@ export default function RequestBag() {
 
     try {
       await removeRequestBagItem(user.id, itemId);
+      showToast({
+        type: 'success',
+        title: 'Item removed',
+        message: 'The product was removed from your Request Bag.',
+      });
     } catch (err) {
       void hapticError();
       console.error('Failed to remove Request Bag item:', err);
@@ -1019,6 +1043,11 @@ export default function RequestBag() {
       clearCachedRequestBag(user.id);
       window.dispatchEvent(new Event('shop2bhutan:request-bag-updated'));
       void hapticSuccess();
+      showToast({
+        type: 'success',
+        title: 'Shopping request submitted',
+        message: 'We will verify availability, selected options, and the final price.',
+      });
       navigate(`/order/${result.orderId}`, { replace: true });
     } catch (err) {
       void hapticError();

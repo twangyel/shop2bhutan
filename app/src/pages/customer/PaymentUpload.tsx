@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAppToast } from '@/components/shared/AppToast';
 import {
   fetchCustomerOrderById,
   fetchPaymentMethods,
@@ -92,6 +93,7 @@ function PaymentStep({ number, label, active }: { number: number; label: string;
 export default function PaymentUpload() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
+  const { showToast } = useAppToast();
   const { user, loading: authLoading } = useAuth();
   usePrivacyScreen();
   const [order, setOrder] = useState<Order | null>(null);
@@ -111,6 +113,23 @@ export default function PaymentUpload() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
+
+  useEffect(() => {
+    if (!error) return;
+
+    const normalized = error.toLowerCase();
+    const isWarning =
+      normalized.startsWith('please') ||
+      normalized.includes('must be') ||
+      normalized.includes('cannot be') ||
+      normalized.includes('not available');
+
+    showToast({
+      type: isWarning ? 'warning' : 'error',
+      title: isWarning ? 'Check payment details' : 'Payment action failed',
+      message: error,
+    });
+  }, [error, showToast]);
 
   const loadOrder = useCallback(async () => {
     if (!orderId || !user) {
@@ -392,9 +411,23 @@ useEffect(() => {
   }, [applyPaymentScreenshot]);
 
   const copyToClipboard = async (text: string, field: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopiedField(field);
-    window.setTimeout(() => setCopiedField(''), 2000);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      showToast({
+        type: 'success',
+        title: 'Copied',
+        message: 'Payment information was copied to your clipboard.',
+      });
+      window.setTimeout(() => setCopiedField(''), 2000);
+    } catch (copyError) {
+      console.warn('[PaymentUpload] Copy failed:', copyError);
+      showToast({
+        type: 'error',
+        title: 'Unable to copy',
+        message: 'Please select and copy the payment information manually.',
+      });
+    }
   };
 
   const handleSubmit = async () => {
@@ -451,6 +484,11 @@ useEffect(() => {
         note: note.trim(),
       });
 
+      showToast({
+        type: 'success',
+        title: 'Payment proof submitted',
+        message: 'Shop2Bhutan will review your screenshot and update the payment status.',
+      });
       setSubmitted(true);
     } catch (err) {
       console.error('Failed to submit payment proof:', err);

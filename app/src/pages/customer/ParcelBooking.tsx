@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAppToast } from '@/components/shared/AppToast'
 import {
   AlertTriangle,
   Calendar,
@@ -100,6 +101,7 @@ function bhutanMobileError(label: string) {
 export default function ParcelBooking() {
   const { tripId } = useParams<{ tripId: string }>()
   const navigate = useNavigate()
+  const { showToast } = useAppToast()
   const { user, loading: authLoading, isGuest } = useAuth()
 
   const [trip, setTrip] = useState<ParcelTrip | null>(null)
@@ -112,6 +114,22 @@ export default function ParcelBooking() {
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState('')
   const [openingCamera, setOpeningCamera] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!error) return
+
+    const normalized = error.toLowerCase()
+    const isWarning =
+      normalized.includes('not available') ||
+      normalized.includes('closed') ||
+      normalized.startsWith('trip not found')
+
+    showToast({
+      type: isWarning ? 'warning' : 'error',
+      title: isWarning ? 'Parcel booking unavailable' : 'Parcel booking failed',
+      message: error,
+    })
+  }, [error, showToast])
 
   const [form, setForm] = useState({
     senderName: '',
@@ -257,12 +275,22 @@ export default function ParcelBooking() {
     if (!file.type.startsWith('image/')) {
       setPhotoFile(null)
       setErrors((prev) => ({ ...prev, photoFile: 'Please upload a valid image file' }))
+      showToast({
+        type: 'warning',
+        title: 'Invalid parcel photo',
+        message: 'Please upload a valid image file.',
+      })
       return
     }
 
     if (file.size > 5 * 1024 * 1024) {
       setPhotoFile(null)
       setErrors((prev) => ({ ...prev, photoFile: 'Parcel photo must be below 5 MB' }))
+      showToast({
+        type: 'warning',
+        title: 'Parcel photo is too large',
+        message: 'Choose an image smaller than 5 MB.',
+      })
       return
     }
 
@@ -382,7 +410,17 @@ export default function ParcelBooking() {
     }
 
     setErrors(nextErrors)
-    return Object.keys(nextErrors).length === 0
+
+    if (Object.keys(nextErrors).length > 0) {
+      showToast({
+        type: 'warning',
+        title: 'Check parcel details',
+        message: 'Complete the highlighted fields and confirm the declaration.',
+      })
+      return false
+    }
+
+    return true
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -414,6 +452,11 @@ export default function ParcelBooking() {
         customerNotes: form.customerNotes,
       })
 
+      showToast({
+        type: 'success',
+        title: 'Parcel request submitted',
+        message: 'Shop2Bhutan will review the request and update you after acceptance.',
+      })
       setSubmitted(true)
     } catch (err) {
       setError(

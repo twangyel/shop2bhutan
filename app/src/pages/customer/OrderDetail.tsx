@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { appSettings } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAppToast } from '@/components/shared/AppToast';
 import { fetchCustomerOrderById, fetchCustomerOrderByIdFast } from '@/lib/customerOrders';
 import { getFulfillmentDisplay, isSelfPickupOrder } from '@/lib/fulfillment';
 import { shareTextContent } from '@/lib/nativeShare';
@@ -540,13 +541,23 @@ function OrderProgressTimeline({ order }: { order: Order }) {
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { showToast } = useAppToast();
   const { user, loading: authLoading } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [sharingOrder, setSharingOrder] = useState(false);
-  const [shareFeedback, setShareFeedback] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!error) return;
+
+    showToast({
+      type: 'error',
+      title: 'Unable to load order',
+      message: error,
+    });
+  }, [error, showToast]);
 
   const loadOrder = useCallback(async () => {
     if (!id || !user) {
@@ -597,7 +608,6 @@ export default function OrderDetail() {
     if (!order || sharingOrder) return;
 
     setSharingOrder(true);
-    setShareFeedback('');
 
     try {
       const status = customerStageLabel(effectiveStatus ?? order.status);
@@ -618,13 +628,19 @@ export default function OrderDetail() {
       });
 
       if (result === 'copied') {
-        setShareFeedback('Order update copied');
-        window.setTimeout(() => setShareFeedback(''), 2200);
+        showToast({
+          type: 'success',
+          title: 'Order update copied',
+          message: 'The order status is ready to paste and share.',
+        });
       }
     } catch (shareError) {
       console.warn('Unable to share order update:', shareError);
-      setShareFeedback('Unable to share right now');
-      window.setTimeout(() => setShareFeedback(''), 2600);
+      showToast({
+        type: 'error',
+        title: 'Unable to share',
+        message: 'The order update could not be shared right now.',
+      });
     } finally {
       setSharingOrder(false);
     }
@@ -764,11 +780,6 @@ export default function OrderDetail() {
             {sharingOrder ? <Loader2 size={16} className="animate-spin text-orange-500" /> : <Share2 size={17} strokeWidth={2.2} />}
           </button>
         </div>
-        {shareFeedback && (
-          <p className="mx-auto mt-1 max-w-2xl text-right text-[11px] font-medium text-gray-500" role="status">
-            {shareFeedback}
-          </p>
-        )}
       </header>
 
       <main className="mx-auto max-w-2xl px-5 py-5">
@@ -1124,7 +1135,13 @@ export default function OrderDetail() {
             </button>
             <button
               type="button"
-              onClick={() => alert('Reviews coming soon!')}
+              onClick={() =>
+                showToast({
+                  type: 'info',
+                  title: 'Reviews coming soon',
+                  message: 'Customer ratings and reviews will be available in a future update.',
+                })
+              }
               className="h-12 rounded-xl border border-gray-200 bg-white text-sm font-bold text-gray-800 transition active:scale-[0.98]"
             >
               Write Review

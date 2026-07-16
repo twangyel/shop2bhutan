@@ -12,6 +12,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAppToast } from '@/components/shared/AppToast';
 import { supabase } from '@/lib/supabase';
 import {
   acceptCustomerQuotation,
@@ -277,6 +278,7 @@ function QuotationItemPreviewImage({
 export default function QuotationReview() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
+  const { showToast } = useAppToast();
   const { user, loading: authLoading } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -284,6 +286,20 @@ export default function QuotationReview() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectRemark, setRejectRemark] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!error) return;
+
+    const isWarning =
+      error.toLowerCase().startsWith('please') ||
+      error.toLowerCase().includes('explain');
+
+    showToast({
+      type: isWarning ? 'warning' : 'error',
+      title: isWarning ? 'Revision details required' : 'Final price action failed',
+      message: error,
+    });
+  }, [error, showToast]);
 
   const loadOrder = useCallback(async () => {
     if (!orderId || !user) {
@@ -343,6 +359,11 @@ export default function QuotationReview() {
       if (revisionError) throw revisionError;
 
       setShowRejectDialog(false);
+      showToast({
+        type: 'success',
+        title: 'Changes requested',
+        message: 'Your remarks were sent to Shop2Bhutan for a revised final price.',
+      });
       navigate(`/order/${order.id}`, { replace: true });
     } catch (err) {
       console.error('Failed to request final price revision:', err);
@@ -368,6 +389,11 @@ export default function QuotationReview() {
         quotationId: quotation.id,
       });
 
+      showToast({
+        type: 'success',
+        title: 'Final price confirmed',
+        message: 'Continue to payment to complete the next step.',
+      });
       navigate(`/payment/${order.id}`);
     } catch (err) {
       console.error('Failed to confirm final price:', err);
