@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import {
   createContext,
   useCallback,
@@ -162,61 +163,68 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
     [dismissToast, showToast],
   );
 
+  const toastViewport = (
+    <div
+      className="pointer-events-none fixed left-1/2 flex w-[calc(100%-1.5rem)] max-w-[430px] -translate-x-1/2 flex-col gap-2.5 sm:left-auto sm:right-5 sm:w-[400px] sm:translate-x-0"
+      style={{
+        top: isAdminRoute
+          ? 'calc(var(--s2b-safe-area-top, 0px) + 5.75rem)'
+          : 'calc(var(--s2b-safe-area-top, 0px) + 0.75rem)',
+        zIndex: 2147483000,
+      }}
+      aria-live="polite"
+      aria-relevant="additions removals"
+    >
+      {toasts.map((toast) => {
+        const theme = toastTheme[toast.type];
+        const Icon = theme.icon;
+
+        return (
+          <div
+            key={toast.id}
+            role={toast.type === 'error' ? 'alert' : 'status'}
+            className={`pointer-events-auto overflow-hidden rounded-2xl border px-4 py-3.5 shadow-xl shadow-slate-900/10 backdrop-blur animate-[fadeIn_0.2s_ease-out] ${theme.card}`}
+          >
+            <div className="flex items-start gap-3">
+              <span
+                className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center ${theme.iconWrap}`}
+                aria-hidden="true"
+              >
+                <Icon size={21} strokeWidth={2.25} />
+              </span>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-extrabold leading-5">
+                  {toast.title}
+                </p>
+                {toast.message && (
+                  <p className="mt-0.5 text-xs font-medium leading-5 opacity-80">
+                    {toast.message}
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => dismissToast(toast.id)}
+                className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full opacity-65 transition hover:bg-black/5 hover:opacity-100 active:scale-95"
+                aria-label={`Dismiss ${theme.label.toLowerCase()} notification`}
+              >
+                <X size={17} strokeWidth={2.2} />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
     <AppToastContext.Provider value={value}>
       {children}
-
-      <div
-        className={`pointer-events-none fixed left-1/2 z-[9999] flex w-[calc(100%-1.5rem)] max-w-[430px] -translate-x-1/2 flex-col gap-2.5 sm:left-auto sm:right-5 sm:w-[400px] sm:translate-x-0 ${
-          isAdminRoute
-            ? 'top-[calc(var(--s2b-safe-area-top,env(safe-area-inset-top,0px))+5.75rem)]'
-            : 'top-[calc(var(--s2b-safe-area-top,env(safe-area-inset-top,0px))+0.75rem)]'
-        }`}
-        aria-live="polite"
-        aria-relevant="additions removals"
-      >
-        {toasts.map((toast) => {
-          const theme = toastTheme[toast.type];
-          const Icon = theme.icon;
-
-          return (
-            <div
-              key={toast.id}
-              role={toast.type === 'error' ? 'alert' : 'status'}
-              className={`pointer-events-auto overflow-hidden rounded-2xl border px-4 py-3.5 shadow-xl shadow-slate-900/10 backdrop-blur animate-[fadeIn_0.2s_ease-out] ${theme.card}`}
-            >
-              <div className="flex items-start gap-3">
-                <span
-                  className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center ${theme.iconWrap}`}
-                  aria-hidden="true"
-                >
-                  <Icon size={21} strokeWidth={2.25} />
-                </span>
-
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-extrabold leading-5">
-                    {toast.title}
-                  </p>
-                  {toast.message && (
-                    <p className="mt-0.5 text-xs font-medium leading-5 opacity-80">
-                      {toast.message}
-                    </p>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => dismissToast(toast.id)}
-                  className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full opacity-65 transition hover:bg-black/5 hover:opacity-100 active:scale-95"
-                  aria-label={`Dismiss ${theme.label.toLowerCase()} notification`}
-                >
-                  <X size={17} strokeWidth={2.2} />
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {typeof document !== 'undefined'
+        ? createPortal(toastViewport, document.body)
+        : null}
     </AppToastContext.Provider>
   );
 }
