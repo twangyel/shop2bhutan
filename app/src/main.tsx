@@ -79,11 +79,11 @@ setupNativeNotificationActions()
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <AppToastProvider>
-        <AuthProvider>
+      <AuthProvider>
+        <AppToastProvider>
           <App />
-        </AuthProvider>
-      </AppToastProvider>
+        </AppToastProvider>
+      </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>
 )

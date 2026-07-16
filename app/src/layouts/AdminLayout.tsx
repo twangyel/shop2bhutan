@@ -273,7 +273,14 @@ export default function AdminLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const { logout } = useApp()
-  const { loading: authLoading, user, context, signOut, isGuest } = useAuth()
+  const {
+    loading: authLoading,
+    user,
+    context,
+    signOut,
+    isGuest,
+    refreshContext,
+  } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [adminSearchOpen, setAdminSearchOpen] = useState(false)
   const [adminSearchLoading, setAdminSearchLoading] = useState(false)
@@ -297,6 +304,9 @@ export default function AdminLayout() {
   const notificationPanelRef = useRef<HTMLDivElement>(null)
   const adminSearchRef = useRef<HTMLDivElement>(null)
   const adminSearchLastLoadedAtRef = useRef(0)
+  const contextRef = useRef(context)
+  const adminAccessCheckUserRef = useRef<string | null>(null)
+  const [adminAccessChecking, setAdminAccessChecking] = useState(false)
 
   const requestedAdminPath =
     `${location.pathname}${location.search}${location.hash}` || '/admin'
@@ -511,9 +521,15 @@ export default function AdminLayout() {
   }
 
   useEffect(() => {
+    contextRef.current = context
+  }, [context])
+
+  useEffect(() => {
     if (authLoading) return
 
     if (!user || isGuest) {
+      adminAccessCheckUserRef.current = null
+      setAdminAccessChecking(false)
       navigate(`/login?returnTo=${encodeURIComponent(requestedAdminPath)}`, {
         replace: true,
         state: { returnTo: requestedAdminPath },
@@ -521,15 +537,66 @@ export default function AdminLayout() {
       return
     }
 
-    if (context && !canAccessAdmin) {
-      navigate('/', { replace: true })
+    if (canAccessAdmin) {
+      adminAccessCheckUserRef.current = user.id
+      setAdminAccessChecking(false)
+      return
     }
+
+    // AuthContext briefly exposes a safe customer fallback while the live
+    // admin role is being restored. Refresh once before denying access so a
+    // page reload does not incorrectly send a real admin to the customer home.
+    if (context && adminAccessCheckUserRef.current !== user.id) {
+      adminAccessCheckUserRef.current = user.id
+      setAdminAccessChecking(true)
+
+      let active = true
+
+      void (async () => {
+        try {
+          await refreshContext()
+
+          // Give React one frame to publish the refreshed context before
+          // reading it from the ref.
+          await new Promise<void>((resolve) => {
+            window.setTimeout(resolve, 80)
+          })
+
+          if (!active) return
+
+          const refreshedContext = contextRef.current
+          const refreshedCanAccess = Boolean(
+            refreshedContext?.is_admin ||
+              refreshedContext?.is_super_admin,
+          )
+
+          if (!refreshedCanAccess) {
+            navigate('/', { replace: true })
+          }
+        } catch (error) {
+          console.warn('[AdminLayout] Admin access refresh failed:', error)
+
+          if (active) {
+            navigate('/', { replace: true })
+          }
+        } finally {
+          if (active) setAdminAccessChecking(false)
+        }
+      })()
+
+      return () => {
+        active = false
+      }
+    }
+
+    return undefined
   }, [
     authLoading,
     canAccessAdmin,
     context,
     isGuest,
     navigate,
+    refreshContext,
     requestedAdminPath,
     user,
   ])
@@ -822,7 +889,7 @@ export default function AdminLayout() {
     }
   }
 
-  if (authLoading || (user && !context)) {
+  if (authLoading || adminAccessChecking || (user && !context)) {
     return (
       <AdminGateScreen
         title="Checking admin access..."
