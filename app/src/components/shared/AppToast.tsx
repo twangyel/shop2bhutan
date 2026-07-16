@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router-dom';
 import {
   createContext,
   useCallback,
@@ -91,6 +92,8 @@ function makeToastId() {
 }
 
 export function AppToastProvider({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin');
   const [toasts, setToasts] = useState<AppToastRecord[]>([]);
   const timersRef = useRef(new Map<string, number>());
 
@@ -164,7 +167,11 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
       {children}
 
       <div
-        className="pointer-events-none fixed left-1/2 top-[calc(var(--s2b-safe-area-top,env(safe-area-inset-top,0px))+0.75rem)] z-[300] flex w-[calc(100%-1.5rem)] max-w-[430px] -translate-x-1/2 flex-col gap-2.5 sm:left-auto sm:right-5 sm:w-[400px] sm:translate-x-0"
+        className={`pointer-events-none fixed left-1/2 z-[9999] flex w-[calc(100%-1.5rem)] max-w-[430px] -translate-x-1/2 flex-col gap-2.5 sm:left-auto sm:right-5 sm:w-[400px] sm:translate-x-0 ${
+          isAdminRoute
+            ? 'top-[calc(var(--s2b-safe-area-top,env(safe-area-inset-top,0px))+5.75rem)]'
+            : 'top-[calc(var(--s2b-safe-area-top,env(safe-area-inset-top,0px))+0.75rem)]'
+        }`}
         aria-live="polite"
         aria-relevant="additions removals"
       >
