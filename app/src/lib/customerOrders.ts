@@ -51,6 +51,25 @@ type RelatedRows = {
   trackingEvents: AnyRow[]
 }
 
+export type PaymentSourceBank = 'bob' | 'dk' | 'bnb'
+
+export function normalizePaymentReference(value: unknown) {
+  return cleanText(value).toUpperCase().replace(/[^A-Z0-9]+/g, '')
+}
+
+export function paymentSourceBankLabel(value: unknown) {
+  const bank = cleanText(value).toLowerCase()
+  if (bank === 'bob') return 'Bank of Bhutan'
+  if (bank === 'dk') return 'DK Bank'
+  if (bank === 'bnb') return 'Bhutan National Bank'
+  return 'Not specified'
+}
+
+function normalizePaymentSourceBank(value: unknown): PaymentSourceBank | '' {
+  const bank = cleanText(value).toLowerCase()
+  return bank === 'bob' || bank === 'dk' || bank === 'bnb' ? bank : ''
+}
+
 export type PaymentProofInput = {
   order: Order
   userId: string
@@ -58,6 +77,7 @@ export type PaymentProofInput = {
   paymentMethodName: string
   paymentMethodId?: string
   paymentMethodType?: PaymentMethod['type'] | string
+  sourceBank: PaymentSourceBank
   transactionId: string
   amount: number
   paymentType?: PaymentType | string
@@ -72,6 +92,9 @@ export type AdminPaymentRecord = Payment & {
   orderStatus: OrderStatus
   proofPath?: string
   paymentType: PaymentType
+  sourceBank: PaymentSourceBank | ''
+  normalizedTransactionId: string
+  duplicateReferenceCount: number
 }
 
 export type CustomerPaymentHistoryRecord = {
@@ -80,6 +103,8 @@ export type CustomerPaymentHistoryRecord = {
   orderNumber: string
   quotationId: string
   transactionId: string
+  normalizedTransactionId: string
+  sourceBank: PaymentSourceBank | ''
   receiptVerificationToken: string
   amount: number
   currency: string
@@ -1282,6 +1307,18 @@ async function mapCustomerPaymentHistoryRow(
     orderNumber: orderNumberFromPaymentHistoryOrder(orderRow, orderId),
     quotationId: firstString(payment, ['quotation_id'], ''),
     transactionId: firstString(payment, ['transaction_id', 'reference_id', 'txn_id'], ''),
+    normalizedTransactionId:
+      firstString(
+        payment,
+        ['normalized_transaction_id', 'normalizedTransactionId'],
+        '',
+      ) ||
+      normalizePaymentReference(
+        firstValue(payment, ['transaction_id', 'reference_id', 'txn_id']),
+      ),
+    sourceBank: normalizePaymentSourceBank(
+      firstValue(payment, ['source_bank', 'sourceBank']),
+    ),
     receiptVerificationToken: firstString(
       payment,
       ['receipt_verification_token', 'receiptVerificationToken'],
@@ -1343,7 +1380,7 @@ export async function fetchCustomerPaymentHistory(userId: string): Promise<Custo
   if (!cleanUserId) return makeEmptyCustomerPaymentHistory()
 
   const primarySelect =
-    'id, order_id, quotation_id, user_id, payment_type, payment_method, payment_method_name, transaction_id, receipt_verification_token, amount, currency, proof_file_path, status, submitted_at, verified_at, rejection_reason, admin_notes, created_at, updated_at'
+    'id, order_id, quotation_id, user_id, payment_type, payment_method, payment_method_name, source_bank, transaction_id, normalized_transaction_id, receipt_verification_token, amount, currency, proof_file_path, status, submitted_at, verified_at, rejection_reason, admin_notes, created_at, updated_at'
 
   let paymentData: AnyRow[] = []
   let lastPaymentError: unknown = null
@@ -3063,6 +3100,55 @@ async function makeAdminPaymentRecord(row: AnyRow, orders: AnyRow[], profiles: A
       firstString(profile, ['phone'], fallbackUser.phone),
     amount: amountValue,
     paymentType,
+    sourceBank: normalizePaymentSourceBank(
+      firstValue(row, ['source_bank', 'sourceBank']),
+    ),
+    normalizedTransactionId:
+      firstString(
+        row,
+        ['normalized_transaction_id', 'normalizedTransactionId'],
+        '',
+      ) ||
+      normalizePaymentReference(
+        payment?.transactionId ||
+          firstString(row, ['transaction_id', 'reference_id', 'txn_id'], ''),
+      ),
+    duplicateReferenceCount: allPaymentRows.filter((paymentRow) => {
+      if (String(paymentRow.id ?? '') === String(row.id ?? '')) return false
+      const bank = normalizePaymentSourceBank(
+        firstValue(paymentRow, ['source_bank', 'sourceBank']),
+      )
+      const reference =
+        firstString(
+          paymentRow,
+          ['normalized_transaction_id', 'normalizedTransactionId'],
+          '',
+        ) ||
+        normalizePaymentReference(
+          firstValue(paymentRow, ['transaction_id', 'reference_id', 'txn_id']),
+        )
+      const currentBank = normalizePaymentSourceBank(
+        firstValue(row, ['source_bank', 'sourceBank']),
+      )
+      const currentReference =
+        firstString(
+          row,
+          ['normalized_transaction_id', 'normalizedTransactionId'],
+          '',
+        ) ||
+        normalizePaymentReference(
+          firstValue(row, ['transaction_id', 'reference_id', 'txn_id']),
+        )
+
+      return Boolean(
+        bank &&
+          currentBank &&
+          reference &&
+          currentReference &&
+          bank === currentBank &&
+          reference === currentReference,
+      )
+    }).length,
     method: payment?.method || firstString(row, ['payment_method_name', 'method_name', 'payment_method', 'method'], ''),
     transactionId: payment?.transactionId || firstString(row, ['transaction_id', 'reference_id', 'txn_id'], ''),
     screenshotUrl: payment?.screenshotUrl,
@@ -4440,6 +4526,7 @@ function makeStoragePath(userId: string, orderId: string, file: File, prefix = '
 
 function paymentAdminNotes(payload: {
   transactionId: string
+  sourceBank: PaymentSourceBank
   paymentMethodName: string
   paymentMethodId?: string
   paymentMethodType?: PaymentMethod['type'] | string
@@ -4448,7 +4535,9 @@ function paymentAdminNotes(payload: {
   note?: string
 }) {
   return [
+    `Paid from bank: ${paymentSourceBankLabel(payload.sourceBank)}`,
     `Customer reference: ${payload.transactionId || 'Not provided'}`,
+    `Normalized reference: ${normalizePaymentReference(payload.transactionId) || 'Not provided'}`,
     `Customer selected method: ${payload.paymentMethodName}`,
     payload.paymentMethodId ? `Customer selected method ID: ${payload.paymentMethodId}` : '',
     payload.paymentMethodType ? `Customer selected method type: ${payload.paymentMethodType}` : '',
@@ -4467,6 +4556,7 @@ async function insertPaymentWithKnownSchema(payload: {
   paymentMethodId?: string
   paymentMethodType?: PaymentMethod['type'] | string
   paymentType?: PaymentType | string
+  sourceBank: PaymentSourceBank
   transactionId: string
   path: string
   note?: string
@@ -4475,6 +4565,8 @@ async function insertPaymentWithKnownSchema(payload: {
   const preferredPaymentType = requestedPaymentType === 'unknown' ? 'full' : requestedPaymentType
   const paymentTypeCandidates = Array.from(new Set([preferredPaymentType, 'full', 'advance', 'partial', 'balance', 'deposit', 'confirm_later']))
   const paymentMethodCandidates = paymentMethodDbCandidates(payload.paymentMethodType, payload.paymentMethodName)
+  const sourceBank = normalizePaymentSourceBank(payload.sourceBank)
+  const normalizedTransactionId = normalizePaymentReference(payload.transactionId)
   let lastError: unknown = null
   const adminNotes = paymentAdminNotes(payload)
 
@@ -4491,7 +4583,9 @@ async function insertPaymentWithKnownSchema(payload: {
         amount: payload.amount,
         currency: 'BTN',
         proof_file_path: payload.path,
+        source_bank: sourceBank,
         transaction_id: payload.transactionId || null,
+        normalized_transaction_id: normalizedTransactionId,
         admin_notes: adminNotes,
       }
 
@@ -4499,21 +4593,11 @@ async function insertPaymentWithKnownSchema(payload: {
       delete withoutMethodSnapshot.payment_method_id
       delete withoutMethodSnapshot.payment_method_name
 
-      const withoutTransaction = { ...basePayload }
-      delete withoutTransaction.transaction_id
-
-      const minimalPayload = { ...withoutMethodSnapshot }
-      delete minimalPayload.transaction_id
-
       const candidates = [
         { ...basePayload, status: 'pending' },
         basePayload,
         { ...withoutMethodSnapshot, status: 'pending' },
         withoutMethodSnapshot,
-        { ...withoutTransaction, status: 'pending' },
-        withoutTransaction,
-        { ...minimalPayload, status: 'pending' },
-        minimalPayload,
       ]
 
       for (const candidate of candidates) {
@@ -4521,6 +4605,24 @@ async function insertPaymentWithKnownSchema(payload: {
         if (!result.error) return
 
         lastError = result.error
+
+        const message = errorMessage(result.error, '').toLowerCase()
+        if (
+          message.includes('source_bank') ||
+          message.includes('transaction_id') ||
+          message.includes('normalized_transaction_id')
+        ) {
+          throw new Error(
+            'Smart payment verification is not installed in Supabase yet. Run the provided SQL patch, then try again.',
+          )
+        }
+
+        if ((result.error as { code?: string })?.code === '23505') {
+          throw new Error(
+            `This ${paymentSourceBankLabel(sourceBank)} transaction reference has already been submitted. Please check the reference or contact Shop2Bhutan support.`,
+          )
+        }
+
         if (!shouldTryFallbackPayload(result.error)) throw result.error
       }
     }
@@ -4715,11 +4817,64 @@ export async function updateCustomerOrderDeliveryAddress(input: ConfirmCustomerD
 }
 
 
+async function assertPaymentReferenceAvailable(input: {
+  sourceBank: PaymentSourceBank
+  normalizedTransactionId: string
+}) {
+  const { data, error } = await supabase
+    .from('payments')
+    .select('id, status')
+    .eq('source_bank', input.sourceBank)
+    .eq('normalized_transaction_id', input.normalizedTransactionId)
+
+  if (error) {
+    const message = errorMessage(error, '').toLowerCase()
+
+    if (
+      message.includes('source_bank') ||
+      message.includes('transaction_id') ||
+      message.includes('normalized_transaction_id') ||
+      isMissingColumnOrRelationError(error)
+    ) {
+      throw new Error(
+        'Smart payment verification is not installed in Supabase yet. Run the provided SQL patch, then try again.',
+      )
+    }
+
+    throw error
+  }
+
+  const hasActiveDuplicate = ((data ?? []) as AnyRow[]).some(
+    (row) => normalizePaymentStatus(firstValue(row, ['status'])) !== 'rejected',
+  )
+
+  if (hasActiveDuplicate) {
+    throw new Error(
+      `This ${paymentSourceBankLabel(input.sourceBank)} transaction reference has already been submitted. Please check the reference or contact Shop2Bhutan support.`,
+    )
+  }
+}
+
+
 export async function submitCustomerPaymentProof(input: PaymentProofInput) {
   await assertCustomerAppAvailable()
 
-  const { order, userId, file, paymentMethodName, paymentMethodId, paymentMethodType, transactionId, amount, paymentType, note } = input
+  const {
+    order,
+    userId,
+    file,
+    paymentMethodName,
+    paymentMethodId,
+    paymentMethodType,
+    sourceBank,
+    transactionId,
+    amount,
+    paymentType,
+    note,
+  } = input
   const paymentAmount = numericAmount(amount)
+  const cleanSourceBank = normalizePaymentSourceBank(sourceBank)
+  const normalizedTransactionId = normalizePaymentReference(transactionId)
   const payments = order.payments ?? (order.payment ? [order.payment] : [])
   const paymentSummary = calculatePaymentSummary({
     quotationTotal: order.paymentSummary?.totalPayable ?? order.quotation?.totalAmount ?? 0,
@@ -4730,6 +4885,25 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
   const minimumInitialPayment = paymentSummary.totalPayable > 0
     ? Math.ceil(paymentSummary.totalPayable * (jaigaonPickup ? 1 : 0.5))
     : 0
+
+  if (!cleanSourceBank) {
+    throw new Error('Please select the bank you paid from.')
+  }
+
+  if (!normalizedTransactionId) {
+    throw new Error(
+      `Please enter the ${cleanSourceBank === 'bob' ? 'journal number' : 'RRNO'} shown in your payment receipt.`,
+    )
+  }
+
+  if (normalizedTransactionId.length < 6 || normalizedTransactionId.length > 40) {
+    throw new Error('Please enter a valid transaction reference number.')
+  }
+
+  await assertPaymentReferenceAvailable({
+    sourceBank: cleanSourceBank,
+    normalizedTransactionId,
+  })
 
   if (paymentAmount <= 0) {
     throw new Error('Payment amount must be greater than 0.')
@@ -4766,6 +4940,7 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
       paymentMethodId,
       paymentMethodType,
       paymentType,
+      sourceBank: cleanSourceBank,
       transactionId,
       path,
       note,

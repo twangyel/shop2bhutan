@@ -14,6 +14,7 @@ import {
   fetchAdminPayments,
   rejectAdminPaymentById,
   verifyAdminPaymentById,
+  paymentSourceBankLabel,
   type AdminPaymentRecord,
 } from '@/lib/customerOrders';
 import { useAuth } from '@/contexts/AuthContext';
@@ -164,8 +165,10 @@ export default function PaymentsVerification() {
         payment.customerEmail,
         payment.customerPhone,
         payment.method,
+        paymentSourceBankLabel(payment.sourceBank),
         paymentTypeLabel(payment.paymentType),
         payment.transactionId,
+        payment.normalizedTransactionId,
         payment.notes,
       ]
         .filter(Boolean)
@@ -263,7 +266,7 @@ export default function PaymentsVerification() {
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Payments</h2>
           <p className="text-sm text-neutral-500">
-            Review and manage real customer payment proofs from Supabase.
+            Review source bank, transaction reference, screenshot, and payment status.
           </p>
         </div>
 
@@ -373,7 +376,7 @@ export default function PaymentsVerification() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-[1180px] w-full border-collapse">
+            <table className="min-w-[1320px] w-full border-collapse">
               <thead>
                 <tr className="border-b border-neutral-200 bg-neutral-50/80">
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
@@ -389,7 +392,10 @@ export default function PaymentsVerification() {
                     Payment
                   </th>
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
-                    Transaction ID
+                    Paid From
+                  </th>
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                    Reference
                   </th>
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
                     Submitted
@@ -407,6 +413,9 @@ export default function PaymentsVerification() {
                 {filtered.map((payment) => {
                   const isUpdating = updatingId === payment.id;
                   const methodLabel = readableText(payment.method);
+                  const sourceBankLabel = paymentSourceBankLabel(
+                    payment.sourceBank,
+                  );
                   const transactionId =
                     payment.transactionId?.trim() || '';
 
@@ -462,8 +471,26 @@ export default function PaymentsVerification() {
                       </td>
 
                       <td className="px-5 py-4 align-middle">
+                        <div className="min-w-[150px]">
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${
+                              payment.sourceBank
+                                ? 'bg-sky-50 text-sky-700 ring-sky-100'
+                                : 'bg-neutral-100 text-neutral-500 ring-neutral-200'
+                            }`}
+                          >
+                            {sourceBankLabel}
+                          </span>
+                          <p className="mt-1.5 text-[10px] font-medium text-neutral-400">
+                            Customer&apos;s payment app
+                          </p>
+                        </div>
+                      </td>
+
+                      <td className="px-5 py-4 align-middle">
                         {transactionId ? (
-                          <div className="flex max-w-[180px] items-center gap-1.5">
+                          <div className="max-w-[210px]">
+                            <div className="flex items-center gap-1.5">
                             <span
                               className="truncate font-mono text-xs text-neutral-700"
                               title={transactionId}
@@ -480,6 +507,15 @@ export default function PaymentsVerification() {
                             >
                               <Copy size={13} />
                             </button>
+                            </div>
+
+                            {payment.duplicateReferenceCount > 0 && (
+                              <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-[10px] font-semibold leading-4 text-amber-700 ring-1 ring-amber-100">
+                                <AlertCircle size={12} className="mt-0.5 shrink-0" />
+                                Used in {payment.duplicateReferenceCount} earlier submission
+                                {payment.duplicateReferenceCount === 1 ? '' : 's'}
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <span className="text-xs font-medium text-neutral-400">

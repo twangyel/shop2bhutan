@@ -17,6 +17,7 @@ import {
   fetchCustomerOrderById,
   fetchPaymentMethods,
   submitCustomerPaymentProof,
+  type PaymentSourceBank,
 } from '@/lib/customerOrders';
 import { DEFAULT_APP_SETTINGS, fetchPublicAppSettings } from '@/lib/appSettings';
 import { isJaigaonPickupOrder } from '@/lib/fulfillment';
@@ -35,6 +36,45 @@ const MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024;
 
 type PaymentSelection = 'full' | 'advance' | 'remaining';
 type PaymentTypeForLedger = 'full' | 'advance' | 'balance';
+
+
+const PAYMENT_SOURCE_BANKS: Array<{
+  id: PaymentSourceBank;
+  shortName: string;
+  name: string;
+  referenceLabel: string;
+  referencePlaceholder: string;
+  referenceHelp: string;
+}> = [
+  {
+    id: 'bob',
+    shortName: 'BoB',
+    name: 'Bank of Bhutan',
+    referenceLabel: 'Journal Number',
+    referencePlaceholder: 'Example: 126-711191575',
+    referenceHelp: 'Enter the Journal No. shown in your mBoB receipt.',
+  },
+  {
+    id: 'dk',
+    shortName: 'DK Bank',
+    name: 'DK Bank',
+    referenceLabel: 'RRNO / Fund Transfer Number',
+    referencePlaceholder: 'Example: 619720623039',
+    referenceHelp: 'Enter the RRNO or fund transfer number shown in your DK Bank receipt.',
+  },
+  {
+    id: 'bnb',
+    shortName: 'BNB',
+    name: 'Bhutan National Bank',
+    referenceLabel: 'RRNO',
+    referencePlaceholder: 'Example: 619708228126',
+    referenceHelp: 'Enter the RRNO shown in your BNB receipt.',
+  },
+];
+
+function normalizePaymentReferenceInput(value: string) {
+  return value.toUpperCase().replace(/[^A-Z0-9]+/g, '');
+}
 
 function formatCurrency(amount: number) {
   return `Nu. ${Number(amount || 0).toLocaleString()}`;
@@ -106,6 +146,7 @@ export default function PaymentUpload() {
   const [openingCamera, setOpeningCamera] = useState(false);
   const screenshotInputRef = useRef<HTMLInputElement>(null);
   const [paymentSelection, setPaymentSelection] = useState<PaymentSelection>('full');
+  const [sourceBank, setSourceBank] = useState<PaymentSourceBank | ''>('');
   const [transactionId, setTransactionId] = useState('');
   const [note, setNote] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -223,6 +264,11 @@ useEffect(() => {
     () => paymentMethods.find((method) => method.id === selectedMethod) ?? paymentMethods[0] ?? null,
     [paymentMethods, selectedMethod],
   );
+  const selectedSourceBank = useMemo(
+    () => PAYMENT_SOURCE_BANKS.find((bank) => bank.id === sourceBank) ?? null,
+    [sourceBank],
+  );
+  const normalizedTransactionId = normalizePaymentReferenceInput(transactionId);
 
   const paymentSummary = getPaymentSummary(order);
   const isJaigaonPickup = order ? isJaigaonPickupOrder(order) : false;
@@ -269,8 +315,11 @@ useEffect(() => {
       paymentSummary.balanceDue > 0,
   );
   const canSubmit = Boolean(
-    screenshotFile &&
+    sourceBank &&
+      screenshotFile &&
       selectedPaymentMethod &&
+      normalizedTransactionId.length >= 6 &&
+      normalizedTransactionId.length <= 40 &&
       amountPaidNumber > 0 &&
       !amountAboveBalance &&
       !firstPaymentBelowMinimum &&
@@ -280,7 +329,9 @@ useEffect(() => {
 
   const submitButtonLabel = (() => {
     if (submitting) return 'Uploading...';
+    if (!sourceBank) return 'Select paid-from bank';
     if (!screenshotFile) return 'Upload screenshot to continue';
+    if (!normalizedTransactionId) return 'Enter transaction reference';
     return paymentSummary.isPartiallyPaid
       ? 'Submit Remaining Payment Proof'
       : 'Submit Payment Proof';
@@ -443,8 +494,23 @@ useEffect(() => {
       return;
     }
 
+    if (!sourceBank || !selectedSourceBank) {
+      setError('Please select the bank you paid from.');
+      return;
+    }
+
     if (!screenshotFile) {
       setError('Please upload your payment screenshot.');
+      return;
+    }
+
+    if (!normalizedTransactionId) {
+      setError(`Please enter the ${selectedSourceBank.referenceLabel.toLowerCase()} shown in your payment receipt.`);
+      return;
+    }
+
+    if (normalizedTransactionId.length < 6 || normalizedTransactionId.length > 40) {
+      setError('Please enter a valid transaction reference number.');
       return;
     }
 
@@ -478,6 +544,7 @@ useEffect(() => {
         paymentMethodName: selectedPaymentMethod.name,
         paymentMethodId: selectedPaymentMethod.id,
         paymentMethodType: selectedPaymentMethod.type,
+        sourceBank,
         transactionId: transactionId.trim(),
         amount: amountPaidNumber,
         paymentType: selectedLedgerPaymentType,
@@ -923,6 +990,52 @@ useEffect(() => {
           </div>
 
           <div className="rounded-[22px] bg-white p-4 ring-1 ring-slate-100">
+            <div className="mb-4">
+              <div className="flex items-center justify-between gap-3">
+                <label className="text-[11px] font-black text-slate-700">
+                  Paid from bank <span className="text-red-500">*</span>
+                </label>
+                <span className="text-[10px] font-semibold text-slate-400">
+                  Select the app used to pay
+                </span>
+              </div>
+
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {PAYMENT_SOURCE_BANKS.map((bank) => {
+                  const selected = sourceBank === bank.id;
+
+                  return (
+                    <button
+                      key={bank.id}
+                      type="button"
+                      onClick={() => {
+                        setSourceBank(bank.id);
+                        setError('');
+                      }}
+                      aria-pressed={selected}
+                      className={`relative min-h-[68px] rounded-2xl border px-2 py-2.5 text-center transition active:scale-[0.98] ${
+                        selected
+                          ? 'border-orange-300 bg-orange-50 text-orange-700 ring-2 ring-orange-500/10'
+                          : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-white'
+                      }`}
+                    >
+                      {selected && (
+                        <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 text-white">
+                          <CheckCircle size={10} strokeWidth={3} />
+                        </span>
+                      )}
+                      <span className="block text-xs font-black">
+                        {bank.shortName}
+                      </span>
+                      <span className="mt-1 block text-[9px] font-semibold leading-3 text-slate-400">
+                        {bank.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <input
               ref={screenshotInputRef}
               type="file"
@@ -977,14 +1090,31 @@ useEffect(() => {
 
             <div className="mt-4 space-y-3 pt-4 border-t border-slate-100">
               <div>
-                <label className="text-[11px] font-black text-slate-700">Transaction / Reference Number</label>
+                <label className="text-[11px] font-black text-slate-700">
+                  {selectedSourceBank?.referenceLabel ?? 'Transaction Reference'}
+                  <span className="text-red-500"> *</span>
+                </label>
                 <input
                   type="text"
+                  inputMode="text"
+                  autoCapitalize="characters"
+                  maxLength={60}
                   value={transactionId}
-                  onChange={(event) => setTransactionId(event.target.value)}
-                  placeholder="Enter reference number"
-                  className="mt-1.5 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-500/10"
+                  onChange={(event) => {
+                    setTransactionId(event.target.value);
+                    setError('');
+                  }}
+                  disabled={!selectedSourceBank}
+                  placeholder={
+                    selectedSourceBank?.referencePlaceholder ??
+                    'Select paid-from bank first'
+                  }
+                  className="mt-1.5 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-500/10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                 />
+                <p className="mt-1.5 text-[10px] font-medium leading-4 text-slate-400">
+                  {selectedSourceBank?.referenceHelp ??
+                    'Choose BoB, DK Bank, or BNB to see the correct reference field.'}
+                </p>
               </div>
               <div>
                 <label className="text-[11px] font-black text-slate-700">Note for Shop2Bhutan</label>
@@ -1019,9 +1149,15 @@ useEffect(() => {
           <span className="truncate">{submitButtonLabel}</span>
         </button>
 
-        {!screenshotFile && (
+        {!canSubmit && (
           <p className="text-center text-[11px] font-semibold text-slate-400 leading-5 -mt-2">
-            Upload a clear payment screenshot above to enable submission.
+            {!sourceBank
+              ? 'Select the bank you paid from.'
+              : !screenshotFile
+                ? 'Upload a clear payment screenshot above.'
+                : !normalizedTransactionId
+                  ? `Enter the ${selectedSourceBank?.referenceLabel.toLowerCase() ?? 'transaction reference'}.`
+                  : 'Complete the required payment details to enable submission.'}
           </p>
         )}
       </main>
