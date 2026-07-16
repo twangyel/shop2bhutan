@@ -75,6 +75,17 @@ export type QuotationStatus = 'pending' | 'sent' | 'approved' | 'rejected' | 'ex
 
 export type PaymentStatus = 'pending' | 'verified' | 'rejected';
 
+export type PaymentSourceBank = 'bob' | 'dk' | 'bnb';
+
+export type PaymentProofOcrStatus =
+  | 'not_attempted'
+  | 'detected'
+  | 'partial'
+  | 'not_detected'
+  | 'failed';
+
+export type PaymentReferenceDetectionSource = 'ocr' | 'manual' | 'none';
+
 export type PaymentType = 'full' | 'advance' | 'balance' | 'partial' | 'deposit' | 'unknown';
 
 export type PaymentCoverage = 'unpaid' | 'partial_paid' | 'fully_paid' | 'overpaid';
@@ -249,6 +260,12 @@ export interface Payment {
   paymentType?: PaymentType;
   method: string;
   transactionId: string;
+  sourceBank?: PaymentSourceBank | '';
+  normalizedTransactionId?: string;
+  detectedAmount?: number | null;
+  ocrStatus?: PaymentProofOcrStatus;
+  ocrConfidence?: number;
+  referenceDetectionSource?: PaymentReferenceDetectionSource;
   screenshotUrl?: string;
   status: PaymentStatus;
   verifiedBy?: string;

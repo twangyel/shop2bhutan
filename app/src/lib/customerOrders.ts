@@ -53,6 +53,15 @@ type RelatedRows = {
 
 export type PaymentSourceBank = 'bob' | 'dk' | 'bnb'
 
+export type PaymentProofOcrStatus =
+  | 'not_attempted'
+  | 'detected'
+  | 'partial'
+  | 'not_detected'
+  | 'failed'
+
+export type PaymentReferenceDetectionSource = 'ocr' | 'manual' | 'none'
+
 export function normalizePaymentReference(value: unknown) {
   return cleanText(value).toUpperCase().replace(/[^A-Z0-9]+/g, '')
 }
@@ -70,6 +79,30 @@ function normalizePaymentSourceBank(value: unknown): PaymentSourceBank | '' {
   return bank === 'bob' || bank === 'dk' || bank === 'bnb' ? bank : ''
 }
 
+function normalizePaymentProofOcrStatus(
+  value: unknown,
+): PaymentProofOcrStatus {
+  const status = cleanText(value).toLowerCase()
+
+  if (
+    status === 'detected' ||
+    status === 'partial' ||
+    status === 'not_detected' ||
+    status === 'failed'
+  ) {
+    return status
+  }
+
+  return 'not_attempted'
+}
+
+function normalizeReferenceDetectionSource(
+  value: unknown,
+): PaymentReferenceDetectionSource {
+  const source = cleanText(value).toLowerCase()
+  return source === 'ocr' || source === 'manual' ? source : 'none'
+}
+
 export type PaymentProofInput = {
   order: Order
   userId: string
@@ -78,7 +111,11 @@ export type PaymentProofInput = {
   paymentMethodId?: string
   paymentMethodType?: PaymentMethod['type'] | string
   sourceBank: PaymentSourceBank
-  transactionId: string
+  transactionId?: string
+  detectedAmount?: number | null
+  ocrStatus?: PaymentProofOcrStatus
+  ocrConfidence?: number
+  referenceDetectionSource?: PaymentReferenceDetectionSource
   amount: number
   paymentType?: PaymentType | string
   note?: string
@@ -95,6 +132,10 @@ export type AdminPaymentRecord = Payment & {
   sourceBank: PaymentSourceBank | ''
   normalizedTransactionId: string
   duplicateReferenceCount: number
+  detectedAmount: number | null
+  ocrStatus: PaymentProofOcrStatus
+  ocrConfidence: number
+  referenceDetectionSource: PaymentReferenceDetectionSource
 }
 
 export type CustomerPaymentHistoryRecord = {
@@ -105,6 +146,10 @@ export type CustomerPaymentHistoryRecord = {
   transactionId: string
   normalizedTransactionId: string
   sourceBank: PaymentSourceBank | ''
+  detectedAmount: number | null
+  ocrStatus: PaymentProofOcrStatus
+  ocrConfidence: number
+  referenceDetectionSource: PaymentReferenceDetectionSource
   receiptVerificationToken: string
   amount: number
   currency: string
@@ -1318,6 +1363,25 @@ async function mapCustomerPaymentHistoryRow(
       ),
     sourceBank: normalizePaymentSourceBank(
       firstValue(payment, ['source_bank', 'sourceBank']),
+    ),
+    detectedAmount:
+      firstValue(payment, ['detected_amount', 'detectedAmount']) === undefined ||
+      firstValue(payment, ['detected_amount', 'detectedAmount']) === null
+        ? null
+        : firstNumber(payment, ['detected_amount', 'detectedAmount'], 0),
+    ocrStatus: normalizePaymentProofOcrStatus(
+      firstValue(payment, ['ocr_status', 'ocrStatus']),
+    ),
+    ocrConfidence: firstNumber(
+      payment,
+      ['ocr_confidence', 'ocrConfidence'],
+      0,
+    ),
+    referenceDetectionSource: normalizeReferenceDetectionSource(
+      firstValue(payment, [
+        'reference_detection_source',
+        'referenceDetectionSource',
+      ]),
     ),
     receiptVerificationToken: firstString(
       payment,
@@ -2801,6 +2865,36 @@ async function makePayment(payment: AnyRow | undefined): Promise<Payment | undef
     paymentType: normalizePaymentType(firstValue(payment, ['payment_type', 'payment_kind', 'coverage_type'])),
     method: firstString(payment, ['payment_method_name', 'method_name', 'method', 'payment_method'], ''),
     transactionId: firstString(payment, ['transaction_id', 'reference_id', 'txn_id'], ''),
+    sourceBank: normalizePaymentSourceBank(
+      firstValue(payment, ['source_bank', 'sourceBank']),
+    ) || undefined,
+    normalizedTransactionId:
+      firstString(
+        payment,
+        ['normalized_transaction_id', 'normalizedTransactionId'],
+        '',
+      ) ||
+      normalizePaymentReference(
+        firstValue(payment, ['transaction_id', 'reference_id', 'txn_id']),
+      ),
+    detectedAmount:
+      firstValue(payment, ['detected_amount', 'detectedAmount']) === undefined
+        ? undefined
+        : firstNumber(payment, ['detected_amount', 'detectedAmount'], 0),
+    ocrStatus: normalizePaymentProofOcrStatus(
+      firstValue(payment, ['ocr_status', 'ocrStatus']),
+    ),
+    ocrConfidence: firstNumber(
+      payment,
+      ['ocr_confidence', 'ocrConfidence'],
+      0,
+    ),
+    referenceDetectionSource: normalizeReferenceDetectionSource(
+      firstValue(payment, [
+        'reference_detection_source',
+        'referenceDetectionSource',
+      ]),
+    ),
     screenshotUrl: screenshotUrl || proofPath,
     status: normalizePaymentStatus(firstValue(payment, ['status'])),
     verifiedBy: firstString(payment, ['verified_by'], ''),
@@ -3267,6 +3361,25 @@ async function makeAdminPaymentRecord(row: AnyRow, orders: AnyRow[], profiles: A
           reference === currentReference,
       )
     }).length,
+    detectedAmount:
+      firstValue(row, ['detected_amount', 'detectedAmount']) === undefined ||
+      firstValue(row, ['detected_amount', 'detectedAmount']) === null
+        ? null
+        : firstNumber(row, ['detected_amount', 'detectedAmount'], 0),
+    ocrStatus: normalizePaymentProofOcrStatus(
+      firstValue(row, ['ocr_status', 'ocrStatus']),
+    ),
+    ocrConfidence: firstNumber(
+      row,
+      ['ocr_confidence', 'ocrConfidence'],
+      0,
+    ),
+    referenceDetectionSource: normalizeReferenceDetectionSource(
+      firstValue(row, [
+        'reference_detection_source',
+        'referenceDetectionSource',
+      ]),
+    ),
     method: payment?.method || firstString(row, ['payment_method_name', 'method_name', 'payment_method', 'method'], ''),
     transactionId: payment?.transactionId || firstString(row, ['transaction_id', 'reference_id', 'txn_id'], ''),
     screenshotUrl: payment?.screenshotUrl,
@@ -4643,7 +4756,11 @@ function makeStoragePath(userId: string, orderId: string, file: File, prefix = '
 
 
 function paymentAdminNotes(payload: {
-  transactionId: string
+  transactionId?: string
+  detectedAmount?: number | null
+  ocrStatus?: PaymentProofOcrStatus
+  ocrConfidence?: number
+  referenceDetectionSource?: PaymentReferenceDetectionSource
   sourceBank: PaymentSourceBank
   paymentMethodName: string
   paymentMethodId?: string
@@ -4654,8 +4771,19 @@ function paymentAdminNotes(payload: {
 }) {
   return [
     `Paid from bank: ${paymentSourceBankLabel(payload.sourceBank)}`,
-    `Customer reference: ${payload.transactionId || 'Not provided'}`,
-    `Normalized reference: ${normalizePaymentReference(payload.transactionId) || 'Not provided'}`,
+    `Customer reference: ${payload.transactionId || 'Not detected / not entered'}`,
+    `Normalized reference: ${normalizePaymentReference(payload.transactionId) || 'Not available'}`,
+    `Reference source: ${normalizeReferenceDetectionSource(payload.referenceDetectionSource)}`,
+    `Detected screenshot amount: ${
+      payload.detectedAmount === null || payload.detectedAmount === undefined
+        ? 'Not detected'
+        : `Nu. ${numericAmount(payload.detectedAmount).toLocaleString()}`
+    }`,
+    `OCR status: ${normalizePaymentProofOcrStatus(payload.ocrStatus)}`,
+    `OCR confidence: ${Math.max(
+      0,
+      Math.min(100, Math.round(Number(payload.ocrConfidence) || 0)),
+    )}%`,
     `Customer selected method: ${payload.paymentMethodName}`,
     payload.paymentMethodId ? `Customer selected method ID: ${payload.paymentMethodId}` : '',
     payload.paymentMethodType ? `Customer selected method type: ${payload.paymentMethodType}` : '',
@@ -4675,7 +4803,11 @@ async function insertPaymentWithKnownSchema(payload: {
   paymentMethodType?: PaymentMethod['type'] | string
   paymentType?: PaymentType | string
   sourceBank: PaymentSourceBank
-  transactionId: string
+  transactionId?: string
+  detectedAmount?: number | null
+  ocrStatus?: PaymentProofOcrStatus
+  ocrConfidence?: number
+  referenceDetectionSource?: PaymentReferenceDetectionSource
   path: string
   note?: string
 }) {
@@ -4702,8 +4834,22 @@ async function insertPaymentWithKnownSchema(payload: {
         currency: 'BTN',
         proof_file_path: payload.path,
         source_bank: sourceBank,
-        transaction_id: payload.transactionId || null,
-        normalized_transaction_id: normalizedTransactionId,
+        transaction_id: cleanText(payload.transactionId) || null,
+        normalized_transaction_id: normalizedTransactionId || null,
+        detected_amount:
+          payload.detectedAmount === null ||
+          payload.detectedAmount === undefined
+            ? null
+            : numericAmount(payload.detectedAmount),
+        ocr_status: normalizePaymentProofOcrStatus(payload.ocrStatus),
+        ocr_confidence: Math.max(
+          0,
+          Math.min(100, Math.round(Number(payload.ocrConfidence) || 0)),
+        ),
+        reference_detection_source:
+          normalizeReferenceDetectionSource(
+            payload.referenceDetectionSource,
+          ),
         admin_notes: adminNotes,
       }
 
@@ -4728,14 +4874,21 @@ async function insertPaymentWithKnownSchema(payload: {
         if (
           message.includes('source_bank') ||
           message.includes('transaction_id') ||
-          message.includes('normalized_transaction_id')
+          message.includes('normalized_transaction_id') ||
+          message.includes('detected_amount') ||
+          message.includes('ocr_status') ||
+          message.includes('ocr_confidence') ||
+          message.includes('reference_detection_source')
         ) {
           throw new Error(
             'Smart payment verification is not installed in Supabase yet. Run the provided SQL patch, then try again.',
           )
         }
 
-        if ((result.error as { code?: string })?.code === '23505') {
+        if (
+          normalizedTransactionId &&
+          (result.error as { code?: string })?.code === '23505'
+        ) {
           throw new Error(
             `This ${paymentSourceBankLabel(sourceBank)} transaction reference has already been submitted. Please check the reference or contact Shop2Bhutan support.`,
           )
@@ -4986,6 +5139,10 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
     paymentMethodType,
     sourceBank,
     transactionId,
+    detectedAmount,
+    ocrStatus,
+    ocrConfidence,
+    referenceDetectionSource,
     amount,
     paymentType,
     note,
@@ -5008,20 +5165,22 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
     throw new Error('Please select the bank you paid from.')
   }
 
-  if (!normalizedTransactionId) {
+  if (
+    normalizedTransactionId &&
+    (normalizedTransactionId.length < 6 ||
+      normalizedTransactionId.length > 40)
+  ) {
     throw new Error(
-      `Please enter the ${cleanSourceBank === 'bob' ? 'journal number' : 'RRNO'} shown in your payment receipt.`,
+      'The optional transaction reference looks incomplete. Correct it or clear the field to submit for manual review.',
     )
   }
 
-  if (normalizedTransactionId.length < 6 || normalizedTransactionId.length > 40) {
-    throw new Error('Please enter a valid transaction reference number.')
+  if (normalizedTransactionId) {
+    await assertPaymentReferenceAvailable({
+      sourceBank: cleanSourceBank,
+      normalizedTransactionId,
+    })
   }
-
-  await assertPaymentReferenceAvailable({
-    sourceBank: cleanSourceBank,
-    normalizedTransactionId,
-  })
 
   if (paymentAmount <= 0) {
     throw new Error('Payment amount must be greater than 0.')
@@ -5060,6 +5219,10 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
       paymentType,
       sourceBank: cleanSourceBank,
       transactionId,
+      detectedAmount,
+      ocrStatus,
+      ocrConfidence,
+      referenceDetectionSource,
       path,
       note,
     })
@@ -5090,7 +5253,7 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
       order,
       amount: paymentAmount,
       paymentType,
-      transactionId,
+      transactionId: cleanText(transactionId),
     })
   } catch (error) {
     console.warn('[customerOrders] admin payment upload notification skipped:', error)
@@ -5102,7 +5265,7 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
       userId,
       amount: paymentAmount,
       paymentType,
-      transactionId,
+      transactionId: cleanText(transactionId),
     })
   } catch (error) {
     console.warn('[customerOrders] customer payment submitted notification skipped:', error)

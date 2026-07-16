@@ -10,6 +10,10 @@ import {
   Loader2,
   Wallet,
   X,
+  AlertTriangle,
+  ScanLine,
+  Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppToast } from '@/components/shared/AppToast';
@@ -30,6 +34,12 @@ import {
   pickNativeImageFile,
 } from '@/lib/camera';
 import { usePrivacyScreen } from '@/lib/privacyScreen';
+import {
+  readPaymentProofScreenshot,
+  type PaymentProofOcrResult,
+  type PaymentProofOcrStatus,
+  type PaymentReferenceDetectionSource,
+} from '@/lib/paymentProofOcr';
 
 const ALLOWED_SCREENSHOT_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024;
@@ -52,7 +62,7 @@ const PAYMENT_SOURCE_BANKS: Array<{
     name: 'Bank of Bhutan',
     referenceLabel: 'Journal Number',
     referencePlaceholder: 'Example: 126-711191575',
-    referenceHelp: 'Enter the Journal No. shown in your mBoB receipt.',
+    referenceHelp: 'We will try to read the Journal No. automatically. Manual entry is optional.',
   },
   {
     id: 'dk',
@@ -60,7 +70,7 @@ const PAYMENT_SOURCE_BANKS: Array<{
     name: 'DK Bank',
     referenceLabel: 'RRNO / Fund Transfer Number',
     referencePlaceholder: 'Example: 619720623039',
-    referenceHelp: 'Enter the RRNO or fund transfer number shown in your DK Bank receipt.',
+    referenceHelp: 'We will try to read the RRNO automatically. Manual entry is optional.',
   },
   {
     id: 'bnb',
@@ -68,12 +78,35 @@ const PAYMENT_SOURCE_BANKS: Array<{
     name: 'Bhutan National Bank',
     referenceLabel: 'RRNO',
     referencePlaceholder: 'Example: 619708228126',
-    referenceHelp: 'Enter the RRNO shown in your BNB receipt.',
+    referenceHelp: 'We will try to read the RRNO automatically. Manual entry is optional.',
   },
 ];
 
 function normalizePaymentReferenceInput(value: string) {
   return value.toUpperCase().replace(/[^A-Z0-9]+/g, '');
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  milliseconds: number,
+  message: string,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error(message));
+    }, milliseconds);
+
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }
 
 function formatCurrency(amount: number) {
@@ -148,6 +181,16 @@ export default function PaymentUpload() {
   const [paymentSelection, setPaymentSelection] = useState<PaymentSelection>('full');
   const [sourceBank, setSourceBank] = useState<PaymentSourceBank | ''>('');
   const [transactionId, setTransactionId] = useState('');
+  const [detectedAmount, setDetectedAmount] = useState<number | null>(null);
+  const [ocrStatus, setOcrStatus] =
+    useState<PaymentProofOcrStatus>('not_attempted');
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrConfidence, setOcrConfidence] = useState(0);
+  const [ocrMessage, setOcrMessage] = useState('');
+  const [referenceDetectionSource, setReferenceDetectionSource] =
+    useState<PaymentReferenceDetectionSource>('none');
+  const ocrRunIdRef = useRef(0);
+  const manualReferenceEditedRef = useRef(false);
   const [note, setNote] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [copiedField, setCopiedField] = useState('');
@@ -294,6 +337,13 @@ useEffect(() => {
       ? 'balance'
       : 'full';
   const amountPaidNumber = selectedPaymentAmount;
+  const detectedAmountDifference =
+    detectedAmount === null
+      ? null
+      : Math.round((detectedAmount - amountPaidNumber) * 100) / 100;
+  const detectedAmountMatches =
+    detectedAmountDifference !== null &&
+    Math.abs(detectedAmountDifference) < 0.01;
   const amountAboveBalance = paymentSummary.balanceDue > 0 && amountPaidNumber > paymentSummary.balanceDue;
   const firstPaymentBelowMinimum = minimumInitialPayment > 0 && amountPaidNumber > 0 && amountPaidNumber < minimumInitialPayment;
 
@@ -318,11 +368,13 @@ useEffect(() => {
     sourceBank &&
       screenshotFile &&
       selectedPaymentMethod &&
-      normalizedTransactionId.length >= 6 &&
-      normalizedTransactionId.length <= 40 &&
+      (!normalizedTransactionId ||
+        (normalizedTransactionId.length >= 6 &&
+          normalizedTransactionId.length <= 40)) &&
       amountPaidNumber > 0 &&
       !amountAboveBalance &&
       !firstPaymentBelowMinimum &&
+      ocrStatus !== 'reading' &&
       canUpload &&
       !submitting,
   );
@@ -331,7 +383,7 @@ useEffect(() => {
     if (submitting) return 'Uploading...';
     if (!sourceBank) return 'Select paid-from bank';
     if (!screenshotFile) return 'Upload screenshot to continue';
-    if (!normalizedTransactionId) return 'Enter transaction reference';
+    if (ocrStatus === 'reading') return 'Reading screenshot...';
     return paymentSummary.isPartiallyPaid
       ? 'Submit Remaining Payment Proof'
       : 'Submit Payment Proof';
@@ -360,6 +412,17 @@ useEffect(() => {
     selectedPaymentAmount,
   ]);
 
+  const resetOcrResult = useCallback(() => {
+    ocrRunIdRef.current += 1;
+    setDetectedAmount(null);
+    setOcrStatus('not_attempted');
+    setOcrProgress(0);
+    setOcrConfidence(0);
+    setOcrMessage('');
+    setReferenceDetectionSource('none');
+    manualReferenceEditedRef.current = false;
+  }, []);
+
   const applyPaymentScreenshot = useCallback((file: File | null) => {
     if (!file) return;
 
@@ -373,6 +436,8 @@ useEffect(() => {
       return;
     }
 
+    resetOcrResult();
+    setTransactionId('');
     setScreenshotFile(file);
     setScreenshotPreview((currentPreview) => {
       if (currentPreview?.startsWith('blob:')) {
@@ -382,7 +447,85 @@ useEffect(() => {
       return URL.createObjectURL(file);
     });
     setError('');
-  }, []);
+  }, [resetOcrResult]);
+
+  const runPaymentProofOcr = useCallback(async () => {
+    if (!screenshotFile || !sourceBank) return;
+
+    const runId = ocrRunIdRef.current + 1;
+    ocrRunIdRef.current = runId;
+    setOcrStatus('reading');
+    setOcrProgress(0);
+    setOcrConfidence(0);
+    setDetectedAmount(null);
+    setOcrMessage('Reading the payment screenshot on this device...');
+
+    try {
+      const result: PaymentProofOcrResult =
+        await withTimeout(
+          readPaymentProofScreenshot({
+            file: screenshotFile,
+            bank: sourceBank,
+            expectedAmount: amountPaidNumber,
+            onProgress(progress) {
+              if (ocrRunIdRef.current !== runId) return;
+              setOcrProgress(progress.progress);
+            },
+          }),
+          35_000,
+          'Screenshot reading took too long. Manual review will be used.',
+        );
+
+      if (ocrRunIdRef.current !== runId) return;
+
+      setOcrStatus(result.status);
+      setOcrProgress(1);
+      setOcrConfidence(result.confidence);
+      setDetectedAmount(result.amount);
+
+      if (
+        result.reference &&
+        !manualReferenceEditedRef.current
+      ) {
+        setTransactionId(result.reference);
+        setReferenceDetectionSource('ocr');
+      } else if (!manualReferenceEditedRef.current) {
+        setReferenceDetectionSource('none');
+      }
+
+      if (result.status === 'detected') {
+        setOcrMessage(
+          'Reference and amount were detected. Please confirm them before submitting.',
+        );
+      } else if (result.status === 'partial') {
+        setOcrMessage(
+          'Some payment details were detected. You may submit even when a field is missing.',
+        );
+      } else {
+        setOcrMessage(
+          'The details could not be read clearly. You may still submit for manual admin review.',
+        );
+      }
+    } catch (ocrError) {
+      if (ocrRunIdRef.current !== runId) return;
+
+      console.warn('[PaymentUpload] Screenshot reading skipped:', ocrError);
+      ocrRunIdRef.current += 1;
+      setOcrStatus('failed');
+      setOcrProgress(0);
+      setOcrConfidence(0);
+      setDetectedAmount(null);
+      setOcrMessage(
+        'Automatic reading was unavailable. You may still submit the screenshot for manual review.',
+      );
+    }
+  }, [amountPaidNumber, screenshotFile, sourceBank]);
+
+  useEffect(() => {
+    if (!screenshotFile || !sourceBank) return;
+
+    void runPaymentProofOcr();
+  }, [runPaymentProofOcr, screenshotFile, sourceBank]);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     applyPaymentScreenshot(event.target.files?.[0] ?? null);
@@ -504,13 +647,14 @@ useEffect(() => {
       return;
     }
 
-    if (!normalizedTransactionId) {
-      setError(`Please enter the ${selectedSourceBank.referenceLabel.toLowerCase()} shown in your payment receipt.`);
-      return;
-    }
-
-    if (normalizedTransactionId.length < 6 || normalizedTransactionId.length > 40) {
-      setError('Please enter a valid transaction reference number.');
+    if (
+      normalizedTransactionId &&
+      (normalizedTransactionId.length < 6 ||
+        normalizedTransactionId.length > 40)
+    ) {
+      setError(
+        'The optional transaction reference looks incomplete. Correct it or clear the field to submit for manual review.',
+      );
       return;
     }
 
@@ -546,6 +690,16 @@ useEffect(() => {
         paymentMethodType: selectedPaymentMethod.type,
         sourceBank,
         transactionId: transactionId.trim(),
+        detectedAmount,
+        ocrStatus:
+          ocrStatus === 'reading' ? 'not_attempted' : ocrStatus,
+        ocrConfidence,
+        referenceDetectionSource:
+          normalizedTransactionId
+            ? referenceDetectionSource === 'none'
+              ? 'manual'
+              : referenceDetectionSource
+            : 'none',
         amount: amountPaidNumber,
         paymentType: selectedLedgerPaymentType,
         note: note.trim(),
@@ -1009,7 +1163,11 @@ useEffect(() => {
                       key={bank.id}
                       type="button"
                       onClick={() => {
-                        setSourceBank(bank.id);
+                        if (sourceBank !== bank.id) {
+                          resetOcrResult();
+                          setTransactionId('');
+                          setSourceBank(bank.id);
+                        }
                         setError('');
                       }}
                       aria-pressed={selected}
@@ -1088,11 +1246,145 @@ useEffect(() => {
               </div>
             )}
 
+            {screenshotFile && sourceBank && (
+              <div
+                className={`mt-4 rounded-2xl border px-3.5 py-3 ${
+                  ocrStatus === 'reading'
+                    ? 'border-blue-100 bg-blue-50/70'
+                    : ocrStatus === 'detected'
+                      ? 'border-emerald-100 bg-emerald-50/70'
+                      : ocrStatus === 'partial'
+                        ? 'border-amber-100 bg-amber-50/70'
+                        : 'border-slate-200 bg-slate-50'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <span
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                      ocrStatus === 'reading'
+                        ? 'bg-blue-100 text-blue-600'
+                        : ocrStatus === 'detected'
+                          ? 'bg-emerald-100 text-emerald-600'
+                          : ocrStatus === 'partial'
+                            ? 'bg-amber-100 text-amber-600'
+                            : 'bg-white text-slate-500 ring-1 ring-slate-200'
+                    }`}
+                  >
+                    {ocrStatus === 'reading' ? (
+                      <Loader2 size={17} className="animate-spin" />
+                    ) : ocrStatus === 'detected' ? (
+                      <Sparkles size={17} />
+                    ) : ocrStatus === 'partial' ? (
+                      <AlertTriangle size={17} />
+                    ) : (
+                      <ScanLine size={17} />
+                    )}
+                  </span>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-black text-slate-900">
+                        {ocrStatus === 'reading'
+                          ? 'Reading payment screenshot'
+                          : ocrStatus === 'detected'
+                            ? 'Payment details detected'
+                            : ocrStatus === 'partial'
+                              ? 'Some details detected'
+                              : ocrStatus === 'failed'
+                                ? 'Automatic reading unavailable'
+                                : 'Manual review will be used'}
+                      </p>
+
+                      {ocrStatus !== 'reading' &&
+                        ocrStatus !== 'not_attempted' && (
+                          <button
+                            type="button"
+                            onClick={() => void runPaymentProofOcr()}
+                            className="inline-flex h-7 items-center gap-1 rounded-lg bg-white px-2 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200"
+                          >
+                            <RefreshCw size={11} />
+                            Retry
+                          </button>
+                        )}
+                    </div>
+
+                    <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                      {ocrMessage ||
+                        'The app will try to detect the transaction reference and amount. Detection is optional and never verifies the payment automatically.'}
+                    </p>
+
+                    {ocrStatus === 'reading' && (
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-blue-100">
+                        <div
+                          className="h-full rounded-full bg-blue-500 transition-[width] duration-300"
+                          style={{
+                            width: `${Math.max(
+                              8,
+                              Math.round(ocrProgress * 100),
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {ocrStatus !== 'reading' &&
+                      ocrStatus !== 'not_attempted' && (
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <div className="rounded-xl bg-white px-3 py-2 ring-1 ring-slate-100">
+                            <p className="text-[9px] font-black uppercase tracking-wide text-slate-400">
+                              Reference
+                            </p>
+                            <p className="mt-1 truncate font-mono text-[11px] font-bold text-slate-800">
+                              {normalizedTransactionId
+                                ? transactionId
+                                : 'Not detected'}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl bg-white px-3 py-2 ring-1 ring-slate-100">
+                            <p className="text-[9px] font-black uppercase tracking-wide text-slate-400">
+                              Screenshot amount
+                            </p>
+                            <p
+                              className={`mt-1 text-[11px] font-bold ${
+                                detectedAmount === null
+                                  ? 'text-slate-500'
+                                  : detectedAmountMatches
+                                    ? 'text-emerald-600'
+                                    : 'text-red-600'
+                              }`}
+                            >
+                              {detectedAmount === null
+                                ? 'Not detected'
+                                : `${formatCurrency(detectedAmount)} ${
+                                    detectedAmountMatches
+                                      ? '✓'
+                                      : '— check amount'
+                                  }`}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                    {ocrConfidence > 0 &&
+                      ocrStatus !== 'reading' && (
+                        <p className="mt-2 text-[9px] font-semibold text-slate-400">
+                          Detection confidence: {ocrConfidence}% · Admin
+                          verification is still required.
+                        </p>
+                      )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="mt-4 space-y-3 pt-4 border-t border-slate-100">
               <div>
                 <label className="text-[11px] font-black text-slate-700">
                   {selectedSourceBank?.referenceLabel ?? 'Transaction Reference'}
-                  <span className="text-red-500"> *</span>
+                  <span className="ml-1 font-semibold text-slate-400">
+                    (optional)
+                  </span>
                 </label>
                 <input
                   type="text"
@@ -1101,19 +1393,37 @@ useEffect(() => {
                   maxLength={60}
                   value={transactionId}
                   onChange={(event) => {
-                    setTransactionId(event.target.value);
+                    const value = event.target.value;
+                    manualReferenceEditedRef.current = true;
+                    setTransactionId(value);
+                    setReferenceDetectionSource(
+                      normalizePaymentReferenceInput(value)
+                        ? 'manual'
+                        : 'none',
+                    );
                     setError('');
                   }}
                   disabled={!selectedSourceBank}
                   placeholder={
-                    selectedSourceBank?.referencePlaceholder ??
-                    'Select paid-from bank first'
+                    ocrStatus === 'reading'
+                      ? 'Reading automatically...'
+                      : selectedSourceBank?.referencePlaceholder ??
+                        'Select paid-from bank first'
                   }
                   className="mt-1.5 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-500/10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                 />
                 <p className="mt-1.5 text-[10px] font-medium leading-4 text-slate-400">
                   {selectedSourceBank?.referenceHelp ??
                     'Choose BoB, DK Bank, or BNB to see the correct reference field.'}
+                  {normalizedTransactionId && (
+                    <span className="ml-1 font-bold text-slate-500">
+                      {referenceDetectionSource === 'ocr'
+                        ? 'Detected automatically.'
+                        : referenceDetectionSource === 'manual'
+                          ? 'Entered manually.'
+                          : ''}
+                    </span>
+                  )}
                 </p>
               </div>
               <div>
@@ -1149,15 +1459,24 @@ useEffect(() => {
           <span className="truncate">{submitButtonLabel}</span>
         </button>
 
-        {!canSubmit && (
+        {!canSubmit ? (
           <p className="text-center text-[11px] font-semibold text-slate-400 leading-5 -mt-2">
             {!sourceBank
               ? 'Select the bank you paid from.'
               : !screenshotFile
                 ? 'Upload a clear payment screenshot above.'
-                : !normalizedTransactionId
-                  ? `Enter the ${selectedSourceBank?.referenceLabel.toLowerCase() ?? 'transaction reference'}.`
-                  : 'Complete the required payment details to enable submission.'}
+                : ocrStatus === 'reading'
+                  ? 'Reading the screenshot now. Submission will unlock when the scan finishes or falls back to manual review.'
+                  : normalizedTransactionId &&
+                      (normalizedTransactionId.length < 6 ||
+                        normalizedTransactionId.length > 40)
+                    ? 'Correct the optional reference or clear the field.'
+                    : 'Complete the required payment details to enable submission.'}
+          </p>
+        ) : (
+          <p className="text-center text-[11px] font-semibold text-slate-400 leading-5 -mt-2">
+            Journal Number/RRNO is optional. Shop2Bhutan will verify the proof
+            against the bank statement.
           </p>
         )}
       </main>

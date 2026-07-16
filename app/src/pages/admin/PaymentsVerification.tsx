@@ -8,6 +8,7 @@ import {
   Loader2,
   RefreshCw,
   Search,
+  ScanLine,
   XCircle,
 } from 'lucide-react';
 import {
@@ -117,6 +118,27 @@ function matchesTab(payment: AdminPaymentRecord, tab: PaymentTab) {
   return true;
 }
 
+function ocrStatusLabel(status: AdminPaymentRecord['ocrStatus']) {
+  if (status === 'detected') return 'Reference + amount detected';
+  if (status === 'partial') return 'Partially detected';
+  if (status === 'not_detected') return 'Not detected';
+  if (status === 'failed') return 'Reading failed';
+  return 'Not attempted';
+}
+
+function referenceSourceLabel(
+  source: AdminPaymentRecord['referenceDetectionSource'],
+) {
+  if (source === 'ocr') return 'Auto-detected';
+  if (source === 'manual') return 'Entered manually';
+  return 'Manual review';
+}
+
+function detectedAmountMatches(payment: AdminPaymentRecord) {
+  if (payment.detectedAmount === null) return null;
+  return Math.abs(payment.detectedAmount - payment.amount) < 0.01;
+}
+
 export default function PaymentsVerification() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -169,6 +191,9 @@ export default function PaymentsVerification() {
         paymentTypeLabel(payment.paymentType),
         payment.transactionId,
         payment.normalizedTransactionId,
+        payment.detectedAmount,
+        payment.ocrStatus,
+        payment.referenceDetectionSource,
         payment.notes,
       ]
         .filter(Boolean)
@@ -376,7 +401,7 @@ export default function PaymentsVerification() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-[1320px] w-full border-collapse">
+            <table className="min-w-[1400px] w-full border-collapse">
               <thead>
                 <tr className="border-b border-neutral-200 bg-neutral-50/80">
                   <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
@@ -418,6 +443,7 @@ export default function PaymentsVerification() {
                   );
                   const transactionId =
                     payment.transactionId?.trim() || '';
+                  const amountMatches = detectedAmountMatches(payment);
 
                   return (
                     <tr
@@ -450,9 +476,37 @@ export default function PaymentsVerification() {
                       </td>
 
                       <td className="px-5 py-4 text-right align-middle">
-                        <p className="whitespace-nowrap text-sm font-bold text-gray-900">
-                          {formatCurrency(payment.amount)}
-                        </p>
+                        <div className="min-w-[135px]">
+                          <p className="whitespace-nowrap text-sm font-bold text-gray-900">
+                            {formatCurrency(payment.amount)}
+                          </p>
+                          <p className="mt-1 text-[10px] font-medium text-neutral-400">
+                            Expected payment
+                          </p>
+
+                          {payment.detectedAmount !== null ? (
+                            <div
+                              className={`mt-2 rounded-lg px-2 py-1.5 text-left text-[10px] font-semibold ring-1 ${
+                                amountMatches
+                                  ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+                                  : 'bg-red-50 text-red-700 ring-red-100'
+                              }`}
+                            >
+                              <p>
+                                Screenshot: {formatCurrency(payment.detectedAmount)}
+                              </p>
+                              <p className="mt-0.5">
+                                {amountMatches
+                                  ? 'Amount matches'
+                                  : 'Amount mismatch — review'}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="mt-2 text-[10px] font-semibold text-neutral-400">
+                              Screenshot amount not detected
+                            </p>
+                          )}
+                        </div>
                       </td>
 
                       <td className="px-5 py-4 align-middle">
@@ -484,44 +538,79 @@ export default function PaymentsVerification() {
                           <p className="mt-1.5 text-[10px] font-medium text-neutral-400">
                             Customer&apos;s payment app
                           </p>
+                          <p
+                            className={`mt-1 text-[10px] font-semibold ${
+                              payment.ocrStatus === 'detected'
+                                ? 'text-emerald-600'
+                                : payment.ocrStatus === 'partial'
+                                  ? 'text-amber-600'
+                                  : 'text-neutral-400'
+                            }`}
+                          >
+                            {ocrStatusLabel(payment.ocrStatus)}
+                          </p>
                         </div>
                       </td>
 
                       <td className="px-5 py-4 align-middle">
-                        {transactionId ? (
-                          <div className="max-w-[210px]">
-                            <div className="flex items-center gap-1.5">
-                            <span
-                              className="truncate font-mono text-xs text-neutral-700"
-                              title={transactionId}
-                            >
-                              {transactionId}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                copyToClipboard(transactionId)
-                              }
-                              className="shrink-0 rounded p-1 text-neutral-400 transition hover:bg-neutral-100 hover:text-amber-600"
-                              aria-label="Copy transaction ID"
-                            >
-                              <Copy size={13} />
-                            </button>
-                            </div>
-
-                            {payment.duplicateReferenceCount > 0 && (
-                              <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-[10px] font-semibold leading-4 text-amber-700 ring-1 ring-amber-100">
-                                <AlertCircle size={12} className="mt-0.5 shrink-0" />
-                                Used in {payment.duplicateReferenceCount} earlier submission
-                                {payment.duplicateReferenceCount === 1 ? '' : 's'}
+                        <div className="max-w-[225px]">
+                          {transactionId ? (
+                            <>
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className="truncate font-mono text-xs text-neutral-700"
+                                  title={transactionId}
+                                >
+                                  {transactionId}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    copyToClipboard(transactionId)
+                                  }
+                                  className="shrink-0 rounded p-1 text-neutral-400 transition hover:bg-neutral-100 hover:text-amber-600"
+                                  aria-label="Copy transaction ID"
+                                >
+                                  <Copy size={13} />
+                                </button>
                               </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-xs font-medium text-neutral-400">
-                            Not provided
-                          </span>
-                        )}
+
+                              <span
+                                className={`mt-1.5 inline-flex rounded-full px-2 py-1 text-[10px] font-bold ring-1 ${
+                                  payment.referenceDetectionSource === 'ocr'
+                                    ? 'bg-blue-50 text-blue-700 ring-blue-100'
+                                    : 'bg-neutral-100 text-neutral-600 ring-neutral-200'
+                                }`}
+                              >
+                                {referenceSourceLabel(
+                                  payment.referenceDetectionSource,
+                                )}
+                              </span>
+                            </>
+                          ) : (
+                            <div className="flex items-start gap-2 rounded-lg bg-neutral-50 px-2.5 py-2 text-[10px] font-semibold leading-4 text-neutral-500 ring-1 ring-neutral-100">
+                              <ScanLine
+                                size={13}
+                                className="mt-0.5 shrink-0"
+                              />
+                              Reference not detected. Check the screenshot and bank statement manually.
+                            </div>
+                          )}
+
+                          {payment.duplicateReferenceCount > 0 && (
+                            <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-[10px] font-semibold leading-4 text-amber-700 ring-1 ring-amber-100">
+                              <AlertCircle size={12} className="mt-0.5 shrink-0" />
+                              Used in {payment.duplicateReferenceCount} earlier submission
+                              {payment.duplicateReferenceCount === 1 ? '' : 's'}
+                            </div>
+                          )}
+
+                          {payment.ocrConfidence > 0 && (
+                            <p className="mt-1.5 text-[9px] font-medium text-neutral-400">
+                              OCR confidence: {Math.round(payment.ocrConfidence)}%
+                            </p>
+                          )}
+                        </div>
                       </td>
 
                       <td className="px-5 py-4 align-middle">
