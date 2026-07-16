@@ -2438,6 +2438,88 @@ async function createPaymentReviewNotificationForOrder(input: {
 }
 
 
+async function createPaymentReviewNotificationForPaymentId(input: {
+  paymentId: string
+  status: PaymentStatus
+  adminNote?: string
+}) {
+  const paymentId = cleanText(input.paymentId)
+  if (!paymentId) return
+
+  const { data: paymentData, error: paymentError } = await supabase
+    .from('payments')
+    .select('order_id, user_id')
+    .eq('id', paymentId)
+    .maybeSingle()
+
+  if (paymentError) throw paymentError
+
+  const paymentRow = paymentData as AnyRow | null
+  const orderId = firstString(paymentRow, ['order_id'], '')
+  let userId = firstString(paymentRow, ['user_id'], '')
+  let orderNo = orderId
+    ? orderId.slice(0, 8).toUpperCase()
+    : paymentId.slice(0, 8).toUpperCase()
+
+  if (orderId) {
+    try {
+      const orderRow = await querySingleAdminOrderRow(orderId)
+
+      if (orderRow) {
+        userId = firstString(
+          orderRow,
+          ORDER_OWNER_COLUMNS,
+          userId,
+        )
+        orderNo = firstString(
+          orderRow,
+          ['order_no', 'order_number', 'public_id'],
+          orderNo,
+        )
+      }
+    } catch (orderError) {
+      console.warn(
+        '[customerOrders] payment notification order lookup skipped:',
+        orderError,
+      )
+    }
+  }
+
+  if (!userId) {
+    console.warn(
+      '[customerOrders] payment review notification skipped: customer user ID was not found.',
+    )
+    return
+  }
+
+  const isVerified = input.status === 'verified'
+  const adminNote = cleanText(input.adminNote)
+  const title = isVerified
+    ? 'Payment Verified'
+    : 'Payment Proof Rejected'
+  const baseMessage = isVerified
+    ? `Your payment for order #${orderNo} has been verified.`
+    : `Your payment proof for order #${orderNo} was rejected. Please upload a corrected screenshot.`
+
+  await createCustomerNotification({
+    userId,
+    type: 'payment',
+    title,
+    message:
+      !isVerified && adminNote
+        ? `${baseMessage} Reason: ${adminNote}`
+        : baseMessage,
+    link:
+      orderId && isVerified
+        ? `/order/${orderId}`
+        : orderId
+          ? `/payment/${orderId}`
+          : '/payment-history',
+    dedupeKey: `payment-review:${paymentId}:${input.status}`,
+  })
+}
+
+
 function findProfileForOrder(row: AnyRow, profiles: AnyRow[]) {
   const ownerId = firstString(row, ORDER_OWNER_COLUMNS, '')
   if (!ownerId) return undefined
@@ -3034,22 +3116,58 @@ export async function deletePaymentMethod(method: PaymentMethod): Promise<Paymen
   throw new Error('Payment method was not changed. Please confirm your logged-in admin user exists in public.user_roles as admin or super_admin.')
 }
 
-export async function verifyAdminPaymentById(paymentId: string, adminId?: string) {
+export async function verifyAdminPaymentById(
+  paymentId: string,
+  adminId?: string,
+) {
   await updatePaymentReviewStatus({
     paymentId,
     status: 'verified',
     adminId,
     adminNote: 'Verified from admin payments panel.',
   })
+
+  try {
+    await createPaymentReviewNotificationForPaymentId({
+      paymentId,
+      status: 'verified',
+    })
+  } catch (error) {
+    console.warn(
+      '[customerOrders] admin payment verified notification skipped:',
+      error,
+    )
+  }
 }
 
-export async function rejectAdminPaymentById(paymentId: string, adminId?: string, adminNote?: string) {
+export async function rejectAdminPaymentById(
+  paymentId: string,
+  adminId?: string,
+  adminNote?: string,
+) {
+  const rejectionReason =
+    cleanText(adminNote) ||
+    'Payment screenshot is unclear or the payment details could not be verified.'
+
   await updatePaymentReviewStatus({
     paymentId,
     status: 'rejected',
     adminId,
-    adminNote: adminNote || 'Rejected from admin payments panel.',
+    adminNote: rejectionReason,
   })
+
+  try {
+    await createPaymentReviewNotificationForPaymentId({
+      paymentId,
+      status: 'rejected',
+      adminNote: rejectionReason,
+    })
+  } catch (error) {
+    console.warn(
+      '[customerOrders] admin payment rejection notification skipped:',
+      error,
+    )
+  }
 }
 
 function paymentRowOrderId(row: AnyRow) {
