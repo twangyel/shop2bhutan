@@ -534,45 +534,59 @@ export default function OrderDetail() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/admin/orders')} className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors">
-            <ArrowLeft size={20} className="text-neutral-600" />
-          </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-neutral-500">Orders /</span>
-              <span className="text-sm font-medium">#{order.orderNumber}</span>
-            </div>
-            <p className="text-xs text-neutral-400">DB UUID: {order.id}</p>
-          </div>
-        </div>
+      <div className="rounded-xl bg-white p-3 shadow-card sm:rounded-none sm:bg-transparent sm:p-0 sm:shadow-none">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <button
+              type="button"
+              onClick={() => navigate('/admin/orders')}
+              className="mt-0.5 shrink-0 rounded-lg p-1.5 transition-colors hover:bg-neutral-100"
+              aria-label="Back to orders"
+            >
+              <ArrowLeft size={20} className="text-neutral-600" />
+            </button>
 
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={loadOrder}
-            className="px-4 py-2 bg-white border border-neutral-200 text-neutral-700 text-sm font-medium rounded-lg hover:bg-neutral-50 transition-colors flex items-center gap-2"
-          >
-            <RefreshCw size={16} />
-            Refresh
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate(`/admin/quotation/${order.id}`)}
-            className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2"
-          >
-            <FileText size={16} />
-            {order.quotation ? 'Update Final Price' : 'Confirm Availability & Final Price'}
-          </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="px-4 py-2 bg-neutral-100 text-neutral-700 text-sm font-medium rounded-lg hover:bg-neutral-200 transition-colors flex items-center gap-2"
-          >
-            <Printer size={16} />
-            Print
-          </button>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-neutral-400">Orders / Order details</p>
+              <p className="mt-0.5 break-words text-sm font-bold leading-5 text-neutral-900 sm:text-base">
+                #{order.orderNumber}
+              </p>
+              <p className="mt-0.5 hidden truncate text-[11px] text-neutral-400 sm:block">
+                DB UUID: {order.id}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+            <button
+              type="button"
+              onClick={() => navigate(`/admin/quotation/${order.id}`)}
+              className="order-first col-span-2 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-amber-500 px-3 py-2 text-center text-xs font-semibold leading-4 text-white transition-colors hover:bg-amber-600 sm:order-none sm:col-auto sm:px-4 sm:text-sm"
+            >
+              <FileText size={16} className="shrink-0" />
+              <span>
+                {order.quotation ? 'Update Final Price' : 'Confirm Availability & Final Price'}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={loadOrder}
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-50 sm:px-4 sm:text-sm"
+            >
+              <RefreshCw size={16} className="shrink-0" />
+              Refresh
+            </button>
+
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-neutral-100 px-3 py-2 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-200 sm:px-4 sm:text-sm"
+            >
+              <Printer size={16} className="shrink-0" />
+              Print
+            </button>
+          </div>
         </div>
       </div>
 
