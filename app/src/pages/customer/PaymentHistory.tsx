@@ -57,14 +57,17 @@ function formatDateTime(value?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
 
-  return `${new Intl.DateTimeFormat('en-GB', {
+  const formatted = new Intl.DateTimeFormat('en-GB', {
     timeZone: BHUTAN_TIME_ZONE,
     day: 'numeric',
     month: 'short',
+    year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-  }).format(date)} BTT`;
+  }).format(date);
+
+  return `${formatted.replace(/\b(am|pm)\b/gi, (value) => value.toUpperCase())} BTT`;
 }
 
 function readableText(value?: string) {
@@ -360,8 +363,21 @@ export default function PaymentHistory() {
       const result: PaymentReceiptResult =
         await openOrDownloadPaymentReceipt({
           paymentId: payment.id,
+          orderId: payment.orderId,
           orderNumber: payment.orderNumber,
+          transactionId: payment.transactionId,
           amountLabel: formatCurrency(payment.amount),
+          orderTotalLabel:
+            payment.orderTotal > 0
+              ? formatCurrency(payment.orderTotal)
+              : undefined,
+          previouslyPaidLabel: formatCurrency(
+            payment.previouslyVerified,
+          ),
+          balanceDueLabel:
+            payment.orderTotal > 0
+              ? formatCurrency(payment.balanceDue)
+              : undefined,
           paymentType: paymentTypeLabel(payment.paymentType),
           paymentMethod:
             readableText(payment.paymentMethod) || 'Payment Method',
@@ -370,6 +386,10 @@ export default function PaymentHistory() {
           ),
           verifiedAt: formatDateTime(payment.verifiedAt),
           status: paymentStatusLabel(payment.status),
+          customerName: payment.customerName,
+          customerPhone: payment.customerPhone,
+          logoPath: '/brand/logo-full-final.png',
+          appUrl: 'https://shop2bhutan.vercel.app',
         });
 
       if (result.mode === 'opened') {

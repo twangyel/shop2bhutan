@@ -79,12 +79,18 @@ export type CustomerPaymentHistoryRecord = {
   orderId: string
   orderNumber: string
   quotationId: string
+  transactionId: string
   amount: number
   currency: string
+  orderTotal: number
+  previouslyVerified: number
+  balanceDue: number
   paymentType: PaymentType
   paymentMethod: string
   status: PaymentStatus
   proofUrl: string
+  customerName: string
+  customerPhone: string
   submittedAt: string
   verifiedAt: string
   rejectionReason: string
@@ -1204,25 +1210,88 @@ function orderNumberFromPaymentHistoryOrder(row: AnyRow | undefined, fallbackOrd
   )
 }
 
-async function mapCustomerPaymentHistoryRow(payment: AnyRow, orderById: Map<string, AnyRow>): Promise<CustomerPaymentHistoryRecord> {
+function paymentHistoryEventTime(row: AnyRow) {
+  const value = firstString(row, ['verified_at', 'submitted_at', 'created_at', 'updated_at'], '')
+  const timestamp = value ? new Date(value).getTime() : 0
+  return Number.isFinite(timestamp) ? timestamp : 0
+}
+
+function paymentHistoryQuotationRow(payment: AnyRow, quotationRows: AnyRow[]) {
+  const quotationId = firstString(payment, ['quotation_id'], '')
+  if (quotationId) {
+    const exact = quotationRows.find((row) => firstString(row, ['id'], '') === quotationId)
+    if (exact) return exact
+  }
+
   const orderId = firstString(payment, ['order_id'], '')
+  return quotationRows
+    .filter((row) => firstString(row, ['order_id'], '') === orderId)
+    .sort((a, b) => {
+      const bTime = new Date(firstString(b, ['updated_at', 'created_at'], '') || 0).getTime() || 0
+      const aTime = new Date(firstString(a, ['updated_at', 'created_at'], '') || 0).getTime() || 0
+      return bTime - aTime
+    })[0]
+}
+
+function verifiedAmountBeforePayment(payment: AnyRow, allPayments: AnyRow[]) {
+  const paymentId = firstString(payment, ['id'], '')
+  const orderId = firstString(payment, ['order_id'], '')
+  const currentTime = paymentHistoryEventTime(payment)
+
+  return allPayments
+    .filter((row) => firstString(row, ['order_id'], '') === orderId)
+    .filter((row) => firstString(row, ['id'], '') !== paymentId)
+    .filter((row) => normalizePaymentStatus(firstValue(row, ['status'])) === 'verified')
+    .filter((row) => {
+      const rowTime = paymentHistoryEventTime(row)
+      return currentTime <= 0 || rowTime <= currentTime
+    })
+    .reduce((sum, row) => sum + firstNumber(row, ['amount', 'total_amount', 'advance_paid'], 0), 0)
+}
+
+async function mapCustomerPaymentHistoryRow(
+  payment: AnyRow,
+  orderById: Map<string, AnyRow>,
+  quotationRows: AnyRow[],
+  allPayments: AnyRow[],
+  profile: AnyRow | null,
+): Promise<CustomerPaymentHistoryRecord> {
+  const orderId = firstString(payment, ['order_id'], '')
+  const orderRow = orderById.get(orderId)
+  const quotationRow = paymentHistoryQuotationRow(payment, quotationRows)
   const proofPath = firstString(payment, ['proof_file_path', 'screenshot_url', 'payment_proof_url', 'proof_url'], '')
   const proofUrl = proofPath ? (await makeSignedScreenshotUrl(proofPath)) || proofPath : ''
   const status = normalizePaymentStatus(firstValue(payment, ['status']))
   const submittedAt = firstString(payment, ['submitted_at', 'created_at'], '')
   const createdAt = firstString(payment, ['created_at', 'submitted_at'], submittedAt)
+  const amount = firstNumber(payment, ['amount', 'total_amount', 'advance_paid'], 0)
+  const orderTotal = firstNumber(quotationRow, ['total_amount', 'total'], 0)
+  const previouslyVerified = verifiedAmountBeforePayment(payment, allPayments)
+  const verifiedThroughThisPayment = previouslyVerified + (status === 'verified' ? amount : 0)
+  const customerName =
+    firstString(orderRow, ['customer_name', 'recipient_name', 'delivery_name', 'full_name', 'name'], '') ||
+    firstString(profile, ['full_name', 'name', 'display_name'], 'Customer')
+  const customerPhone =
+    firstString(orderRow, ['customer_phone', 'recipient_phone', 'delivery_phone', 'phone', 'whatsapp'], '') ||
+    firstString(profile, ['phone', 'mobile', 'whatsapp'], '')
 
   return {
     id: firstString(payment, ['id'], ''),
     orderId,
-    orderNumber: orderNumberFromPaymentHistoryOrder(orderById.get(orderId), orderId),
+    orderNumber: orderNumberFromPaymentHistoryOrder(orderRow, orderId),
     quotationId: firstString(payment, ['quotation_id'], ''),
-    amount: firstNumber(payment, ['amount', 'total_amount', 'advance_paid'], 0),
+    transactionId: firstString(payment, ['transaction_id', 'reference_id', 'txn_id'], ''),
+    amount,
     currency: firstString(payment, ['currency'], 'BTN'),
+    orderTotal,
+    previouslyVerified,
+    balanceDue: orderTotal > 0 ? Math.max(orderTotal - verifiedThroughThisPayment, 0) : 0,
     paymentType: normalizePaymentType(firstValue(payment, ['payment_type', 'payment_kind', 'coverage_type'])),
     paymentMethod: firstString(payment, ['payment_method_name', 'method_name', 'method', 'payment_method'], ''),
     status,
     proofUrl,
+    customerName,
+    customerPhone,
     submittedAt,
     verifiedAt: firstString(payment, ['verified_at'], ''),
     rejectionReason: firstString(payment, ['rejection_reason'], ''),
@@ -1268,7 +1337,7 @@ export async function fetchCustomerPaymentHistory(userId: string): Promise<Custo
   if (!cleanUserId) return makeEmptyCustomerPaymentHistory()
 
   const primarySelect =
-    'id, order_id, quotation_id, user_id, payment_type, payment_method, amount, currency, proof_file_path, status, submitted_at, verified_at, rejection_reason, admin_notes, created_at, updated_at'
+    'id, order_id, quotation_id, user_id, payment_type, payment_method, payment_method_name, transaction_id, amount, currency, proof_file_path, status, submitted_at, verified_at, rejection_reason, admin_notes, created_at, updated_at'
 
   let paymentData: AnyRow[] = []
   let lastPaymentError: unknown = null
@@ -1309,11 +1378,13 @@ export async function fetchCustomerPaymentHistory(userId: string): Promise<Custo
   )
 
   const orderById = new Map<string, AnyRow>()
+  let quotationRows: AnyRow[] = []
+  let customerProfile: AnyRow | null = null
 
   if (orderIds.length > 0) {
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
-      .select('id, order_no, order_number, order_id, public_id, created_at')
+      .select('*')
       .in('id', orderIds)
 
     if (!orderError) {
@@ -1324,11 +1395,42 @@ export async function fetchCustomerPaymentHistory(userId: string): Promise<Custo
     } else if (!isMissingColumnOrRelationError(orderError)) {
       console.warn('[customerOrders] payment history order lookup skipped:', errorMessage(orderError, 'Unable to load related orders.'))
     }
+
+    const { data: quotationData, error: quotationError } = await supabase
+      .from('quotations')
+      .select('*')
+      .in('order_id', orderIds)
+
+    if (!quotationError) {
+      quotationRows = (quotationData ?? []) as AnyRow[]
+    } else if (!isMissingColumnOrRelationError(quotationError)) {
+      console.warn('[customerOrders] payment history quotation lookup skipped:', errorMessage(quotationError, 'Unable to load quotation totals.'))
+    }
+  }
+
+  const { data: profileData, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', cleanUserId)
+    .maybeSingle()
+
+  if (!profileError) {
+    customerProfile = (profileData ?? null) as AnyRow | null
+  } else if (!isMissingColumnOrRelationError(profileError)) {
+    console.warn('[customerOrders] payment history profile lookup skipped:', errorMessage(profileError, 'Unable to load customer profile.'))
   }
 
   try {
     const payments = await Promise.all(
-      paymentData.map((payment) => mapCustomerPaymentHistoryRow(payment, orderById))
+      paymentData.map((payment) =>
+        mapCustomerPaymentHistoryRow(
+          payment,
+          orderById,
+          quotationRows,
+          paymentData,
+          customerProfile,
+        )
+      )
     )
 
     const sortedPayments = payments.sort((a, b) => {
