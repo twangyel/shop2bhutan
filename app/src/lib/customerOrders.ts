@@ -110,7 +110,7 @@ export type PaymentProofInput = {
   paymentMethodName: string
   paymentMethodId?: string
   paymentMethodType?: PaymentMethod['type'] | string
-  sourceBank: PaymentSourceBank
+  sourceBank?: PaymentSourceBank | ''
   transactionId?: string
   detectedAmount?: number | null
   ocrStatus?: PaymentProofOcrStatus
@@ -4761,7 +4761,7 @@ function paymentAdminNotes(payload: {
   ocrStatus?: PaymentProofOcrStatus
   ocrConfidence?: number
   referenceDetectionSource?: PaymentReferenceDetectionSource
-  sourceBank: PaymentSourceBank
+  sourceBank?: PaymentSourceBank | ''
   paymentMethodName: string
   paymentMethodId?: string
   paymentMethodType?: PaymentMethod['type'] | string
@@ -4802,7 +4802,7 @@ async function insertPaymentWithKnownSchema(payload: {
   paymentMethodId?: string
   paymentMethodType?: PaymentMethod['type'] | string
   paymentType?: PaymentType | string
-  sourceBank: PaymentSourceBank
+  sourceBank?: PaymentSourceBank | ''
   transactionId?: string
   detectedAmount?: number | null
   ocrStatus?: PaymentProofOcrStatus
@@ -4833,7 +4833,7 @@ async function insertPaymentWithKnownSchema(payload: {
         amount: payload.amount,
         currency: 'BTN',
         proof_file_path: payload.path,
-        source_bank: sourceBank,
+        source_bank: sourceBank || null,
         transaction_id: cleanText(payload.transactionId) || null,
         normalized_transaction_id: normalizedTransactionId || null,
         detected_amount:
@@ -5161,21 +5161,7 @@ export async function submitCustomerPaymentProof(input: PaymentProofInput) {
     ? Math.ceil(paymentSummary.totalPayable * (jaigaonPickup ? 1 : 0.5))
     : 0
 
-  if (!cleanSourceBank) {
-    throw new Error('Please select the bank you paid from.')
-  }
-
-  if (
-    normalizedTransactionId &&
-    (normalizedTransactionId.length < 6 ||
-      normalizedTransactionId.length > 40)
-  ) {
-    throw new Error(
-      'The optional transaction reference looks incomplete. Correct it or clear the field to submit for manual review.',
-    )
-  }
-
-  if (normalizedTransactionId) {
+  if (cleanSourceBank && normalizedTransactionId) {
     await assertPaymentReferenceAvailable({
       sourceBank: cleanSourceBank,
       normalizedTransactionId,

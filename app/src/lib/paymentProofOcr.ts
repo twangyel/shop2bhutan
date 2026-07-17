@@ -16,6 +16,8 @@ export type PaymentProofOcrProgress = {
 };
 
 export type PaymentProofOcrResult = {
+  bank: PaymentSourceBank | '';
+  bankConfidence: number;
   reference: string;
   normalizedReference: string;
   amount: number | null;
@@ -34,8 +36,12 @@ type PaymentProofRegion = {
   threshold: number;
 };
 
+type DetectedBank = {
+  bank: PaymentSourceBank;
+  confidence: number;
+};
+
 const PAYMENT_PROOF_REGIONS: Record<PaymentSourceBank, PaymentProofRegion> = {
-  // mBoB places the useful receipt data in the lower blue panel.
   bob: {
     x: 0.02,
     y: 0.50,
@@ -44,7 +50,6 @@ const PAYMENT_PROOF_REGIONS: Record<PaymentSourceBank, PaymentProofRegion> = {
     invert: true,
     threshold: 188,
   },
-  // DK Bank keeps amount/reference and beneficiary data in the central receipt.
   dk: {
     x: 0.02,
     y: 0.14,
@@ -53,7 +58,6 @@ const PAYMENT_PROOF_REGIONS: Record<PaymentSourceBank, PaymentProofRegion> = {
     invert: false,
     threshold: 185,
   },
-  // BNB uses white text on a dark receipt background.
   bnb: {
     x: 0.02,
     y: 0.26,
@@ -89,6 +93,63 @@ function loadImage(file: File) {
   });
 }
 
+async function detectPaymentSourceBank(file: File): Promise<DetectedBank> {
+  const image = await loadImage(file);
+  const canvas = document.createElement('canvas');
+  canvas.width = 96;
+  canvas.height = 96;
+
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) return { bank: 'dk', confidence: 50 };
+
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  const totalPixels = Math.max(1, pixels.length / 4);
+  let darkPixels = 0;
+  let strongCyanPixels = 0;
+
+  for (let index = 0; index < pixels.length; index += 4) {
+    const red = pixels[index];
+    const green = pixels[index + 1];
+    const blue = pixels[index + 2];
+    const luminance = red * 0.299 + green * 0.587 + blue * 0.114;
+
+    if (luminance < 85) darkPixels += 1;
+
+    const channelSpread = Math.max(red, green, blue) - Math.min(red, green, blue);
+    if (
+      blue - red > 55 &&
+      green - red > 35 &&
+      blue > 145 &&
+      channelSpread > 70
+    ) {
+      strongCyanPixels += 1;
+    }
+  }
+
+  const darkRatio = darkPixels / totalPixels;
+  const cyanRatio = strongCyanPixels / totalPixels;
+
+  if (darkRatio >= 0.28) {
+    return {
+      bank: 'bnb',
+      confidence: Math.min(99, Math.round(78 + darkRatio * 24)),
+    };
+  }
+
+  if (cyanRatio >= 0.15) {
+    return {
+      bank: 'bob',
+      confidence: Math.min(98, Math.round(72 + cyanRatio * 50)),
+    };
+  }
+
+  return {
+    bank: 'dk',
+    confidence: Math.min(92, Math.max(60, Math.round(84 - cyanRatio * 45))),
+  };
+}
+
 async function preparePaymentProofImage(
   file: File,
   bank: PaymentSourceBank,
@@ -98,20 +159,9 @@ async function preparePaymentProofImage(
 
   const sourceX = Math.round(image.naturalWidth * region.x);
   const sourceY = Math.round(image.naturalHeight * region.y);
-  const sourceWidth = Math.max(
-    1,
-    Math.round(image.naturalWidth * region.width),
-  );
-  const sourceHeight = Math.max(
-    1,
-    Math.round(image.naturalHeight * region.height),
-  );
-
-  // Tesseract performs more reliably when receipt text is reasonably large.
-  const targetWidth = Math.min(
-    1800,
-    Math.max(1200, Math.round(sourceWidth * 1.7)),
-  );
+  const sourceWidth = Math.max(1, Math.round(image.naturalWidth * region.width));
+  const sourceHeight = Math.max(1, Math.round(image.naturalHeight * region.height));
+  const targetWidth = Math.min(1800, Math.max(1200, Math.round(sourceWidth * 1.7)));
   const scale = targetWidth / sourceWidth;
   const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
 
@@ -119,13 +169,8 @@ async function preparePaymentProofImage(
   canvas.width = targetWidth;
   canvas.height = targetHeight;
 
-  const context = canvas.getContext('2d', {
-    willReadFrequently: true,
-  });
-
-  if (!context) {
-    throw new Error('Payment screenshot processing is unavailable.');
-  }
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) throw new Error('Payment screenshot processing is unavailable.');
 
   context.drawImage(
     image,
@@ -146,14 +191,12 @@ async function preparePaymentProofImage(
     const red = pixels[index];
     const green = pixels[index + 1];
     const blue = pixels[index + 2];
-    const luminance =
-      red * 0.299 + green * 0.587 + blue * 0.114;
-
+    const luminance = red * 0.299 + green * 0.587 + blue * 0.114;
     const darkText = region.invert
       ? luminance >= region.threshold
       : luminance < region.threshold;
-
     const value = darkText ? 0 : 255;
+
     pixels[index] = value;
     pixels[index + 1] = value;
     pixels[index + 2] = value;
@@ -185,10 +228,36 @@ function cleanOcrText(value: string) {
     .trim();
 }
 
+function detectBankFromOcrText(
+  text: string,
+  visualBank: DetectedBank,
+): DetectedBank {
+  const normalized = cleanOcrText(text).toUpperCase();
+
+  if (
+    /\bM\s*BOB\b/.test(normalized) ||
+    /\bJR[NM][LI1]?\.?\s*(?:NO|NUMBER)?\b/.test(normalized) ||
+    /\bJOURNAL\s*(?:NO|NUMBER)?\b/.test(normalized) ||
+    /FUND\s+TRANSFER\s+TO\s+BOB/.test(normalized)
+  ) {
+    return { bank: 'bob', confidence: Math.max(visualBank.confidence, 94) };
+  }
+
+  if (/\bRR\s*NO\b|\bRRNO\b|FUND\s+TRANSFER\s+(?:NO|NUMBER)/.test(normalized)) {
+    if (visualBank.bank === 'bnb') {
+      return { bank: 'bnb', confidence: Math.max(visualBank.confidence, 92) };
+    }
+
+    return { bank: 'dk', confidence: Math.max(visualBank.confidence, 88) };
+  }
+
+  return visualBank;
+}
+
 function referenceLabels(bank: PaymentSourceBank) {
   if (bank === 'bob') {
     return [
-      /(?:JRN[IL1]?|JOURNAL)\s*\.?\s*(?:NO|NUMBER)?/i,
+      /(?:JRN[IL1]?|JRNL|JOURNAL)\s*\.?\s*(?:NO|NUMBER)?/i,
       /JRN[IL1]?\s*NO/i,
     ];
   }
@@ -202,10 +271,7 @@ function referenceLabels(bank: PaymentSourceBank) {
 }
 
 function referenceCandidates(value: string) {
-  // The supported BoB/DK/BNB references are numeric. OCR commonly confuses
-  // 0/O and 1/I/L, so accept those characters only inside digit-heavy runs.
-  const candidates =
-    value.match(/[0-9OIL][0-9OIL\- ]{6,30}[0-9OIL]/gi) ?? [];
+  const candidates = value.match(/[0-9OIL][0-9OIL\- ]{6,30}[0-9OIL]/gi) ?? [];
 
   return candidates
     .map((candidate) => {
@@ -221,13 +287,8 @@ function referenceCandidates(value: string) {
       };
     })
     .filter((candidate) => {
-      if (candidate.normalized.length < 8 || candidate.normalized.length > 24) {
-        return false;
-      }
-
-      if (!/^\d{8,24}$/.test(candidate.normalized)) return false;
-
-      return true;
+      if (candidate.normalized.length < 8 || candidate.normalized.length > 24) return false;
+      return /^\d{8,24}$/.test(candidate.normalized);
     });
 }
 
@@ -246,9 +307,7 @@ function scoreReferenceCandidate(params: {
   if (/^\d{10,16}$/.test(params.normalized)) score += 34;
   else if (/^\d{8,20}$/.test(params.normalized)) score += 24;
 
-  if (params.bank === 'bob' && /^\d{2,5}-?\d{6,14}$/.test(params.display)) {
-    score += 14;
-  }
+  if (params.bank === 'bob' && /^\d{2,5}-?\d{6,14}$/.test(params.display)) score += 14;
 
   if (
     (params.bank === 'dk' || params.bank === 'bnb') &&
@@ -260,51 +319,36 @@ function scoreReferenceCandidate(params: {
   return score;
 }
 
-function extractReference(
-  text: string,
-  bank: PaymentSourceBank,
-) {
+function extractReference(text: string, bank: PaymentSourceBank) {
   const lines = text
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
   const labels = referenceLabels(bank);
-  const scored: Array<{
-    display: string;
-    normalized: string;
-    score: number;
-  }> = [];
+  const scored: Array<{ display: string; normalized: string; score: number }> = [];
 
   lines.forEach((line, index) => {
     const labelFound = labels.some((label) => label.test(line));
-
     if (!labelFound) return;
 
-    const nearbyLines = [
-      line,
-      lines[index + 1] ?? '',
-      lines[index + 2] ?? '',
-    ];
-
-    nearbyLines.forEach((nearbyLine, nearbyIndex) => {
-      referenceCandidates(nearbyLine).forEach((candidate) => {
-        scored.push({
-          ...candidate,
-          score: scoreReferenceCandidate({
+    [line, lines[index + 1] ?? '', lines[index + 2] ?? ''].forEach(
+      (nearbyLine, nearbyIndex) => {
+        referenceCandidates(nearbyLine).forEach((candidate) => {
+          scored.push({
             ...candidate,
-            bank,
-            sameLine: nearbyIndex === 0,
-            nearLabel: true,
-          }),
+            score: scoreReferenceCandidate({
+              ...candidate,
+              bank,
+              sameLine: nearbyIndex === 0,
+              nearLabel: true,
+            }),
+          });
         });
-      });
-    });
+      },
+    );
   });
 
   if (scored.length === 0) {
-    // Layout OCR occasionally loses the label but preserves a standalone
-    // 10–16 digit RRNO/journal candidate. Keep this as a lower-confidence
-    // fallback rather than forcing the customer to type it.
     lines.forEach((line) => {
       referenceCandidates(line).forEach((candidate) => {
         scored.push({
@@ -324,11 +368,7 @@ function extractReference(
   const best = scored[0];
 
   if (!best || best.score < 24) {
-    return {
-      reference: '',
-      normalizedReference: '',
-      confidence: 0,
-    };
+    return { reference: '', normalizedReference: '', confidence: 0 };
   }
 
   return {
@@ -342,19 +382,12 @@ function parseAmount(value: string) {
   const normalized = value.replace(/,/g, '').trim();
   const number = Number(normalized);
 
-  if (!Number.isFinite(number) || number <= 0 || number > 10_000_000) {
-    return null;
-  }
-
+  if (!Number.isFinite(number) || number <= 0 || number > 10_000_000) return null;
   return Math.round(number * 100) / 100;
 }
 
 function extractAmount(text: string, expectedAmount: number) {
-  const candidates: Array<{
-    amount: number;
-    score: number;
-  }> = [];
-
+  const candidates: Array<{ amount: number; score: number }> = [];
   const labelledPatterns = [
     /(?:AMOUNT|TRANSFER\s*AMOUNT)[^0-9]{0,20}(?:NU\.?|BTN)?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/gi,
     /(?:NU\.?|BTN)\s*[:.]?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/gi,
@@ -378,8 +411,6 @@ function extractAmount(text: string, expectedAmount: number) {
   });
 
   if (candidates.length === 0) {
-    // Lower-confidence fallback for layouts where the currency label was
-    // missed but the amount retained its decimal places.
     for (const match of text.matchAll(/\b([0-9]{1,7}(?:\.[0-9]{1,2}))\b/g)) {
       const amount = parseAmount(match[1]);
       if (amount === null) continue;
@@ -398,39 +429,29 @@ function extractAmount(text: string, expectedAmount: number) {
   candidates.sort((left, right) => right.score - left.score);
   const best = candidates[0];
 
-  if (!best || best.score < 24) {
-    return {
-      amount: null,
-      confidence: 0,
-    };
-  }
-
-  return {
-    amount: best.amount,
-    confidence: Math.min(100, best.score),
-  };
+  if (!best || best.score < 24) return { amount: null, confidence: 0 };
+  return { amount: best.amount, confidence: Math.min(100, best.score) };
 }
 
 export function parsePaymentProofOcrText(params: {
   text: string;
-  bank: PaymentSourceBank;
+  bank?: PaymentSourceBank;
+  bankConfidence?: number;
   expectedAmount: number;
   engineConfidence?: number;
 }): PaymentProofOcrResult {
   const text = cleanOcrText(params.text);
-  const reference = extractReference(text, params.bank);
+  const visualBank: DetectedBank = {
+    bank: params.bank ?? 'dk',
+    confidence: Math.max(0, Math.min(100, Number(params.bankConfidence) || 0)),
+  };
+  const detectedBank = detectBankFromOcrText(text, visualBank);
+  const reference = extractReference(text, detectedBank.bank);
   const amount = extractAmount(text, params.expectedAmount);
   const fieldsDetected =
-    Number(Boolean(reference.normalizedReference)) +
-    Number(amount.amount !== null);
-
+    Number(Boolean(reference.normalizedReference)) + Number(amount.amount !== null);
   const status: PaymentProofOcrResult['status'] =
-    fieldsDetected === 2
-      ? 'detected'
-      : fieldsDetected === 1
-        ? 'partial'
-        : 'not_detected';
-
+    fieldsDetected === 2 ? 'detected' : fieldsDetected === 1 ? 'partial' : 'not_detected';
   const fieldConfidence =
     fieldsDetected === 2
       ? (reference.confidence + amount.confidence) / 2
@@ -441,14 +462,16 @@ export function parsePaymentProofOcrText(params: {
   );
 
   return {
+    bank: detectedBank.bank,
+    bankConfidence: detectedBank.confidence,
     reference: reference.reference,
     normalizedReference: reference.normalizedReference,
     amount: amount.amount,
     status,
     confidence: Math.round(
       fieldConfidence > 0
-        ? fieldConfidence * 0.75 + engineConfidence * 0.25
-        : engineConfidence * 0.25,
+        ? fieldConfidence * 0.7 + engineConfidence * 0.2 + detectedBank.confidence * 0.1
+        : engineConfidence * 0.2 + detectedBank.confidence * 0.1,
     ),
     referenceConfidence: reference.confidence,
     amountConfidence: amount.confidence,
@@ -457,14 +480,12 @@ export function parsePaymentProofOcrText(params: {
 
 export async function readPaymentProofScreenshot(params: {
   file: File;
-  bank: PaymentSourceBank;
   expectedAmount: number;
   onProgress?: (progress: PaymentProofOcrProgress) => void;
 }): Promise<PaymentProofOcrResult> {
-  const processedImage = await preparePaymentProofImage(
-    params.file,
-    params.bank,
-  );
+  params.onProgress?.({ status: 'detecting bank', progress: 0.04 });
+  const visualBank = await detectPaymentSourceBank(params.file);
+  const processedImage = await preparePaymentProofImage(params.file, visualBank.bank);
   const { createWorker, PSM } = await import('tesseract.js');
 
   const worker = await createWorker('eng', 1, {
@@ -477,10 +498,7 @@ export async function readPaymentProofScreenshot(params: {
       ) {
         params.onProgress?.({
           status: message.status,
-          progress: Math.max(
-            0,
-            Math.min(1, Number(message.progress) || 0),
-          ),
+          progress: Math.max(0.05, Math.min(1, Number(message.progress) || 0)),
         });
       }
     },
@@ -494,10 +512,10 @@ export async function readPaymentProofScreenshot(params: {
     });
 
     const result = await worker.recognize(processedImage);
-
     return parsePaymentProofOcrText({
       text: result.data.text || '',
-      bank: params.bank,
+      bank: visualBank.bank,
+      bankConfidence: visualBank.confidence,
       expectedAmount: params.expectedAmount,
       engineConfidence: result.data.confidence,
     });
