@@ -241,6 +241,7 @@ export type ProductLinkPreview = {
   title: string
   image?: string
   price?: number
+  originalPrice?: number
   currency?: string
   fetched: boolean
   message?: string
@@ -5752,9 +5753,19 @@ function normalizePreviewPayload(payload: unknown, requestedUrl: string): Produc
       preview.current_price ||
       preview.salePrice ||
       preview.sale_price ||
-      preview.mrp ||
       raw.price ||
       raw.amount
+  )
+
+  const originalPrice = parsePreviewPrice(
+    preview.originalPrice ||
+      preview.original_price ||
+      preview.mrp ||
+      preview.listPrice ||
+      preview.list_price ||
+      raw.originalPrice ||
+      raw.original_price ||
+      raw.mrp
   )
 
   const detectedDetails =
@@ -5774,6 +5785,10 @@ function normalizePreviewPayload(payload: unknown, requestedUrl: string): Produc
     title,
     image: image || undefined,
     price,
+    originalPrice:
+      originalPrice && (!price || originalPrice > price)
+        ? originalPrice
+        : undefined,
     currency:
       cleanText(preview.currency || preview.priceCurrency || raw.currency) ||
       undefined,
@@ -5796,7 +5811,7 @@ export async function fetchProductLinkPreview(url: string): Promise<ProductLinkP
           data: null,
           error: new Error('Product preview was not available in time.'),
         })
-      }, 15000)
+      }, 38000)
     })
 
     const { data, error } = await Promise.race([invokePromise, timeoutPromise])

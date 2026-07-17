@@ -136,6 +136,7 @@ function makeLocalFallbackPreview(cleanUrl: string): ProductLinkPreview {
     title: inferProductNameFromUrl(cleanUrl, platform),
     image: '',
     price: 0,
+    originalPrice: 0,
     currency: 'INR',
     fetched: false,
     message:
@@ -1085,6 +1086,17 @@ export default function PasteLink() {
                                 )
                               : 'Price to be verified'}
                           </span>
+
+                          {preview.data.originalPrice &&
+                            preview.data.price &&
+                            preview.data.originalPrice > preview.data.price && (
+                              <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-400 line-through ring-1 ring-slate-100">
+                                MRP {formatPrice(
+                                  preview.data.originalPrice,
+                                  preview.data.currency,
+                                )}
+                              </span>
+                            )}
                         </div>
 
                         <p className="mt-2 text-[11px] leading-5 text-slate-500">
