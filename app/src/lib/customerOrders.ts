@@ -5797,21 +5797,33 @@ function normalizePreviewPayload(payload: unknown, requestedUrl: string): Produc
   }
 }
 
-export async function fetchProductLinkPreview(url: string): Promise<ProductLinkPreview> {
-  const normalizedUrl = normalizeProductUrl(url)
+const PRODUCT_PREVIEW_TIMEOUT_MS = 55000
+const PRODUCT_PREVIEW_SUCCESS_CACHE_MS = 30 * 60 * 1000
+const PRODUCT_PREVIEW_FALLBACK_CACHE_MS = 10 * 1000
 
-  if (!normalizedUrl) return fallbackProductPreview(url, 'Please enter a valid product URL.')
+const productPreviewInFlight = new Map<string, Promise<ProductLinkPreview>>()
+const productPreviewCache = new Map<
+  string,
+  { preview: ProductLinkPreview; expiresAt: number }
+>()
+
+async function requestProductLinkPreview(
+  normalizedUrl: string,
+): Promise<ProductLinkPreview> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
 
   try {
-    const invokePromise = supabase.functions.invoke('product-link-preview', { body: { url: normalizedUrl } })
+    const invokePromise = supabase.functions.invoke('product-link-preview', {
+      body: { url: normalizedUrl },
+    })
 
     const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) => {
-      window.setTimeout(() => {
+      timeoutId = globalThis.setTimeout(() => {
         resolve({
           data: null,
           error: new Error('Product preview was not available in time.'),
         })
-      }, 38000)
+      }, PRODUCT_PREVIEW_TIMEOUT_MS)
     })
 
     const { data, error } = await Promise.race([invokePromise, timeoutPromise])
@@ -5835,7 +5847,51 @@ export async function fetchProductLinkPreview(url: string): Promise<ProductLinkP
   } catch (error) {
     console.warn('[customerOrders] product preview failed:', error)
     return fallbackProductPreview(normalizedUrl)
+  } finally {
+    if (timeoutId !== undefined) globalThis.clearTimeout(timeoutId)
   }
+}
+
+export async function fetchProductLinkPreview(
+  url: string,
+): Promise<ProductLinkPreview> {
+  const normalizedUrl = normalizeProductUrl(url)
+
+  if (!normalizedUrl) {
+    return fallbackProductPreview(url, 'Please enter a valid product URL.')
+  }
+
+  const now = Date.now()
+  const cached = productPreviewCache.get(normalizedUrl)
+
+  if (cached && cached.expiresAt > now) {
+    return cached.preview
+  }
+
+  if (cached) productPreviewCache.delete(normalizedUrl)
+
+  const existingRequest = productPreviewInFlight.get(normalizedUrl)
+  if (existingRequest) return existingRequest
+
+  const request = requestProductLinkPreview(normalizedUrl)
+    .then((preview) => {
+      productPreviewCache.set(normalizedUrl, {
+        preview,
+        expiresAt:
+          Date.now() +
+          (preview.fetched
+            ? PRODUCT_PREVIEW_SUCCESS_CACHE_MS
+            : PRODUCT_PREVIEW_FALLBACK_CACHE_MS),
+      })
+
+      return preview
+    })
+    .finally(() => {
+      productPreviewInFlight.delete(normalizedUrl)
+    })
+
+  productPreviewInFlight.set(normalizedUrl, request)
+  return request
 }
 
 function makeOrderPayloadCandidates(input: SubmitPasteLinkOrderInput): AnyRow[] {
