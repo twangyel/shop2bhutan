@@ -103,7 +103,10 @@ function money(value?: number) {
 }
 
 function itemCount(order: Order) {
-  return order.items.reduce((total, item) => total + Math.max(1, Number(item.quantity) || 1), 0);
+  return orderProductsForDisplay(order).reduce(
+    (total, product) => total + product.quantity,
+    0,
+  );
 }
 
 function estimatedTotal(order: Order) {
@@ -126,7 +129,7 @@ function fallbackImage() {
 
 function primaryItem(order: Order): OrderItem {
   return (
-    order.items[0] ?? {
+    orderProductsForDisplay(order)[0]?.item ?? {
       id: `fallback-${order.id}`,
       productName: 'Shop2Bhutan order',
       productImage: fallbackImage(),
@@ -141,6 +144,105 @@ type PreviewableOrderItem = OrderItem & {
   screenshotUrl?: string;
   attachmentPath?: string;
 };
+
+type PreviewableQuotationItem = NonNullable<Order['quotation']>['items'][number] & {
+  screenshotUrl?: string;
+  attachmentPath?: string;
+};
+
+type DisplayOrderProduct = {
+  key: string;
+  item: PreviewableOrderItem;
+  quantity: number;
+  finalLineTotal: number;
+};
+
+function normalizedProductName(value?: string) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/**
+ * Once a quotation exists, its item rows are the source of truth for what the
+ * customer is actually buying. Original request items that the admin excluded
+ * remain in the order audit trail, but are intentionally omitted from this
+ * customer-facing order summary.
+ */
+function orderProductsForDisplay(order: Order): DisplayOrderProduct[] {
+  const quotationItems = (order.quotation?.items ?? []) as PreviewableQuotationItem[];
+
+  if (quotationItems.length > 0) {
+    return quotationItems.map((quotationItem, index) => {
+      const linkedOrderItem = quotationItem.orderItemId
+        ? order.items.find((candidate) => candidate.id === quotationItem.orderItemId)
+        : undefined;
+      const nameMatchedOrderItem = order.items.find(
+        (candidate) =>
+          normalizedProductName(candidate.productName) &&
+          normalizedProductName(candidate.productName) ===
+            normalizedProductName(quotationItem.productName),
+      );
+      const sourceItem = linkedOrderItem ?? nameMatchedOrderItem ?? order.items[index];
+      const sourcePreview = sourceItem as PreviewableOrderItem | undefined;
+      const quantity = Math.max(
+        1,
+        Number(quotationItem.quantity || sourceItem?.quantity) || 1,
+      );
+      const quotedTotal = Number(quotationItem.totalPrice || 0);
+      const quotedUnitPrice = Number(quotationItem.unitPrice || 0);
+      const finalLineTotal =
+        quotedTotal > 0 ? quotedTotal : quotedUnitPrice * quantity;
+
+      const item = {
+        ...(sourceItem ?? {}),
+        id:
+          sourceItem?.id ||
+          quotationItem.orderItemId ||
+          quotationItem.id ||
+          `${order.id}-quotation-item-${index}`,
+        productName:
+          quotationItem.productName ||
+          sourceItem?.productName ||
+          `Product ${index + 1}`,
+        productImage:
+          quotationItem.productImage ||
+          sourceItem?.productImage ||
+          fallbackImage(),
+        sourceUrl: quotationItem.sourceUrl || sourceItem?.sourceUrl,
+        sourcePlatform:
+          quotationItem.sourcePlatform || sourceItem?.sourcePlatform,
+        quantity,
+        unitPrice: quotedUnitPrice || Number(sourceItem?.unitPrice || 0),
+        attributes: sourceItem?.attributes ?? {},
+        screenshotUrl:
+          quotationItem.screenshotUrl || sourcePreview?.screenshotUrl,
+        attachmentPath:
+          quotationItem.attachmentPath || sourcePreview?.attachmentPath,
+      } as PreviewableOrderItem;
+
+      return {
+        key: String(quotationItem.id || item.id || `${order.id}-${index}`),
+        item,
+        quantity,
+        finalLineTotal,
+      };
+    });
+  }
+
+  return order.items.map((item, index) => {
+    const quantity = Math.max(1, Number(item.quantity) || 1);
+
+    return {
+      key: String(item.id || `${order.id}-item-${index}`),
+      item: item as PreviewableOrderItem,
+      quantity,
+      finalLineTotal: 0,
+    };
+  });
+}
 
 function isDirectImageUrl(value?: string | null) {
   return Boolean(value && /^(https?:|data:|blob:)/i.test(value.trim()));
@@ -495,32 +597,6 @@ function amountLabel(order: Order) {
   return 'Final amount';
 }
 
-function quotationItemForOrderItem(
-  order: Order,
-  item: OrderItem,
-  index: number,
-) {
-  const quotationItems = order.quotation?.items ?? [];
-  const hasLinkedOrderItems = quotationItems.some((candidate) => Boolean(candidate.orderItemId));
-
-  if (hasLinkedOrderItems) {
-    return quotationItems.find((candidate) => candidate.orderItemId === item.id);
-  }
-
-  return quotationItems[index];
-}
-
-function quotedItemTotal(order: Order, item: OrderItem, index: number) {
-  const quotationItem = quotationItemForOrderItem(order, item, index);
-  if (!quotationItem) return 0;
-
-  const quantity = Math.max(1, Number(quotationItem.quantity || item.quantity) || 1);
-  const total = Number(quotationItem.totalPrice || 0);
-  if (total > 0) return total;
-
-  return Number(quotationItem.unitPrice || 0) * quantity;
-}
-
 function needsCustomerAction(order: Order) {
   const status = effectiveOrderStatus(order);
   if (status === 'quoted') return true;
@@ -560,12 +636,14 @@ function CustomerOrderRow({
   onToggle: () => void;
 }) {
   const navigate = useNavigate();
-  const item = primaryItem(order);
+  const displayProducts = orderProductsForDisplay(order);
+  const item = displayProducts[0]?.item ?? primaryItem(order);
   const count = itemCount(order);
   const total = estimatedTotal(order);
   const tone = stageTone(order);
   const progress = orderProgress(order);
-  const extraItems = Math.max(0, order.items.length - 1);
+  const additionalProducts = displayProducts.slice(1);
+  const extraItems = additionalProducts.length;
   const payment = latestPayment(order);
   const status = effectiveOrderStatus(order);
   const primaryAction = orderPrimaryAction(order);
@@ -701,65 +779,57 @@ function CustomerOrderRow({
             </div>
           </div>
 
-          <section className="mt-4">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-[12px] font-black text-slate-900">Products in this order</h3>
-              <span className="text-[10px] font-bold text-slate-400">
-                {count} {count === 1 ? 'item' : 'items'}
-              </span>
-            </div>
+          {additionalProducts.length > 0 && (
+            <section className="mt-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-[12px] font-black text-slate-900">Other products in this order</h3>
+                <span className="text-[10px] font-bold text-slate-400">
+                  {additionalProducts.length} more
+                </span>
+              </div>
 
-            <div className="mt-2 overflow-hidden rounded-2xl border border-slate-100 bg-white">
-              {order.items.map((orderItem, index) => {
-                const quantity = Math.max(1, Number(orderItem.quantity) || 1);
-                const quotationItem = quotationItemForOrderItem(order, orderItem, index);
-                const finalLineTotal = quotedItemTotal(order, orderItem, index);
-                const excludedFromFinalPrice = Boolean(order.quotation && !quotationItem);
+              <div className="mt-2 overflow-hidden rounded-2xl border border-slate-100 bg-white">
+                {additionalProducts.map((product, index) => {
+                  const orderItem = product.item;
 
-                return (
-                  <div
-                    key={orderItem.id || `${order.id}-item-${index}`}
-                    className="flex items-center gap-3 border-b border-slate-100 p-3 last:border-b-0"
-                  >
-                    <OrderItemPreviewImage
-                      item={orderItem as PreviewableOrderItem}
-                      compact
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 text-[12px] font-extrabold leading-4 text-slate-900">
-                        {orderItem.productName || `Product ${index + 1}`}
-                      </p>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-semibold text-slate-500">
-                        <span>Qty {quantity}</span>
-                        {orderItem.sourcePlatform && (
+                  return (
+                    <div
+                      key={product.key}
+                      className="flex items-center gap-3 border-b border-slate-100 p-3 last:border-b-0"
+                    >
+                      <OrderItemPreviewImage item={orderItem} compact />
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 text-[12px] font-extrabold leading-4 text-slate-900">
+                          {orderItem.productName || `Product ${index + 2}`}
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-semibold text-slate-500">
+                          <span>Qty {product.quantity}</span>
+                          {orderItem.sourcePlatform && (
+                            <>
+                              <span className="h-1 w-1 rounded-full bg-slate-300" />
+                              <span className="capitalize">{orderItem.sourcePlatform}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        {product.finalLineTotal > 0 ? (
                           <>
-                            <span className="h-1 w-1 rounded-full bg-slate-300" />
-                            <span className="capitalize">{orderItem.sourcePlatform}</span>
+                            <p className="text-[9px] font-black uppercase tracking-wide text-slate-400">Final</p>
+                            <p className="mt-0.5 text-[11.5px] font-black text-slate-900">
+                              {money(product.finalLineTotal)}
+                            </p>
                           </>
+                        ) : (
+                          <span className="text-[10px] font-bold text-slate-400">Price pending</span>
                         )}
                       </div>
                     </div>
-                    <div className="shrink-0 text-right">
-                      {excludedFromFinalPrice ? (
-                        <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-[9px] font-black text-slate-500">
-                          Excluded
-                        </span>
-                      ) : finalLineTotal > 0 ? (
-                        <>
-                          <p className="text-[9px] font-black uppercase tracking-wide text-slate-400">Final</p>
-                          <p className="mt-0.5 text-[11.5px] font-black text-slate-900">
-                            {money(finalLineTotal)}
-                          </p>
-                        </>
-                      ) : (
-                        <span className="text-[10px] font-bold text-slate-400">Price pending</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-4">
             <OrderFact
