@@ -278,33 +278,32 @@ export default function ForgotPassword() {
 
           <div className="my-auto py-8">
             <div className="rounded-[28px] border border-neutral-100 bg-white p-6 text-center shadow-[0_18px_55px_rgba(15,23,42,0.07)]">
-              <div className="mx-auto flex h-18 w-18 items-center justify-center rounded-[24px] bg-orange-500 text-white shadow-lg shadow-orange-500/20">
-                <HeadphonesIcon size={34} strokeWidth={2.1} />
+              {/* Top accent line */}
+              <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-orange-500" />
+
+              <div className="mx-auto flex h-18 w-18 items-center justify-center rounded-[24px] bg-orange-50 text-orange-500">
+                <KeyRound size={34} strokeWidth={2.1} />
               </div>
 
-              <p className="mt-5 text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange-500">
+              <p className="mt-6 text-[11px] font-extrabold uppercase tracking-[0.18em] text-orange-500">
                 Phone-only account
               </p>
-              <h1 className="mt-2 text-2xl font-black tracking-tight text-neutral-950">
+              <h1 className="mt-2 text-[22px] font-black tracking-tight text-neutral-950">
                 Admin reset required
               </h1>
-              <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-neutral-500">
+              <p className="mx-auto mt-3 max-w-xs text-sm leading-6 text-neutral-500">
                 Phone-only accounts cannot receive password reset emails. Shop2Bhutan support must create a temporary password for you.
               </p>
 
+              {/* Left-accented green notice strip */}
               <div
-                className={`mt-5 flex items-start gap-3 rounded-2xl border px-4 py-3 text-left ${
+                className={`mt-6 rounded-r-xl border-l-[3px] px-4 py-3 text-left ${
                   adminNotified
-                    ? 'border-emerald-100 bg-emerald-50/70 text-emerald-700'
-                    : 'border-amber-100 bg-amber-50/70 text-amber-700'
+                    ? 'border-emerald-400 bg-emerald-50/80 text-emerald-700'
+                    : 'border-amber-400 bg-amber-50/80 text-amber-700'
                 }`}
               >
-                {adminNotified ? (
-                  <CheckCircle size={18} className="mt-0.5 shrink-0" />
-                ) : (
-                  <AlertCircle size={18} className="mt-0.5 shrink-0" />
-                )}
-                <p className="text-xs font-semibold leading-5">
+                <p className="text-[13px] leading-5 font-medium">
                   {adminNotified
                     ? 'We notified Shop2Bhutan admin. Contact support directly if your reset is urgent.'
                     : 'We could not notify admin automatically. Please contact support directly.'}
@@ -315,7 +314,7 @@ export default function ForgotPassword() {
                 <button
                   type="button"
                   onClick={() => navigate('/support')}
-                  className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600 active:scale-[0.98]"
+                  className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[16px] bg-orange-500 text-sm font-extrabold text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600 active:scale-[0.98]"
                 >
                   <HeadphonesIcon size={18} />
                   Contact Support
@@ -324,13 +323,13 @@ export default function ForgotPassword() {
                 <button
                   type="button"
                   onClick={() => navigate('/login')}
-                  className="h-[52px] w-full rounded-2xl border border-neutral-200 bg-neutral-50 text-sm font-bold text-neutral-700 transition hover:bg-neutral-100 active:scale-[0.98]"
+                  className="h-[52px] w-full rounded-[16px] text-sm font-bold text-neutral-500 transition hover:text-neutral-700 active:scale-[0.98]"
                 >
                   Back to Login
                 </button>
               </div>
 
-              <p className="mt-5 text-[11px] leading-5 text-neutral-400">
+              <p className="mt-6 text-[12px] leading-5 text-neutral-300">
                 Admin can reset the password from Customers &gt; Reset Password.
               </p>
             </div>
