@@ -804,6 +804,12 @@ function cleanText(value: unknown) {
   return String(value ?? '').trim()
 }
 
+function normalizeBhutanPhone(value: unknown) {
+  const digits = cleanText(value).replace(/\D/g, '')
+  const phone8 = digits.startsWith('975') ? digits.slice(3) : digits
+  return /^(17|77)\d{6}$/.test(phone8) ? phone8 : ''
+}
+
 function orderEstimatedDeliveryFields(row: AnyRow) {
   return {
     estimatedDeliveryFrom: firstString(row, ['estimated_delivery_from', 'estimatedDeliveryFrom', 'eta_from', 'etaFrom'], ''),
@@ -6527,8 +6533,19 @@ export async function submitRequestBagAsOrder(input: SubmitRequestBagInput): Pro
   if (!cleanText(input.customerName)) throw new Error('Customer name is required.')
   if (!cleanText(input.customerPhone)) throw new Error('Phone number is required.')
 
+  const normalizedPhone = normalizeBhutanPhone(input.customerPhone)
+  if (!normalizedPhone) {
+    throw new Error('Enter a valid Bhutan mobile number starting with 17 or 77.')
+  }
+
   const fulfillmentMode = normalizeFulfillmentModeValue(input.fulfillmentMode)
   const pickupHub = resolvePickupHub(input)
+  const deliveryAddress = makeFulfillmentAddress(input)
+
+  if (fulfillmentMode === 'delivery' && !deliveryAddress) {
+    throw new Error('A saved delivery address is required for home delivery.')
+  }
+
   const customerNotes =
     cleanText(input.customerNotes) ||
     `Request Bag submitted by customer. Name: ${cleanText(input.customerName)}. Phone: ${cleanText(input.customerPhone)}.`
@@ -6538,9 +6555,9 @@ export async function submitRequestBagAsOrder(input: SubmitRequestBagInput): Pro
     {
       p_bag_id: input.bagId,
       p_customer_name: cleanText(input.customerName),
-      p_customer_phone: cleanText(input.customerPhone),
+      p_customer_phone: normalizedPhone,
       p_customer_email: cleanText(input.email) || null,
-      p_delivery_address: makeFulfillmentAddress(input) || null,
+      p_delivery_address: deliveryAddress || null,
       p_customer_notes: customerNotes,
       p_fulfillment_mode: fulfillmentMode,
       p_pickup_hub_id:

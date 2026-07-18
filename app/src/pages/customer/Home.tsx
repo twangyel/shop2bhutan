@@ -1066,11 +1066,6 @@ export default function Home() {
       {/* ═══════════════ MAIN CONTENT ═══════════════ */}
       <main className="pb-[calc(1.75rem+env(safe-area-inset-bottom))]">
 
-        {/* Hide scrollbar for horizontal scroll areas */}
-        <style>{`
-          .scrollbar-hide::-webkit-scrollbar { display: none; }
-          .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        `}</style>
 
         {/* ── Dynamic announcement / promotion / advertisement card ── */}
         {announcementStatus.isVisible && (

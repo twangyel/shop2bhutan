@@ -57,6 +57,7 @@ type DzongkhagOption = {
 type CustomerAddress = {
   recipientName: string;
   phone: string;
+  dzongkhag: string;
   formattedAddress: string;
   label: string;
   isDefault: boolean;
@@ -69,6 +70,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 function cleanString(value: unknown) {
   if (typeof value !== 'string') return '';
   return value.trim();
+}
+
+function normalizeBhutanPhone(input: string): string | null {
+  const digits = input.replace(/\D/g, '');
+  const phone8 = digits.startsWith('975') ? digits.slice(3) : digits;
+  return /^(17|77)\d{6}$/.test(phone8) ? phone8 : null;
 }
 
 function firstString(row: AnyRow | null | undefined, keys: string[], fallback = '') {
@@ -142,10 +149,22 @@ function makeDeliveryAddress(profile: ProfileLike | null, options: DzongkhagOpti
 
 function mapCustomerAddress(row: AnyRow, options: DzongkhagOption[]): CustomerAddress {
   const formattedAddress = makeAddressText(row, options);
+  const dzongkhag = getDzongkhagDisplayName(
+    firstString(row, [
+      'dzongkhag',
+      'dzongkhag_name',
+      'dzongkhag_id',
+      'default_dzongkhag_id',
+      'delivery_dzongkhag',
+      'delivery_city',
+    ]),
+    options,
+  );
 
   return {
     recipientName: firstString(row, ['recipient_name', 'name', 'full_name', 'customer_name'], ''),
     phone: firstString(row, ['phone', 'recipient_phone', 'delivery_phone', 'customer_phone', 'whatsapp'], ''),
+    dzongkhag,
     formattedAddress,
     label: firstString(row, ['label', 'address_label'], 'Delivery'),
     isDefault: Boolean(row.is_default ?? row.isDefault ?? row.default),
@@ -303,6 +322,8 @@ async function fetchSavedDefaultAddress(userId: string, options: DzongkhagOption
     .from('customer_addresses')
     .select('*')
     .eq('user_id', userId)
+    .order('is_default', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(25);
 
   if (error) {
@@ -349,6 +370,11 @@ function BagItemCard({
   const sitePriceEstimateLabel = hasSitePriceEstimate
     ? formatPrice(sitePriceEstimate)
     : 'To be verified';
+  const [draftNotes, setDraftNotes] = useState(item.notes || '');
+
+  useEffect(() => {
+    setDraftNotes(item.notes || '');
+  }, [item.id, item.notes]);
 
   return (
     <article
@@ -526,13 +552,13 @@ function BagItemCard({
         />
         <input
           type="text"
-          value={item.notes || ''}
-          onChange={(event) =>
-            onPatch(item.id, { notes: event.target.value })
-          }
-          onBlur={() =>
-            onPatch(item.id, { notes: item.notes || '' })
-          }
+          value={draftNotes}
+          onChange={(event) => setDraftNotes(event.target.value)}
+          onBlur={() => {
+            if (draftNotes !== (item.notes || '')) {
+              onPatch(item.id, { notes: draftNotes });
+            }
+          }}
           placeholder="Size, colour, variant or instruction"
           className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 pr-10 text-[12px] font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10"
         />
@@ -572,11 +598,9 @@ export default function RequestBag() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reviewStep, setReviewStep] = useState<RequestReviewStep>(1);
-  const [destinationPickerOpen, setDestinationPickerOpen] = useState(false);
   const [error, setError] = useState('');
   const [addressLoading, setAddressLoading] = useState(false);
   const [savedAddress, setSavedAddress] = useState<CustomerAddress | null>(null);
-  const [useSavedAddress, setUseSavedAddress] = useState(true);
   const [dzongkhagOptions, setDzongkhagOptions] = useState<DzongkhagOption[]>([]);
   const [fulfillmentMode, setFulfillmentMode] = useState<FulfillmentMode>('delivery');
   const [pickupHubId, setPickupHubId] = useState(SELF_PICKUP_OPTIONS[0].id);
@@ -609,7 +633,7 @@ export default function RequestBag() {
   const selectedPickupHub = getSelfPickupOptionById(pickupHubId);
   const isSelfPickup = fulfillmentMode === 'self_pickup';
   const selectedDeliveryZone = normalizeSupportedDeliveryDestination(
-    customer.deliveryAddress,
+    savedAddress?.dzongkhag || savedAddress?.formattedAddress,
     dzongkhagOptions,
   );
   const itemCount = bag?.items.length ?? 0;
@@ -709,7 +733,6 @@ export default function RequestBag() {
   useEffect(() => {
     if (!user || isGuest) {
       setSavedAddress(null);
-      setUseSavedAddress(false);
       return;
     }
 
@@ -724,7 +747,6 @@ export default function RequestBag() {
         if (!active) return;
 
         setSavedAddress(address);
-        setUseSavedAddress(Boolean(address?.formattedAddress));
 
         if (address?.formattedAddress) {
           setCustomer((prev) => ({
@@ -861,7 +883,6 @@ export default function RequestBag() {
   const goToReviewStep = (nextStep: RequestReviewStep) => {
     void hapticLight();
     setError('');
-    setDestinationPickerOpen(false);
     setReviewStep(nextStep);
     scrollReviewToTop();
   };
@@ -878,6 +899,12 @@ export default function RequestBag() {
     if (!customer.phone.trim()) {
       void hapticWarning();
       setError('Please enter your phone number.');
+      return false;
+    }
+
+    if (!normalizeBhutanPhone(customer.phone)) {
+      void hapticWarning();
+      setError('Enter a valid Bhutan mobile number starting with 17 or 77.');
       return false;
     }
 
@@ -903,6 +930,14 @@ export default function RequestBag() {
       return false;
     }
 
+    if (!normalizeBhutanPhone(customer.phone)) {
+      void hapticWarning();
+      setReviewStep(2);
+      setError('Enter a valid Bhutan mobile number starting with 17 or 77.');
+      scrollReviewToTop();
+      return false;
+    }
+
     if (isSelfPickup && !selectedPickupHub?.id) {
       void hapticWarning();
       setReviewStep(3);
@@ -924,13 +959,13 @@ export default function RequestBag() {
     if (
       !isSelfPickup &&
       !normalizeSupportedDeliveryDestination(
-        savedAddress?.formattedAddress || customer.deliveryAddress,
+        savedAddress?.dzongkhag,
         dzongkhagOptions,
       )
     ) {
       void hapticWarning();
       setReviewStep(3);
-      setError('Please select Thimphu, Paro, or Chhukha as your destination.');
+      setError('Your saved address must be in Thimphu, Paro, or Chhukha.');
       scrollReviewToTop();
       return false;
     }
@@ -944,7 +979,6 @@ export default function RequestBag() {
     void hapticLight();
     setError('');
     setReviewStep(1);
-    setDestinationPickerOpen(false);
     setConfirmOpen(true);
   };
 
@@ -953,7 +987,6 @@ export default function RequestBag() {
 
     setConfirmOpen(false);
     setReviewStep(1);
-    setDestinationPickerOpen(false);
     setError('');
   };
 
@@ -972,8 +1005,6 @@ export default function RequestBag() {
   const selectSavedDefaultAddress = () => {
     if (!savedAddress?.formattedAddress) return;
 
-    setUseSavedAddress(true);
-    setDestinationPickerOpen(false);
     setCustomer((previous) => ({
       ...previous,
       name: savedAddress.recipientName || previous.name,
@@ -983,34 +1014,11 @@ export default function RequestBag() {
     setError('');
   };
 
-  const useAnotherDeliveryArea = () => {
-    const savedZone = normalizeSupportedDeliveryDestination(
-      savedAddress?.formattedAddress,
-      dzongkhagOptions,
-    );
-
-    setUseSavedAddress(false);
-    setCustomer((previous) => ({
-      ...previous,
-      deliveryAddress:
-        normalizeSupportedDeliveryDestination(
-          previous.deliveryAddress,
-          dzongkhagOptions,
-        ) ||
-        savedZone ||
-        '',
-    }));
-    setDestinationPickerOpen(true);
-    setError('');
-  };
-
-
   const openAddressManager = () => {
     if (submitting) return;
 
     setConfirmOpen(false);
     setReviewStep(1);
-    setDestinationPickerOpen(false);
     navigate('/addresses', {
       state: { returnTo: '/request-bag' },
     });
@@ -1021,7 +1029,6 @@ export default function RequestBag() {
     if (!user || !bag) return;
 
     setSubmitting(true);
-    setConfirmOpen(false);
 
     try {
       const result = await submitRequestBagAsOrder({
@@ -1029,10 +1036,10 @@ export default function RequestBag() {
         userId: user.id,
         email: user.email,
         customerName: customer.name.trim(),
-        customerPhone: customer.phone.trim(),
+        customerPhone: normalizeBhutanPhone(customer.phone) || customer.phone.trim(),
         deliveryAddress: isSelfPickup
           ? `Pickup — ${selectedPickupHub.name}`
-          : (savedAddress?.formattedAddress || customer.deliveryAddress).trim(),
+          : savedAddress?.formattedAddress.trim() || '',
         customerNotes: customer.notes.trim() || 'Shopping request submitted by customer.',
         fulfillmentMode,
         pickupHubId: isSelfPickup ? selectedPickupHub.id : null,
@@ -1040,6 +1047,7 @@ export default function RequestBag() {
         pickupInstructions: isSelfPickup ? selectedPickupHub.pickupInstructions : null,
       });
 
+      setConfirmOpen(false);
       clearCachedRequestBag(user.id);
       window.dispatchEvent(new Event('shop2bhutan:request-bag-updated'));
       void hapticSuccess();
@@ -1526,7 +1534,7 @@ export default function RequestBag() {
                         </p>
                         <p className="mt-1 text-xs leading-5 text-slate-500">
                           Your default saved address is selected automatically.
-                          The delivery zone is detected from the full address.
+                          The delivery zone is read from its saved dzongkhag.
                         </p>
                       </div>
                     </div>
@@ -1544,21 +1552,13 @@ export default function RequestBag() {
                         <button
                           type="button"
                           onClick={selectSavedDefaultAddress}
-                          className={`w-full rounded-2xl border p-4 text-left transition active:scale-[0.99] ${
-                            useSavedAddress
-                              ? 'border-orange-200 bg-orange-50 ring-1 ring-orange-100'
-                              : 'border-slate-200 bg-white'
-                          }`}
+                          className="w-full rounded-2xl border border-orange-200 bg-orange-50 p-4 text-left ring-1 ring-orange-100 transition active:scale-[0.99]"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span
-                                  className={`text-sm font-extrabold ${
-                                    useSavedAddress
-                                      ? 'text-orange-800'
-                                      : 'text-slate-950'
-                                  }`}
+                                  className="text-sm font-extrabold text-orange-800"
                                 >
                                   {savedAddress.label || 'Home'}
                                 </span>
@@ -1584,42 +1584,26 @@ export default function RequestBag() {
                                 </span>
                                 <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-slate-700 ring-1 ring-slate-200">
                                   {normalizeSupportedDeliveryDestination(
-                                    savedAddress.formattedAddress,
+                                    savedAddress.dzongkhag,
                                     dzongkhagOptions,
                                   ) || 'To be confirmed'}
                                 </span>
                               </div>
                             </div>
 
-                            <span
-                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                                useSavedAddress
-                                  ? 'bg-orange-500 text-white'
-                                  : 'bg-slate-100 text-slate-400'
-                              }`}
-                            >
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white">
                               <CheckCircle size={17} strokeWidth={2.5} />
                             </span>
                           </div>
                         </button>
 
-                        <div className="grid grid-cols-2 gap-2.5">
-                          <button
-                            type="button"
-                            onClick={openAddressManager}
-                            className="flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition active:scale-[0.98] active:bg-slate-50"
-                          >
-                            Manage addresses
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={useAnotherDeliveryArea}
-                            className="flex h-11 items-center justify-center rounded-2xl bg-slate-100 px-3 text-xs font-bold text-slate-600 transition active:scale-[0.98]"
-                          >
-                            Use another area
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={openAddressManager}
+                          className="flex h-11 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition active:scale-[0.98] active:bg-slate-50"
+                        >
+                          Manage addresses
+                        </button>
                       </div>
                     ) : (
                       <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3.5">
@@ -1652,108 +1636,6 @@ export default function RequestBag() {
                       </div>
                     )}
 
-                    {(!savedAddress?.formattedAddress || !useSavedAddress) && (
-                      <div className="mt-4">
-                        <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                          Delivery-area fallback
-                        </p>
-                        <div className="rounded-2xl border border-slate-200 bg-white p-1.5">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setDestinationPickerOpen((previous) => !previous)
-                            }
-                            className="flex min-h-[50px] w-full items-center justify-between gap-3 rounded-xl px-3 text-left transition active:scale-[0.99]"
-                            aria-expanded={destinationPickerOpen}
-                          >
-                            <span className="flex min-w-0 items-center gap-2.5">
-                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-orange-500">
-                                <MapPin size={17} strokeWidth={2.2} />
-                              </span>
-                              <span className="min-w-0">
-                                <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                                  Supported delivery area
-                                </span>
-                                <span className="block truncate text-sm font-extrabold text-slate-950">
-                                  {selectedDeliveryZone ||
-                                    'Choose Thimphu, Paro, or Chhukha'}
-                                </span>
-                              </span>
-                            </span>
-
-                            <ChevronDown
-                              size={18}
-                              strokeWidth={2.4}
-                              className={`shrink-0 text-slate-400 transition-transform ${
-                                destinationPickerOpen ? 'rotate-180' : ''
-                              }`}
-                            />
-                          </button>
-
-                          {destinationPickerOpen && (
-                            <div className="mt-1.5 grid gap-1.5 border-t border-slate-100 pt-1.5">
-                              {DELIVERY_DESTINATION_OPTIONS.map((destination) => {
-                                const selected =
-                                  selectedDeliveryZone === destination;
-
-                                return (
-                                  <button
-                                    key={destination}
-                                    type="button"
-                                    onClick={() => {
-                                      setUseSavedAddress(false);
-                                      setCustomer((previous) => ({
-                                        ...previous,
-                                        deliveryAddress: destination,
-                                      }));
-                                      setDestinationPickerOpen(false);
-                                      setError('');
-                                    }}
-                                    className={`flex min-h-[46px] items-center justify-between rounded-xl px-3 text-left transition active:scale-[0.99] ${
-                                      selected
-                                        ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-100'
-                                        : 'bg-white text-slate-700 active:bg-slate-50'
-                                    }`}
-                                  >
-                                    <span className="flex items-center gap-2.5">
-                                      <span
-                                        className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                                          selected
-                                            ? 'bg-white text-orange-500'
-                                            : 'bg-slate-50 text-slate-400'
-                                        }`}
-                                      >
-                                        <MapPin size={15} strokeWidth={2.3} />
-                                      </span>
-                                      <span className="text-sm font-bold">
-                                        {destination}
-                                      </span>
-                                    </span>
-
-                                    {selected && (
-                                      <CheckCircle
-                                        size={17}
-                                        strokeWidth={2.5}
-                                      />
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-
-                        {savedAddress?.formattedAddress && (
-                          <button
-                            type="button"
-                            onClick={selectSavedDefaultAddress}
-                            className="mt-2.5 h-10 w-full rounded-xl bg-orange-50 text-xs font-extrabold text-orange-700"
-                          >
-                            Use my default saved address
-                          </button>
-                        )}
-                      </div>
-                    )}
                   </section>
                 </div>
               )}
@@ -1809,8 +1691,7 @@ export default function RequestBag() {
                         type="button"
                         onClick={() => {
                           setFulfillmentMode('self_pickup');
-                          setDestinationPickerOpen(false);
-                          setError('');
+                                                setError('');
                         }}
                         className={`rounded-2xl border px-3.5 py-3 text-left transition active:scale-[0.99] ${
                           fulfillmentMode === 'self_pickup'
@@ -1865,9 +1746,9 @@ export default function RequestBag() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 flex-1">
                             <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                              {useSavedAddress && savedAddress?.formattedAddress
+                              {savedAddress?.formattedAddress
                                 ? 'Deliver to saved address'
-                                : 'Delivery area'}
+                                : 'Saved address required'}
                             </p>
                             <p className="mt-1 text-sm font-extrabold text-slate-950">
                               {savedAddress?.formattedAddress
@@ -1887,18 +1768,10 @@ export default function RequestBag() {
 
                           <button
                             type="button"
-                            onClick={() => {
-                              if (savedAddress?.formattedAddress) {
-                                goToReviewStep(2);
-                                return;
-                              }
-
-                              setDestinationPickerOpen((previous) => !previous);
-                              setError('');
-                            }}
+                            onClick={() => goToReviewStep(2)}
                             className="shrink-0 rounded-full bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 transition active:scale-[0.97]"
                           >
-                            {customer.deliveryAddress ? 'Change' : 'Choose area'}
+                            {savedAddress?.formattedAddress ? 'Change address' : 'Add address'}
                           </button>
                         </div>
                       </div>

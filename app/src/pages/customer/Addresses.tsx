@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Check,
   ChevronDown,
@@ -34,6 +34,11 @@ type CustomerAddress = {
   address_line: string | null;
   is_default: boolean;
   created_at?: string | null;
+  updated_at?: string | null;
+};
+
+type AddressLocationState = {
+  returnTo?: string;
 };
 
 type AddressForm = {
@@ -158,6 +163,7 @@ function ModernSelect({ label, value, placeholder = 'Select', options, onChange 
 
 export default function Addresses() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { showToast } = useAppToast();
   const { user, context } = useAuth();
 
@@ -202,6 +208,15 @@ export default function Addresses() {
   const profile = context?.profile as { full_name?: string | null; name?: string | null; phone?: string | null } | null;
   const hasAddresses = addresses.length > 0;
   const defaultAddressId = useMemo(() => addresses.find((a) => a.is_default)?.id || null, [addresses]);
+  const returnTo = useMemo(() => {
+    const candidate = (location.state as AddressLocationState | null)?.returnTo?.trim() || '';
+    return candidate.startsWith('/') && !candidate.startsWith('//') ? candidate : '';
+  }, [location.state]);
+  const editingDefault = Boolean(editingId && editingId === defaultAddressId);
+
+  const returnToRequest = () => {
+    if (returnTo) navigate(returnTo, { replace: true });
+  };
 
   const update = (field: keyof AddressForm, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -296,7 +311,9 @@ export default function Addresses() {
     setSaving(true);
     setError('');
     setSuccess('');
-    const shouldBeDefault = form.isDefault || addresses.length === 0;
+    const previousDefaultId = defaultAddressId;
+    const shouldBeDefault =
+      form.isDefault || addresses.length === 0 || editingId === defaultAddressId;
 
     if (shouldBeDefault) {
       const { error: clearDefaultError } = await supabase
@@ -325,19 +342,31 @@ export default function Addresses() {
       : await supabase.from('customer_addresses').insert(payload);
 
     setSaving(false);
-    if (result.error) { setError(result.error.message || 'Unable to save address.'); return; }
+    if (result.error) {
+      if (shouldBeDefault && previousDefaultId) {
+        await supabase
+          .from('customer_addresses')
+          .update({ is_default: true })
+          .eq('id', previousDefaultId)
+          .eq('user_id', user.id);
+      }
+      setError(result.error.message || 'Unable to save address.');
+      return;
+    }
 
     setSuccess(editingId ? 'Address updated successfully.' : 'Address added successfully.');
     setShowForm(false);
     setEditingId(null);
     setForm(emptyForm);
     await loadAddresses();
+    if (returnTo) returnToRequest();
   };
 
   const setDefaultAddress = async (id: string) => {
     if (!user || defaultAddressId === id) return;
     setError('');
     setSuccess('');
+    const previousDefaultId = defaultAddressId;
     const { error: clearError } = await supabase
       .from('customer_addresses')
       .update({ is_default: false })
@@ -348,9 +377,20 @@ export default function Addresses() {
       .update({ is_default: true })
       .eq('id', id)
       .eq('user_id', user.id);
-    if (setErrorResult) { setError(setErrorResult.message || 'Unable to update default address.'); return; }
+    if (setErrorResult) {
+      if (previousDefaultId) {
+        await supabase
+          .from('customer_addresses')
+          .update({ is_default: true })
+          .eq('id', previousDefaultId)
+          .eq('user_id', user.id);
+      }
+      setError(setErrorResult.message || 'Unable to update default address.');
+      return;
+    }
     setSuccess('Default address updated.');
     await loadAddresses();
+    if (returnTo) returnToRequest();
   };
 
   const deleteAddress = async (address: CustomerAddress) => {
@@ -363,6 +403,27 @@ export default function Addresses() {
       .eq('id', address.id)
       .eq('user_id', user.id);
     if (deleteError) { setError(deleteError.message || 'Unable to delete address.'); return; }
+
+    if (address.is_default) {
+      const nextAddress = addresses.find((item) => item.id !== address.id);
+      if (nextAddress) {
+        const { error: promoteError } = await supabase
+          .from('customer_addresses')
+          .update({ is_default: true })
+          .eq('id', nextAddress.id)
+          .eq('user_id', user.id);
+
+        if (promoteError) {
+          setError(
+            promoteError.message ||
+              'Address deleted, but a new default address could not be selected.',
+          );
+          await loadAddresses();
+          return;
+        }
+      }
+    }
+
     setSuccess('Address deleted.');
     await loadAddresses();
   };
@@ -397,14 +458,25 @@ export default function Addresses() {
             <h1 className="mt-0.5 text-xl font-black tracking-tight text-gray-950">Saved Addresses</h1>
             <p className="mt-0.5 truncate text-xs text-gray-500">Manage locations used during checkout</p>
           </div>
-          <button
-            type="button"
-            onClick={showForm ? resetForm : openAddForm}
-            className="flex h-10 shrink-0 items-center gap-1.5 rounded-2xl bg-orange-500 px-3.5 text-sm font-bold text-white transition active:scale-[0.97]"
-          >
-            {showForm ? <X size={16} /> : <Plus size={16} />}
-            {showForm ? 'Close' : 'Add'}
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {returnTo && !showForm && (
+              <button
+                type="button"
+                onClick={returnToRequest}
+                className="h-10 rounded-2xl bg-gray-100 px-3 text-sm font-bold text-gray-700 transition active:scale-[0.97]"
+              >
+                Done
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={showForm ? resetForm : openAddForm}
+              className="flex h-10 shrink-0 items-center gap-1.5 rounded-2xl bg-orange-500 px-3.5 text-sm font-bold text-white transition active:scale-[0.97]"
+            >
+              {showForm ? <X size={16} /> : <Plus size={16} />}
+              {showForm ? 'Close' : 'Add'}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -506,11 +578,14 @@ export default function Addresses() {
             <label className="flex items-center gap-2 rounded-2xl bg-gray-50 p-3 text-sm text-gray-700">
               <input
                 type="checkbox"
-                checked={form.isDefault}
+                checked={editingDefault || form.isDefault}
+                disabled={editingDefault}
                 onChange={(event) => update('isDefault', event.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                className="h-4 w-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500 disabled:opacity-60"
               />
-              Make this my default address
+              {editingDefault
+                ? 'This is your default address'
+                : 'Make this my default address'}
             </label>
 
             <div className="grid grid-cols-2 gap-3 pt-1">
@@ -579,7 +654,9 @@ export default function Addresses() {
                         <p className="text-sm font-black text-gray-950">{address.recipient_name}</p>
                     <p className="text-xs font-medium text-gray-500">{formatPhone(address.phone)}</p>
                     <p className="mt-2 text-sm leading-5 text-gray-700">
-                      {[address.village, address.town, address.dzongkhag].filter(Boolean).join(', ')}
+                      {[address.village, address.gewog, address.town, address.dzongkhag]
+                        .filter(Boolean)
+                        .join(', ')}
                     </p>
                     {address.address_line && <p className="mt-1 text-xs leading-5 text-gray-500">{address.address_line}</p>}
                         {address.landmark && <p className="mt-1 text-xs text-gray-400">Landmark: {address.landmark}</p>}
