@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  ArrowLeft,
   Check,
   ChevronRight,
+  CircleMinus,
   Clock,
   ExternalLink,
   FileText,
   Info,
   MessageSquareText,
   X,
-  ArrowLeft,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppToast } from '@/components/shared/AppToast';
@@ -23,6 +24,42 @@ import type { Order, Quotation, QuotationItem } from '@/types';
 
 function money(value?: number) {
   return `Nu. ${Number(value ?? 0).toLocaleString()}`;
+}
+
+const EXCLUSION_SECTION_START = '[Excluded from revised final price]';
+const EXCLUSION_SECTION_END = '[/Excluded from revised final price]';
+
+function parseQuotationNotes(value?: string | null) {
+  const raw = String(value ?? '');
+  const start = raw.indexOf(EXCLUSION_SECTION_START);
+  const end = raw.indexOf(EXCLUSION_SECTION_END);
+
+  if (start < 0 || end < start) {
+    return {
+      customerNote: raw.trim(),
+      exclusions: new Map<string, string>(),
+    };
+  }
+
+  const section = raw.slice(start + EXCLUSION_SECTION_START.length, end);
+  const exclusions = new Map<string, string>();
+
+  section
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('- '))
+    .forEach((line) => {
+      const content = line.slice(2);
+      const separator = content.lastIndexOf(' — ');
+      if (separator < 0) return;
+
+      const productName = content.slice(0, separator).trim();
+      const reason = content.slice(separator + 3).trim();
+      if (productName) exclusions.set(productName.toLowerCase(), reason);
+    });
+
+  const customerNote = `${raw.slice(0, start)}${raw.slice(end + EXCLUSION_SECTION_END.length)}`.trim();
+  return { customerNote, exclusions };
 }
 
 function readableDate(value?: string) {
@@ -330,6 +367,35 @@ export default function QuotationReview() {
 
   const quotation = order?.quotation;
   const display = useMemo(() => (quotation ? quotationDisplay(quotation) : null), [quotation]);
+  const quotationNoteDetails = useMemo(
+    () => parseQuotationNotes(quotation?.notes),
+    [quotation?.notes],
+  );
+  const removedItems = useMemo(() => {
+    if (!order || !quotation || quotation.items.length >= order.items.length) return [];
+
+    const hasCompleteQuotedItemIds = quotation.items.every((item) => Boolean(item.orderItemId));
+    const quotedItemIds = new Set(
+      quotation.items.map((item) => item.orderItemId).filter(Boolean),
+    );
+    const quotedProductNames = new Set(
+      quotation.items.map((item) => item.productName.trim().toLowerCase()).filter(Boolean),
+    );
+
+    return order.items
+      .filter((item) => {
+        if (hasCompleteQuotedItemIds) return !quotedItemIds.has(item.id);
+        return !quotedProductNames.has(item.productName.trim().toLowerCase());
+      })
+      .map((item) => ({
+        id: item.id,
+        productName: item.productName,
+        quantity: item.quantity || 1,
+        reason:
+          quotationNoteDetails.exclusions.get(item.productName.trim().toLowerCase()) ||
+          'Not included in this revised final price.',
+      }));
+  }, [order, quotation, quotationNoteDetails.exclusions]);
 
   const handleReject = () => {
     if (!quotation || submitting) return;
@@ -575,6 +641,60 @@ export default function QuotationReview() {
             <span className="text-[18px] font-extrabold text-gray-900">{money(quotation.totalAmount)}</span>
           </div>
         </div>
+
+        {quotationNoteDetails.customerNote && (
+          <div className="mb-7 rounded-2xl bg-blue-50 px-4 py-4">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600">
+                <MessageSquareText size={17} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[12px] font-bold uppercase tracking-wide text-blue-700">
+                  Note from Shop2Bhutan
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-blue-900/80">
+                  {quotationNoteDetails.customerNote}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {removedItems.length > 0 && (
+          <div className="mb-7 rounded-2xl border border-red-100 bg-red-50/60 px-4 py-4">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-red-600">
+                <CircleMinus size={17} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-bold text-red-800">
+                  Removed from revised final price
+                </p>
+                <p className="mt-1 text-[12px] leading-relaxed text-red-700/80">
+                  These products remain in your original request but are not included in the amount payable.
+                </p>
+
+                <div className="mt-3 space-y-2">
+                  {removedItems.map((item) => (
+                    <div key={item.id} className="rounded-xl bg-white px-3 py-2.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="min-w-0 text-[13px] font-bold leading-snug text-gray-900">
+                          {item.productName}
+                        </p>
+                        <span className="shrink-0 text-[11px] font-semibold text-gray-400">
+                          Qty {item.quantity}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] leading-relaxed text-red-600">
+                        {item.reason}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Divider */}
         <div className="h-px bg-gray-100 mb-7" />

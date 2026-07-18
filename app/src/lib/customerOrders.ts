@@ -2350,14 +2350,19 @@ async function createQuotationReadyNotificationForOrder(orderId: string, quotati
 
     const orderNo = firstString(orderRow, ['order_no', 'order_number', 'public_id'], orderId.slice(0, 8).toUpperCase())
     const quotationId = firstString(quotationRow, ['id'], '')
+    const createdAt = firstString(quotationRow, ['created_at'], '')
+    const updatedAt = firstString(quotationRow, ['updated_at', 'sent_at'], '') || new Date().toISOString()
+    const isRevision = Boolean(createdAt && updatedAt && createdAt !== updatedAt)
 
     await createCustomerNotification({
       userId,
       type: 'quotation',
-      title: 'Final Price Ready',
-      message: `Availability has been confirmed and the final price for order #${orderNo} is ready. Review it to continue to payment.`,
+      title: isRevision ? 'Revised Final Price Ready' : 'Final Price Ready',
+      message: isRevision
+        ? `The revised final price for order #${orderNo} is ready. Review the updated items and total to continue to payment.`
+        : `Availability has been confirmed and the final price for order #${orderNo} is ready. Review it to continue to payment.`,
       link: `/quotation/${orderId}`,
-      dedupeKey: `quotation-ready:${quotationId || orderId}`,
+      dedupeKey: `quotation-ready:${quotationId || orderId}:${updatedAt}`,
     })
   } catch (error) {
     console.warn('[customerOrders] quotation notification skipped:', error)

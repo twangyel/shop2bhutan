@@ -3,13 +3,16 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowLeft,
+  CircleMinus,
   ExternalLink,
   Eye,
   Loader2,
   MapPin,
   RefreshCw,
+  RotateCcw,
   Send,
   Truck,
+  X,
 } from 'lucide-react';
 import StatusBadge from '@/components/shared/StatusBadge';
 import SmartQuotationReview from '@/components/admin/SmartQuotationReview';
@@ -36,9 +39,70 @@ type QuoteItemState = {
   quotedUnitPrice: number;
   customerNotes: string;
   adminNotes: string;
+  isIncluded: boolean;
+  exclusionReason: string;
 };
 
 const validHourOptions = [24, 48, 72, 120] as const;
+const exclusionReasonOptions = [
+  'Cancelled by customer',
+  'Product unavailable',
+  'Duplicate item',
+  'Wrong product',
+  'Other',
+] as const;
+
+const EXCLUSION_SECTION_START = '[Excluded from revised final price]';
+const EXCLUSION_SECTION_END = '[/Excluded from revised final price]';
+
+function parseQuotationNotes(value?: string | null) {
+  const raw = String(value ?? '');
+  const start = raw.indexOf(EXCLUSION_SECTION_START);
+  const end = raw.indexOf(EXCLUSION_SECTION_END);
+
+  if (start < 0 || end < start) {
+    return {
+      customerNote: raw.trim(),
+      exclusions: new Map<string, string>(),
+    };
+  }
+
+  const section = raw.slice(start + EXCLUSION_SECTION_START.length, end);
+  const exclusions = new Map<string, string>();
+
+  section
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('- '))
+    .forEach((line) => {
+      const content = line.slice(2);
+      const separator = content.lastIndexOf(' — ');
+      if (separator < 0) return;
+
+      const productName = content.slice(0, separator).trim();
+      const reason = content.slice(separator + 3).trim();
+      if (productName) exclusions.set(productName.toLowerCase(), reason);
+    });
+
+  const customerNote = `${raw.slice(0, start)}${raw.slice(end + EXCLUSION_SECTION_END.length)}`.trim();
+  return { customerNote, exclusions };
+}
+
+function buildQuotationNotes(customerNote: string, excludedItems: QuoteItemState[]) {
+  const cleanNote = customerNote.trim();
+  if (excludedItems.length === 0) return cleanNote;
+
+  const exclusionSection = [
+    EXCLUSION_SECTION_START,
+    ...excludedItems.map(
+      (item) =>
+        `- ${item.productName} — ${item.exclusionReason.trim() || 'Not included in revised final price'}`,
+    ),
+    EXCLUSION_SECTION_END,
+  ].join('\n');
+
+  return [cleanNote, exclusionSection].filter(Boolean).join('\n\n');
+}
 
 function numberValue(value: string | number | undefined | null) {
   const numeric = Number(value);
@@ -94,9 +158,19 @@ function orderItemScreenshot(item: OrderItem) {
   return itemWithScreenshot.screenshotUrl || '';
 }
 
-function buildInitialItems(order: Order): QuoteItemState[] {
+function buildInitialItems(
+  order: Order,
+  exclusionReasons = new Map<string, string>(),
+): QuoteItemState[] {
+  const hasExistingQuotation = Boolean(
+    order.quotation?.id && order.quotation.items.length > 0,
+  );
+
   return order.items.map((item) => {
-    const existingQuoteItem = order.quotation?.items.find((quoteItem) => quoteItem.orderItemId === item.id);
+    const existingQuoteItem = order.quotation?.items.find(
+      (quoteItem) => quoteItem.orderItemId === item.id,
+    );
+    const isIncluded = !hasExistingQuotation || Boolean(existingQuoteItem);
 
     return {
       orderItemId: item.id,
@@ -110,6 +184,11 @@ function buildInitialItems(order: Order): QuoteItemState[] {
       quotedUnitPrice: existingQuoteItem?.unitPrice || item.unitPrice || 0,
       customerNotes: orderItemNotes(item),
       adminNotes: existingQuoteItem?.notes || '',
+      isIncluded,
+      exclusionReason: isIncluded
+        ? ''
+        : exclusionReasons.get(item.productName.toLowerCase()) ||
+          'Not included in revised final price',
     };
   });
 }
@@ -147,6 +226,11 @@ export default function QuotationBuilder() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(true);
+  const [excludeTargetId, setExcludeTargetId] = useState<string | null>(null);
+  const [excludeReason, setExcludeReason] = useState<(typeof exclusionReasonOptions)[number]>(
+    'Cancelled by customer',
+  );
+  const [customExclusionReason, setCustomExclusionReason] = useState('');
   const [error, setError] = useState('');
 
   const loadSettings = useCallback(async () => {
@@ -184,8 +268,9 @@ export default function QuotationBuilder() {
       setOrder(realOrder);
 
       if (realOrder) {
-        setItems(buildInitialItems(realOrder));
-        setNotes(realOrder.quotation?.notes || '');
+        const parsedNotes = parseQuotationNotes(realOrder.quotation?.notes);
+        setItems(buildInitialItems(realOrder, parsedNotes.exclusions));
+        setNotes(parsedNotes.customerNote);
         setAdditionalChargeLabel(realOrder.quotation?.additionalChargeLabel || '');
         setAdditionalChargeAmount(realOrder.quotation?.additionalChargeAmount || 0);
 
@@ -212,9 +297,25 @@ export default function QuotationBuilder() {
     loadOrder();
   }, [loadOrder]);
 
+  const includedItems = useMemo(
+    () => items.filter((item) => item.isIncluded),
+    [items],
+  );
+  const excludedItems = useMemo(
+    () => items.filter((item) => !item.isIncluded),
+    [items],
+  );
+
   const productTotal = useMemo(
-    () => items.reduce((sum, item) => sum + numberValue(item.quotedUnitPrice) * Math.max(1, Number(item.quantity) || 1), 0),
-    [items]
+    () =>
+      includedItems.reduce(
+        (sum, item) =>
+          sum +
+          numberValue(item.quotedUnitPrice) *
+            Math.max(1, Number(item.quantity) || 1),
+        0,
+      ),
+    [includedItems],
   );
 
   const settingsAmounts = useMemo(() => {
@@ -263,6 +364,70 @@ export default function QuotationBuilder() {
     setItems((prev) => prev.map((item) => (item.orderItemId === orderItemId ? { ...item, adminNotes: value } : item)));
   };
 
+  const openExcludeItemDialog = (item: QuoteItemState) => {
+    if (includedItems.length <= 1) {
+      const message = 'At least one product must remain in the final price.';
+      setError(message);
+      toast.warning('Cannot exclude the final item', message);
+      return;
+    }
+
+    const savedReason = item.exclusionReason.trim();
+    const predefinedReason = exclusionReasonOptions.find(
+      (reason) => reason !== 'Other' && reason === savedReason,
+    );
+
+    setExcludeTargetId(item.orderItemId);
+    setExcludeReason(predefinedReason || (savedReason ? 'Other' : 'Cancelled by customer'));
+    setCustomExclusionReason(predefinedReason ? '' : savedReason);
+    setError('');
+  };
+
+  const closeExcludeItemDialog = () => {
+    if (saving) return;
+    setExcludeTargetId(null);
+    setExcludeReason('Cancelled by customer');
+    setCustomExclusionReason('');
+  };
+
+  const confirmExcludeItem = () => {
+    if (!excludeTargetId) return;
+
+    const finalReason =
+      excludeReason === 'Other'
+        ? customExclusionReason.trim()
+        : excludeReason;
+
+    if (finalReason.length < 3) {
+      setError('Please enter a short reason for excluding this product.');
+      return;
+    }
+
+    setItems((prev) =>
+      prev.map((item) =>
+        item.orderItemId === excludeTargetId
+          ? {
+              ...item,
+              isIncluded: false,
+              exclusionReason: finalReason,
+            }
+          : item,
+      ),
+    );
+    closeExcludeItemDialog();
+  };
+
+  const restoreItem = (orderItemId: string) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.orderItemId === orderItemId
+          ? { ...item, isIncluded: true, exclusionReason: '' }
+          : item,
+      ),
+    );
+    setError('');
+  };
+
   const handleSendQuotation = async () => {
     if (!order) return;
 
@@ -272,15 +437,15 @@ export default function QuotationBuilder() {
       return;
     }
 
-    if (items.length === 0) {
-      setError('This shopping request has no items to price.');
-      toast.warning('No items to price', 'This shopping request has no items to price.');
+    if (includedItems.length === 0) {
+      setError('At least one product must remain in the final price.');
+      toast.warning('No included products', 'Restore at least one product before sending the final price.');
       return;
     }
 
-    if (items.some((item) => numberValue(item.quotedUnitPrice) <= 0)) {
-      setError('Please enter a confirmed unit price for every item.');
-      toast.warning('Confirmed prices required', 'Please enter a confirmed unit price for every item.');
+    if (includedItems.some((item) => numberValue(item.quotedUnitPrice) <= 0)) {
+      setError('Please enter a confirmed unit price for every included item.');
+      toast.warning('Confirmed prices required', 'Please price every product included in the final price.');
       return;
     }
 
@@ -296,7 +461,7 @@ export default function QuotationBuilder() {
     try {
       await createOrUpdateAdminQuotation({
         orderId: order.id,
-        items: items.map((item) => ({
+        items: includedItems.map((item) => ({
           orderItemId: item.orderItemId,
           productName: item.productName,
           productImage: item.productImage,
@@ -310,7 +475,7 @@ export default function QuotationBuilder() {
         additionalChargeLabel: additionalChargeLabel.trim(),
         additionalChargeAmount: safeAdditionalCharge,
         payableProductTotal,
-        notes: notes.trim(),
+        notes: buildQuotationNotes(notes, excludedItems),
         validUntil: validUntilFromHours(validHours),
       });
 
@@ -320,9 +485,10 @@ export default function QuotationBuilder() {
       );
       const refreshedOrder = await fetchAdminOrderById(order.id);
       if (refreshedOrder) {
+        const parsedNotes = parseQuotationNotes(refreshedOrder.quotation?.notes);
         setOrder(refreshedOrder);
-        setItems(buildInitialItems(refreshedOrder));
-        setNotes(refreshedOrder.quotation?.notes || notes);
+        setItems(buildInitialItems(refreshedOrder, parsedNotes.exclusions));
+        setNotes(parsedNotes.customerNote || notes);
         setAdditionalChargeLabel(refreshedOrder.quotation?.additionalChargeLabel || additionalChargeLabel);
         setAdditionalChargeAmount(refreshedOrder.quotation?.additionalChargeAmount || safeAdditionalCharge);
 
@@ -430,7 +596,7 @@ export default function QuotationBuilder() {
           <button
             type="button"
             onClick={handleSendQuotation}
-            disabled={saving || settingsLoading}
+            disabled={saving || settingsLoading || includedItems.length === 0}
             className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2 disabled:opacity-60"
           >
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
@@ -462,7 +628,10 @@ export default function QuotationBuilder() {
           <div className="bg-white rounded-xl p-5 shadow-card">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-gray-900">Customer Request</h3>
-              <span className="text-xs text-neutral-500">{items.length} item{items.length === 1 ? '' : 's'}</span>
+              <span className="text-xs text-neutral-500">
+                {includedItems.length} included
+                {excludedItems.length > 0 ? ` • ${excludedItems.length} excluded` : ''}
+              </span>
             </div>
             <p className="mb-4 text-xs leading-5 text-neutral-500">
               Confirm product availability, selected options, current seller price, and all applicable charges before sending the final price.
@@ -497,11 +666,21 @@ export default function QuotationBuilder() {
 
             <div className="space-y-3">
               {items.map((item, index) => {
-                const lineTotal = numberValue(item.quotedUnitPrice) * Math.max(1, Number(item.quantity) || 1);
+                const lineTotal = item.isIncluded
+                  ? numberValue(item.quotedUnitPrice) *
+                    Math.max(1, Number(item.quantity) || 1)
+                  : 0;
 
                 return (
-                  <div key={item.orderItemId} className="rounded-xl border border-neutral-200 p-4">
-                    <div className="flex flex-col lg:flex-row gap-4">
+                  <div
+                    key={item.orderItemId}
+                    className={`rounded-xl border p-4 transition ${
+                      item.isIncluded
+                        ? 'border-neutral-200 bg-white'
+                        : 'border-red-100 bg-red-50/50'
+                    }`}
+                  >
+                    <div className={`flex flex-col gap-4 lg:flex-row ${item.isIncluded ? '' : 'opacity-75'}`}>
                       <img
                         src={item.productImage}
                         alt=""
@@ -511,7 +690,14 @@ export default function QuotationBuilder() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="text-xs text-neutral-500">Item {index + 1}</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-xs text-neutral-500">Item {index + 1}</p>
+                              {!item.isIncluded && (
+                                <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-red-700">
+                                  Excluded
+                                </span>
+                              )}
+                            </div>
                             <h4 className="text-sm font-semibold text-gray-900 line-clamp-2">{item.productName}</h4>
                             <div className="flex items-center gap-2 flex-wrap mt-1">
                               {item.sourcePlatform && (
@@ -527,7 +713,9 @@ export default function QuotationBuilder() {
                           </div>
                           <div className="text-right">
                             <p className="text-xs text-neutral-500">Line Total</p>
-                            <p className="text-base font-bold text-amber-600">{formatAmount(lineTotal)}</p>
+                            <p className={`text-base font-bold ${item.isIncluded ? 'text-amber-600' : 'text-red-500'}`}>
+                              {formatAmount(lineTotal)}
+                            </p>
                           </div>
                         </div>
 
@@ -562,6 +750,15 @@ export default function QuotationBuilder() {
                           </div>
                         )}
 
+                        {!item.isIncluded && (
+                          <div className="mt-3 rounded-lg border border-red-100 bg-white px-3 py-2.5">
+                            <p className="text-xs font-semibold text-red-700">Reason</p>
+                            <p className="mt-0.5 text-xs text-red-600">
+                              {item.exclusionReason || 'Not included in revised final price'}
+                            </p>
+                          </div>
+                        )}
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
                           <div>
                             <label className="text-xs font-semibold text-neutral-500 uppercase">Confirmed Unit Price</label>
@@ -569,7 +766,8 @@ export default function QuotationBuilder() {
                               type="number"
                               value={item.quotedUnitPrice}
                               onChange={(e) => updateQuotedPrice(item.orderItemId, numberValue(e.target.value))}
-                              className="w-full h-10 mt-1 px-3 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                              disabled={!item.isIncluded}
+                              className="w-full h-10 mt-1 px-3 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 disabled:bg-neutral-100 disabled:text-neutral-400"
                             />
                           </div>
                           <div>
@@ -578,10 +776,35 @@ export default function QuotationBuilder() {
                               type="text"
                               value={item.adminNotes}
                               onChange={(e) => updateAdminNotes(item.orderItemId, e.target.value)}
-                              className="w-full h-10 mt-1 px-3 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                              disabled={!item.isIncluded}
+                              className="w-full h-10 mt-1 px-3 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 disabled:bg-neutral-100 disabled:text-neutral-400"
                               placeholder="Optional: size, availability, ETA..."
                             />
                           </div>
+                        </div>
+
+                        <div className="mt-3 flex justify-end">
+                          {item.isIncluded ? (
+                            <button
+                              type="button"
+                              onClick={() => openExcludeItemDialog(item)}
+                              disabled={saving}
+                              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                            >
+                              <CircleMinus size={15} />
+                              Exclude from final price
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => restoreItem(item.orderItemId)}
+                              disabled={saving}
+                              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-50"
+                            >
+                              <RotateCcw size={15} />
+                              Restore item
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -747,7 +970,7 @@ export default function QuotationBuilder() {
             <button
               type="button"
               onClick={handleSendQuotation}
-              disabled={saving || settingsLoading}
+              disabled={saving || settingsLoading || includedItems.length === 0}
               className="w-full h-12 mt-4 bg-amber-500 text-white text-sm font-semibold rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {saving ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
@@ -763,7 +986,7 @@ export default function QuotationBuilder() {
             <div className="bg-violet-50 rounded-xl p-5 border border-violet-100">
               <h3 className="text-sm font-semibold text-violet-800 mb-3">Customer Preview</h3>
               <div className="space-y-2">
-                {items.map((item) => (
+                {includedItems.map((item) => (
                   <div key={item.orderItemId} className="flex justify-between gap-3 text-sm">
                     <span className="text-violet-700 truncate">{item.productName} x{item.quantity}</span>
                     <span className="font-semibold text-violet-900 flex-shrink-0">
@@ -771,6 +994,11 @@ export default function QuotationBuilder() {
                     </span>
                   </div>
                 ))}
+                {excludedItems.length > 0 && (
+                  <div className="rounded-lg border border-violet-200 bg-white/70 px-2.5 py-2 text-[11px] leading-relaxed text-violet-700">
+                    {excludedItems.length} product{excludedItems.length === 1 ? '' : 's'} excluded from this revised final price.
+                  </div>
+                )}
                 {isJaigaonPickup && (
                   <p className="rounded-lg bg-white/70 px-2.5 py-2 text-[11px] leading-relaxed text-violet-700">
                     Product value is reference only for Jaigaon pickup and is not included in the payable amount.
@@ -803,6 +1031,89 @@ export default function QuotationBuilder() {
           )}
         </div>
       </div>
+      {excludeTargetId && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/50 px-3 pb-3 pt-10 backdrop-blur-[2px] sm:items-center sm:pb-10">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">Exclude product?</h3>
+                <p className="mt-1 text-xs leading-5 text-neutral-500">
+                  The original customer request will remain in the order history. This product will be removed only from the revised final price.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeExcludeItemDialog}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-500"
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-4">
+              <label className="block">
+                <span className="text-xs font-semibold uppercase text-neutral-500">Reason</span>
+                <select
+                  value={excludeReason}
+                  onChange={(event) => {
+                    setExcludeReason(event.target.value as (typeof exclusionReasonOptions)[number]);
+                    setError('');
+                  }}
+                  className="mt-1 h-11 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-red-500/20"
+                >
+                  {exclusionReasonOptions.map((reason) => (
+                    <option key={reason} value={reason}>
+                      {reason}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {excludeReason === 'Other' && (
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase text-neutral-500">Custom reason</span>
+                  <input
+                    type="text"
+                    value={customExclusionReason}
+                    onChange={(event) => {
+                      setCustomExclusionReason(event.target.value.slice(0, 160));
+                      setError('');
+                    }}
+                    autoFocus
+                    placeholder="Briefly explain why this product is excluded"
+                    className="mt-1 h-11 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-red-500/20"
+                  />
+                </label>
+              )}
+
+              {error && (
+                <div className="rounded-xl bg-red-50 px-3 py-2.5 text-xs font-medium text-red-600">
+                  {error}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 border-t border-neutral-100 px-5 py-4">
+              <button
+                type="button"
+                onClick={closeExcludeItemDialog}
+                className="h-11 rounded-xl border border-neutral-200 bg-white text-sm font-semibold text-neutral-700"
+              >
+                Keep item
+              </button>
+              <button
+                type="button"
+                onClick={confirmExcludeItem}
+                className="h-11 rounded-xl bg-red-600 px-3 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                Exclude item
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
