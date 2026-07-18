@@ -2350,19 +2350,14 @@ async function createQuotationReadyNotificationForOrder(orderId: string, quotati
 
     const orderNo = firstString(orderRow, ['order_no', 'order_number', 'public_id'], orderId.slice(0, 8).toUpperCase())
     const quotationId = firstString(quotationRow, ['id'], '')
-    const createdAt = firstString(quotationRow, ['created_at'], '')
-    const updatedAt = firstString(quotationRow, ['updated_at', 'sent_at'], '') || new Date().toISOString()
-    const isRevision = Boolean(createdAt && updatedAt && createdAt !== updatedAt)
 
     await createCustomerNotification({
       userId,
       type: 'quotation',
-      title: isRevision ? 'Revised Final Price Ready' : 'Final Price Ready',
-      message: isRevision
-        ? `The revised final price for order #${orderNo} is ready. Review the updated items and total to continue to payment.`
-        : `Availability has been confirmed and the final price for order #${orderNo} is ready. Review it to continue to payment.`,
+      title: 'Final Price Ready',
+      message: `Availability has been confirmed and the final price for order #${orderNo} is ready. Review it to continue to payment.`,
       link: `/quotation/${orderId}`,
-      dedupeKey: `quotation-ready:${quotationId || orderId}:${updatedAt}`,
+      dedupeKey: `quotation-ready:${quotationId || orderId}`,
     })
   } catch (error) {
     console.warn('[customerOrders] quotation notification skipped:', error)
@@ -3947,13 +3942,18 @@ function makeOrderItemsFast(row: AnyRow, relatedItems: AnyRow[]): OrderItem[] {
   ]
 }
 
-function makeQuotationSummary(quotation: AnyRow | undefined, orderItems: OrderItem[]): Quotation | undefined {
+function makeQuotationSummary(
+  quotation: AnyRow | undefined,
+  orderItems: OrderItem[],
+  quotationItems: AnyRow[],
+): Quotation | undefined {
   if (!quotation) return undefined
 
+  const items = makeQuotationItems(quotation, orderItems, quotationItems)
   const productTotal = firstNumber(
     quotation,
     ['product_subtotal', 'product_total', 'product_price', 'subtotal'],
-    orderItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
+    items.reduce((sum, item) => sum + item.totalPrice, 0)
   )
   const serviceCharge = firstNumber(quotation, ['service_charge', 'service_fee'], 0)
   const deliveryFee = firstNumber(quotation, ['delivery_fee', 'shipping_fee'], 0)
@@ -3965,7 +3965,7 @@ function makeQuotationSummary(quotation: AnyRow | undefined, orderItems: OrderIt
     id: firstString(quotation, ['id'], ''),
     orderId: firstString(quotation, ['order_id'], ''),
     status: normalizeQuotationStatus(firstValue(quotation, ['status'])),
-    items: [],
+    items,
     productTotal,
     serviceCharge,
     deliveryFee,
@@ -4009,7 +4009,7 @@ function mapOrderRowSummary(row: AnyRow, related: RelatedRows, authUserId: strin
   const displayRow = mergeSubmittedRequestBagAddress(row, related)
   const items = makeOrderItemsFast(row, related.items.filter((item) => itemBelongsToOrder(item, row)))
   const quotationRow = findQuotationForOrder(row, related.quotations)
-  const quotation = makeQuotationSummary(quotationRow, items)
+  const quotation = makeQuotationSummary(quotationRow, items, related.quotationItems)
   const relatedPaymentRows = related.payments.filter((payment) => paymentBelongsToOrder(payment, row))
   const payments = makePaymentsFast(relatedPaymentRows)
   const payment = getPrimaryPayment(payments)
@@ -4065,10 +4065,19 @@ export async function fetchCustomerOrdersSummary(userId: string, email = '') {
     safeSelectIn('customer_request_bags', 'submitted_order_id', dbIds),
   ])
 
+  const quotationIds = quotations
+    .map((quotation) => String(quotation.id ?? ''))
+    .filter(Boolean)
+  const quotationItems = await safeSelectIn(
+    'quotation_items',
+    'quotation_id',
+    quotationIds,
+  )
+
   const related: RelatedRows = {
     items,
     quotations,
-    quotationItems: [],
+    quotationItems,
     payments,
     profiles,
     requestBags,
@@ -4096,10 +4105,19 @@ export async function fetchCustomerOrderByIdFast(orderIdOrNumber: string, userId
     safeSelectIn('customer_request_bags', 'submitted_order_id', dbIds),
   ])
 
+  const quotationIds = quotations
+    .map((quotation) => String(quotation.id ?? ''))
+    .filter(Boolean)
+  const quotationItems = await safeSelectIn(
+    'quotation_items',
+    'quotation_id',
+    quotationIds,
+  )
+
   const related: RelatedRows = {
     items,
     quotations,
-    quotationItems: [],
+    quotationItems,
     payments,
     profiles,
     requestBags,

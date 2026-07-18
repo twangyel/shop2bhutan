@@ -54,7 +54,7 @@ const ORDER_PROGRESS = [
   'delivered',
 ] as const;
 
-const ORDERS_CACHE_PREFIX = 'shop2bhutan:orders:';
+const ORDERS_CACHE_PREFIX = 'shop2bhutan:orders:v2:';
 
 function ordersCacheKey(userId: string) {
   return `${ORDERS_CACHE_PREFIX}${userId}`;
