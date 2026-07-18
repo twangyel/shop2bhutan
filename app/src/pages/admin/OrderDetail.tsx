@@ -314,6 +314,78 @@ function nextFulfillmentStatus(order: Order): OrderStatus {
   return fulfillmentActions.find((action) => statusIndex(action.status) > currentIndex)?.status ?? 'order_placed';
 }
 
+
+function normalizedOrderItemName(value?: string) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+function splitOrderItemsForAdmin(order: Order) {
+  const requestedItems = order.items || [];
+  const quotationItems = order.quotation?.items || [];
+
+  if (!order.quotation || quotationItems.length === 0) {
+    return {
+      includedItems: requestedItems,
+      removedItems: [] as Order['items'],
+      hasFinalItemSelection: false,
+    };
+  }
+
+  const requestedIds = new Set(
+    requestedItems.map((item) => String(item.id || '').trim()).filter(Boolean),
+  );
+  const exactIncludedIds = new Set(
+    quotationItems
+      .map((item) => String(item.orderItemId || '').trim())
+      .filter((itemId) => itemId && requestedIds.has(itemId)),
+  );
+
+  const useLegacyNameFallback = exactIncludedIds.size === 0;
+  const legacyMatchCounts = new Map<string, number>();
+
+  if (useLegacyNameFallback) {
+    quotationItems.forEach((item) => {
+      const key = `${normalizedOrderItemName(item.productName)}::${Math.max(
+        1,
+        Number(item.quantity) || 1,
+      )}`;
+      legacyMatchCounts.set(key, (legacyMatchCounts.get(key) || 0) + 1);
+    });
+  }
+
+  const includedItems: Order['items'] = [];
+  const removedItems: Order['items'] = [];
+
+  requestedItems.forEach((item) => {
+    let isIncluded = exactIncludedIds.has(String(item.id || '').trim());
+
+    if (!isIncluded && useLegacyNameFallback) {
+      const key = `${normalizedOrderItemName(item.productName)}::${Math.max(
+        1,
+        Number(item.quantity) || 1,
+      )}`;
+      const remainingMatches = legacyMatchCounts.get(key) || 0;
+
+      if (remainingMatches > 0) {
+        isIncluded = true;
+        legacyMatchCounts.set(key, remainingMatches - 1);
+      }
+    }
+
+    if (isIncluded) includedItems.push(item);
+    else removedItems.push(item);
+  });
+
+  return {
+    includedItems,
+    removedItems,
+    hasFinalItemSelection: true,
+  };
+}
+
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -531,6 +603,16 @@ export default function OrderDetail() {
   const currentEta = getOrderEstimatedDelivery(order);
   const currentEtaLabel = formatEstimatedDeliveryRange(currentEta.from, currentEta.to);
   const draftEtaLabel = formatEstimatedDeliveryRange(estimatedDeliveryFrom, estimatedDeliveryTo);
+  const {
+    includedItems: includedOrderItems,
+    removedItems: removedOrderItems,
+    hasFinalItemSelection,
+  } = splitOrderItemsForAdmin(order);
+  const orderItemCountLabel = hasFinalItemSelection
+    ? removedOrderItems.length > 0
+      ? `${includedOrderItems.length} included · ${removedOrderItems.length} removed`
+      : `${includedOrderItems.length} included`
+    : `${order.items.length} requested`;
 
   return (
     <div className="space-y-4">
@@ -680,39 +762,126 @@ export default function OrderDetail() {
 
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-white rounded-xl p-5 shadow-card">
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-gray-900">Order Items</h3>
-              <span className="text-xs text-neutral-500">{order.items.length} items</span>
+              <span className="text-xs font-medium text-neutral-500">
+                {orderItemCountLabel}
+              </span>
             </div>
+
             <div className="space-y-3">
-              {order.items.map((item) => (
-                <div key={item.id} className="flex gap-3 p-3 bg-neutral-50 rounded-lg">
-                  <img src={item.productImage} alt="" className="w-16 h-16 rounded-lg object-cover bg-white flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold line-clamp-2">{item.productName}</p>
+              {includedOrderItems.map((item) => (
+                <div key={item.id} className="flex gap-3 rounded-lg bg-neutral-50 p-3">
+                  <img
+                    src={item.productImage}
+                    alt=""
+                    className="h-16 w-16 flex-shrink-0 rounded-lg bg-white object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-2 text-sm font-semibold">
+                      {item.productName}
+                    </p>
                     {item.sourceUrl && (
                       <a
                         href={item.sourceUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-blue-500 hover:underline truncate flex items-center gap-1 mt-1"
+                        className="mt-1 flex items-center gap-1 truncate text-xs text-blue-500 hover:underline"
                       >
                         <span className="truncate">{item.sourceUrl}</span>
                         <ExternalLink size={12} className="flex-shrink-0" />
                       </a>
                     )}
-                    <div className="flex flex-wrap items-center gap-3 mt-2">
-                      <span className="text-xs text-neutral-500">Qty: {item.quantity}</span>
-                      <span className="text-xs text-neutral-500 uppercase">{item.sourcePlatform || 'link'}</span>
-                      <span className="text-sm font-bold">{formatAmount(item.unitPrice)}</span>
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      <span className="text-xs text-neutral-500">
+                        Qty: {item.quantity}
+                      </span>
+                      <span className="text-xs uppercase text-neutral-500">
+                        {item.sourcePlatform || 'link'}
+                      </span>
+                      <span className="text-sm font-bold">
+                        {formatAmount(item.unitPrice)}
+                      </span>
                     </div>
                     {Object.keys(item.attributes || {}).length > 0 && (
-                      <p className="text-xs text-neutral-500 mt-1">{JSON.stringify(item.attributes)}</p>
+                      <p className="mt-1 text-xs text-neutral-500">
+                        {JSON.stringify(item.attributes)}
+                      </p>
                     )}
                   </div>
                 </div>
               ))}
             </div>
+
+            {removedOrderItems.length > 0 && (
+              <div className="mt-4 border-t border-neutral-100 pt-4">
+                <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <XCircle size={16} className="text-neutral-400" />
+                      <h4 className="text-sm font-semibold text-neutral-700">
+                        Not included in final price
+                      </h4>
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-neutral-500">
+                      Preserved from the customer request for audit only. These
+                      products are excluded from quotation totals and fulfillment.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-bold text-neutral-600">
+                    {removedOrderItems.length}{' '}
+                    {removedOrderItems.length === 1 ? 'item' : 'items'}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {removedOrderItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex gap-3 rounded-lg border border-neutral-200 bg-neutral-50/70 p-3"
+                    >
+                      <img
+                        src={item.productImage}
+                        alt=""
+                        className="h-14 w-14 flex-shrink-0 rounded-lg bg-white object-cover grayscale opacity-60"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <p className="line-clamp-2 text-sm font-semibold text-neutral-500">
+                            {item.productName}
+                          </p>
+                          <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-neutral-500 ring-1 ring-neutral-200">
+                            Not Included
+                          </span>
+                        </div>
+                        {item.sourceUrl && (
+                          <a
+                            href={item.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1 flex items-center gap-1 truncate text-xs text-neutral-400 hover:text-neutral-600 hover:underline"
+                          >
+                            <span className="truncate">{item.sourceUrl}</span>
+                            <ExternalLink size={12} className="flex-shrink-0" />
+                          </a>
+                        )}
+                        <div className="mt-2 flex flex-wrap items-center gap-3">
+                          <span className="text-xs text-neutral-400">
+                            Qty: {item.quantity}
+                          </span>
+                          <span className="text-xs uppercase text-neutral-400">
+                            {item.sourcePlatform || 'link'}
+                          </span>
+                          <span className="text-xs font-semibold text-neutral-500">
+                            Removed during final price preparation
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-xl p-5 shadow-card">

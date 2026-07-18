@@ -244,6 +244,62 @@ function isActionOverdue(order: Order) {
   return orderAgeHours(order) >= (thresholds[order.status] ?? 72);
 }
 
+
+function getAdminOrderItemCounts(order: Order) {
+  const requestedItems = order.items || [];
+  const quotationItems = order.quotation?.items || [];
+
+  if (!order.quotation || quotationItems.length === 0) {
+    return {
+      included: requestedItems.length,
+      removed: 0,
+      finalized: false,
+    };
+  }
+
+  const requestedIds = new Set(
+    requestedItems.map((item) => String(item.id || '').trim()).filter(Boolean),
+  );
+  const exactIncludedIds = new Set(
+    quotationItems
+      .map((item) => String(item.orderItemId || '').trim())
+      .filter((itemId) => itemId && requestedIds.has(itemId)),
+  );
+
+  let included = exactIncludedIds.size;
+
+  if (included === 0) {
+    const legacyMatchCounts = new Map<string, number>();
+
+    quotationItems.forEach((item) => {
+      const key = `${String(item.productName || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ')}::${Math.max(1, Number(item.quantity) || 1)}`;
+      legacyMatchCounts.set(key, (legacyMatchCounts.get(key) || 0) + 1);
+    });
+
+    requestedItems.forEach((item) => {
+      const key = `${String(item.productName || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ')}::${Math.max(1, Number(item.quantity) || 1)}`;
+      const remaining = legacyMatchCounts.get(key) || 0;
+
+      if (remaining > 0) {
+        included += 1;
+        legacyMatchCounts.set(key, remaining - 1);
+      }
+    });
+  }
+
+  return {
+    included,
+    removed: Math.max(0, requestedItems.length - included),
+    finalized: true,
+  };
+}
+
 export default function OrdersPanel() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -502,6 +558,7 @@ export default function OrdersPanel() {
                     ? fulfillment.title
                     : deliveryAddressText || order.shippingAddress.dzongkhag || 'Address pending';
                   const quotedTotal = Number(order.quotation?.totalAmount || 0);
+                  const itemCounts = getAdminOrderItemCounts(order);
 
                   return (
                     <tr
@@ -557,8 +614,15 @@ export default function OrdersPanel() {
                         </div>
                       </td>
 
-                      <td className="px-4 py-2.5 text-center text-sm font-semibold tabular-nums text-neutral-700">
-                        {order.items.length}
+                      <td className="px-4 py-2.5 text-center">
+                        <div className="text-sm font-semibold tabular-nums text-neutral-700">
+                          {itemCounts.included}
+                        </div>
+                        {itemCounts.finalized && itemCounts.removed > 0 && (
+                          <div className="mt-0.5 whitespace-nowrap text-[10px] font-semibold text-neutral-400">
+                            +{itemCounts.removed} removed
+                          </div>
+                        )}
                       </td>
 
                       <td className="px-4 py-2.5 text-right">
