@@ -6,14 +6,12 @@ import {
   Calendar,
   CheckCircle2,
   ChevronDown,
-  ChevronRight,
   HelpCircle,
   Image as ImageIcon,
   Loader2,
   MapPin,
   Package,
   Share2,
-  Truck,
 } from 'lucide-react'
 import { fetchMyParcelRequests } from '@/lib/parcels'
 import { shareTextContent } from '@/lib/nativeShare'
@@ -40,6 +38,7 @@ function formatDate(value?: string | null) {
   if (Number.isNaN(date.getTime())) return 'Date not fixed'
 
   return date.toLocaleDateString('en-GB', {
+    weekday: 'long',
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -135,6 +134,7 @@ export default function MyParcels() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!error) return
@@ -171,6 +171,23 @@ export default function MyParcels() {
   const historyRequests = requests.filter(
     (request) => !activeParcelStatuses.has(request.status),
   )
+
+  const toggleRequest = (requestId: string) => {
+    setExpandedRequestId((current) =>
+      current === requestId ? null : requestId,
+    )
+  }
+
+  const toggleHistory = () => {
+    if (historyOpen) {
+      const expandedIsHistory = historyRequests.some(
+        (request) => request.id === expandedRequestId,
+      )
+      if (expandedIsHistory) setExpandedRequestId(null)
+    }
+
+    setHistoryOpen((open) => !open)
+  }
 
   return (
     <div className="min-h-screen bg-white pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
@@ -227,7 +244,7 @@ export default function MyParcels() {
             {[1, 2, 3].map((item) => (
               <div
                 key={item}
-                className="h-44 animate-pulse rounded-3xl bg-neutral-100"
+                className="h-36 animate-pulse rounded-[22px] bg-neutral-100"
               />
             ))}
           </div>
@@ -254,7 +271,7 @@ export default function MyParcels() {
             </button>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <section>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
@@ -274,7 +291,12 @@ export default function MyParcels() {
               {activeRequests.length > 0 ? (
                 <div className="space-y-3">
                   {activeRequests.map((request) => (
-                    <ParcelCard key={request.id} request={request} />
+                    <ParcelCard
+                      key={request.id}
+                      request={request}
+                      expanded={expandedRequestId === request.id}
+                      onToggle={() => toggleRequest(request.id)}
+                    />
                   ))}
                 </div>
               ) : (
@@ -297,7 +319,7 @@ export default function MyParcels() {
               <section className="rounded-3xl border border-neutral-100 bg-neutral-50 p-2">
                 <button
                   type="button"
-                  onClick={() => setHistoryOpen((open) => !open)}
+                  onClick={toggleHistory}
                   className="flex w-full items-center justify-between gap-3 rounded-[1.25rem] bg-white px-4 py-3 text-left ring-1 ring-neutral-100 transition active:scale-[0.99]"
                 >
                   <div>
@@ -323,7 +345,12 @@ export default function MyParcels() {
                 {historyOpen && (
                   <div className="space-y-3 px-1 pb-1 pt-3">
                     {historyRequests.map((request) => (
-                      <ParcelCard key={request.id} request={request} />
+                      <ParcelCard
+                        key={request.id}
+                        request={request}
+                        expanded={expandedRequestId === request.id}
+                        onToggle={() => toggleRequest(request.id)}
+                      />
                     ))}
                   </div>
                 )}
@@ -336,9 +363,16 @@ export default function MyParcels() {
   )
 }
 
-function ParcelCard({ request }: { request: ParcelRequest }) {
+function ParcelCard({
+  request,
+  expanded,
+  onToggle,
+}: {
+  request: ParcelRequest
+  expanded: boolean
+  onToggle: () => void
+}) {
   const { showToast } = useAppToast()
-  const [detailsOpen, setDetailsOpen] = useState(false)
   const [sharing, setSharing] = useState(false)
 
   const displayStatus = normalizeStatus(request.status)
@@ -405,34 +439,33 @@ function ParcelCard({ request }: { request: ParcelRequest }) {
   }
 
   return (
-    <article className="overflow-hidden rounded-3xl border border-neutral-100 bg-white shadow-sm">
-      <div className="p-4">
+    <article className="overflow-hidden rounded-[22px] border border-neutral-100 bg-white shadow-[0_5px_18px_rgba(15,23,42,0.035)]">
+      <div className="p-3">
         <div className="flex items-start gap-3">
           {request.parcelPhotoUrl ? (
             <img
               src={request.parcelPhotoUrl}
               alt={title}
-              className="h-14 w-14 shrink-0 rounded-2xl bg-neutral-100 object-cover ring-1 ring-neutral-200"
+              className="h-[52px] w-[52px] shrink-0 rounded-2xl bg-neutral-100 object-cover ring-1 ring-neutral-200"
             />
           ) : (
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
-              <Package size={22} />
+            <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+              <Package size={21} />
             </div>
           )}
 
-          <div className="min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={onToggle}
+            className="min-w-0 flex-1 text-left"
+          >
             <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="truncate text-[11px] font-bold uppercase tracking-wide text-neutral-400">
-                  {request.parcelNo || 'Parcel Request'}
-                </p>
-                <h3 className="mt-1 line-clamp-2 text-sm font-black leading-5 text-neutral-900">
-                  {title}
-                </h3>
-              </div>
+              <p className="min-w-0 truncate text-[10px] font-black uppercase tracking-[0.1em] text-neutral-400">
+                {request.parcelNo || 'Parcel Request'}
+              </p>
 
               <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-bold ${statusClass(
+                className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${statusClass(
                   request.status,
                 )}`}
               >
@@ -440,101 +473,157 @@ function ParcelCard({ request }: { request: ParcelRequest }) {
               </span>
             </div>
 
-            {request.parcelType && (
-              <p className="mt-1.5 text-xs font-semibold text-blue-700">
-                {parcelTypeLabels[request.parcelType] || request.parcelType}
-              </p>
-            )}
-          </div>
-        </div>
+            <h3 className="mt-1 truncate text-sm font-black text-neutral-950">
+              {title}
+            </h3>
 
-        <div className="mt-3 rounded-2xl bg-neutral-50 px-3 py-3 ring-1 ring-neutral-100">
-          <div className="flex items-center gap-2">
-            <Truck size={15} className="shrink-0 text-orange-500" />
-            <p className="min-w-0 flex-1 truncate text-sm font-bold text-neutral-900">
+            <p className="mt-1 truncate text-xs font-semibold text-neutral-600">
               {routeTitle(request)}
             </p>
-          </div>
 
-          <div className="mt-2 flex items-center gap-2 text-xs text-neutral-500">
-            <Calendar size={14} className="shrink-0" />
-            <span>Trip date: {formatDate(request.trip?.goingDate)}</span>
+            <p className="mt-1 flex items-center gap-1.5 text-[11px] text-neutral-500">
+              <Calendar size={12} className="shrink-0 text-neutral-400" />
+              <span className="truncate">
+                {formatDate(request.trip?.goingDate)}
+              </span>
+            </p>
+          </button>
+
+          <div className="flex shrink-0 flex-col gap-2">
+            <button
+              type="button"
+              onClick={onToggle}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-50 text-neutral-600 ring-1 ring-neutral-100 transition active:scale-95"
+              aria-label={expanded ? 'Hide parcel details' : 'View parcel details'}
+            >
+              <ChevronDown
+                size={16}
+                className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void shareParcelUpdate()}
+              disabled={sharing}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition active:scale-95 disabled:cursor-wait disabled:opacity-60"
+              aria-label="Share parcel update"
+              title="Share parcel update"
+            >
+              {sharing ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Share2 size={14} strokeWidth={2.3} />
+              )}
+            </button>
           </div>
         </div>
 
-        <div className="mt-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-neutral-400">
-                Current status
-              </p>
-              <p className="mt-0.5 truncate text-sm font-black text-neutral-900">
-                {parcelStatusLabels[request.status] || request.status}
-              </p>
-            </div>
+        {!isException ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            className="mt-3 w-full rounded-2xl bg-neutral-50 px-3 py-2.5 text-left ring-1 ring-neutral-100 transition active:scale-[0.99]"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-neutral-400">
+                  Current status
+                </p>
+                <p className="mt-0.5 truncate text-xs font-black text-neutral-800">
+                  {parcelStatusLabels[request.status] || request.status}
+                </p>
+              </div>
 
-            {!isException && (
-              <span className="text-[11px] font-bold text-neutral-400">
+              <span className="text-[10px] font-bold text-neutral-400">
                 {progressPercent}%
               </span>
-            )}
-          </div>
+            </div>
 
-          {!isException && (
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-neutral-100">
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white ring-1 ring-neutral-100">
               <div
                 className="h-full rounded-full bg-emerald-500 transition-all"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
-          )}
-
-          {currentEvent && (
-            <p className="mt-2 line-clamp-2 text-xs leading-5 text-neutral-500">
-              {currentEvent.message ||
-                `Updated ${formatDateTime(currentEvent.createdAt)}`}
-            </p>
-          )}
-        </div>
-
-        <div className="mt-3 flex items-center gap-2">
+          </button>
+        ) : (
           <button
             type="button"
-            onClick={() => setDetailsOpen((open) => !open)}
-            className="flex h-10 min-w-0 flex-1 items-center justify-between rounded-2xl bg-neutral-50 px-3 text-sm font-bold text-neutral-700 ring-1 ring-neutral-100 transition active:scale-[0.99]"
+            onClick={onToggle}
+            className={`mt-3 flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-left ${statusClass(
+              request.status,
+            )}`}
           >
-            <span className="truncate">
-              {detailsOpen ? 'Hide details' : 'View tracking & details'}
+            <span className="text-xs font-black">
+              {parcelStatusLabels[request.status] || request.status}
             </span>
-            <ChevronRight
-              size={17}
-              className={`shrink-0 transition-transform ${
-                detailsOpen ? 'rotate-90' : ''
-              }`}
+            <ChevronDown
+              size={15}
+              className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
             />
           </button>
-
-          <button
-            type="button"
-            onClick={() => void shareParcelUpdate()}
-            disabled={sharing}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-neutral-200 bg-white text-neutral-600 transition active:scale-95 disabled:cursor-wait disabled:opacity-60"
-            aria-label="Share parcel update"
-            title="Share parcel update"
-          >
-            {sharing ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Share2 size={16} strokeWidth={2.3} />
-            )}
-          </button>
-        </div>
-
+        )}
       </div>
 
-      {detailsOpen && (
-        <div className="border-t border-neutral-100 px-4 pb-4 pt-3">
-          <div className="rounded-2xl border border-neutral-100 p-3">
+      {expanded && (
+        <div className="border-t border-neutral-100 px-3 pb-4 pt-3">
+          <div className="rounded-2xl bg-neutral-50 px-3 py-3 ring-1 ring-neutral-100">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-neutral-400">
+                  Latest update
+                </p>
+                <p className="mt-1 text-sm font-black text-neutral-900">
+                  {parcelStatusLabels[request.status] || request.status}
+                </p>
+                {currentEvent && (
+                  <p className="mt-1 text-xs leading-5 text-neutral-500">
+                    {currentEvent.message ||
+                      `Updated ${formatDateTime(currentEvent.createdAt)}`}
+                  </p>
+                )}
+              </div>
+
+              {!isException && (
+                <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100">
+                  {progressPercent}% complete
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 divide-x divide-neutral-200 rounded-2xl bg-white px-3 py-2.5 ring-1 ring-neutral-100">
+            <div className="pr-3">
+              <p className="text-[9px] font-black uppercase tracking-wider text-neutral-400">
+                Route
+              </p>
+              <p className="mt-1 line-clamp-2 text-xs font-bold text-neutral-800">
+                {routeTitle(request)}
+              </p>
+            </div>
+            <div className="pl-3">
+              <p className="text-[9px] font-black uppercase tracking-wider text-neutral-400">
+                Trip date
+              </p>
+              <p className="mt-1 line-clamp-2 text-xs font-bold text-neutral-800">
+                {formatDate(request.trip?.goingDate)}
+              </p>
+            </div>
+          </div>
+
+          {request.parcelType && (
+            <div className="mt-3 flex items-center justify-between rounded-2xl bg-blue-50 px-3 py-2.5 ring-1 ring-blue-100">
+              <span className="text-[10px] font-black uppercase tracking-wider text-blue-500">
+                Parcel type
+              </span>
+              <span className="text-xs font-black text-blue-700">
+                {parcelTypeLabels[request.parcelType] || request.parcelType}
+              </span>
+            </div>
+          )}
+
+          <div className="mt-3 rounded-2xl border border-neutral-100 p-3">
             <div className="flex gap-3">
               <div className="flex flex-col items-center pt-1">
                 <span className="h-3 w-3 rounded-full bg-emerald-500" />

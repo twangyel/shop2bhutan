@@ -55,6 +55,7 @@ function formatDate(value?: string | null) {
   if (!value) return 'Date not fixed'
 
   return new Date(value).toLocaleDateString('en-GB', {
+    weekday: 'long',
     day: 'numeric',
     month: 'short',
     year: 'numeric',

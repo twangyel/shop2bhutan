@@ -2,10 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Calendar,
-  MapPin,
   Package,
   ChevronRight,
-  Clock,
   Info,
 } from 'lucide-react'
 import {
@@ -16,14 +14,54 @@ import type { ParcelRequest, ParcelTrip } from '@/types/parcel'
 import { parcelStatusLabels } from '@/types/parcel'
 import { supabase } from '@/lib/supabase'
 
-function formatDate(value?: string | null) {
-  if (!value) return 'Date not fixed'
+function parseDate(value?: string | null) {
+  if (!value) return null
 
-  return new Date(value).toLocaleDateString('en-GB', {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function formatDate(value?: string | null) {
+  const date = parseDate(value)
+  if (!date) return 'Date not fixed'
+
+  return date.toLocaleDateString('en-GB', {
+    weekday: 'long',
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   })
+}
+
+function formatCutoff(value?: string | null) {
+  if (!value) return 'No cutoff set'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'No cutoff set'
+
+  return `${date.toLocaleString('en-GB', {
+    timeZone: 'Asia/Thimphu',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })} BTT`
+}
+
+function tripDateParts(value?: string | null) {
+  const date = parseDate(value)
+
+  if (!date) {
+    return { weekday: 'Trip', day: '--', month: 'Date' }
+  }
+
+  return {
+    weekday: date.toLocaleDateString('en-GB', { weekday: 'short' }),
+    day: date.toLocaleDateString('en-GB', { day: '2-digit' }),
+    month: date.toLocaleDateString('en-GB', { month: 'short' }),
+  }
 }
 
 function statusClass(status: string) {
@@ -246,6 +284,10 @@ export default function Parcel() {
                     <p className="truncate text-xs text-neutral-500">
                       {tripDisplayTitle(request.trip)}
                     </p>
+                    <p className="mt-1 flex items-center gap-1 text-[11px] font-medium text-neutral-400">
+                      <Calendar size={11} />
+                      {formatDate(request.trip?.goingDate)}
+                    </p>
                   </div>
 
                   <span
@@ -278,7 +320,7 @@ export default function Parcel() {
               {[1, 2].map((item) => (
                 <div
                   key={item}
-                  className="h-48 animate-pulse rounded-2xl bg-neutral-200"
+                  className="h-36 animate-pulse rounded-[22px] bg-neutral-100"
                 />
               ))}
             </div>
@@ -297,83 +339,77 @@ export default function Parcel() {
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {trips.map((trip) => (
-                <button
-                  key={trip.id}
-                  onClick={() => navigate(`/parcel-booking/${trip.id}`)}
-                  className="w-full overflow-hidden rounded-2xl border border-neutral-100 bg-white text-left shadow-sm shadow-slate-100 transition hover:border-orange-200 active:scale-[0.99]"
-                >
-                  {/* Card Header */}
-                  <div className="p-4 pb-0">
-                    <div className="flex items-start justify-between gap-3">
+            <div className="space-y-3">
+              {trips.map((trip) => {
+                const dateParts = tripDateParts(trip.goingDate)
+
+                return (
+                  <button
+                    key={trip.id}
+                    type="button"
+                    onClick={() => navigate(`/parcel-booking/${trip.id}`)}
+                    className="w-full rounded-[22px] border border-neutral-100 bg-white p-3 text-left shadow-[0_5px_18px_rgba(15,23,42,0.035)] transition active:scale-[0.988] active:bg-neutral-50/60"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-[70px] w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-orange-50 text-orange-700 ring-1 ring-orange-100">
+                        <span className="text-[10px] font-black uppercase tracking-wider">
+                          {dateParts.weekday}
+                        </span>
+                        <span className="mt-0.5 text-xl font-black leading-none">
+                          {dateParts.day}
+                        </span>
+                        <span className="mt-1 text-[10px] font-bold uppercase">
+                          {dateParts.month}
+                        </span>
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-neutral-400">
+                              Scheduled route
+                            </p>
+                            <h3 className="mt-0.5 line-clamp-2 text-sm font-black leading-5 text-neutral-950">
+                              {tripDisplayTitle(trip)}
+                            </h3>
+                          </div>
+
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-50 text-orange-600">
+                            <ChevronRight size={17} />
+                          </span>
+                        </div>
+
+                        <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-neutral-600">
+                          <Calendar size={13} className="shrink-0 text-neutral-400" />
+                          {formatDate(trip.goingDate)}
+                        </p>
+
+                        <p className="mt-1 flex items-center gap-1.5 text-[11px] text-neutral-500">
+                          <Package size={12} className="shrink-0 text-blue-500" />
+                          <span className="truncate">
+                            Documents, electronics and permitted medicine
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-2xl bg-neutral-50 px-3 py-2.5 ring-1 ring-neutral-100">
                       <div className="min-w-0">
-                        <h3 className="text-lg font-bold text-neutral-900">
-                          {tripDisplayTitle(trip)}
-                        </h3>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500">
-                          <span className="flex items-center gap-1">
-                            <Calendar size={12} />
-                            {formatDate(trip.goingDate)}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <MapPin size={12} />
-                            Documents, electronics, permitted medicine
-                          </span>
-                        </div>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">
+                          Booking closes
+                        </p>
+                        <p className="mt-0.5 truncate text-[11px] font-bold text-neutral-700">
+                          {formatCutoff(trip.bookingCutoffAt)}
+                        </p>
                       </div>
 
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-50 text-orange-600">
-                        <ChevronRight size={18} />
-                      </div>
+                      <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[10.5px] font-black text-emerald-700 ring-1 ring-emerald-100">
+                        Booking Open
+                      </span>
                     </div>
-                  </div>
-
-                  {/* Route Visual */}
-                  <div className="mt-3 px-4">
-                    <div className="flex items-center gap-3 rounded-2xl bg-neutral-50 p-3.5 ring-1 ring-neutral-100">
-                      <div className="flex flex-col items-center">
-                        <span className="h-3 w-3 rounded-full bg-emerald-500" />
-                        <span className="my-1 h-8 w-px bg-neutral-300" />
-                        <span className="h-3 w-3 rounded-full bg-orange-500" />
-                      </div>
-
-                      <div className="flex-1 space-y-3">
-                        <div>
-                          <p className="text-[11px] font-semibold text-emerald-600">
-                            From
-                          </p>
-                          <p className="text-sm font-bold text-neutral-900">
-                            {trip.origin || trip.fromLocation || 'Thimphu'}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-[11px] font-semibold text-orange-500">
-                            To
-                          </p>
-                          <p className="text-sm font-bold text-neutral-900">
-                            {trip.destination ||
-                              trip.toLocation ||
-                              'Phuentsholing'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card Footer */}
-                  <div className="flex items-center justify-between border-t border-neutral-50 px-4 py-3">
-                    <span className="flex items-center gap-1.5 text-xs text-neutral-500">
-                      <Clock size={13} />
-                      Scheduled trip date
-                    </span>
-                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
-                      Booking Open
-                    </span>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                )
+              })}
             </div>
           )}
         </section>
