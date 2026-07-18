@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowUpRight,
   ChevronDown,
@@ -34,9 +34,31 @@ function telHref(value: string) {
   return clean ? `tel:${clean}` : undefined;
 }
 
-function whatsappHref(value: string) {
+function whatsappHref(value: string, message?: string) {
   const digits = value.replace(/\D/g, '');
-  return digits ? `https://wa.me/${digits}` : undefined;
+  if (!digits) return undefined;
+
+  const cleanMessage = String(message ?? '').trim();
+  return cleanMessage
+    ? `https://wa.me/${digits}?text=${encodeURIComponent(cleanMessage)}`
+    : `https://wa.me/${digits}`;
+}
+
+const ORDER_ISSUE_LABELS: Record<string, string> = {
+  payment_rejected: 'Payment proof rejected',
+  order_cancelled: 'Order cancellation',
+  delivery_not_received: 'Marked delivered but not received',
+  delivery_problem: 'Delivery problem',
+  order_delayed: 'Order delayed beyond estimate',
+};
+
+function readableOrderStatus(value?: string | null) {
+  const clean = String(value ?? '').trim();
+  if (!clean) return 'Order status unavailable';
+
+  return clean
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 
@@ -195,6 +217,13 @@ const policyLinks = [
 
 export default function Support() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const orderId = String(searchParams.get('orderId') ?? '').trim();
+  const orderNumber = String(searchParams.get('order') ?? '').trim();
+  const orderStatus = String(searchParams.get('status') ?? '').trim();
+  const issueKey = String(searchParams.get('issue') ?? '').trim();
+  const issueLabel = ORDER_ISSUE_LABELS[issueKey] || '';
+  const hasOrderContext = Boolean(orderNumber || orderId || issueLabel);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
   const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
@@ -299,7 +328,25 @@ export default function Support() {
   }, [searchQuery]);
 
   const supportPhoneHref = telHref(appSettings.supportPhone);
-  const supportWhatsappHref = whatsappHref(appSettings.whatsappNumber);
+  const contextualSupportMessage = useMemo(() => {
+    if (!hasOrderContext) return '';
+
+    return [
+      'Hello Shop2Bhutan Support,',
+      '',
+      orderNumber ? `Order: #${orderNumber}` : orderId ? `Order ID: ${orderId}` : '',
+      orderStatus ? `Current status: ${readableOrderStatus(orderStatus)}` : '',
+      issueLabel ? `Issue: ${issueLabel}` : '',
+      '',
+      'Please describe what happened:',
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }, [hasOrderContext, issueLabel, orderId, orderNumber, orderStatus]);
+  const supportWhatsappHref = whatsappHref(
+    appSettings.whatsappNumber,
+    contextualSupportMessage,
+  );
   const businessHoursStatus = useMemo(
     () =>
       getBusinessHoursStatus(
@@ -382,6 +429,60 @@ export default function Support() {
       </header>
 
       <main className="space-y-7 px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-4">
+        {hasOrderContext && (
+          <section
+            aria-labelledby="order-support-context-title"
+            className="rounded-[26px] border border-orange-100 bg-orange-50/70 p-4"
+          >
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-orange-600 shadow-sm">
+                <LifeBuoy size={19} strokeWidth={2.2} />
+              </span>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-orange-600">
+                  Order support
+                </p>
+                <h2
+                  id="order-support-context-title"
+                  className="mt-1 text-[15px] font-extrabold tracking-[-0.01em] text-neutral-950"
+                >
+                  {issueLabel || 'Help with this order'}
+                </h2>
+
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {orderNumber && (
+                    <span className="rounded-full bg-white px-2.5 py-1 text-[10.5px] font-bold text-neutral-700 ring-1 ring-orange-100">
+                      #{orderNumber}
+                    </span>
+                  )}
+                  {orderStatus && (
+                    <span className="rounded-full bg-white px-2.5 py-1 text-[10.5px] font-bold text-neutral-500 ring-1 ring-orange-100">
+                      {readableOrderStatus(orderStatus)}
+                    </span>
+                  )}
+                </div>
+
+                <p className="mt-2 text-xs leading-5 text-neutral-600">
+                  Your order reference, current status, and issue category will be
+                  included automatically when you contact us on WhatsApp.
+                </p>
+
+                {orderId && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/order/${orderId}`)}
+                    className="mt-3 inline-flex items-center gap-1 text-[11.5px] font-extrabold text-orange-700 transition active:text-orange-800"
+                  >
+                    View this order
+                    <ArrowUpRight size={13} strokeWidth={2.4} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
         <section aria-labelledby="support-search-title">
           <div className="rounded-[26px] border border-orange-100 bg-orange-50/70 p-4">
             <div className="mb-3">
@@ -761,10 +862,12 @@ export default function Support() {
               </div>
               <div className="min-w-0 flex-1">
                 <h2 id="contact-support-title" className="text-base font-extrabold tracking-[-0.01em]">
-                  Still need help?
+                  {hasOrderContext ? 'Contact us about this order' : 'Still need help?'}
                 </h2>
                 <p className="mt-1 text-xs leading-5 text-neutral-300">
-                  Speak directly with the Shop2Bhutan support team.
+                  {hasOrderContext
+                    ? 'Your order details are ready to send with your message.'
+                    : 'Speak directly with the Shop2Bhutan support team.'}
                 </p>
               </div>
             </div>
@@ -796,7 +899,7 @@ export default function Support() {
                   className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-3 text-sm font-extrabold text-white transition active:scale-[0.98]"
                 >
                   <MessageCircle size={16} strokeWidth={2.2} />
-                  WhatsApp
+                  {hasOrderContext ? 'Message us' : 'WhatsApp'}
                 </a>
               ) : (
                 <span

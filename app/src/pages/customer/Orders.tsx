@@ -8,7 +8,6 @@ import {
   Clock3,
   CreditCard,
   FileText,
-  Headphones,
   ListChecks,
   MapPin,
   Package,
@@ -453,7 +452,97 @@ function orderPrimaryAction(order: Order) {
     };
   }
 
+  if (
+    ['payment_verified', 'order_placed', 'in_transit', 'arrived_at_hub', 'out_for_delivery'].includes(
+      status,
+    )
+  ) {
+    return {
+      label: 'View tracking',
+      path: `/order/${order.id}?view=tracking`,
+    };
+  }
+
   return { label: actionText(order), path: `/order/${order.id}` };
+}
+
+type OrderSupportContext = {
+  label: string;
+  issue: string;
+};
+
+function estimatedDeliveryDeadline(order: Order) {
+  const row = order as Order & {
+    estimatedDeliveryFrom?: string;
+    estimatedDeliveryTo?: string;
+  };
+  const value = row.estimatedDeliveryTo || row.estimatedDeliveryFrom;
+  if (!value) return null;
+
+  const clean = String(value).trim();
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(clean)
+    ? new Date(`${clean}T23:59:59+06:00`)
+    : new Date(clean);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function orderSupportContext(order: Order): OrderSupportContext | null {
+  const status = effectiveOrderStatus(order);
+  const payment = latestPayment(order);
+
+  if (status === 'payment_pending' && payment?.status === 'rejected') {
+    return {
+      label: 'Having trouble with this payment?',
+      issue: 'payment_rejected',
+    };
+  }
+
+  if (status === 'cancelled') {
+    return {
+      label: 'Need help with this cancellation?',
+      issue: 'order_cancelled',
+    };
+  }
+
+  if (status === 'delivered') {
+    return {
+      label: 'Marked delivered but not received?',
+      issue: 'delivery_not_received',
+    };
+  }
+
+  if (status === 'out_for_delivery') {
+    return {
+      label: 'Having a delivery problem?',
+      issue: 'delivery_problem',
+    };
+  }
+
+  const deadline = estimatedDeliveryDeadline(order);
+  if (
+    deadline &&
+    Date.now() > deadline.getTime() &&
+    ['order_placed', 'in_transit', 'arrived_at_hub'].includes(status)
+  ) {
+    return {
+      label: 'Order delayed beyond estimate?',
+      issue: 'order_delayed',
+    };
+  }
+
+  return null;
+}
+
+function orderSupportPath(order: Order, context: OrderSupportContext) {
+  const params = new URLSearchParams({
+    orderId: order.id,
+    order: order.orderNumber,
+    status: effectiveOrderStatus(order),
+    issue: context.issue,
+  });
+
+  return `/support?${params.toString()}`;
 }
 
 function stageTone(order: Order): StageTone {
@@ -647,6 +736,7 @@ function CustomerOrderRow({
   const payment = latestPayment(order);
   const status = effectiveOrderStatus(order);
   const primaryAction = orderPrimaryAction(order);
+  const supportContext = orderSupportContext(order);
   const fulfillment = getFulfillmentDisplay(order);
   const quotationDate = firstValidDate(
     order.quotation?.respondedAt,
@@ -877,36 +967,37 @@ function CustomerOrderRow({
             </div>
           )}
 
-          <div className="mt-4 grid grid-cols-2 gap-2.5">
-            <button
-              type="button"
-              onClick={() => openPath(primaryAction.path)}
-              className="flex h-11 items-center justify-center gap-1.5 rounded-2xl bg-orange-500 px-3 text-[12px] font-extrabold text-white transition active:scale-[0.98] active:bg-orange-600"
-            >
-              {primaryAction.label}
-              <ChevronRight size={15} strokeWidth={2.5} />
-            </button>
+          <button
+            type="button"
+            onClick={() => openPath(primaryAction.path)}
+            className="mt-4 flex h-11 w-full items-center justify-center gap-1.5 rounded-2xl bg-orange-500 px-3 text-[12px] font-extrabold text-white transition active:scale-[0.98] active:bg-orange-600"
+          >
+            {primaryAction.label}
+            <ChevronRight size={15} strokeWidth={2.5} />
+          </button>
 
+          {supportContext && (
             <button
               type="button"
-              onClick={() => openPath('/support')}
-              className="flex h-11 items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-3 text-[12px] font-extrabold text-slate-700 transition active:scale-[0.98] active:bg-slate-50"
+              onClick={() => openPath(orderSupportPath(order, supportContext))}
+              className="mx-auto mt-2.5 flex items-center justify-center gap-1 text-[11px] font-bold text-slate-500 transition active:text-orange-600"
             >
-              Need help?
-              <Headphones size={15} strokeWidth={2.3} />
-            </button>
-          </div>
-
-          {primaryAction.path !== `/order/${order.id}` && (
-            <button
-              type="button"
-              onClick={() => openPath(`/order/${order.id}`)}
-              className="mt-2 flex h-10 w-full items-center justify-center gap-1.5 rounded-2xl text-[11.5px] font-bold text-slate-500 transition active:bg-slate-50"
-            >
-              View complete order details
-              <ChevronRight size={14} strokeWidth={2.3} />
+              {supportContext.label}
+              <ChevronRight size={13} strokeWidth={2.3} />
             </button>
           )}
+
+          {primaryAction.path !== `/order/${order.id}` &&
+            primaryAction.path !== `/order/${order.id}?view=tracking` && (
+              <button
+                type="button"
+                onClick={() => openPath(`/order/${order.id}`)}
+                className="mt-1.5 flex h-9 w-full items-center justify-center gap-1.5 rounded-2xl text-[11px] font-bold text-slate-400 transition active:bg-slate-50"
+              >
+                View complete order details
+                <ChevronRight size={13} strokeWidth={2.3} />
+              </button>
+            )}
         </div>
       )}
     </article>

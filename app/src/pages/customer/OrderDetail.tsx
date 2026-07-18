@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   CheckCircle,
   ChevronDown,
@@ -648,11 +648,13 @@ function OrderProgressTimeline({ order }: { order: Order }) {
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const trackingRequested = searchParams.get('view') === 'tracking';
   const { showToast } = useAppToast();
   const { user, loading: authLoading } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
-  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(trackingRequested);
   const [removedItemsOpen, setRemovedItemsOpen] = useState(false);
   const [sharingOrder, setSharingOrder] = useState(false);
   const [error, setError] = useState('');
@@ -708,6 +710,21 @@ export default function OrderDetail() {
       void loadOrder();
     }
   }, [authLoading, loadOrder]);
+
+  useEffect(() => {
+    if (!trackingRequested || loading) return;
+
+    setTimelineOpen(true);
+
+    const timeout = window.setTimeout(() => {
+      document.getElementById('order-status-history')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 120);
+
+    return () => window.clearTimeout(timeout);
+  }, [loading, trackingRequested]);
 
   const compactProgress = useMemo(() => (order ? getCompactProgress(order) : null), [order]);
   const effectiveStatus = useMemo(() => (order ? getEffectiveOrderStatus(order) : undefined), [order]);
@@ -982,9 +999,10 @@ export default function OrderDetail() {
             )}
 
             <button
+              id="order-status-history"
               type="button"
               onClick={() => setTimelineOpen((value) => !value)}
-              className="mt-4 flex w-full items-center justify-between border-t border-neutral-100 pt-3.5 text-left"
+              className="mt-4 flex w-full scroll-mt-24 items-center justify-between border-t border-neutral-100 pt-3.5 text-left"
               aria-expanded={timelineOpen}
             >
               <span>
