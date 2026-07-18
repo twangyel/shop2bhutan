@@ -534,158 +534,303 @@ export default function QuotationReview() {
  
 
   return (
-    <div className="min-h-screen bg-white pb-[calc(6rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-screen bg-neutral-50 pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
       {/* Header */}
-      <header className="border-b border-gray-100 px-5 py-4">
+      <header className="sticky top-0 z-30 border-b border-neutral-100 bg-white/95 px-4 py-3 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
           <button
             type="button"
             onClick={() => navigate(`/order/${order.id}`)}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-700 transition active:scale-95"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-700 transition active:scale-95 active:bg-neutral-100"
             aria-label="Back"
           >
             <ArrowLeft size={20} strokeWidth={2.2} />
           </button>
-          <h1 className="text-lg font-bold text-gray-900">Review Final Price</h1>
+
+          <div className="min-w-0 flex-1">
+            <h1 className="text-[17px] font-extrabold tracking-tight text-neutral-950">
+              Final Price
+            </h1>
+            <p className="mt-0.5 truncate text-[11px] font-medium text-neutral-400">
+              Order #{order.orderNumber}
+            </p>
+          </div>
+
+          <span
+            className={`shrink-0 rounded-full px-3 py-1.5 text-[10.5px] font-extrabold ${display.badgeClass}`}
+          >
+            {display.badge}
+          </span>
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-5 py-6">
+      <main className="mx-auto max-w-2xl space-y-4 px-4 py-4">
         {error && (
-          <div className="mb-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+          <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
             {error}
           </div>
         )}
 
-        {/* Status + Order */}
-        <div className="mb-5 flex items-center gap-3">
-          <span className={`rounded-full px-3 py-1.5 text-[11px] font-bold ${display.badgeClass}`}>
-            {display.badge}
-          </span>
-          <span className="text-[13px] text-gray-400">#{order.orderNumber}</span>
-        </div>
+        {/* Total summary */}
+        <section className="overflow-hidden rounded-3xl border border-neutral-100 bg-white shadow-sm shadow-neutral-900/[0.03]">
+          <div className="p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-orange-500">
+                  {display.eyebrow}
+                </p>
+                <h2 className="mt-1 text-xl font-black tracking-tight text-neutral-950">
+                  {display.title}
+                </h2>
+                <p className="mt-1.5 text-[12px] leading-5 text-neutral-500">
+                  {display.subtitle}
+                </p>
+              </div>
 
-        {/* Total */}
-        <div className="mb-8">
-          <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-400">
-            {isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total Payable'}
-          </p>
-          <p className="mt-1 text-[38px] font-extrabold tracking-tight text-gray-900">
-            {money(quotation.totalAmount)}
-          </p>
-          <div className="mt-2.5 flex items-center gap-3">
-            {quotation.status !== 'pending' && (
-              <span className="flex items-center gap-1.5 text-[12px] font-semibold text-emerald-600">
-                <Check size={15} strokeWidth={2.5} />
-                Price confirmed
+              <span
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-neutral-50 ${display.iconClass}`}
+              >
+                {display.icon}
               </span>
-            )}
-            {quotation.status === 'pending' && (
-              <span className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-600">
-                <Clock size={15} strokeWidth={2.5} />
-                Checking availability
-              </span>
-            )}
-            <span className="h-2.5 w-px bg-gray-200" />
-            <span className="text-[12px] text-gray-400">Valid until {validUntil || 'No expiry set'}</span>
+            </div>
+
+            <div className="mt-5 rounded-2xl bg-neutral-950 px-4 py-4 text-white">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-neutral-400">
+                    {isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total payable'}
+                  </p>
+                  <p className="mt-1 text-[30px] font-black tracking-tight">
+                    {money(quotation.totalAmount)}
+                  </p>
+                </div>
+
+                <span className="rounded-full bg-white/10 px-3 py-1.5 text-[10.5px] font-bold text-white ring-1 ring-white/10">
+                  {display.statusLabel}
+                </span>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/10 pt-3">
+                <span className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-300">
+                  <Clock size={13} />
+                  Valid until {validUntil || 'No expiry set'}
+                </span>
+                <span className="h-3 w-px bg-white/15" />
+                <span className="text-[11px] font-semibold text-neutral-300">
+                  {quotation.items.length} confirmed {quotation.items.length === 1 ? 'item' : 'items'}
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
 
-        {/* Divider */}
-        <div className="h-px bg-gray-100 mb-7" />
-
-        {/* Price Breakdown */}
-        <h2 className="mb-4 text-[15px] font-bold text-gray-900">Price Breakdown</h2>
-
-        <div className="mb-8">
-          <div className="flex items-center justify-between py-2">
-            <span className="text-[14px] font-medium text-gray-500">
-              {isJaigaonPickup ? 'Product value (reference)' : 'Product total'}
+        {/* Confirmed items */}
+        <section className="rounded-3xl border border-neutral-100 bg-white p-4 shadow-sm shadow-neutral-900/[0.03]">
+          <div className="mb-2 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-orange-500">
+                Included
+              </p>
+              <h2 className="mt-1 text-[16px] font-black text-neutral-950">
+                Confirmed Items
+              </h2>
+            </div>
+            <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-[10.5px] font-bold text-neutral-500">
+              {quotation.items.length}
             </span>
-            <span className="text-[14px] font-bold text-gray-700">{money(quotation.productTotal)}</span>
           </div>
-          {isJaigaonPickup && (
-            <p className="text-[11px] leading-relaxed text-gray-400 -mt-1 mb-2">
-              Product value is paid directly during Jaigaon pickup and is not included below.
-            </p>
-          )}
-          <div className="flex items-center justify-between py-2">
-            <span className="text-[14px] font-medium text-gray-500">Service charge</span>
-            <span className="text-[14px] font-bold text-gray-700">{money(quotation.serviceCharge)}</span>
+
+          <div className="divide-y divide-neutral-100">
+            {quotation.items.map((item, index) => {
+              const source = sourceForItem(order, item, index);
+              const hasSourceLink = canShowSourceLink(source.sourceUrl);
+
+              return (
+                <div key={item.id} className="flex items-start gap-3 py-3.5 first:pt-2 last:pb-0">
+                  <QuotationItemPreviewImage
+                    source={source}
+                    productName={item.productName}
+                  />
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {source.sourcePlatform && (
+                        <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[9.5px] font-extrabold uppercase text-neutral-500">
+                          {source.sourcePlatform}
+                        </span>
+                      )}
+                      <span className="text-[10.5px] font-medium text-neutral-400">
+                        Qty {item.quantity}
+                      </span>
+                    </div>
+
+                    <p className="mt-1.5 line-clamp-2 break-words text-[13.5px] font-extrabold leading-5 text-neutral-900 [overflow-wrap:anywhere]">
+                      {item.productName}
+                    </p>
+
+                    <div className="mt-2 flex items-end justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+                          Unit price
+                        </p>
+                        <p className="mt-0.5 text-[12px] font-semibold text-neutral-600">
+                          {money(item.unitPrice)}
+                        </p>
+                      </div>
+                      <p className="text-[15px] font-black text-neutral-950">
+                        {money(item.totalPrice)}
+                      </p>
+                    </div>
+
+                    {(hasSourceLink || item.notes) && (
+                      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+                        {hasSourceLink && (
+                          <a
+                            href={source.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[10.5px] font-extrabold text-orange-500"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            Open source <ExternalLink size={11} />
+                          </a>
+                        )}
+                        {item.notes && (
+                          <span className="inline-flex max-w-full items-center gap-1 text-[10.5px] text-neutral-500">
+                            <Info size={11} className="shrink-0" />
+                            <span className="truncate">{item.notes}</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <div className="flex items-center justify-between py-2">
-            <span className="text-[14px] font-medium text-gray-500">Delivery fee</span>
-            <span className="text-[14px] font-bold text-gray-700">{money(quotation.deliveryFee)}</span>
-          </div>
-          {quotation.taxAmount > 0 && (
-            <div className="flex items-center justify-between py-2">
-              <span className="text-[14px] font-medium text-gray-500">Tax</span>
-              <span className="text-[14px] font-bold text-gray-700">{money(quotation.taxAmount)}</span>
+        </section>
+
+        {/* Price summary */}
+        <section className="overflow-hidden rounded-3xl border border-neutral-100 bg-white shadow-sm shadow-neutral-900/[0.03]">
+          <div className="p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-orange-500">
+                  Charges
+                </p>
+                <h2 className="mt-1 text-[16px] font-black text-neutral-950">
+                  Price Summary
+                </h2>
+              </div>
+              <FileText size={18} className="text-neutral-300" />
             </div>
-          )}
-          {(quotation.additionalChargeAmount ?? 0) > 0 && (
-            <div className="flex items-center justify-between py-2">
-              <span className="text-[14px] font-medium text-gray-500">
-                {quotation.additionalChargeLabel || 'Additional charge'}
-              </span>
-              <span className="text-[14px] font-bold text-gray-700">
-                {money(quotation.additionalChargeAmount)}
-              </span>
+
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between gap-4 text-[13px]">
+                <span className="text-neutral-500">
+                  {isJaigaonPickup ? 'Product value (reference)' : 'Product total'}
+                </span>
+                <span className="font-bold text-neutral-800">
+                  {money(quotation.productTotal)}
+                </span>
+              </div>
+
+              {isJaigaonPickup && (
+                <p className="rounded-xl bg-amber-50 px-3 py-2 text-[10.5px] leading-4 text-amber-700">
+                  Product value is paid directly during Jaigaon pickup and is not included in the Shop2Bhutan payable amount.
+                </p>
+              )}
+
+              <div className="flex items-center justify-between gap-4 text-[13px]">
+                <span className="text-neutral-500">Service charge</span>
+                <span className="font-bold text-neutral-800">
+                  {money(quotation.serviceCharge)}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 text-[13px]">
+                <span className="text-neutral-500">Delivery fee</span>
+                <span className="font-bold text-neutral-800">
+                  {money(quotation.deliveryFee)}
+                </span>
+              </div>
+
+              {quotation.taxAmount > 0 && (
+                <div className="flex items-center justify-between gap-4 text-[13px]">
+                  <span className="text-neutral-500">Tax</span>
+                  <span className="font-bold text-neutral-800">
+                    {money(quotation.taxAmount)}
+                  </span>
+                </div>
+              )}
+
+              {(quotation.additionalChargeAmount ?? 0) > 0 && (
+                <div className="flex items-center justify-between gap-4 text-[13px]">
+                  <span className="text-neutral-500">
+                    {quotation.additionalChargeLabel || 'Additional charge'}
+                  </span>
+                  <span className="font-bold text-neutral-800">
+                    {money(quotation.additionalChargeAmount)}
+                  </span>
+                </div>
+              )}
             </div>
-          )}
-          <div className="h-px bg-gray-100 my-2" />
-          <div className="flex items-center justify-between pt-2">
-            <span className="text-[15px] font-bold text-gray-900">
+          </div>
+
+          <div className="flex items-center justify-between gap-4 border-t border-orange-100 bg-orange-50/70 px-4 py-3.5">
+            <span className="text-sm font-black text-neutral-950">
               {isJaigaonPickup ? 'Payable to Shop2Bhutan' : 'Total'}
             </span>
-            <span className="text-[18px] font-extrabold text-gray-900">{money(quotation.totalAmount)}</span>
+            <span className="text-lg font-black text-orange-600">
+              {money(quotation.totalAmount)}
+            </span>
           </div>
-        </div>
+        </section>
 
         {quotationNoteDetails.customerNote && (
-          <div className="mb-7 rounded-2xl bg-blue-50 px-4 py-4">
+          <section className="rounded-3xl border border-blue-100 bg-blue-50 p-4">
             <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 ring-1 ring-blue-100">
                 <MessageSquareText size={17} />
               </span>
               <div className="min-w-0">
-                <p className="text-[12px] font-bold uppercase tracking-wide text-blue-700">
+                <p className="text-[11px] font-extrabold uppercase tracking-wide text-blue-700">
                   Note from Shop2Bhutan
                 </p>
-                <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-blue-900/80">
+                <p className="mt-1 whitespace-pre-wrap text-[12.5px] leading-5 text-blue-900/80">
                   {quotationNoteDetails.customerNote}
                 </p>
               </div>
             </div>
-          </div>
+          </section>
         )}
 
         {removedItems.length > 0 && (
-          <div className="mb-7 rounded-2xl border border-red-100 bg-red-50/60 px-4 py-4">
+          <section className="rounded-3xl border border-neutral-200 bg-white p-4">
             <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-red-600">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-neutral-500">
                 <CircleMinus size={17} />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-bold text-red-800">
-                  Removed from revised final price
+                <p className="text-[13px] font-black text-neutral-900">
+                  {removedItems.length} {removedItems.length === 1 ? 'item was' : 'items were'} not included
                 </p>
-                <p className="mt-1 text-[12px] leading-relaxed text-red-700/80">
-                  These products remain in your original request but are not included in the amount payable.
+                <p className="mt-1 text-[11.5px] leading-5 text-neutral-500">
+                  Kept here for reference only. These items are excluded from the payable amount.
                 </p>
 
                 <div className="mt-3 space-y-2">
                   {removedItems.map((item) => (
-                    <div key={item.id} className="rounded-xl bg-white px-3 py-2.5">
+                    <div key={item.id} className="rounded-2xl bg-neutral-50 px-3 py-2.5">
                       <div className="flex items-start justify-between gap-3">
-                        <p className="min-w-0 text-[13px] font-bold leading-snug text-gray-900">
+                        <p className="min-w-0 text-[12.5px] font-bold leading-5 text-neutral-700">
                           {item.productName}
                         </p>
-                        <span className="shrink-0 text-[11px] font-semibold text-gray-400">
-                          Qty {item.quantity}
+                        <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[9.5px] font-bold text-neutral-400 ring-1 ring-neutral-200">
+                          Not included
                         </span>
                       </div>
-                      <p className="mt-1 text-[11px] leading-relaxed text-red-600">
+                      <p className="mt-1 text-[10.5px] leading-4 text-neutral-500">
                         {item.reason}
                       </p>
                     </div>
@@ -693,106 +838,37 @@ export default function QuotationReview() {
                 </div>
               </div>
             </div>
-          </div>
+          </section>
         )}
-
-        {/* Divider */}
-        <div className="h-px bg-gray-100 mb-7" />
-
-        {/* Items */}
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[15px] font-bold text-gray-900">Confirmed Items</h2>
-          <span className="text-[12px] font-semibold text-gray-400">
-            {quotation.items.length} {quotation.items.length === 1 ? 'item' : 'items'}
-          </span>
-        </div>
-
-        <div className="mb-8">
-          {quotation.items.map((item, index) => {
-            const source = sourceForItem(order, item, index);
-            const hasSourceLink = canShowSourceLink(source.sourceUrl);
-
-            return (
-              <div key={item.id} className="flex items-start gap-3 py-4 border-b border-gray-100 last:border-b-0">
-                <QuotationItemPreviewImage
-                  source={source}
-                  productName={item.productName}
-                />
-
-                <div className="min-w-0 flex-1">
-                  <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                    {source.sourcePlatform && (
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-gray-500">
-                        {source.sourcePlatform}
-                      </span>
-                    )}
-                    <span className="text-[11px] text-gray-400">Qty {item.quantity}</span>
-                  </div>
-
-                  <p className="line-clamp-2 break-words text-[14px] font-bold leading-snug text-gray-900 [overflow-wrap:anywhere]">
-                    {item.productName}
-                  </p>
-
-                  <div className="mt-2 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
-                    <span className="text-[12px] text-gray-400">
-                      {money(item.unitPrice)} each
-                    </span>
-                    <span className="text-[14px] font-extrabold text-gray-900">
-                      {money(item.totalPrice)}
-                    </span>
-                  </div>
-
-                  {(hasSourceLink || item.notes) && (
-                    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-                      {hasSourceLink && (
-                        <a
-                          href={source.sourceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-500"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          Source <ExternalLink size={11} />
-                        </a>
-                      )}
-                      {item.notes && (
-                        <span className="inline-flex max-w-full items-center gap-1 text-[11px] text-gray-500">
-                          <Info size={11} className="shrink-0" />
-                          <span className="truncate">{item.notes}</span>
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
 
         {!canRespond && !isApproved && (
           <button
             type="button"
             onClick={() => navigate(`/order/${order.id}`)}
-            className="flex h-12 w-full items-center justify-between rounded-xl bg-gray-50 px-4 text-left transition active:scale-[0.99]"
+            className="flex w-full items-center justify-between rounded-2xl border border-neutral-100 bg-white px-4 py-3.5 text-left shadow-sm transition active:scale-[0.99]"
           >
             <span>
-              <span className="block text-sm font-bold text-gray-900">View order details</span>
-              <span className="block text-xs text-gray-400">Return to the complete order journey</span>
+              <span className="block text-sm font-extrabold text-neutral-900">
+                View order details
+              </span>
+              <span className="mt-0.5 block text-[11px] text-neutral-400">
+                Return to the complete order journey
+              </span>
             </span>
-            <ChevronRight size={18} className="text-gray-400" />
+            <ChevronRight size={18} className="text-neutral-400" />
           </button>
         )}
       </main>
 
       {/* Bottom Actions */}
       {canRespond && !showRejectDialog && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-100 bg-white px-5 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)]">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-100 bg-white/95 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.9rem)] backdrop-blur-xl">
           <div className="mx-auto flex max-w-2xl gap-3">
             <button
               type="button"
               onClick={handleReject}
               disabled={submitting}
-              className="h-12 flex-1 rounded-xl border border-gray-200 bg-white text-sm font-bold text-gray-700 transition active:scale-[0.98] disabled:opacity-50"
+              className="h-12 flex-1 rounded-2xl border border-neutral-200 bg-white text-sm font-extrabold text-neutral-700 transition active:scale-[0.98] disabled:opacity-50"
             >
               Request Changes
             </button>
@@ -800,7 +876,7 @@ export default function QuotationReview() {
               type="button"
               onClick={handleAccept}
               disabled={submitting}
-              className="flex h-12 flex-[1.5] items-center justify-center gap-1.5 rounded-xl bg-orange-500 px-4 text-sm font-bold text-white transition active:scale-[0.98] disabled:opacity-50"
+              className="flex h-12 flex-[1.45] items-center justify-center gap-1.5 rounded-2xl bg-orange-500 px-4 text-sm font-extrabold text-white shadow-lg shadow-orange-500/15 transition active:scale-[0.98] disabled:opacity-50"
             >
               {submitting ? 'Processing...' : 'Confirm & Pay'}
               {!submitting && <ChevronRight size={17} />}
@@ -810,12 +886,12 @@ export default function QuotationReview() {
       )}
 
       {isApproved && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-100 bg-white px-5 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)]">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-100 bg-white/95 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.9rem)] backdrop-blur-xl">
           <div className="mx-auto max-w-2xl">
             <button
               type="button"
               onClick={() => navigate(`/payment/${order.id}`)}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 text-sm font-bold text-white transition active:scale-[0.98]"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-extrabold text-white shadow-lg shadow-orange-500/15 transition active:scale-[0.98]"
             >
               Continue to Payment
               <ChevronRight size={17} />
@@ -826,25 +902,29 @@ export default function QuotationReview() {
 
       {/* Reject Dialog */}
       {showRejectDialog && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/50 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-10 backdrop-blur-[2px] sm:items-center sm:pb-10">
-          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-sm overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-950/50 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-10 backdrop-blur-[2px] sm:items-center sm:pb-10">
+          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-sm overflow-y-auto rounded-3xl bg-white shadow-2xl">
             <div className="px-5 pb-5 pt-4">
-              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200" />
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-200" />
 
               <div className="flex items-start gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
                   <MessageSquareText size={20} />
                 </span>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">Request Changes</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-gray-500">
+                  <h3 className="text-lg font-black text-neutral-950">
+                    Request Changes
+                  </h3>
+                  <p className="mt-1 text-sm leading-6 text-neutral-500">
                     Tell Shop2Bhutan what should be corrected so the final price can be reviewed and updated.
                   </p>
                 </div>
               </div>
 
               <label className="mt-4 block">
-                <span className="text-xs font-bold text-gray-700">What needs to change?</span>
+                <span className="text-xs font-extrabold text-neutral-700">
+                  What needs to change?
+                </span>
                 <textarea
                   value={rejectRemark}
                   onChange={(event) => {
@@ -854,11 +934,13 @@ export default function QuotationReview() {
                   rows={4}
                   autoFocus
                   placeholder="Example: Please recheck the product price and remove the second item."
-                  className="mt-2 w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-violet-300 focus:bg-white"
+                  className="mt-2 w-full resize-none rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm leading-relaxed text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-violet-300 focus:bg-white"
                 />
                 <div className="mt-1 flex items-center justify-between gap-3">
-                  <span className="text-[11px] text-gray-400">Min 5 characters</span>
-                  <span className="text-[11px] font-semibold text-gray-400">{rejectRemark.length}/500</span>
+                  <span className="text-[11px] text-neutral-400">Min 5 characters</span>
+                  <span className="text-[11px] font-semibold text-neutral-400">
+                    {rejectRemark.length}/500
+                  </span>
                 </div>
               </label>
 
@@ -868,12 +950,12 @@ export default function QuotationReview() {
                 </div>
               )}
 
-              <div className="mt-3 rounded-xl bg-violet-50 px-4 py-3 text-xs leading-relaxed text-violet-700">
-                The current final price will be marked for revision, your request will return to "Checking Availability," and the admin team will receive your remark.
+              <div className="mt-3 rounded-2xl bg-violet-50 px-4 py-3 text-xs leading-relaxed text-violet-700">
+                The current final price will be marked for revision, your request will return to “Checking Availability,” and the admin team will receive your remark.
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 border-t border-gray-100 px-4 py-4">
+            <div className="grid grid-cols-2 gap-3 border-t border-neutral-100 px-4 py-4">
               <button
                 type="button"
                 onClick={() => {
@@ -881,7 +963,7 @@ export default function QuotationReview() {
                   setError('');
                 }}
                 disabled={submitting}
-                className="h-12 rounded-xl border border-gray-200 bg-white text-sm font-bold text-gray-700 transition active:scale-[0.98] disabled:opacity-50"
+                className="h-12 rounded-2xl border border-neutral-200 bg-white text-sm font-extrabold text-neutral-700 transition active:scale-[0.98] disabled:opacity-50"
               >
                 Keep Final Price
               </button>
@@ -889,7 +971,7 @@ export default function QuotationReview() {
                 type="button"
                 onClick={confirmReject}
                 disabled={submitting || rejectRemark.trim().length < 5}
-                className="h-12 rounded-xl bg-violet-600 px-3 text-sm font-bold text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                className="h-12 rounded-2xl bg-violet-600 px-3 text-sm font-extrabold text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {submitting ? 'Sending...' : 'Send Request'}
               </button>
@@ -899,4 +981,5 @@ export default function QuotationReview() {
       )}
     </div>
   );
+
 }
