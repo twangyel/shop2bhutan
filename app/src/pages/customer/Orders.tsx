@@ -1,20 +1,27 @@
 import { useCallback, useEffect, useMemo, useState, type ElementType } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  CalendarDays,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Clock3,
+  CreditCard,
   FileText,
+  Headphones,
   ListChecks,
+  MapPin,
   Package,
   RefreshCw,
   ShoppingBag,
+  Store,
   Truck,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchCustomerOrdersSummary } from '@/lib/customerOrders';
 import { supabase } from '@/lib/supabase';
-import type { Order, OrderItem } from '@/types';
+import { getFulfillmentDisplay, isSelfPickupOrder } from '@/lib/fulfillment';
+import type { Order, OrderItem, OrderStatus } from '@/types';
 
 type FilterTab = 'all' | 'pending' | 'quoted' | 'in_transit' | 'delivered';
 
@@ -77,17 +84,17 @@ function writeCachedOrders(userId: string, value: Order[]) {
 }
 
 function tabMatches(order: Order, tab: FilterTab) {
+  const status = effectiveOrderStatus(order);
+
   if (tab === 'all') return true;
   if (tab === 'pending') {
-    return ['pending_confirmation', 'quotation_pending', 'payment_pending'].includes(order.status);
+    return ['pending_confirmation', 'quotation_pending', 'payment_pending'].includes(status);
   }
-  if (tab === 'quoted') return order.status === 'quoted';
+  if (tab === 'quoted') return status === 'quoted';
   if (tab === 'in_transit') {
-    return ['payment_verified', 'order_placed', 'in_transit', 'arrived_at_hub', 'out_for_delivery'].includes(
-      order.status,
-    );
+    return ['payment_verified', 'order_placed', 'in_transit', 'arrived_at_hub', 'out_for_delivery'].includes(status);
   }
-  if (tab === 'delivered') return order.status === 'delivered';
+  if (tab === 'delivered') return status === 'delivered';
   return true;
 }
 
@@ -239,8 +246,110 @@ function readableDate(value?: string) {
   }).format(date);
 }
 
+
+function readableDateTime(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const formatted = new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Thimphu',
+  }).format(date);
+
+  return formatted.replace(/\b(am|pm)\b/gi, (part) => part.toUpperCase());
+}
+
+function firstValidDate(...values: Array<string | undefined>) {
+  return values.find((value) => {
+    if (!value) return false;
+    const date = new Date(value);
+    return !Number.isNaN(date.getTime());
+  }) || '';
+}
+
+function latestPayment(order: Order) {
+  const payments = order.payments ?? (order.payment ? [order.payment] : []);
+
+  return [...payments].sort((a, b) => {
+    const aTime = new Date(a.verifiedAt || a.createdAt || 0).getTime() || 0;
+    const bTime = new Date(b.verifiedAt || b.createdAt || 0).getTime() || 0;
+    return bTime - aTime;
+  })[0];
+}
+
+function effectiveOrderStatus(order: Order): OrderStatus {
+  if (order.status === 'cancelled' || order.status === 'delivered') return order.status;
+
+  const statusIndex = ORDER_PROGRESS.indexOf(order.status as (typeof ORDER_PROGRESS)[number]);
+  const verifiedIndex = ORDER_PROGRESS.indexOf('payment_verified');
+  const paymentIndex = ORDER_PROGRESS.indexOf('payment_pending');
+  const payments = order.payments ?? (order.payment ? [order.payment] : []);
+  const hasVerified = payments.some((payment) => payment.status === 'verified');
+  const hasPendingOrRejected = payments.some(
+    (payment) => payment.status === 'pending' || payment.status === 'rejected',
+  );
+
+  if (hasVerified && (statusIndex < 0 || statusIndex <= verifiedIndex)) return 'payment_verified';
+  if (hasPendingOrRejected && (statusIndex < 0 || statusIndex < paymentIndex)) return 'payment_pending';
+
+  return order.status;
+}
+
+function orderEstimatedDelivery(order: Order) {
+  const row = order as Order & {
+    estimatedDeliveryFrom?: string;
+    estimatedDeliveryTo?: string;
+    estimatedDeliveryNote?: string;
+  };
+  const from = readableDate(row.estimatedDeliveryFrom);
+  const to = readableDate(row.estimatedDeliveryTo);
+
+  if (from && to && from !== to) return `${from} – ${to}`;
+  if (from || to) return from || to;
+  return row.estimatedDeliveryNote?.trim() || 'To be updated';
+}
+
+function orderDeliveryDestination(order: Order) {
+  const display = getFulfillmentDisplay(order);
+  if (isSelfPickupOrder(order)) return display.title;
+
+  const parts = [
+    order.shippingAddress?.village,
+    order.shippingAddress?.gewog,
+    order.shippingAddress?.dzongkhag,
+  ]
+    .map((part) => String(part ?? '').trim())
+    .filter(Boolean);
+
+  return Array.from(new Set(parts)).join(', ') || 'Delivery address pending';
+}
+
+function orderPrimaryAction(order: Order) {
+  const status = effectiveOrderStatus(order);
+  const payment = latestPayment(order);
+
+  if (status === 'quoted') {
+    return { label: 'Review final price', path: `/quotation/${order.id}` };
+  }
+
+  if (status === 'payment_pending' && payment?.status !== 'pending') {
+    return {
+      label: payment?.status === 'rejected' ? 'Upload corrected proof' : 'Continue payment',
+      path: `/payment/${order.id}`,
+    };
+  }
+
+  return { label: actionText(order), path: `/order/${order.id}` };
+}
+
 function stageTone(order: Order): StageTone {
-  const status = order.status;
+  const status = effectiveOrderStatus(order);
 
   if (status === 'delivered') {
     return {
@@ -273,7 +382,7 @@ function stageTone(order: Order): StageTone {
   }
 
   if (status === 'payment_pending') {
-    const paymentStatus = order.payment?.status;
+    const paymentStatus = latestPayment(order)?.status;
     return {
       label:
         paymentStatus === 'pending'
@@ -302,10 +411,12 @@ function stageTone(order: Order): StageTone {
 
     return {
       label: labels[status] ?? 'In progress',
-      pill: 'bg-blue-50 text-blue-700 ring-blue-100',
-      bar: 'bg-blue-500',
-      iconBg: 'bg-blue-50',
-      iconText: 'text-blue-600',
+      pill: status === 'payment_verified'
+        ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+        : 'bg-blue-50 text-blue-700 ring-blue-100',
+      bar: status === 'payment_verified' ? 'bg-emerald-500' : 'bg-blue-500',
+      iconBg: status === 'payment_verified' ? 'bg-emerald-50' : 'bg-blue-50',
+      iconText: status === 'payment_verified' ? 'text-emerald-600' : 'text-blue-600',
     };
   }
 
@@ -319,11 +430,13 @@ function stageTone(order: Order): StageTone {
 }
 
 function orderProgress(order: Order) {
-  if (order.status === 'cancelled') {
+  const status = effectiveOrderStatus(order);
+
+  if (status === 'cancelled') {
     return { percent: 100, stepLabel: 'Cancelled' };
   }
 
-  const index = ORDER_PROGRESS.indexOf(order.status as (typeof ORDER_PROGRESS)[number]);
+  const index = ORDER_PROGRESS.indexOf(status as (typeof ORDER_PROGRESS)[number]);
   const safeIndex = index >= 0 ? index : 0;
 
   return {
@@ -333,34 +446,40 @@ function orderProgress(order: Order) {
 }
 
 function actionText(order: Order) {
-  if (order.status === 'quoted') return 'Review final price';
-  if (order.status === 'payment_pending') {
-    if (order.payment?.status === 'pending') return 'View payment status';
-    if (order.payment?.status === 'rejected') return 'Upload corrected proof';
+  const status = effectiveOrderStatus(order);
+  const payment = latestPayment(order);
+
+  if (status === 'quoted') return 'Review final price';
+  if (status === 'payment_pending') {
+    if (payment?.status === 'pending') return 'View payment status';
+    if (payment?.status === 'rejected') return 'Upload corrected proof';
     return 'Continue payment';
   }
-  if (order.status === 'delivered') return 'View completed order';
-  if (order.status === 'cancelled') return 'View order details';
-  if (['pending_confirmation', 'quotation_pending'].includes(order.status)) return 'View request';
+  if (status === 'delivered') return 'View completed order';
+  if (status === 'cancelled') return 'View order details';
+  if (['pending_confirmation', 'quotation_pending'].includes(status)) return 'View request';
   return 'Track order';
 }
 
 function statusDescription(order: Order) {
-  if (order.status === 'pending_confirmation') return 'Your shopping request has been received.';
-  if (order.status === 'quotation_pending') return 'Shop2Bhutan is checking availability, selected options, prices, and delivery charges.';
-  if (order.status === 'quoted') return 'Availability is confirmed and your final price is ready.';
-  if (order.status === 'payment_pending') {
-    if (order.payment?.status === 'pending') return 'Your payment proof is being verified.';
-    if (order.payment?.status === 'rejected') return 'Please upload a corrected payment screenshot.';
+  const status = effectiveOrderStatus(order);
+  const payment = latestPayment(order);
+
+  if (status === 'pending_confirmation') return 'Your shopping request has been received.';
+  if (status === 'quotation_pending') return 'Shop2Bhutan is checking availability, selected options, prices, and delivery charges.';
+  if (status === 'quoted') return 'Availability is confirmed and your final price is ready.';
+  if (status === 'payment_pending') {
+    if (payment?.status === 'pending') return 'Your payment proof is being verified.';
+    if (payment?.status === 'rejected') return 'Please upload a corrected payment screenshot.';
     return 'Confirm the final price and submit your payment proof.';
   }
-  if (order.status === 'payment_verified') return 'Payment is verified. Seller ordering will begin shortly.';
-  if (order.status === 'order_placed') return 'Your products have been ordered from the seller.';
-  if (order.status === 'in_transit') return 'Your order is on the way to Bhutan.';
-  if (order.status === 'arrived_at_hub') return 'Your order has reached the delivery hub.';
-  if (order.status === 'out_for_delivery') return 'Your order is on its final delivery journey.';
-  if (order.status === 'delivered') return 'Your order was delivered successfully.';
-  if (order.status === 'cancelled') return 'This order is no longer active.';
+  if (status === 'payment_verified') return 'Payment is verified. Seller ordering will begin shortly.';
+  if (status === 'order_placed') return 'Your products have been ordered from the seller.';
+  if (status === 'in_transit') return 'Your order is on the way to Bhutan.';
+  if (status === 'arrived_at_hub') return 'Your order has reached the delivery hub.';
+  if (status === 'out_for_delivery') return 'Your order is on its final delivery journey.';
+  if (status === 'delivered') return 'Your order was delivered successfully.';
+  if (status === 'cancelled') return 'This order is no longer active.';
   return 'Open the order to view its latest update.';
 }
 
@@ -371,12 +490,43 @@ function amountLabel(order: Order) {
 }
 
 function needsCustomerAction(order: Order) {
-  if (order.status === 'quoted') return true;
-  if (order.status !== 'payment_pending') return false;
-  return order.payment?.status !== 'pending';
+  const status = effectiveOrderStatus(order);
+  if (status === 'quoted') return true;
+  if (status !== 'payment_pending') return false;
+  return latestPayment(order)?.status !== 'pending';
 }
 
-function CustomerOrderCard({ order }: { order: Order }) {
+function OrderFact({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: ElementType;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex min-w-0 items-start gap-2.5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-500 ring-1 ring-slate-100">
+        <Icon size={15} strokeWidth={2.1} />
+      </span>
+      <div className="min-w-0 pt-0.5">
+        <p className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">{label}</p>
+        <p className="mt-0.5 break-words text-[11.5px] font-semibold leading-[1.05rem] text-slate-700">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function CustomerOrderRow({
+  order,
+  expanded,
+  onToggle,
+}: {
+  order: Order;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
   const navigate = useNavigate();
   const item = primaryItem(order);
   const count = itemCount(order);
@@ -384,35 +534,41 @@ function CustomerOrderCard({ order }: { order: Order }) {
   const tone = stageTone(order);
   const progress = orderProgress(order);
   const extraItems = Math.max(0, order.items.length - 1);
+  const payment = latestPayment(order);
+  const status = effectiveOrderStatus(order);
+  const primaryAction = orderPrimaryAction(order);
+  const fulfillment = getFulfillmentDisplay(order);
+  const quotationDate = firstValidDate(
+    order.quotation?.respondedAt,
+    order.quotation?.createdAt,
+  );
+  const paymentDate = firstValidDate(
+    payment?.verifiedAt,
+    payment?.createdAt,
+  );
+
+  const openPath = (path: string) => {
+    navigate(path);
+  };
 
   return (
-    <button
-      type="button"
-      onClick={() => navigate(`/order/${order.id}`)}
-      className="group w-full overflow-hidden rounded-[22px] border border-slate-100 bg-white text-left shadow-[0_5px_18px_rgba(15,23,42,0.035)] transition duration-200 active:scale-[0.988] active:bg-slate-50/60"
+    <article
+      className={`overflow-hidden rounded-[22px] border bg-white transition ${
+        expanded
+          ? 'border-slate-200 shadow-[0_10px_28px_rgba(15,23,42,0.06)]'
+          : 'border-slate-100 shadow-[0_4px_16px_rgba(15,23,42,0.03)]'
+      }`}
     >
-      <div className="p-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-[10px] font-extrabold ring-1 ${tone.pill}`}>
-              {tone.label}
-            </span>
-            {needsCustomerAction(order) && (
-              <span className="inline-flex shrink-0 rounded-full bg-orange-500 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-white">
-                Action
-              </span>
-            )}
-          </div>
-          <span className="shrink-0 text-[10.5px] font-semibold text-slate-400">{readableDate(order.createdAt)}</span>
-        </div>
-
-        <p className="mt-2 truncate text-[11px] font-bold text-slate-400">Order #{order.orderNumber}</p>
-
-        <div className="mt-3 flex gap-3">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        aria-controls={`order-details-${order.id}`}
+        className="w-full p-3.5 text-left transition active:bg-slate-50/70"
+      >
+        <div className="flex gap-3">
           <div className="relative shrink-0">
-            <OrderItemPreviewImage
-              item={item as PreviewableOrderItem}
-            />
+            <OrderItemPreviewImage item={item as PreviewableOrderItem} />
             {extraItems > 0 && (
               <span className="absolute -bottom-1 -right-1 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-slate-900 px-1 text-[9px] font-black text-white">
                 +{extraItems}
@@ -421,11 +577,35 @@ function CustomerOrderCard({ order }: { order: Order }) {
           </div>
 
           <div className="min-w-0 flex-1">
-            <h2 className="line-clamp-2 text-[14px] font-black leading-[1.25rem] text-slate-950">
+            <div className="flex items-start justify-between gap-2">
+              <span className={`inline-flex max-w-[72%] items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-extrabold ring-1 ${tone.pill}`}>
+                {status === 'payment_verified' && <CheckCircle2 size={12} strokeWidth={2.5} />}
+                {tone.label}
+              </span>
+
+              <div className="flex shrink-0 items-center gap-1.5">
+                <span className="hidden text-[10.5px] font-semibold text-slate-400 sm:inline">
+                  {readableDate(order.createdAt)}
+                </span>
+                <span className={`flex h-8 w-8 items-center justify-center rounded-full border transition ${expanded ? 'border-orange-100 bg-orange-50 text-orange-600' : 'border-slate-200 bg-white text-slate-500'}`}>
+                  <ChevronDown
+                    size={16}
+                    strokeWidth={2.4}
+                    className={`transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+                  />
+                </span>
+              </div>
+            </div>
+
+            <p className="mt-2 truncate text-[10.5px] font-bold text-slate-400">
+              #{order.orderNumber}
+            </p>
+
+            <h2 className="mt-1 line-clamp-2 text-[14px] font-black leading-[1.22rem] text-slate-950">
               {item.productName || 'Shop2Bhutan order'}
             </h2>
 
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-semibold text-slate-500">
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] font-semibold text-slate-500">
               <span>{count} {count === 1 ? 'item' : 'items'}</span>
               {item.sourcePlatform && (
                 <>
@@ -433,75 +613,159 @@ function CustomerOrderCard({ order }: { order: Order }) {
                   <span className="capitalize">{item.sourcePlatform}</span>
                 </>
               )}
+              <span className="sm:hidden">
+                <span className="mx-1 h-1 w-1 rounded-full bg-slate-300" />
+                {readableDate(order.createdAt)}
+              </span>
             </div>
 
             <div className="mt-2.5 flex items-end justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[9.5px] font-bold uppercase tracking-[0.1em] text-slate-400">{amountLabel(order)}</p>
-                <p className={`mt-0.5 tracking-tight ${total > 0 ? 'text-[18px] font-black text-slate-950' : 'text-[13px] font-bold text-slate-400'}`}>
+                <p className="text-[9.5px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                  {amountLabel(order)}
+                </p>
+                <p className={`mt-0.5 tracking-tight ${total > 0 ? 'text-[18px] font-black text-slate-950' : 'text-[12px] font-bold text-slate-400'}`}>
                   {total > 0 ? money(total) : 'Final price pending'}
                 </p>
               </div>
-              <span className="text-[10px] font-bold text-slate-400">{progress.stepLabel}</span>
+              <span className="shrink-0 text-[10px] font-bold text-slate-400">{progress.stepLabel}</span>
             </div>
           </div>
         </div>
+      </button>
 
-        <div className="mt-3 flex items-start gap-2.5 border-t border-slate-100 pt-3">
-          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${tone.iconBg} ${tone.iconText}`}>
-            {order.status === 'delivered' ? (
-              <CheckCircle2 size={16} strokeWidth={2.4} />
-            ) : order.status === 'in_transit' || order.status === 'out_for_delivery' ? (
-              <Truck size={16} strokeWidth={2.3} />
-            ) : order.status === 'quoted' ? (
-              <FileText size={16} strokeWidth={2.3} />
-            ) : (
-              <Package size={16} strokeWidth={2.3} />
-            )}
-          </span>
+      {expanded && (
+        <div id={`order-details-${order.id}`} className="border-t border-slate-100 px-3.5 pb-4 pt-3">
+          <div className={`rounded-2xl px-3.5 py-3 ${tone.iconBg}`}>
+            <div className="flex items-start gap-2.5">
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/80 ${tone.iconText}`}>
+                {status === 'delivered' || status === 'payment_verified' ? (
+                  <CheckCircle2 size={17} strokeWidth={2.4} />
+                ) : status === 'in_transit' || status === 'arrived_at_hub' || status === 'out_for_delivery' ? (
+                  <Truck size={17} strokeWidth={2.3} />
+                ) : status === 'quoted' ? (
+                  <FileText size={17} strokeWidth={2.3} />
+                ) : (
+                  <Package size={17} strokeWidth={2.3} />
+                )}
+              </span>
 
-          <div className="min-w-0 flex-1 pt-0.5">
-            <p className="line-clamp-2 text-[11.5px] font-semibold leading-[1.05rem] text-slate-600">
-              {statusDescription(order)}
-            </p>
-            <div className="mt-2 h-1 overflow-hidden rounded-full bg-white ring-1 ring-slate-100">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${tone.bar}`}
-                style={{ width: `${progress.percent}%` }}
-              />
+              <div className="min-w-0 flex-1">
+                <p className="text-[12px] font-extrabold leading-5 text-slate-700">
+                  {statusDescription(order)}
+                </p>
+                <div className="mt-2.5 flex items-center gap-3">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/90 ring-1 ring-black/5">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${tone.bar}`}
+                      style={{ width: `${progress.percent}%` }}
+                    />
+                  </div>
+                  <span className="shrink-0 text-[10px] font-black text-slate-500">{progress.stepLabel}</span>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="flex min-h-[44px] items-center justify-between border-t border-slate-100 px-3.5 py-2.5">
-        <span className="text-[12px] font-extrabold text-slate-900">{actionText(order)}</span>
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-50 text-orange-600 transition group-active:translate-x-0.5">
-          <ChevronRight size={15} strokeWidth={2.6} />
-        </span>
-      </div>
-    </button>
+          <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-4">
+            <OrderFact
+              icon={CalendarDays}
+              label="Requested"
+              value={readableDateTime(order.createdAt) || 'Date unavailable'}
+            />
+            <OrderFact
+              icon={FileText}
+              label="Final price"
+              value={quotationDate ? readableDateTime(quotationDate) : 'Not ready yet'}
+            />
+            <OrderFact
+              icon={CreditCard}
+              label="Payment"
+              value={
+                payment
+                  ? `${payment.status === 'verified' ? 'Verified' : payment.status === 'rejected' ? 'Rejected' : 'Under review'}${paymentDate ? ` • ${readableDateTime(paymentDate)}` : ''}`
+                  : 'Not submitted'
+              }
+            />
+            <OrderFact
+              icon={Truck}
+              label="Estimated delivery"
+              value={orderEstimatedDelivery(order)}
+            />
+            <OrderFact
+              icon={MapPin}
+              label={isSelfPickupOrder(order) ? 'Pickup at' : 'Deliver to'}
+              value={orderDeliveryDestination(order)}
+            />
+            <OrderFact
+              icon={Store}
+              label="Fulfillment"
+              value={fulfillment.title || fulfillment.subtitle || 'Delivery arrangement'}
+            />
+          </div>
+
+          {needsCustomerAction(order) && (
+            <div className="mt-4 rounded-2xl border border-orange-100 bg-orange-50 px-3.5 py-3">
+              <p className="text-[11.5px] font-extrabold text-orange-800">Your action is needed</p>
+              <p className="mt-1 text-[11px] leading-5 text-orange-700">
+                Open this order to complete the next step and keep it moving.
+              </p>
+            </div>
+          )}
+
+          <div className="mt-4 grid grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={() => openPath(primaryAction.path)}
+              className="flex h-11 items-center justify-center gap-1.5 rounded-2xl bg-orange-500 px-3 text-[12px] font-extrabold text-white transition active:scale-[0.98] active:bg-orange-600"
+            >
+              {primaryAction.label}
+              <ChevronRight size={15} strokeWidth={2.5} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openPath('/support')}
+              className="flex h-11 items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-3 text-[12px] font-extrabold text-slate-700 transition active:scale-[0.98] active:bg-slate-50"
+            >
+              Need help?
+              <Headphones size={15} strokeWidth={2.3} />
+            </button>
+          </div>
+
+          {primaryAction.path !== `/order/${order.id}` && (
+            <button
+              type="button"
+              onClick={() => openPath(`/order/${order.id}`)}
+              className="mt-2 flex h-10 w-full items-center justify-center gap-1.5 rounded-2xl text-[11.5px] font-bold text-slate-500 transition active:bg-slate-50"
+            >
+              View complete order details
+              <ChevronRight size={14} strokeWidth={2.3} />
+            </button>
+          )}
+        </div>
+      )}
+    </article>
   );
 }
 
 function OrdersSkeleton() {
   return (
-    <div className="space-y-3.5">
-      {[1, 2, 3].map((item) => (
-        <div key={item} className="rounded-[22px] border border-slate-100 bg-white p-4">
-          <div className="flex items-center justify-between">
-            <div className="h-7 w-32 animate-pulse rounded-full bg-slate-100" />
-            <div className="h-3 w-16 animate-pulse rounded-full bg-slate-100" />
-          </div>
-          <div className="mt-4 flex gap-3.5">
+    <div className="space-y-3">
+      {[1, 2, 3, 4].map((item) => (
+        <div key={item} className="rounded-[22px] border border-slate-100 bg-white p-3.5">
+          <div className="flex gap-3">
             <div className="h-[72px] w-[72px] animate-pulse rounded-[18px] bg-slate-100" />
             <div className="flex-1">
-              <div className="h-4 w-4/5 animate-pulse rounded-full bg-slate-100" />
-              <div className="mt-2 h-3 w-1/2 animate-pulse rounded-full bg-slate-100" />
-              <div className="mt-4 h-6 w-28 animate-pulse rounded-full bg-slate-100" />
+              <div className="flex justify-between gap-3">
+                <div className="h-6 w-28 animate-pulse rounded-full bg-slate-100" />
+                <div className="h-8 w-8 animate-pulse rounded-full bg-slate-100" />
+              </div>
+              <div className="mt-2 h-3 w-32 animate-pulse rounded-full bg-slate-100" />
+              <div className="mt-2 h-4 w-4/5 animate-pulse rounded-full bg-slate-100" />
+              <div className="mt-3 h-6 w-28 animate-pulse rounded-full bg-slate-100" />
             </div>
           </div>
-          <div className="mt-3 h-20 animate-pulse rounded-2xl bg-slate-100" />
         </div>
       ))}
     </div>
@@ -543,6 +807,7 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
+  const [expandedOrderId, setExpandedOrderId] = useState('');
 
   const loadOrders = useCallback(async () => {
     if (!user) {
@@ -611,8 +876,17 @@ export default function Orders() {
     [activeTab, orders],
   );
 
+  useEffect(() => {
+    if (
+      expandedOrderId &&
+      !filteredOrders.some((order) => order.id === expandedOrderId)
+    ) {
+      setExpandedOrderId('');
+    }
+  }, [expandedOrderId, filteredOrders]);
+
   const activeCount = useMemo(
-    () => orders.filter((order) => !['delivered', 'cancelled'].includes(order.status)).length,
+    () => orders.filter((order) => !['delivered', 'cancelled'].includes(effectiveOrderStatus(order))).length,
     [orders],
   );
   const actionCount = useMemo(() => orders.filter(needsCustomerAction).length, [orders]);
@@ -688,7 +962,10 @@ export default function Orders() {
                 <button
                   key={tab.key}
                   type="button"
-                  onClick={() => setActiveTab(tab.key)}
+                  onClick={() => {
+                    setActiveTab(tab.key);
+                    setExpandedOrderId('');
+                  }}
                   aria-label={tab.label}
                   className={`flex min-h-[30px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-[11px] font-extrabold leading-none ring-1 transition active:scale-[0.97] ${
                     isActive
@@ -724,7 +1001,16 @@ export default function Orders() {
         ) : filteredOrders.length > 0 ? (
           <div className="space-y-3">
             {filteredOrders.map((order) => (
-              <CustomerOrderCard key={order.id} order={order} />
+              <CustomerOrderRow
+                key={order.id}
+                order={order}
+                expanded={expandedOrderId === order.id}
+                onToggle={() =>
+                  setExpandedOrderId((current) =>
+                    current === order.id ? '' : order.id,
+                  )
+                }
+              />
             ))}
           </div>
         ) : (
