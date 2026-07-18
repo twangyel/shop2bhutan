@@ -281,153 +281,215 @@ function AdminGateScreen({
 }
 
 
-const ADMIN_NOTIFICATION_SWIPE_REVEAL = 84
+const ADMIN_NOTIFICATION_TAP_MOVE_TOLERANCE = 6
+const ADMIN_NOTIFICATION_SWIPE_MAX_DRAG_RATIO = 0.72
+const ADMIN_NOTIFICATION_SWIPE_DELETE_THRESHOLD_RATIO = 0.56
+const ADMIN_NOTIFICATION_SWIPE_DELETE_THRESHOLD_MIN = 150
+const ADMIN_NOTIFICATION_SWIPE_DELETE_THRESHOLD_MAX = 230
 
 type SwipeableAdminNotificationProps = {
   notification: AppNotification
   style: ReturnType<typeof adminNotificationStyle>
-  revealed: boolean
-  deleting: boolean
-  onReveal: (notificationId: string | null) => void
   onOpen: (notification: AppNotification) => void | Promise<void>
-  onDelete: (notification: AppNotification) => void | Promise<void>
+  onDelete: (notification: AppNotification) => Promise<boolean> | boolean
 }
 
 function SwipeableAdminNotification({
   notification,
   style,
-  revealed,
-  deleting,
-  onReveal,
   onOpen,
   onDelete,
 }: SwipeableAdminNotificationProps) {
   const Icon = style.icon
-  const [dragging, setDragging] = useState(false)
-  const [dragOffset, setDragOffset] = useState(0)
+  const [offset, setOffset] = useState(0)
+  const [deleting, setDeleting] = useState(false)
+
+  const cardRef = useRef<HTMLButtonElement>(null)
   const startXRef = useRef(0)
   const startYRef = useRef(0)
   const startOffsetRef = useRef(0)
+  const dragAxisRef = useRef<'none' | 'x' | 'y'>('none')
   const movedRef = useRef(false)
-  const axisRef = useRef<'pending' | 'horizontal' | 'vertical'>('pending')
 
-  useEffect(() => {
-    if (!dragging) {
-      setDragOffset(revealed ? -ADMIN_NOTIFICATION_SWIPE_REVEAL : 0)
-    }
-  }, [dragging, revealed])
+  const getCardWidth = () =>
+    cardRef.current?.offsetWidth || window.innerWidth || 360
 
-  const finishSwipe = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (!dragging) return
+  const getDeleteThreshold = () => {
+    const width = getCardWidth()
+    return Math.min(
+      ADMIN_NOTIFICATION_SWIPE_DELETE_THRESHOLD_MAX,
+      Math.max(
+        ADMIN_NOTIFICATION_SWIPE_DELETE_THRESHOLD_MIN,
+        width * ADMIN_NOTIFICATION_SWIPE_DELETE_THRESHOLD_RATIO,
+      ),
+    )
+  }
 
-    if (axisRef.current === 'horizontal') {
-      onReveal(
-        dragOffset <= -ADMIN_NOTIFICATION_SWIPE_REVEAL / 2
-          ? notification.id
-          : null,
-      )
-    }
+  const getMaxDrag = () =>
+    Math.min(
+      getCardWidth() * ADMIN_NOTIFICATION_SWIPE_MAX_DRAG_RATIO,
+      280,
+    )
 
-    setDragging(false)
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
+  const resetSwipe = () => {
+    setOffset(0)
+  }
+
+  const commitDelete = async () => {
+    if (deleting) return
+
+    const width = getCardWidth()
+    setDeleting(true)
+    setOffset(-(width + 56))
+
+    await new Promise((resolve) => window.setTimeout(resolve, 180))
+
+    const deleted = await Promise.resolve(onDelete(notification))
+
+    if (!deleted) {
+      setDeleting(false)
+      setOffset(0)
     }
   }
 
-  const visibleOffset = dragging
-    ? dragOffset
-    : revealed
-      ? -ADMIN_NOTIFICATION_SWIPE_REVEAL
-      : 0
+  const handlePointerDown = (
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) => {
+    if (deleting) return
+
+    startXRef.current = event.clientX
+    startYRef.current = event.clientY
+    startOffsetRef.current = offset
+    dragAxisRef.current = 'none'
+    movedRef.current = false
+
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      // Ignore unsupported pointer capture cases.
+    }
+  }
+
+  const handlePointerMove = (
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) => {
+    if (deleting) return
+
+    const deltaX = event.clientX - startXRef.current
+    const deltaY = event.clientY - startYRef.current
+
+    if (dragAxisRef.current === 'none') {
+      if (
+        Math.abs(deltaX) < ADMIN_NOTIFICATION_TAP_MOVE_TOLERANCE &&
+        Math.abs(deltaY) < ADMIN_NOTIFICATION_TAP_MOVE_TOLERANCE
+      ) {
+        return
+      }
+
+      dragAxisRef.current =
+        Math.abs(deltaX) > Math.abs(deltaY) ? 'x' : 'y'
+    }
+
+    if (dragAxisRef.current !== 'x') return
+
+    event.preventDefault()
+    movedRef.current =
+      Math.abs(deltaX) > ADMIN_NOTIFICATION_TAP_MOVE_TOLERANCE
+
+    const rawOffset = startOffsetRef.current + deltaX
+    const maxDrag = getMaxDrag()
+    const limitedOffset = Math.max(-maxDrag - 44, Math.min(0, rawOffset))
+
+    const rubberBandOffset =
+      limitedOffset < -maxDrag
+        ? -maxDrag + (limitedOffset + maxDrag) * 0.22
+        : limitedOffset
+
+    setOffset(rubberBandOffset)
+  }
+
+  const handlePointerUp = () => {
+    if (deleting) return
+
+    if (dragAxisRef.current === 'x') {
+      const shouldDelete = offset <= -getDeleteThreshold()
+
+      if (shouldDelete) {
+        void commitDelete()
+      } else {
+        resetSwipe()
+      }
+    }
+
+    dragAxisRef.current = 'none'
+  }
+
+  const handleCardClick = () => {
+    if (movedRef.current) {
+      movedRef.current = false
+      return
+    }
+
+    if (offset < 0) {
+      resetSwipe()
+      return
+    }
+
+    void onOpen(notification)
+  }
+
+  const threshold = getDeleteThreshold()
+  const swipeDistance = Math.abs(offset)
+  const swipeProgress = Math.min(1, swipeDistance / threshold)
+  const deleteReady = offset <= -threshold
 
   return (
-    <div className="relative overflow-hidden rounded-xl">
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation()
-          void onDelete(notification)
-        }}
-        disabled={deleting}
-        className="absolute inset-y-0 right-0 flex w-[84px] items-center justify-center gap-1.5 bg-red-500 text-xs font-bold text-white transition hover:bg-red-600 disabled:opacity-70"
-        aria-label={`Delete ${notification.title}`}
+    <div
+      className={`relative overflow-hidden select-none transition-[max-height,opacity,margin,transform] duration-300 ease-out ${
+        deleting
+          ? 'max-h-0 -translate-x-2 opacity-0'
+          : 'max-h-72 opacity-100'
+      }`}
+    >
+      <div
+        className="absolute inset-0 flex items-center justify-end rounded-xl bg-gradient-to-l from-red-500 via-red-500 to-red-400 px-5"
+        style={{ opacity: Math.max(0, Math.min(1, swipeProgress)) }}
+        aria-hidden="true"
       >
-        {deleting ? (
-          <Loader2 size={16} className="animate-spin" />
-        ) : (
-          <Trash2 size={16} />
-        )}
-        <span>{deleting ? 'Deleting' : 'Delete'}</span>
-      </button>
+        <div className="text-right text-white">
+          <p className="text-xs font-extrabold tracking-tight">
+            {deleteReady ? 'Release to delete' : 'Swipe left'}
+          </p>
+          <p className="mt-0.5 text-[10px] font-medium text-white/80">
+            {deleteReady
+              ? 'Notification will be removed'
+              : 'Keep swiping to delete'}
+          </p>
+        </div>
+      </div>
 
       <button
+        ref={cardRef}
         type="button"
-        onClick={(event) => {
-          if (movedRef.current) {
-            movedRef.current = false
-            event.preventDefault()
-            event.stopPropagation()
-            return
-          }
-
-          if (revealed) {
-            onReveal(null)
-            return
-          }
-
-          void onOpen(notification)
-        }}
-        onPointerDown={(event) => {
-          if (deleting) return
-
-          startXRef.current = event.clientX
-          startYRef.current = event.clientY
-          startOffsetRef.current = revealed
-            ? -ADMIN_NOTIFICATION_SWIPE_REVEAL
-            : 0
-          axisRef.current = 'pending'
-          movedRef.current = false
-          setDragOffset(startOffsetRef.current)
-          setDragging(true)
-          event.currentTarget.setPointerCapture(event.pointerId)
-        }}
-        onPointerMove={(event) => {
-          if (!dragging || deleting) return
-
-          const deltaX = event.clientX - startXRef.current
-          const deltaY = event.clientY - startYRef.current
-
-          if (
-            axisRef.current === 'pending' &&
-            (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5)
-          ) {
-            axisRef.current =
-              Math.abs(deltaX) > Math.abs(deltaY) ? 'horizontal' : 'vertical'
-          }
-
-          if (axisRef.current !== 'horizontal') return
-
-          event.preventDefault()
-          if (Math.abs(deltaX) > 6) movedRef.current = true
-
-          const nextOffset = Math.max(
-            -ADMIN_NOTIFICATION_SWIPE_REVEAL,
-            Math.min(0, startOffsetRef.current + deltaX),
-          )
-          setDragOffset(nextOffset)
-        }}
-        onPointerUp={finishSwipe}
-        onPointerCancel={finishSwipe}
+        onClick={handleCardClick}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
         onDragStart={(event) => event.preventDefault()}
-        className={`relative flex w-full gap-3 px-3 py-3 text-left transition-colors ${
+        className={`relative z-10 flex w-full gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
           notification.isRead
             ? 'bg-white hover:bg-neutral-50'
             : 'bg-amber-50/60 hover:bg-amber-50'
         }`}
         style={{
-          transform: `translateX(${visibleOffset}px)`,
-          transition: dragging ? 'none' : 'transform 180ms ease-out',
+          transform: `translate3d(${offset}px, 0, 0)`,
+          transition:
+            dragAxisRef.current === 'x' && !deleting
+              ? 'none'
+              : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)',
           touchAction: 'pan-y',
+          willChange: 'transform',
         }}
       >
         <span
@@ -489,7 +551,6 @@ export default function AdminLayout() {
   const [notificationError, setNotificationError] = useState('')
   const [deleteNotificationsOpen, setDeleteNotificationsOpen] = useState(false)
   const [deletingNotifications, setDeletingNotifications] = useState(false)
-  const [swipedNotificationId, setSwipedNotificationId] = useState<string | null>(null)
   const [deletingNotificationId, setDeletingNotificationId] = useState<string | null>(null)
   const [adminNotifications, setAdminNotifications] = useState<
     AppNotification[]
@@ -1014,10 +1075,6 @@ export default function AdminLayout() {
   }, [notificationOpen])
 
 
-  useEffect(() => {
-    if (!notificationOpen) setSwipedNotificationId(null)
-  }, [notificationOpen])
-
   const handleNav = (path: string) => {
     navigate(path)
     setSidebarOpen(false)
@@ -1026,7 +1083,6 @@ export default function AdminLayout() {
   const handleOpenNotification = async (notification: AppNotification) => {
     if (!user) return
 
-    setSwipedNotificationId(null)
 
     if (!notification.isRead) {
       setAdminNotifications((current) =>
@@ -1064,21 +1120,13 @@ export default function AdminLayout() {
     }
   }
 
-  const handleDeleteNotification = async (notification: AppNotification) => {
-    if (!user || deletingNotificationId) return
-
-    const previousNotifications = adminNotifications
-    const previousUnreadCount = adminUnreadCount
+  const handleDeleteNotification = async (
+    notification: AppNotification,
+  ): Promise<boolean> => {
+    if (!user || deletingNotificationId) return false
 
     setDeletingNotificationId(notification.id)
-    setSwipedNotificationId(null)
     setNotificationError('')
-    setAdminNotifications((current) =>
-      current.filter((item) => item.id !== notification.id),
-    )
-    if (!notification.isRead) {
-      setAdminUnreadCount((count) => Math.max(0, count - 1))
-    }
 
     try {
       const { error, count } = await supabase
@@ -1094,19 +1142,27 @@ export default function AdminLayout() {
         )
       }
 
+      setAdminNotifications((current) =>
+        current.filter((item) => item.id !== notification.id),
+      )
+      if (!notification.isRead) {
+        setAdminUnreadCount((countValue) => Math.max(0, countValue - 1))
+      }
+
       window.dispatchEvent(
         new CustomEvent('shop2bhutan:notifications-updated'),
       )
+
+      return true
     } catch (error) {
       console.warn('[AdminLayout] Delete notification skipped:', error)
-      setAdminNotifications(previousNotifications)
-      setAdminUnreadCount(previousUnreadCount)
       setNotificationError(
         error instanceof Error
           ? error.message
           : 'Unable to delete notification.',
       )
       void loadAdminNotifications({ silent: true })
+      return false
     } finally {
       setDeletingNotificationId(null)
     }
@@ -1119,7 +1175,6 @@ export default function AdminLayout() {
     const previousUnreadCount = adminUnreadCount
 
     setDeletingNotifications(true)
-    setSwipedNotificationId(null)
     setNotificationError('')
     setAdminNotifications([])
     setAdminUnreadCount(0)
@@ -1649,9 +1704,6 @@ export default function AdminLayout() {
                               key={notification.id}
                               notification={notification}
                               style={style}
-                              revealed={swipedNotificationId === notification.id}
-                              deleting={deletingNotificationId === notification.id}
-                              onReveal={setSwipedNotificationId}
                               onOpen={handleOpenNotification}
                               onDelete={handleDeleteNotification}
                             />
