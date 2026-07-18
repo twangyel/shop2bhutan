@@ -145,42 +145,6 @@ function filterCount(
   return history.summary.totalPayments || history.payments.length;
 }
 
-function CompactSummary({
-  history,
-}: {
-  history: CustomerPaymentHistoryResult;
-}) {
-  return (
-    <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-500">Total Paid</p>
-          <p className="mt-1 text-[2rem] font-black tracking-tight text-gray-950">
-            {formatCurrency(history.summary.verifiedPaid)}
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-gray-500">
-            <span className="text-emerald-600">
-              {history.summary.verifiedCount} verified
-            </span>
-            <span className="text-gray-300">•</span>
-            <span>
-              <span className="text-orange-500">{history.summary.pendingCount}</span> pending
-            </span>
-            <span className="text-gray-300">•</span>
-            <span>
-              <span className="text-red-500">{history.summary.rejectedCount}</span> issues
-            </span>
-          </div>
-        </div>
-
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
-          <ShieldCheck size={30} strokeWidth={1.9} />
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function RowAction({
   payment,
   onReceipt,
@@ -494,13 +458,6 @@ export default function PaymentHistory() {
     return history.payments.filter((payment) => payment.status === filter);
   }, [filter, history.payments]);
 
-  useEffect(() => {
-    setExpandedPaymentId((current) => {
-      if (filteredPayments.some((payment) => payment.id === current)) return current;
-      return filteredPayments[0]?.id || '';
-    });
-  }, [filteredPayments]);
-
   const handleViewOrder = (orderId: string) => {
     if (!orderId) return;
     navigate(`/order/${orderId}`);
@@ -627,8 +584,6 @@ export default function PaymentHistory() {
       </header>
 
       <main className="mx-auto max-w-3xl space-y-4 px-4 py-4">
-        <CompactSummary history={history} />
-
         <div className="grid grid-cols-4 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
           {filters.map((item) => {
             const active = filter === item.value;
@@ -637,7 +592,10 @@ export default function PaymentHistory() {
               <button
                 key={item.value}
                 type="button"
-                onClick={() => setFilter(item.value)}
+                onClick={() => {
+                  setFilter(item.value);
+                  setExpandedPaymentId('');
+                }}
                 className={`min-w-0 px-2 py-3 text-[11px] font-black transition sm:text-xs ${
                   active
                     ? 'bg-orange-500 text-white'
