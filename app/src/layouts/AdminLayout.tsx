@@ -30,7 +30,14 @@ import {
 } from 'lucide-react'
 import { useApp } from '@/contexts/AppContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import BrandLogo from '@/components/BrandLogo'
 import { supabase } from '@/lib/supabase'
 import {
@@ -56,7 +63,6 @@ const navGroups = [
     title: 'Main',
     items: [
       { path: '/admin', label: 'Action Centre', icon: LayoutDashboard },
-      { path: '/admin/notifications', label: 'Notifications', icon: Bell },
       { path: '/admin/orders', label: 'Orders', icon: ClipboardList },
       { path: '/admin/parcels', label: 'Parcel Trips', icon: ClipboardCheck },
       {
@@ -274,6 +280,188 @@ function AdminGateScreen({
   )
 }
 
+
+const ADMIN_NOTIFICATION_SWIPE_REVEAL = 84
+
+type SwipeableAdminNotificationProps = {
+  notification: AppNotification
+  style: ReturnType<typeof adminNotificationStyle>
+  revealed: boolean
+  deleting: boolean
+  onReveal: (notificationId: string | null) => void
+  onOpen: (notification: AppNotification) => void | Promise<void>
+  onDelete: (notification: AppNotification) => void | Promise<void>
+}
+
+function SwipeableAdminNotification({
+  notification,
+  style,
+  revealed,
+  deleting,
+  onReveal,
+  onOpen,
+  onDelete,
+}: SwipeableAdminNotificationProps) {
+  const Icon = style.icon
+  const [dragging, setDragging] = useState(false)
+  const [dragOffset, setDragOffset] = useState(0)
+  const startXRef = useRef(0)
+  const startYRef = useRef(0)
+  const startOffsetRef = useRef(0)
+  const movedRef = useRef(false)
+  const axisRef = useRef<'pending' | 'horizontal' | 'vertical'>('pending')
+
+  useEffect(() => {
+    if (!dragging) {
+      setDragOffset(revealed ? -ADMIN_NOTIFICATION_SWIPE_REVEAL : 0)
+    }
+  }, [dragging, revealed])
+
+  const finishSwipe = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!dragging) return
+
+    if (axisRef.current === 'horizontal') {
+      onReveal(
+        dragOffset <= -ADMIN_NOTIFICATION_SWIPE_REVEAL / 2
+          ? notification.id
+          : null,
+      )
+    }
+
+    setDragging(false)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }
+
+  const visibleOffset = dragging
+    ? dragOffset
+    : revealed
+      ? -ADMIN_NOTIFICATION_SWIPE_REVEAL
+      : 0
+
+  return (
+    <div className="relative overflow-hidden rounded-xl">
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation()
+          void onDelete(notification)
+        }}
+        disabled={deleting}
+        className="absolute inset-y-0 right-0 flex w-[84px] items-center justify-center gap-1.5 bg-red-500 text-xs font-bold text-white transition hover:bg-red-600 disabled:opacity-70"
+        aria-label={`Delete ${notification.title}`}
+      >
+        {deleting ? (
+          <Loader2 size={16} className="animate-spin" />
+        ) : (
+          <Trash2 size={16} />
+        )}
+        <span>{deleting ? 'Deleting' : 'Delete'}</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={(event) => {
+          if (movedRef.current) {
+            movedRef.current = false
+            event.preventDefault()
+            event.stopPropagation()
+            return
+          }
+
+          if (revealed) {
+            onReveal(null)
+            return
+          }
+
+          void onOpen(notification)
+        }}
+        onPointerDown={(event) => {
+          if (deleting) return
+
+          startXRef.current = event.clientX
+          startYRef.current = event.clientY
+          startOffsetRef.current = revealed
+            ? -ADMIN_NOTIFICATION_SWIPE_REVEAL
+            : 0
+          axisRef.current = 'pending'
+          movedRef.current = false
+          setDragOffset(startOffsetRef.current)
+          setDragging(true)
+          event.currentTarget.setPointerCapture(event.pointerId)
+        }}
+        onPointerMove={(event) => {
+          if (!dragging || deleting) return
+
+          const deltaX = event.clientX - startXRef.current
+          const deltaY = event.clientY - startYRef.current
+
+          if (
+            axisRef.current === 'pending' &&
+            (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5)
+          ) {
+            axisRef.current =
+              Math.abs(deltaX) > Math.abs(deltaY) ? 'horizontal' : 'vertical'
+          }
+
+          if (axisRef.current !== 'horizontal') return
+
+          event.preventDefault()
+          if (Math.abs(deltaX) > 6) movedRef.current = true
+
+          const nextOffset = Math.max(
+            -ADMIN_NOTIFICATION_SWIPE_REVEAL,
+            Math.min(0, startOffsetRef.current + deltaX),
+          )
+          setDragOffset(nextOffset)
+        }}
+        onPointerUp={finishSwipe}
+        onPointerCancel={finishSwipe}
+        onDragStart={(event) => event.preventDefault()}
+        className={`relative flex w-full gap-3 px-3 py-3 text-left transition-colors ${
+          notification.isRead
+            ? 'bg-white hover:bg-neutral-50'
+            : 'bg-amber-50/60 hover:bg-amber-50'
+        }`}
+        style={{
+          transform: `translateX(${visibleOffset}px)`,
+          transition: dragging ? 'none' : 'transform 180ms ease-out',
+          touchAction: 'pan-y',
+        }}
+      >
+        <span
+          className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${style.bg} ${style.text}`}
+        >
+          <Icon size={18} />
+        </span>
+
+        <span className="min-w-0 flex-1">
+          <span className="flex items-start justify-between gap-2">
+            <span className="text-sm font-bold text-gray-900">
+              {notification.title}
+            </span>
+            {!notification.isRead && (
+              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-orange-500" />
+            )}
+          </span>
+          <span className="mt-1 block line-clamp-2 text-xs leading-5 text-neutral-600">
+            {notification.message}
+          </span>
+          <span className="mt-2 flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+              {style.label}
+            </span>
+            <span className="text-[11px] text-neutral-400">
+              {formatAdminNotificationTime(notification.createdAt)}
+            </span>
+          </span>
+        </span>
+      </button>
+    </div>
+  )
+}
+
 export default function AdminLayout() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -301,6 +489,8 @@ export default function AdminLayout() {
   const [notificationError, setNotificationError] = useState('')
   const [deleteNotificationsOpen, setDeleteNotificationsOpen] = useState(false)
   const [deletingNotifications, setDeletingNotifications] = useState(false)
+  const [swipedNotificationId, setSwipedNotificationId] = useState<string | null>(null)
+  const [deletingNotificationId, setDeletingNotificationId] = useState<string | null>(null)
   const [adminNotifications, setAdminNotifications] = useState<
     AppNotification[]
   >([])
@@ -323,14 +513,15 @@ export default function AdminLayout() {
   )
   const adminInitial = (adminDisplayName || 'A').charAt(0).toUpperCase()
 
-  const pageTitle =
-    navGroups
-      .flatMap((g) => g.items)
-      .find(
-        (i) =>
-          i.path === location.pathname ||
-          (i.path !== '/admin' && location.pathname.startsWith(i.path)),
-      )?.label || 'Action Centre'
+  const pageTitle = location.pathname.startsWith('/admin/notifications')
+    ? 'Notifications'
+    : navGroups
+        .flatMap((g) => g.items)
+        .find(
+          (i) =>
+            i.path === location.pathname ||
+            (i.path !== '/admin' && location.pathname.startsWith(i.path)),
+        )?.label || 'Action Centre'
 
 
   const loadAdminSearchData = useCallback(
@@ -822,6 +1013,11 @@ export default function AdminLayout() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [notificationOpen])
 
+
+  useEffect(() => {
+    if (!notificationOpen) setSwipedNotificationId(null)
+  }, [notificationOpen])
+
   const handleNav = (path: string) => {
     navigate(path)
     setSidebarOpen(false)
@@ -829,6 +1025,8 @@ export default function AdminLayout() {
 
   const handleOpenNotification = async (notification: AppNotification) => {
     if (!user) return
+
+    setSwipedNotificationId(null)
 
     if (!notification.isRead) {
       setAdminNotifications((current) =>
@@ -866,6 +1064,54 @@ export default function AdminLayout() {
     }
   }
 
+  const handleDeleteNotification = async (notification: AppNotification) => {
+    if (!user || deletingNotificationId) return
+
+    const previousNotifications = adminNotifications
+    const previousUnreadCount = adminUnreadCount
+
+    setDeletingNotificationId(notification.id)
+    setSwipedNotificationId(null)
+    setNotificationError('')
+    setAdminNotifications((current) =>
+      current.filter((item) => item.id !== notification.id),
+    )
+    if (!notification.isRead) {
+      setAdminUnreadCount((count) => Math.max(0, count - 1))
+    }
+
+    try {
+      const { error, count } = await supabase
+        .from('notifications')
+        .delete({ count: 'exact' })
+        .eq('id', notification.id)
+        .eq('user_id', user.id)
+
+      if (error) throw error
+      if (count === 0) {
+        throw new Error(
+          'Notification was not deleted. Please check the Supabase delete policy for notifications.',
+        )
+      }
+
+      window.dispatchEvent(
+        new CustomEvent('shop2bhutan:notifications-updated'),
+      )
+    } catch (error) {
+      console.warn('[AdminLayout] Delete notification skipped:', error)
+      setAdminNotifications(previousNotifications)
+      setAdminUnreadCount(previousUnreadCount)
+      setNotificationError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to delete notification.',
+      )
+      void loadAdminNotifications({ silent: true })
+    } finally {
+      setDeletingNotificationId(null)
+    }
+  }
+
   const handleDeleteAllNotifications = async () => {
     if (!user || deletingNotifications) return
 
@@ -873,6 +1119,7 @@ export default function AdminLayout() {
     const previousUnreadCount = adminUnreadCount
 
     setDeletingNotifications(true)
+    setSwipedNotificationId(null)
     setNotificationError('')
     setAdminNotifications([])
     setAdminUnreadCount(0)
@@ -1397,51 +1644,17 @@ export default function AdminLayout() {
                             notification.type,
                             notification.title,
                           )
-                          const Icon = style.icon
-
                           return (
-                            <button
+                            <SwipeableAdminNotification
                               key={notification.id}
-                              type="button"
-                              onClick={() =>
-                                handleOpenNotification(notification)
-                              }
-                              className={`flex w-full gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
-                                notification.isRead
-                                  ? 'hover:bg-neutral-50'
-                                  : 'bg-amber-50/60 hover:bg-amber-50'
-                              }`}
-                            >
-                              <span
-                                className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${style.bg} ${style.text}`}
-                              >
-                                <Icon size={18} />
-                              </span>
-
-                              <span className="min-w-0 flex-1">
-                                <span className="flex items-start justify-between gap-2">
-                                  <span className="text-sm font-bold text-gray-900">
-                                    {notification.title}
-                                  </span>
-                                  {!notification.isRead && (
-                                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-orange-500" />
-                                  )}
-                                </span>
-                                <span className="mt-1 block line-clamp-2 text-xs leading-5 text-neutral-600">
-                                  {notification.message}
-                                </span>
-                                <span className="mt-2 flex items-center justify-between gap-2">
-                                  <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-                                    {style.label}
-                                  </span>
-                                  <span className="text-[11px] text-neutral-400">
-                                    {formatAdminNotificationTime(
-                                      notification.createdAt,
-                                    )}
-                                  </span>
-                                </span>
-                              </span>
-                            </button>
+                              notification={notification}
+                              style={style}
+                              revealed={swipedNotificationId === notification.id}
+                              deleting={deletingNotificationId === notification.id}
+                              onReveal={setSwipedNotificationId}
+                              onOpen={handleOpenNotification}
+                              onDelete={handleDeleteNotification}
+                            />
                           )
                         })}
                       </div>
