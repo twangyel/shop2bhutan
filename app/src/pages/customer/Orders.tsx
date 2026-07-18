@@ -151,7 +151,13 @@ function isGeneratedFallbackImage(value?: string | null) {
   return cleanValue.startsWith('data:image/svg+xml') && cleanValue.includes('S2B');
 }
 
-function OrderItemPreviewImage({ item }: { item: PreviewableOrderItem }) {
+function OrderItemPreviewImage({
+  item,
+  compact = false,
+}: {
+  item: PreviewableOrderItem;
+  compact?: boolean;
+}) {
   const initialImage =
     (isDirectImageUrl(item.screenshotUrl) && item.screenshotUrl) ||
     (item.productImage && !isGeneratedFallbackImage(item.productImage)
@@ -222,7 +228,7 @@ function OrderItemPreviewImage({ item }: { item: PreviewableOrderItem }) {
     <img
       src={imageSrc || fallbackImage()}
       alt={item.productName || 'Product preview'}
-      className="h-[72px] w-[72px] rounded-[18px] border border-slate-100 bg-slate-50 object-cover"
+      className={`${compact ? 'h-14 w-14 rounded-2xl' : 'h-[72px] w-[72px] rounded-[18px]'} border border-slate-100 bg-slate-50 object-cover`}
       loading="lazy"
       onError={(event) => {
         if (event.currentTarget.src !== fallbackImage()) {
@@ -489,6 +495,32 @@ function amountLabel(order: Order) {
   return 'Final amount';
 }
 
+function quotationItemForOrderItem(
+  order: Order,
+  item: OrderItem,
+  index: number,
+) {
+  const quotationItems = order.quotation?.items ?? [];
+  const hasLinkedOrderItems = quotationItems.some((candidate) => Boolean(candidate.orderItemId));
+
+  if (hasLinkedOrderItems) {
+    return quotationItems.find((candidate) => candidate.orderItemId === item.id);
+  }
+
+  return quotationItems[index];
+}
+
+function quotedItemTotal(order: Order, item: OrderItem, index: number) {
+  const quotationItem = quotationItemForOrderItem(order, item, index);
+  if (!quotationItem) return 0;
+
+  const quantity = Math.max(1, Number(quotationItem.quantity || item.quantity) || 1);
+  const total = Number(quotationItem.totalPrice || 0);
+  if (total > 0) return total;
+
+  return Number(quotationItem.unitPrice || 0) * quantity;
+}
+
 function needsCustomerAction(order: Order) {
   const status = effectiveOrderStatus(order);
   if (status === 'quoted') return true;
@@ -567,21 +599,23 @@ function CustomerOrderRow({
         className="w-full p-3.5 text-left transition active:bg-slate-50/70"
       >
         <div className="flex gap-3">
-          <div className="relative shrink-0">
+          <div className="shrink-0">
             <OrderItemPreviewImage item={item as PreviewableOrderItem} />
-            {extraItems > 0 && (
-              <span className="absolute -bottom-1 -right-1 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-slate-900 px-1 text-[9px] font-black text-white">
-                +{extraItems}
-              </span>
-            )}
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
-              <span className={`inline-flex max-w-[72%] items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-extrabold ring-1 ${tone.pill}`}>
-                {status === 'payment_verified' && <CheckCircle2 size={12} strokeWidth={2.5} />}
-                {tone.label}
-              </span>
+              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-extrabold ring-1 ${tone.pill}`}>
+                  {status === 'payment_verified' && <CheckCircle2 size={12} strokeWidth={2.5} />}
+                  {tone.label}
+                </span>
+                {extraItems > 0 && (
+                  <span className="inline-flex rounded-full bg-slate-900 px-2 py-1 text-[9px] font-black text-white">
+                    +{extraItems} {extraItems === 1 ? 'item' : 'items'}
+                  </span>
+                )}
+              </div>
 
               <div className="flex shrink-0 items-center gap-1.5">
                 <span className="hidden text-[10.5px] font-semibold text-slate-400 sm:inline">
@@ -666,6 +700,66 @@ function CustomerOrderRow({
               </div>
             </div>
           </div>
+
+          <section className="mt-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-[12px] font-black text-slate-900">Products in this order</h3>
+              <span className="text-[10px] font-bold text-slate-400">
+                {count} {count === 1 ? 'item' : 'items'}
+              </span>
+            </div>
+
+            <div className="mt-2 overflow-hidden rounded-2xl border border-slate-100 bg-white">
+              {order.items.map((orderItem, index) => {
+                const quantity = Math.max(1, Number(orderItem.quantity) || 1);
+                const quotationItem = quotationItemForOrderItem(order, orderItem, index);
+                const finalLineTotal = quotedItemTotal(order, orderItem, index);
+                const excludedFromFinalPrice = Boolean(order.quotation && !quotationItem);
+
+                return (
+                  <div
+                    key={orderItem.id || `${order.id}-item-${index}`}
+                    className="flex items-center gap-3 border-b border-slate-100 p-3 last:border-b-0"
+                  >
+                    <OrderItemPreviewImage
+                      item={orderItem as PreviewableOrderItem}
+                      compact
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-2 text-[12px] font-extrabold leading-4 text-slate-900">
+                        {orderItem.productName || `Product ${index + 1}`}
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-semibold text-slate-500">
+                        <span>Qty {quantity}</span>
+                        {orderItem.sourcePlatform && (
+                          <>
+                            <span className="h-1 w-1 rounded-full bg-slate-300" />
+                            <span className="capitalize">{orderItem.sourcePlatform}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      {excludedFromFinalPrice ? (
+                        <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-[9px] font-black text-slate-500">
+                          Excluded
+                        </span>
+                      ) : finalLineTotal > 0 ? (
+                        <>
+                          <p className="text-[9px] font-black uppercase tracking-wide text-slate-400">Final</p>
+                          <p className="mt-0.5 text-[11.5px] font-black text-slate-900">
+                            {money(finalLineTotal)}
+                          </p>
+                        </>
+                      ) : (
+                        <span className="text-[10px] font-bold text-slate-400">Price pending</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
 
           <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-4">
             <OrderFact
