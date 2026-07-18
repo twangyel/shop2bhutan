@@ -3,13 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Clock3,
   Download,
   ExternalLink,
   FileText,
   Loader2,
+  Package,
   ReceiptText,
   RefreshCw,
+  ShieldCheck,
   XCircle,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -80,9 +84,9 @@ function readableText(value?: string) {
 }
 
 function paymentTypeLabel(value?: string) {
-  if (value === 'advance') return 'Advance';
-  if (value === 'balance') return 'Balance';
-  if (value === 'full') return 'Full Payment';
+  if (value === 'advance') return 'Advance payment';
+  if (value === 'balance') return 'Balance payment';
+  if (value === 'full') return 'Full payment';
   return 'Payment';
 }
 
@@ -98,10 +102,22 @@ function paymentStatusClass(status: CustomerPaymentHistoryRecord['status']) {
   return 'bg-orange-50 text-orange-700 ring-orange-100';
 }
 
+function paymentStatusDotClass(status: CustomerPaymentHistoryRecord['status']) {
+  if (status === 'verified') return 'bg-emerald-500';
+  if (status === 'rejected') return 'bg-red-500';
+  return 'bg-orange-500';
+}
+
 function paymentStatusIcon(status: CustomerPaymentHistoryRecord['status']) {
   if (status === 'verified') return <CheckCircle2 size={14} />;
   if (status === 'rejected') return <XCircle size={14} />;
   return <Clock3 size={14} />;
+}
+
+function orderLabel(orderNumber?: string) {
+  const clean = String(orderNumber || '').trim();
+  if (!clean) return '#Order';
+  return clean.startsWith('#') ? clean : `#${clean}`;
 }
 
 function emptyHistory(): CustomerPaymentHistoryResult {
@@ -119,162 +135,310 @@ function emptyHistory(): CustomerPaymentHistoryResult {
   };
 }
 
+function filterCount(
+  filter: PaymentFilter,
+  history: CustomerPaymentHistoryResult,
+) {
+  if (filter === 'pending') return history.summary.pendingCount;
+  if (filter === 'verified') return history.summary.verifiedCount;
+  if (filter === 'rejected') return history.summary.rejectedCount;
+  return history.summary.totalPayments || history.payments.length;
+}
+
 function CompactSummary({
   history,
 }: {
   history: CustomerPaymentHistoryResult;
 }) {
   return (
-    <section className="overflow-hidden rounded-3xl bg-gray-950 p-4 text-white shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-wider text-gray-400">
-            Verified collections
-          </p>
-          <p className="mt-1 text-3xl font-black tracking-tight text-white">
+    <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-gray-500">Total Paid</p>
+          <p className="mt-1 text-[2rem] font-black tracking-tight text-gray-950">
             {formatCurrency(history.summary.verifiedPaid)}
           </p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-gray-500">
+            <span className="text-emerald-600">
+              {history.summary.verifiedCount} verified
+            </span>
+            <span className="text-gray-300">•</span>
+            <span>
+              <span className="text-orange-500">{history.summary.pendingCount}</span> pending
+            </span>
+            <span className="text-gray-300">•</span>
+            <span>
+              <span className="text-red-500">{history.summary.rejectedCount}</span> issues
+            </span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 text-right">
-          <div className="rounded-2xl bg-white/10 px-3 py-2 ring-1 ring-white/10">
-            <p className="text-base font-black text-orange-400">{history.summary.pendingCount}</p>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Pending</p>
-          </div>
-          <div className="rounded-2xl bg-white/10 px-3 py-2 ring-1 ring-white/10">
-            <p className="text-base font-black text-red-400">{history.summary.rejectedCount}</p>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Issue</p>
-          </div>
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+          <ShieldCheck size={30} strokeWidth={1.9} />
         </div>
       </div>
     </section>
   );
 }
 
-function PaymentCard({
+function RowAction({
   payment,
+  onReceipt,
+  openingReceiptId,
+}: {
+  payment: CustomerPaymentHistoryRecord;
+  onReceipt: (payment: CustomerPaymentHistoryRecord) => void;
+  openingReceiptId: string;
+}) {
+  if (payment.status === 'verified') {
+    return (
+      <button
+        type="button"
+        onClick={() => onReceipt(payment)}
+        disabled={Boolean(openingReceiptId)}
+        className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 transition hover:bg-gray-100 active:scale-95 disabled:cursor-wait disabled:opacity-50"
+        aria-label={`Download receipt for ${orderLabel(payment.orderNumber)}`}
+      >
+        {openingReceiptId === payment.id ? (
+          <Loader2 size={17} className="animate-spin" />
+        ) : (
+          <Download size={17} strokeWidth={2.1} />
+        )}
+      </button>
+    );
+  }
+
+  if (payment.proofUrl) {
+    return (
+      <a
+        href={payment.proofUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 transition hover:bg-gray-100 active:scale-95"
+        aria-label={`View payment proof for ${orderLabel(payment.orderNumber)}`}
+      >
+        <FileText size={17} strokeWidth={2.1} />
+      </a>
+    );
+  }
+
+  return null;
+}
+
+function PaymentRow({
+  payment,
+  expanded,
+  onToggle,
   onViewOrder,
   onReceipt,
   openingReceiptId,
 }: {
   payment: CustomerPaymentHistoryRecord;
+  expanded: boolean;
+  onToggle: () => void;
   onViewOrder: (orderId: string) => void;
   onReceipt: (payment: CustomerPaymentHistoryRecord) => void;
   openingReceiptId: string;
 }) {
-  const method = readableText(payment.paymentMethod) || 'Payment Method';
-  const showRejectedNote = payment.status === 'rejected' && (payment.rejectionReason || payment.adminNotes);
-  const showAdminNote = payment.status !== 'rejected' && payment.adminNotes;
+  const method = readableText(payment.paymentMethod) || 'Payment method';
+  const submittedAt = payment.submittedAt || payment.createdAt;
+  const showRejectedNote =
+    payment.status === 'rejected' &&
+    Boolean(payment.rejectionReason || payment.adminNotes);
+  const showAdminNote =
+    payment.status !== 'rejected' && Boolean(payment.adminNotes);
 
   return (
-    <article className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-bold text-gray-400">Order #{payment.orderNumber}</p>
-          <p className="mt-1 text-xl font-black tracking-tight text-gray-950">
-            {formatCurrency(payment.amount)}
-          </p>
-        </div>
-
-        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-black ring-1 ${paymentStatusClass(payment.status)}`}>
-          {paymentStatusIcon(payment.status)}
-          {paymentStatusLabel(payment.status)}
-        </span>
-      </div>
-
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        <span className="rounded-full bg-gray-50 px-2.5 py-1 text-[11px] font-bold text-gray-600">
-          {paymentTypeLabel(payment.paymentType)}
-        </span>
-        <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700">
-          {method}
-        </span>
-      </div>
-
-      <div className="mt-3 grid grid-cols-2 divide-x divide-gray-200 rounded-2xl bg-gray-50 px-3 py-2.5 ring-1 ring-gray-100">
-        <div className="pr-3">
-          <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Submitted</p>
-          <p className="mt-0.5 text-xs font-bold text-gray-700">{formatDateTime(payment.submittedAt || payment.createdAt)}</p>
-        </div>
-        <div className="pl-3">
-          <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
-            {payment.status === 'verified' ? 'Verified' : payment.status === 'rejected' ? 'Reviewed' : 'Status'}
-          </p>
-          <p className="mt-0.5 text-xs font-bold text-gray-700">
-            {payment.status === 'verified'
-              ? formatDate(payment.verifiedAt)
-              : payment.status === 'rejected'
-                ? 'Needs attention'
-                : 'Awaiting admin'}
-          </p>
-        </div>
-      </div>
-
-      {showRejectedNote && (
-        <div className="mt-3 rounded-2xl border border-red-100 bg-red-50 p-3 text-xs leading-5 text-red-700">
-          <p className="font-black">Reason</p>
-          <p className="mt-1">{payment.rejectionReason || payment.adminNotes}</p>
-        </div>
-      )}
-
-      {showAdminNote && (
-        <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs leading-5 text-amber-700">
-          <p className="font-black">Admin note</p>
-          <p className="mt-1">{payment.adminNotes}</p>
-        </div>
-      )}
-
-      <div className="mt-3 grid grid-cols-2 gap-2">
+    <article
+      className={`overflow-hidden rounded-2xl border bg-white transition-all ${
+        expanded
+          ? 'border-gray-200 shadow-[0_12px_34px_rgba(15,23,42,0.07)]'
+          : 'border-gray-100 shadow-sm'
+      }`}
+    >
+      <div className="flex items-stretch">
         <button
           type="button"
-          onClick={() => onViewOrder(payment.orderId)}
-          className="flex h-10 items-center justify-center gap-1.5 rounded-2xl bg-orange-500 px-3 text-xs font-black text-white transition active:scale-[0.98]"
+          onClick={onToggle}
+          className="min-w-0 flex-1 px-4 py-3.5 text-left transition active:bg-gray-50"
+          aria-expanded={expanded}
         >
-          View Order
-          <ExternalLink size={13} strokeWidth={2.5} />
+          <div className="md:hidden">
+            <div className="flex items-start justify-between gap-3">
+              <p className="min-w-0 truncate text-[12px] font-bold text-gray-500">
+                {orderLabel(payment.orderNumber)}
+              </p>
+              <span
+                className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black ring-1 ${paymentStatusClass(payment.status)}`}
+              >
+                {paymentStatusIcon(payment.status)}
+                {paymentStatusLabel(payment.status)}
+              </span>
+            </div>
+
+            <div className="mt-2 flex items-end justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-lg font-black tracking-tight text-gray-950">
+                  {formatCurrency(payment.amount)}
+                </p>
+                <p className="mt-0.5 truncate text-[11px] font-medium text-gray-500">
+                  {paymentTypeLabel(payment.paymentType)} • {method}
+                </p>
+              </div>
+              <p className="shrink-0 text-[11px] font-semibold text-gray-400">
+                {formatDate(submittedAt)}
+              </p>
+            </div>
+          </div>
+
+          <div className="hidden grid-cols-[minmax(0,1.7fr)_110px_110px_140px] items-center gap-4 md:grid">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-gray-700">
+                {orderLabel(payment.orderNumber)}
+              </p>
+              <p className="mt-0.5 truncate text-xs text-gray-400">
+                {paymentTypeLabel(payment.paymentType)} • {method}
+              </p>
+            </div>
+            <p className="text-sm font-black text-gray-950">
+              {formatCurrency(payment.amount)}
+            </p>
+            <span className="inline-flex items-center gap-2 text-xs font-bold text-gray-600">
+              <span className={`h-2 w-2 rounded-full ${paymentStatusDotClass(payment.status)}`} />
+              {paymentStatusLabel(payment.status)}
+            </span>
+            <p className="text-xs font-semibold text-gray-500">
+              {formatDate(submittedAt)}
+            </p>
+          </div>
         </button>
 
-        {payment.status === 'verified' ? (
+        <div className="flex shrink-0 items-center gap-0.5 pr-2">
+          <RowAction
+            payment={payment}
+            onReceipt={onReceipt}
+            openingReceiptId={openingReceiptId}
+          />
           <button
             type="button"
-            onClick={() => onReceipt(payment)}
-            disabled={openingReceiptId === payment.id}
-            className="flex h-10 items-center justify-center gap-1.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-black text-emerald-700 transition active:scale-[0.98] disabled:cursor-wait disabled:opacity-60"
+            onClick={onToggle}
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 active:scale-95"
+            aria-label={expanded ? 'Collapse payment details' : 'Expand payment details'}
           >
-            {openingReceiptId === payment.id ? (
-              <Loader2 size={13} className="animate-spin" />
+            {expanded ? (
+              <ChevronDown size={18} strokeWidth={2.2} />
             ) : (
-              <Download size={13} strokeWidth={2.5} />
+              <ChevronRight size={18} strokeWidth={2.2} />
             )}
-            {openingReceiptId === payment.id ? 'Preparing' : 'Receipt'}
           </button>
-        ) : payment.proofUrl ? (
-          <a
-            href={payment.proofUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="flex h-10 items-center justify-center gap-1.5 rounded-2xl border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 transition active:scale-[0.98]"
-          >
-            Proof
-            <FileText size={13} strokeWidth={2.5} />
-          </a>
-        ) : (
-          <div className="flex h-10 items-center justify-center rounded-2xl border border-gray-100 bg-gray-50 px-3 text-xs font-bold text-gray-400">
-            No proof
-          </div>
-        )}
+        </div>
       </div>
 
-      {payment.status === 'verified' && payment.proofUrl && (
-        <a
-          href={payment.proofUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-2 flex h-9 w-full items-center justify-center gap-1.5 rounded-2xl border border-gray-200 bg-white px-3 text-[11px] font-bold text-gray-600 transition active:scale-[0.99]"
-        >
-          View submitted payment proof
-          <FileText size={12} strokeWidth={2.4} />
-        </a>
+      {expanded && (
+        <div className="border-t border-gray-100 px-4 pb-4 pt-3">
+          <div className="grid gap-2 rounded-2xl bg-gray-50 p-3 ring-1 ring-gray-100 sm:grid-cols-2">
+            <div className="flex items-start justify-between gap-3 sm:block">
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
+                Submitted
+              </p>
+              <p className="text-right text-xs font-bold text-gray-700 sm:mt-1 sm:text-left">
+                {formatDateTime(submittedAt)}
+              </p>
+            </div>
+            <div className="flex items-start justify-between gap-3 sm:block">
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400">
+                {payment.status === 'verified'
+                  ? 'Verified'
+                  : payment.status === 'rejected'
+                    ? 'Reviewed'
+                    : 'Status'}
+              </p>
+              <p className="text-right text-xs font-bold text-gray-700 sm:mt-1 sm:text-left">
+                {payment.status === 'verified'
+                  ? formatDateTime(payment.verifiedAt)
+                  : payment.status === 'rejected'
+                    ? 'Needs attention'
+                    : 'Awaiting admin review'}
+              </p>
+            </div>
+          </div>
+
+          {payment.status === 'verified' && (
+            <div className="mt-3 flex items-center gap-2 rounded-2xl bg-emerald-50 px-3 py-2.5 text-xs font-bold text-emerald-700 ring-1 ring-emerald-100">
+              <ShieldCheck size={17} strokeWidth={2.1} />
+              <span>{payment.adminNotes || 'Verified by Shop2Bhutan'}</span>
+            </div>
+          )}
+
+          {showRejectedNote && (
+            <div className="mt-3 rounded-2xl border border-red-100 bg-red-50 px-3 py-2.5 text-xs leading-5 text-red-700">
+              <p className="font-black">Reason</p>
+              <p className="mt-0.5">
+                {payment.rejectionReason || payment.adminNotes}
+              </p>
+            </div>
+          )}
+
+          {showAdminNote && payment.status !== 'verified' && (
+            <div className="mt-3 rounded-2xl border border-gray-100 bg-gray-50 px-3 py-2.5 text-xs leading-5 text-gray-600">
+              <p className="font-black text-gray-700">Shop2Bhutan note</p>
+              <p className="mt-0.5">{payment.adminNotes}</p>
+            </div>
+          )}
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => onViewOrder(payment.orderId)}
+              className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-orange-200 bg-white px-3 text-xs font-black text-orange-600 transition active:scale-[0.98]"
+            >
+              <Package size={15} strokeWidth={2.2} />
+              View Order
+            </button>
+
+            {payment.status === 'verified' ? (
+              <button
+                type="button"
+                onClick={() => onReceipt(payment)}
+                disabled={Boolean(openingReceiptId)}
+                className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 transition active:scale-[0.98] disabled:cursor-wait disabled:opacity-60"
+              >
+                {openingReceiptId === payment.id ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Download size={15} strokeWidth={2.2} />
+                )}
+                {openingReceiptId === payment.id ? 'Preparing' : 'Receipt'}
+              </button>
+            ) : payment.proofUrl ? (
+              <a
+                href={payment.proofUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 transition active:scale-[0.98]"
+              >
+                <FileText size={15} strokeWidth={2.2} />
+                View Proof
+              </a>
+            ) : (
+              <div className="flex h-11 items-center justify-center rounded-2xl border border-gray-100 bg-gray-50 px-3 text-xs font-bold text-gray-400">
+                No proof available
+              </div>
+            )}
+          </div>
+
+          {payment.status === 'verified' && payment.proofUrl && (
+            <a
+              href={payment.proofUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 flex h-9 w-full items-center justify-center gap-1.5 text-[11px] font-bold text-gray-500 underline decoration-dotted underline-offset-4 transition active:scale-[0.99]"
+            >
+              View submitted payment proof
+              <FileText size={12} strokeWidth={2.2} />
+            </a>
+          )}
+        </div>
       )}
     </article>
   );
@@ -286,6 +450,7 @@ export default function PaymentHistory() {
   usePrivacyScreen();
   const [history, setHistory] = useState<CustomerPaymentHistoryResult>(() => emptyHistory());
   const [filter, setFilter] = useState<PaymentFilter>('all');
+  const [expandedPaymentId, setExpandedPaymentId] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [openingReceiptId, setOpeningReceiptId] = useState('');
@@ -328,6 +493,13 @@ export default function PaymentHistory() {
     if (filter === 'all') return history.payments;
     return history.payments.filter((payment) => payment.status === filter);
   }, [filter, history.payments]);
+
+  useEffect(() => {
+    setExpandedPaymentId((current) => {
+      if (filteredPayments.some((payment) => payment.id === current)) return current;
+      return filteredPayments[0]?.id || '';
+    });
+  }, [filteredPayments]);
 
   const handleViewOrder = (orderId: string) => {
     if (!orderId) return;
@@ -439,39 +611,40 @@ export default function PaymentHistory() {
             <p className="text-[11px] font-black uppercase tracking-[0.14em] text-orange-500">Payments</p>
             <h1 className="mt-0.5 text-xl font-black tracking-tight text-gray-950">Payment History</h1>
             <p className="truncate text-xs font-medium text-gray-500">
-              Proofs, verification status, and related orders
+              Receipts, proofs, and payment status
             </p>
           </div>
           <button
             type="button"
             onClick={() => loadHistory({ silent: true })}
             disabled={loading || refreshing}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-gray-600 transition active:scale-95 disabled:opacity-60"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-gray-100 bg-gray-50 text-gray-600 transition active:scale-95 disabled:opacity-60"
             aria-label="Refresh payment history"
           >
-            {refreshing ? <Loader2 size={17} className="animate-spin" /> : <RefreshCw size={17} />}
+            {refreshing ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
           </button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-3 px-4 py-4">
+      <main className="mx-auto max-w-3xl space-y-4 px-4 py-4">
         <CompactSummary history={history} />
 
-        <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="grid grid-cols-4 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
           {filters.map((item) => {
             const active = filter === item.value;
+            const count = filterCount(item.value, history);
             return (
               <button
                 key={item.value}
                 type="button"
                 onClick={() => setFilter(item.value)}
-                className={`shrink-0 rounded-full border px-4 py-2 text-xs font-black transition ${
+                className={`min-w-0 px-2 py-3 text-[11px] font-black transition sm:text-xs ${
                   active
-                    ? 'border-orange-500 bg-orange-500 text-white shadow-sm'
-                    : 'border-gray-100 bg-white text-gray-600'
+                    ? 'bg-orange-500 text-white'
+                    : 'border-l border-gray-100 text-gray-600 first:border-l-0 hover:bg-gray-50'
                 }`}
               >
-                {item.label}
+                <span className="truncate">{item.label} {count}</span>
               </button>
             );
           })}
@@ -494,24 +667,18 @@ export default function PaymentHistory() {
             }`}
           >
             {receiptMessage.tone === 'success' ? (
-              <CheckCircle2
-                size={18}
-                className="mt-0.5 shrink-0"
-              />
+              <CheckCircle2 size={18} className="mt-0.5 shrink-0" />
             ) : (
-              <AlertCircle
-                size={18}
-                className="mt-0.5 shrink-0"
-              />
+              <AlertCircle size={18} className="mt-0.5 shrink-0" />
             )}
             <span>{receiptMessage.text}</span>
           </div>
         )}
 
         {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="h-40 animate-pulse rounded-3xl bg-gray-100" />
+          <div className="space-y-2.5">
+            {[1, 2, 3, 4].map((item) => (
+              <div key={item} className="h-[78px] animate-pulse rounded-2xl bg-gray-100" />
             ))}
           </div>
         ) : filteredPayments.length === 0 ? (
@@ -537,17 +704,33 @@ export default function PaymentHistory() {
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {filteredPayments.map((payment) => (
-              <PaymentCard
-                key={payment.id}
-                payment={payment}
-                onViewOrder={handleViewOrder}
-                onReceipt={(record) => void handleReceipt(record)}
-                openingReceiptId={openingReceiptId}
-              />
-            ))}
-          </div>
+          <section>
+            <div className="mb-2 hidden grid-cols-[minmax(0,1.7fr)_110px_110px_140px_78px] items-center gap-4 px-4 text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 md:grid">
+              <span>Order</span>
+              <span>Amount</span>
+              <span>Status</span>
+              <span>Submitted</span>
+              <span className="text-center">Actions</span>
+            </div>
+
+            <div className="space-y-2.5">
+              {filteredPayments.map((payment) => (
+                <PaymentRow
+                  key={payment.id}
+                  payment={payment}
+                  expanded={expandedPaymentId === payment.id}
+                  onToggle={() =>
+                    setExpandedPaymentId((current) =>
+                      current === payment.id ? '' : payment.id,
+                    )
+                  }
+                  onViewOrder={handleViewOrder}
+                  onReceipt={(record) => void handleReceipt(record)}
+                  openingReceiptId={openingReceiptId}
+                />
+              ))}
+            </div>
+          </section>
         )}
 
         <p className="px-1 text-center text-[11px] leading-5 text-gray-400">
