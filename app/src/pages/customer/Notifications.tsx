@@ -13,10 +13,13 @@ import {
   Bell,
   BellOff,
   CheckCheck,
+  ChevronDown,
+  ChevronUp,
   CreditCard,
   FileText,
   Loader2,
   Megaphone,
+  MoreVertical,
   Package,
   RefreshCw,
   Trash2,
@@ -89,14 +92,43 @@ function isToday(value?: string) {
 
 function getNotificationStyle(type: NotificationType, title: string) {
   const t = title.toLowerCase();
-  if (t.includes('parcel')) return { icon: Package, bg: 'bg-orange-50', text: 'text-orange-600' };
+
   if (type === 'order_update') {
-    if (t.includes('delivered')) return { icon: Package, bg: 'bg-emerald-50', text: 'text-emerald-600' };
-    if (t.includes('out for delivery')) return { icon: Truck, bg: 'bg-orange-50', text: 'text-orange-600' };
-    if (t.includes('in transit') || t.includes('arrived')) return { icon: Truck, bg: 'bg-blue-50', text: 'text-blue-600' };
-    return { icon: Package, bg: 'bg-blue-50', text: 'text-blue-600' };
+    if (t.includes('delivered') || t.includes('picked up')) {
+      return { icon: Package, bg: 'bg-emerald-50', text: 'text-emerald-600' };
+    }
+
+    if (t.includes('ready for pickup') || t.includes('ready for collection')) {
+      return { icon: Package, bg: 'bg-amber-50', text: 'text-amber-600' };
+    }
+
+    if (t.includes('arrived at pickup hub') || t.includes('arrived at hub')) {
+      return { icon: Truck, bg: 'bg-violet-50', text: 'text-violet-600' };
+    }
+
+    if (t.includes('out for delivery')) {
+      return { icon: Truck, bg: 'bg-cyan-50', text: 'text-cyan-600' };
+    }
+
+    if (t.includes('in transit')) {
+      return { icon: Truck, bg: 'bg-blue-50', text: 'text-blue-600' };
+    }
+
+    if (t.includes('order placed')) {
+      return { icon: Package, bg: 'bg-indigo-50', text: 'text-indigo-600' };
+    }
+
+    if (t.includes('parcel')) {
+      return { icon: Package, bg: 'bg-orange-50', text: 'text-orange-600' };
+    }
+
+    return { icon: Package, bg: 'bg-sky-50', text: 'text-sky-600' };
   }
-  if (type === 'payment') return { icon: CreditCard, bg: 'bg-emerald-50', text: 'text-emerald-600' };
+
+  if (type === 'payment') {
+    return { icon: CreditCard, bg: 'bg-emerald-50', text: 'text-emerald-600' };
+  }
+
   if (type === 'quotation') {
     const needsChanges =
       t.includes('change') ||
@@ -108,7 +140,11 @@ function getNotificationStyle(type: NotificationType, title: string) {
       ? { icon: FileText, bg: 'bg-red-50', text: 'text-red-600' }
       : { icon: FileText, bg: 'bg-orange-50', text: 'text-orange-600' };
   }
-  if (type === 'promotion') return { icon: Megaphone, bg: 'bg-purple-50', text: 'text-purple-600' };
+
+  if (type === 'promotion') {
+    return { icon: Megaphone, bg: 'bg-purple-50', text: 'text-purple-600' };
+  }
+
   return { icon: Bell, bg: 'bg-slate-100', text: 'text-slate-500' };
 }
 
@@ -118,6 +154,62 @@ function notificationTypeLabel(type: NotificationType) {
   if (type === 'order_update') return 'Order update';
   if (type === 'promotion') return 'Promotion';
   return 'System';
+}
+
+type NotificationGroup = {
+  key: string;
+  items: AppNotification[];
+};
+
+function orderNotificationGroupKey(notification: AppNotification) {
+  if (notification.type !== 'order_update') return '';
+
+  const searchable = [
+    notification.title,
+    notification.message,
+    notification.link,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const publicOrderNumber = searchable.match(/S2B-ORD-[A-Z0-9-]+/i)?.[0];
+
+  if (publicOrderNumber) {
+    return `order:${publicOrderNumber.toUpperCase()}`;
+  }
+
+  const orderRoute = String(notification.link || '').match(/\/order\/([^/?#]+)/i)?.[1];
+
+  return orderRoute ? `order-route:${orderRoute}` : '';
+}
+
+function groupNotifications(items: AppNotification[]): NotificationGroup[] {
+  const groups: NotificationGroup[] = [];
+  const groupedOrderIndexes = new Map<string, number>();
+
+  items.forEach((notification) => {
+    const orderKey = orderNotificationGroupKey(notification);
+
+    if (!orderKey) {
+      groups.push({
+        key: `notification:${notification.id}`,
+        items: [notification],
+      });
+      return;
+    }
+
+    const existingIndex = groupedOrderIndexes.get(orderKey);
+
+    if (existingIndex === undefined) {
+      groupedOrderIndexes.set(orderKey, groups.length);
+      groups.push({ key: orderKey, items: [notification] });
+      return;
+    }
+
+    groups[existingIndex].items.push(notification);
+  });
+
+  return groups;
 }
 
 function customerFacingNotificationCopy(notification: AppNotification) {
@@ -158,12 +250,22 @@ function SwipeableNotification({
   onDelete,
   onImageClick,
   isLast,
+  isLatest = false,
+  isNested = false,
+  groupedUpdateCount = 0,
+  groupExpanded = false,
+  onToggleGroup,
 }: {
   notification: AppNotification;
   onClick: () => void;
   onDelete: () => Promise<boolean> | boolean;
   onImageClick: (url: string, title: string) => void;
   isLast?: boolean;
+  isLatest?: boolean;
+  isNested?: boolean;
+  groupedUpdateCount?: number;
+  groupExpanded?: boolean;
+  onToggleGroup?: () => void;
 }) {
   const [offset, setOffset] = useState(0);
   const [deleting, setDeleting] = useState(false);
@@ -340,45 +442,57 @@ function SwipeableNotification({
       >
         <div
           onClick={handleCardClick}
-          className={`flex gap-3 py-3 active:bg-slate-50 transition rounded-lg px-1 -mx-1 ${
-            !isLast ? 'border-b border-slate-100' : ''
-          }`}
+          className={`flex gap-2.5 rounded-xl px-2 transition active:bg-slate-50 ${
+            isNested ? 'ml-5 py-2' : 'py-2.5'
+          } ${
+            isLatest && !isRead
+              ? 'bg-orange-50/70 ring-1 ring-inset ring-orange-100'
+              : ''
+          } ${!isLast ? 'border-b border-slate-100' : ''}`}
         >
-          <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${style.bg} ${style.text}`}>
-            <Icon size={18} strokeWidth={2.1} />
+          <div
+            className={`mt-0.5 flex shrink-0 items-center justify-center rounded-xl ${
+              isNested ? 'h-8 w-8' : 'h-9 w-9'
+            } ${style.bg} ${style.text}`}
+          >
+            <Icon size={isNested ? 15 : 17} strokeWidth={2.2} />
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className={`text-sm font-bold ${isRead ? 'text-slate-500' : 'text-slate-950'}`}>
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <p
+                    className={`truncate font-bold ${
+                      isNested ? 'text-[12px]' : 'text-[13px]'
+                    } ${isRead ? 'text-slate-500' : 'text-slate-950'}`}
+                  >
                     {displayCopy.title}
                   </p>
                   {!isRead && (
-                    <span className="h-2.5 w-2.5 rounded-full bg-orange-500 shrink-0 ring-2 ring-orange-100" aria-label="Unread" />
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full bg-orange-500 ring-2 ring-orange-100"
+                      aria-label="Unread"
+                    />
                   )}
                 </div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mt-0.5">
+                <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
                   {notificationTypeLabel(notification.type)}
                 </p>
               </div>
-              <span className="text-[11px] font-medium text-slate-400 shrink-0">
+              <span className="shrink-0 text-[10px] font-medium text-slate-400">
                 {formatRelativeTime(notification.createdAt)}
               </span>
             </div>
 
-            {notification.imageUrl && (
+            {notification.imageUrl && !isNested && (
               <button
                 type="button"
-                className="group mt-2.5 block w-full overflow-hidden rounded-xl border border-slate-100 bg-slate-50 text-left"
+                className="group relative mt-2 block w-full overflow-hidden rounded-xl border border-slate-100 bg-slate-50 text-left"
                 aria-label={`View image for ${displayCopy.title}`}
                 onClick={(event) => {
                   event.stopPropagation();
 
-                  // Allow the parent notification row to receive pointer events
-                  // so image promotions can still be swiped left to delete.
-                  // Suppress the image preview when this click follows a swipe.
                   if (moved.current) {
                     moved.current = false;
                     return;
@@ -397,21 +511,48 @@ function SwipeableNotification({
                   alt={displayCopy.title}
                   loading="lazy"
                   draggable={false}
-                  className="aspect-[16/7] w-full object-cover transition duration-200 group-active:scale-[0.99]"
+                  className="aspect-[16/6] w-full object-cover transition duration-200 group-active:scale-[0.99]"
                   onError={(event) => {
                     event.currentTarget.closest('button')?.setAttribute('hidden', '');
                   }}
                 />
-                <span className="flex items-center justify-center border-t border-slate-100 bg-white px-3 py-2 text-[11px] font-bold text-slate-500">
-                  Tap to view image
+                <span className="absolute bottom-2 right-2 rounded-full bg-white/95 px-2.5 py-1 text-[9px] font-bold text-slate-600 shadow-sm ring-1 ring-black/5">
+                  View image
                 </span>
               </button>
             )}
 
             {displayCopy.message && (
-              <p className={`mt-1.5 text-sm leading-[1.5] ${isRead ? 'text-slate-400' : 'text-slate-600'}`}>
+              <p
+                className={`mt-1 line-clamp-2 ${
+                  isNested ? 'text-[11px] leading-4' : 'text-[13px] leading-5'
+                } ${isRead ? 'text-slate-400' : 'text-slate-600'}`}
+              >
                 {displayCopy.message}
               </p>
+            )}
+
+            {groupedUpdateCount > 0 && onToggleGroup && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleGroup();
+                }}
+                className="mt-1.5 inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600 transition active:scale-[0.98]"
+                aria-expanded={groupExpanded}
+              >
+                {groupExpanded ? (
+                  <ChevronUp size={12} />
+                ) : (
+                  <ChevronDown size={12} />
+                )}
+                {groupExpanded
+                  ? 'Hide earlier updates'
+                  : `${groupedUpdateCount} earlier update${
+                      groupedUpdateCount === 1 ? '' : 's'
+                    }`}
+              </button>
             )}
           </div>
         </div>
@@ -432,6 +573,8 @@ export default function Notifications() {
   const [busy, setBusy] = useState(false);
   const [clearingAll, setClearingAll] = useState(false);
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<{
     url: string;
     title: string;
@@ -493,6 +636,17 @@ export default function Notifications() {
       window.removeEventListener('keydown', handleEscape);
     };
   }, [clearingAll, previewImage, showClearAllConfirm]);
+
+  useEffect(() => {
+    if (!showHeaderMenu || typeof document === 'undefined') return undefined;
+
+    const closeMenu = () => setShowHeaderMenu(false);
+    window.addEventListener('scroll', closeMenu, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', closeMenu);
+    };
+  }, [showHeaderMenu]);
 
   const refreshNativePermission = useCallback(async () => {
     if (!isNativeNotificationsAvailable()) {
@@ -609,7 +763,12 @@ export default function Notifications() {
     setError('');
     try {
       await markAllCustomerNotificationsRead(user.id);
-      setNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
+      setNotifications((current) =>
+        current.map((item) => ({ ...item, isRead: true })),
+      );
+      window.dispatchEvent(
+        new CustomEvent('shop2bhutan:notifications-updated'),
+      );
     } catch (err) {
       console.error('Failed to mark all notifications read:', err);
       setError(err instanceof Error ? err.message : 'Unable to mark notifications as read.');
@@ -622,6 +781,7 @@ export default function Notifications() {
   const handleClearAll = async () => {
     if (!user || notifications.length === 0 || clearingAll) return;
 
+    setShowHeaderMenu(false);
     setClearingAll(true);
     setError('');
 
@@ -652,24 +812,80 @@ export default function Notifications() {
     }
   };
 
-  const renderNotificationList = (items: AppNotification[], sectionLabel: string) => {
+  const toggleNotificationGroup = (groupKey: string) => {
+    setExpandedGroups((current) =>
+      current.includes(groupKey)
+        ? current.filter((key) => key !== groupKey)
+        : [...current, groupKey],
+    );
+  };
+
+  const renderNotificationList = (
+    items: AppNotification[],
+    sectionLabel: string,
+  ) => {
     if (items.length === 0) return null;
+
+    const groups = groupNotifications(items);
+    const latestNotificationId = notifications[0]?.id;
 
     return (
       <div>
-        <div className="mb-2 mt-5 px-1">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{sectionLabel}</p>
+        <div className="mb-1.5 mt-4 px-1">
+          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
+            {sectionLabel}
+          </p>
         </div>
-        {items.map((notification, index) => (
-          <SwipeableNotification
-            key={notification.id}
-            notification={notification}
-            onClick={() => handleNotificationClick(notification)}
-            onDelete={() => handleDelete(notification.id)}
-            onImageClick={(url, title) => setPreviewImage({ url, title })}
-            isLast={index === items.length - 1 && sectionLabel === 'Earlier'}
-          />
-        ))}
+
+        {groups.map((group, groupIndex) => {
+          const [latest, ...earlier] = group.items;
+          const expanded = expandedGroups.includes(group.key);
+          const groupIsLast =
+            groupIndex === groups.length - 1 &&
+            sectionLabel === 'Earlier' &&
+            (!expanded || earlier.length === 0);
+
+          return (
+            <div key={group.key}>
+              <SwipeableNotification
+                notification={latest}
+                onClick={() => handleNotificationClick(latest)}
+                onDelete={() => handleDelete(latest.id)}
+                onImageClick={(url, imageTitle) =>
+                  setPreviewImage({ url, title: imageTitle })
+                }
+                isLatest={latest.id === latestNotificationId}
+                groupedUpdateCount={earlier.length}
+                groupExpanded={expanded}
+                onToggleGroup={
+                  earlier.length > 0
+                    ? () => toggleNotificationGroup(group.key)
+                    : undefined
+                }
+                isLast={groupIsLast}
+              />
+
+              {expanded &&
+                earlier.map((notification, index) => (
+                  <SwipeableNotification
+                    key={notification.id}
+                    notification={notification}
+                    onClick={() => handleNotificationClick(notification)}
+                    onDelete={() => handleDelete(notification.id)}
+                    onImageClick={(url, imageTitle) =>
+                      setPreviewImage({ url, title: imageTitle })
+                    }
+                    isNested
+                    isLast={
+                      groupIndex === groups.length - 1 &&
+                      sectionLabel === 'Earlier' &&
+                      index === earlier.length - 1
+                    }
+                  />
+                ))}
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -701,26 +917,26 @@ export default function Notifications() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-screen bg-white pb-[calc(8rem+env(safe-area-inset-bottom))]">
       <header className="sticky top-0 z-20 border-b border-slate-100 bg-white/95 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+        <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-4 pb-2.5 pt-[calc(env(safe-area-inset-top)+0.65rem)]">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-500">Activity</p>
-            <h1 className="mt-0.5 truncate text-xl font-black tracking-tight text-slate-950">Notifications</h1>
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-orange-500">Activity</p>
+            <h1 className="mt-0.5 truncate text-lg font-black tracking-tight text-slate-950">Notifications</h1>
             <p className="truncate text-xs text-slate-400">
               {unreadCount > 0 ? `${unreadCount} unread` : notifications.length > 0 ? `${notifications.length} updates` : 'You are all caught up'}
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="relative flex shrink-0 items-center gap-1">
             <button
               type="button"
               onClick={() => loadNotifications()}
               disabled={busy || clearingAll}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-600 transition active:scale-95 disabled:opacity-50"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-50 text-slate-600 transition active:scale-95 disabled:opacity-50"
               aria-label="Refresh notifications"
             >
-              <RefreshCw size={18} strokeWidth={2} />
+              <RefreshCw size={17} strokeWidth={2} />
             </button>
 
             {unreadCount > 0 && (
@@ -728,39 +944,53 @@ export default function Notifications() {
                 type="button"
                 disabled={busy || clearingAll}
                 onClick={handleMarkAllRead}
-                className="flex h-10 items-center gap-1.5 rounded-full bg-orange-500 px-3 text-xs font-bold text-white shadow-sm transition active:scale-95 disabled:opacity-60"
+                className="flex h-9 items-center gap-1 rounded-full bg-orange-500 px-2.5 text-[11px] font-bold text-white shadow-sm transition active:scale-95 disabled:opacity-60"
                 aria-label="Mark all notifications as read"
               >
                 {busy ? (
-                  <Loader2 size={16} className="animate-spin" />
+                  <Loader2 size={15} className="animate-spin" />
                 ) : (
-                  <CheckCheck size={16} strokeWidth={2.5} />
+                  <CheckCheck size={15} strokeWidth={2.5} />
                 )}
-                <span>Mark all</span>
+                <span>Mark all read</span>
               </button>
             )}
 
             {notifications.length > 0 && (
-              <button
-                type="button"
-                disabled={busy || clearingAll}
-                onClick={() => setShowClearAllConfirm(true)}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-red-600 active:scale-95 disabled:opacity-50"
-                aria-label="Clear all notifications"
-                title="Clear all notifications"
-              >
-                {clearingAll ? (
-                  <Loader2 size={17} className="animate-spin" />
-                ) : (
-                  <Trash2 size={17} strokeWidth={2.2} />
+              <>
+                <button
+                  type="button"
+                  disabled={busy || clearingAll}
+                  onClick={() => setShowHeaderMenu((current) => !current)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-50 active:scale-95 disabled:opacity-50"
+                  aria-label="More notification actions"
+                  aria-expanded={showHeaderMenu}
+                >
+                  <MoreVertical size={18} strokeWidth={2.2} />
+                </button>
+
+                {showHeaderMenu && (
+                  <div className="absolute right-0 top-11 z-30 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-900/10">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowHeaderMenu(false);
+                        setShowClearAllConfirm(true);
+                      }}
+                      className="flex h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-xs font-bold text-red-600 transition hover:bg-red-50"
+                    >
+                      <Trash2 size={15} />
+                      Clear all
+                    </button>
+                  </div>
                 )}
-              </button>
+              </>
             )}
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-lg px-4 py-4">
+      <main className="mx-auto max-w-lg px-4 py-3">
         {isNativeNotificationsAvailable() && nativePermission !== 'granted' && (
           <div className="mb-4 rounded-[18px] bg-blue-50 p-4 ring-1 ring-blue-100">
             <div className="flex items-start gap-3">
