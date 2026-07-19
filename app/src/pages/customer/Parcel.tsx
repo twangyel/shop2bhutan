@@ -73,6 +73,10 @@ function statusClass(status: string) {
     return 'bg-orange-50 text-orange-700 border border-orange-200'
   }
 
+  if (status === 'pickup_scheduled') {
+    return 'bg-blue-50 text-blue-700 border border-blue-100'
+  }
+
   if (status === 'picked_up' || status === 'collected') {
     return 'bg-blue-50 text-blue-700 border border-blue-100'
   }
@@ -99,6 +103,7 @@ function statusClass(status: string) {
 const activeParcelStatuses = new Set([
   'pending',
   'accepted',
+  'pickup_scheduled',
   'picked_up',
   'collected',
   'in_transit',
@@ -234,7 +239,7 @@ export default function Parcel() {
         <div className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
           <Info size={17} className="mt-0.5 shrink-0 text-blue-500" />
           <p className="text-[12px] leading-[1.6] text-blue-800">
-            <span className="font-extrabold text-blue-950">Lightweight items only.</span> Documents, small electronics, or permitted medicines. Photo and declaration required.
+            <span className="font-extrabold text-blue-950">Lightweight items only.</span> Documents, small electronics, or permitted medicines. Photo and declaration required. Weekday pickups are confirmed for after 5:30 PM.
           </p>
         </div>
 

@@ -600,6 +600,13 @@ export default function ParcelBooking() {
           </div>
         )}
 
+        <div className="flex items-start gap-3 rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3">
+          <Clock size={17} className="mt-0.5 shrink-0 text-orange-500" />
+          <p className="text-xs leading-5 text-orange-800">
+            <span className="font-bold">Pickup timing:</span> Weekday pickups are arranged after 5:30 PM. Your exact evening window will be confirmed after the request is accepted.
+          </p>
+        </div>
+
         {/* Trip Route Card */}
         {trip && (
           <div className="overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-sm shadow-slate-100">

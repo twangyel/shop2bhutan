@@ -2182,6 +2182,7 @@ async function createCustomerNotification(input: {
 type ParcelNotificationStatus =
   | 'pending'
   | 'accepted'
+  | 'pickup_scheduled'
   | 'picked_up'
   | 'collected'
   | 'in_transit'
@@ -2203,17 +2204,52 @@ function parcelPackageLabel(packageDescription: unknown) {
   return description ? ` (${description})` : ''
 }
 
+function formatParcelPickupWindow(
+  startValue?: string | null,
+  endValue?: string | null,
+) {
+  if (!startValue || !endValue) return ''
+
+  const start = new Date(startValue)
+  const end = new Date(endValue)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return ''
+
+  const date = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Thimphu',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(start)
+  const time = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Thimphu',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+
+  return `${date}, ${time.format(start)}–${time.format(end)}`
+}
+
 function parcelStatusNotificationCopy(params: {
   status: ParcelNotificationStatus
   parcelNo: string
   adminNotes?: string | null
   packageDescription?: string | null
+  pickupWindowStartAt?: string | null
+  pickupWindowEndAt?: string | null
+  pickupInstructions?: string | null
 }) {
   const status = cleanText(params.status).toLowerCase()
   const parcelNo = params.parcelNo
   const note = cleanText(params.adminNotes)
   const packageLabel = parcelPackageLabel(params.packageDescription)
   const noteText = note ? ` Note: ${note}` : ''
+  const pickupWindow = formatParcelPickupWindow(
+    params.pickupWindowStartAt,
+    params.pickupWindowEndAt,
+  )
+  const pickupInstructions = cleanText(params.pickupInstructions)
 
   const copy: Record<
     string,
@@ -2227,7 +2263,14 @@ function parcelStatusNotificationCopy(params: {
     accepted: {
       type: 'order_update',
       title: 'Parcel Request Accepted',
-      message: `Your parcel request #${parcelNo}${packageLabel} has been accepted.`,
+      message: `Your parcel request #${parcelNo}${packageLabel} has been accepted. Shop2Bhutan will confirm your evening pickup window separately.`,
+    },
+    pickup_scheduled: {
+      type: 'order_update',
+      title: 'Parcel Pickup Scheduled',
+      message: pickupWindow
+        ? `Your parcel #${parcelNo}${packageLabel} is scheduled for pickup on ${pickupWindow}.${pickupInstructions ? ` ${pickupInstructions}` : ' Please keep the parcel packed and your phone available.'}`
+        : `Your evening pickup for parcel #${parcelNo}${packageLabel} has been scheduled.${pickupInstructions ? ` ${pickupInstructions}` : ''}`,
     },
     picked_up: {
       type: 'order_update',
@@ -2308,6 +2351,9 @@ export async function createCustomerParcelStatusNotification(input: {
   status: ParcelNotificationStatus
   adminNotes?: string | null
   packageDescription?: string | null
+  pickupWindowStartAt?: string | null
+  pickupWindowEndAt?: string | null
+  pickupInstructions?: string | null
 }) {
   try {
     const userId = cleanText(input.userId)
@@ -2321,6 +2367,9 @@ export async function createCustomerParcelStatusNotification(input: {
       parcelNo,
       adminNotes: input.adminNotes,
       packageDescription: input.packageDescription,
+      pickupWindowStartAt: input.pickupWindowStartAt,
+      pickupWindowEndAt: input.pickupWindowEndAt,
+      pickupInstructions: input.pickupInstructions,
     })
 
     const historyStatuses = new Set(['delivered', 'cancelled', 'rejected'])
@@ -2333,7 +2382,11 @@ export async function createCustomerParcelStatusNotification(input: {
       link: historyStatuses.has(status)
         ? '/my-parcels?view=history'
         : '/my-parcels?view=active',
-      dedupeKey: `parcel-status:${parcelRequestId}:${status}`,
+      dedupeKey: `parcel-status:${parcelRequestId}:${status}${
+        status === 'pickup_scheduled'
+          ? `:${cleanText(input.pickupWindowStartAt)}:${cleanText(input.pickupWindowEndAt)}`
+          : ''
+      }`,
     })
   } catch (error) {
     console.warn('[customerOrders] customer parcel notification skipped:', error)

@@ -5,6 +5,7 @@ import { useAppToast } from '@/components/shared/AppToast'
 import {
   Calendar,
   CheckCircle2,
+  Clock,
   ChevronDown,
   HelpCircle,
   Image as ImageIcon,
@@ -24,6 +25,7 @@ import type { ParcelRequest } from '@/types/parcel'
 const timeline = [
   'pending',
   'accepted',
+  'pickup_scheduled',
   'picked_up',
   'in_transit',
   'delivered',
@@ -60,6 +62,30 @@ function formatDateTime(value?: string | null) {
   })} BTT`
 }
 
+function formatPickupWindow(request: ParcelRequest) {
+  if (!request.pickupWindowStartAt || !request.pickupWindowEndAt) return ''
+
+  const start = new Date(request.pickupWindowStartAt)
+  const end = new Date(request.pickupWindowEndAt)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return ''
+
+  const date = new Intl.DateTimeFormat('en-GB', {
+    timeZone: BHUTAN_TIME_ZONE,
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(start)
+  const time = new Intl.DateTimeFormat('en-GB', {
+    timeZone: BHUTAN_TIME_ZONE,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+
+  return `${date}, ${time.format(start)}–${time.format(end)}`
+}
+
 function statusClass(status: string) {
   if (status === 'pending') {
     return 'bg-amber-50 text-amber-700 ring-1 ring-amber-100'
@@ -67,6 +93,10 @@ function statusClass(status: string) {
 
   if (status === 'accepted') {
     return 'bg-orange-50 text-orange-700 ring-1 ring-orange-100'
+  }
+
+  if (status === 'pickup_scheduled') {
+    return 'bg-blue-50 text-blue-700 ring-1 ring-blue-100'
   }
 
   if (status === 'picked_up' || status === 'collected') {
@@ -100,6 +130,7 @@ function normalizeStatus(status: string) {
 const activeParcelStatuses = new Set([
   'pending',
   'accepted',
+  'pickup_scheduled',
   'picked_up',
   'collected',
   'in_transit',
@@ -414,6 +445,9 @@ function ParcelCard({
           `Route: ${routeTitle(request)}`,
           `Trip date: ${formatDate(request.trip?.goingDate)}`,
           `Status: ${status}`,
+          ...(formatPickupWindow(request)
+            ? [`Pickup: ${formatPickupWindow(request)}`]
+            : []),
           '',
           'Open Shop2Bhutan to view the complete private details.',
         ].join('\n'),
@@ -592,6 +626,30 @@ function ParcelCard({
               )}
             </div>
           </div>
+
+          {request.pickupWindowStartAt && request.pickupWindowEndAt ? (
+            <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 p-3">
+              <div className="flex items-start gap-2.5">
+                <Clock size={16} className="mt-0.5 shrink-0 text-blue-600" />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-blue-500">
+                    Confirmed pickup window
+                  </p>
+                  <p className="mt-1 text-sm font-black leading-5 text-blue-950">
+                    {formatPickupWindow(request)}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-blue-700">
+                    {request.pickupInstructions ||
+                      'Please keep the parcel packed and your phone available.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : request.status === 'accepted' ? (
+            <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-700">
+              Your request is accepted. Shop2Bhutan will confirm your evening pickup window separately.
+            </div>
+          ) : null}
 
           <div className="mt-3 grid grid-cols-2 divide-x divide-neutral-200 rounded-2xl bg-white px-3 py-2.5 ring-1 ring-neutral-100">
             <div className="pr-3">

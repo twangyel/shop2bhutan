@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import {
   CalendarDays,
   Check,
+  Clock,
   Copy,
   Eye,
   MapPin,
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react'
 import {
   fetchAdminParcelRequests,
+  scheduleParcelPickup,
   updateParcelRequestStatus,
 } from '@/lib/parcels'
 import {
@@ -34,6 +36,7 @@ const tabs: { key: 'all' | ParcelRequestStatus; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
   { key: 'accepted', label: 'Accepted' },
+  { key: 'pickup_scheduled', label: 'Pickup Scheduled' },
   { key: 'picked_up', label: 'Picked Up' },
   { key: 'in_transit', label: 'In Transit' },
   { key: 'delivered', label: 'Delivered' },
@@ -44,6 +47,12 @@ const tabs: { key: 'all' | ParcelRequestStatus; label: string }[] = [
 type ReasonModalState = {
   request: ParcelRequest
   status: ParcelRequestStatus
+}
+
+type PickupScheduleInput = {
+  pickupWindowStartAt: string
+  pickupWindowEndAt: string
+  pickupInstructions?: string
 }
 
 function formatDate(value?: string | null) {
@@ -59,6 +68,30 @@ function formatDate(value?: string | null) {
   })
 }
 
+function formatPickupWindow(request: ParcelRequest) {
+  if (!request.pickupWindowStartAt || !request.pickupWindowEndAt) return ''
+
+  const start = new Date(request.pickupWindowStartAt)
+  const end = new Date(request.pickupWindowEndAt)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return ''
+
+  const date = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Thimphu',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(start)
+  const time = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Thimphu',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+
+  return `${date}, ${time.format(start)}–${time.format(end)}`
+}
+
 function statusLabel(status: ParcelRequestStatus) {
   if (status === 'pending') return 'Pending Review'
   return parcelStatusLabels[status] || status
@@ -71,6 +104,10 @@ function statusClass(status: ParcelRequestStatus) {
 
   if (status === 'accepted') {
     return 'border border-blue-100 bg-blue-50 text-blue-700'
+  }
+
+  if (status === 'pickup_scheduled') {
+    return 'border border-cyan-100 bg-cyan-50 text-cyan-700'
   }
 
   if (status === 'picked_up' || status === 'collected') {
@@ -107,7 +144,9 @@ function parcelTitle(request: ParcelRequest) {
 function nextStatuses(status: ParcelRequestStatus): ParcelRequestStatus[] {
   if (status === 'pending') return ['accepted', 'rejected', 'cancelled']
 
-  if (status === 'accepted') return ['picked_up', 'cancelled']
+  if (status === 'accepted') return ['pickup_scheduled', 'cancelled']
+
+  if (status === 'pickup_scheduled') return ['picked_up', 'cancelled']
 
   if (status === 'picked_up' || status === 'collected') {
     return ['in_transit', 'cancelled']
@@ -126,6 +165,7 @@ function primaryNextStatus(status: ParcelRequestStatus) {
 
 function actionLabel(status: ParcelRequestStatus) {
   if (status === 'accepted') return 'Accept Request'
+  if (status === 'pickup_scheduled') return 'Schedule Pickup'
   if (status === 'picked_up') return 'Mark Picked Up'
   if (status === 'in_transit') return 'Mark In Transit'
   if (status === 'delivered') return 'Mark Delivered'
@@ -137,6 +177,7 @@ function actionLabel(status: ParcelRequestStatus) {
 
 function actionClass(status: ParcelRequestStatus) {
   if (status === 'accepted') return 'bg-orange-500 hover:bg-orange-600'
+  if (status === 'pickup_scheduled') return 'bg-blue-600 hover:bg-blue-700'
   if (status === 'picked_up') return 'bg-violet-600 hover:bg-violet-700'
   if (status === 'in_transit') return 'bg-indigo-600 hover:bg-indigo-700'
   if (status === 'delivered') return 'bg-emerald-600 hover:bg-emerald-700'
@@ -169,6 +210,8 @@ function searchableText(request: ParcelRequest) {
     tripDisplayTitle(request),
     request.parcelType ? parcelTypeLabels[request.parcelType] : '',
     request.parcelSize ? parcelSizeLabels[request.parcelSize] : '',
+    formatPickupWindow(request),
+    request.pickupInstructions,
   ]
     .filter(Boolean)
     .join(' ')
@@ -188,6 +231,7 @@ export default function ParcelRequests() {
   const [updatingId, setUpdatingId] = useState('')
   const [error, setError] = useState('')
   const [reasonModal, setReasonModal] = useState<ReasonModalState | null>(null)
+  const [scheduleModal, setScheduleModal] = useState<ParcelRequest | null>(null)
   const [selectedRequestId, setSelectedRequestId] = useState('')
   const [openMenuId, setOpenMenuId] = useState('')
 
@@ -334,6 +378,11 @@ export default function ParcelRequests() {
   function changeStatus(request: ParcelRequest, status: ParcelRequestStatus) {
     setOpenMenuId('')
 
+    if (status === 'pickup_scheduled') {
+      setScheduleModal(request)
+      return
+    }
+
     if (status === 'rejected' || status === 'cancelled') {
       setReasonModal({ request, status })
       return
@@ -352,6 +401,33 @@ export default function ParcelRequests() {
     )
 
     if (success) setReasonModal(null)
+  }
+
+  async function confirmPickupSchedule(input: PickupScheduleInput) {
+    if (!scheduleModal) return
+
+    try {
+      setUpdatingId(scheduleModal.id)
+      setError('')
+
+      await scheduleParcelPickup({
+        requestId: scheduleModal.id,
+        ...input,
+      })
+      await loadRequests({ silent: true })
+      window.dispatchEvent(new CustomEvent('shop2bhutan:admin-parcels-updated'))
+      window.dispatchEvent(new CustomEvent('shop2bhutan:parcels-updated'))
+      toast.success(
+        'Pickup scheduled',
+        'The customer has been notified with the confirmed evening window.',
+      )
+      setScheduleModal(null)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to schedule pickup.'
+      toast.error('Pickup scheduling failed', message)
+    } finally {
+      setUpdatingId('')
+    }
   }
 
   async function copyPhone(phone?: string | null) {
@@ -517,6 +593,15 @@ export default function ParcelRequests() {
           onConfirm={confirmReasonModal}
         />
       )}
+
+      {scheduleModal && (
+        <PickupScheduleModal
+          request={scheduleModal}
+          updating={updatingId === scheduleModal.id}
+          onClose={() => setScheduleModal(null)}
+          onConfirm={confirmPickupSchedule}
+        />
+      )}
     </div>
   )
 }
@@ -594,6 +679,13 @@ function ParcelRequestRow({
               </span>
             )}
           </div>
+
+          {formatPickupWindow(request) && (
+            <p className="mt-1.5 flex items-center gap-1 text-[10px] font-bold text-blue-600">
+              <Clock size={11} />
+              {formatPickupWindow(request)}
+            </p>
+          )}
         </div>
       </div>
 
@@ -634,6 +726,18 @@ function ParcelRequestRow({
           View
         </button>
 
+        {request.status === 'pickup_scheduled' && (
+          <button
+            type="button"
+            disabled={updating}
+            onClick={() => onChangeStatus('pickup_scheduled')}
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-blue-200 bg-white px-3 text-xs font-bold text-blue-700 transition hover:bg-blue-50 disabled:opacity-60"
+          >
+            <Clock size={14} />
+            Edit Window
+          </button>
+        )}
+
         {primaryStatus && (
           <button
             type="button"
@@ -643,7 +747,13 @@ function ParcelRequestRow({
               primaryStatus,
             )}`}
           >
-            {primaryStatus === 'delivered' ? <Check size={14} /> : <Truck size={14} />}
+            {primaryStatus === 'delivered' ? (
+              <Check size={14} />
+            ) : primaryStatus === 'pickup_scheduled' ? (
+              <Clock size={14} />
+            ) : (
+              <Truck size={14} />
+            )}
             {updating ? 'Updating...' : actionLabel(primaryStatus)}
           </button>
         )}
@@ -823,6 +933,26 @@ function ParcelRequestDrawer({
             </div>
           </section>
 
+          {formatPickupWindow(request) && (
+            <section className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+              <div className="flex items-start gap-3">
+                <Clock size={18} className="mt-0.5 shrink-0 text-blue-600" />
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                    Confirmed pickup window
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-blue-950">
+                    {formatPickupWindow(request)}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-blue-700">
+                    {request.pickupInstructions ||
+                      'Please keep the parcel packed and your phone available.'}
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
+
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <ContactDetailCard
               title="Pickup"
@@ -914,6 +1044,18 @@ function ParcelRequestDrawer({
         <footer className="border-t border-neutral-100 bg-white px-4 py-4 sm:px-5">
           {primaryStatus ? (
             <div className="flex flex-col gap-2 sm:flex-row">
+              {request.status === 'pickup_scheduled' && (
+                <button
+                  type="button"
+                  disabled={updating}
+                  onClick={() => onChangeStatus('pickup_scheduled')}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-blue-200 px-4 text-sm font-bold text-blue-700 transition hover:bg-blue-50 disabled:opacity-60"
+                >
+                  <Clock size={16} />
+                  Edit Window
+                </button>
+              )}
+
               <button
                 type="button"
                 disabled={updating}
@@ -922,7 +1064,13 @@ function ParcelRequestDrawer({
                   primaryStatus,
                 )}`}
               >
-                {primaryStatus === 'delivered' ? <Check size={16} /> : <Truck size={16} />}
+                {primaryStatus === 'delivered' ? (
+                  <Check size={16} />
+                ) : primaryStatus === 'pickup_scheduled' ? (
+                  <Clock size={16} />
+                ) : (
+                  <Truck size={16} />
+                )}
                 {updating ? 'Updating...' : actionLabel(primaryStatus)}
               </button>
 
@@ -1025,6 +1173,259 @@ function DetailItem({ label, value }: { label: string; value: string }) {
         {label}
       </dt>
       <dd className="mt-1 text-sm font-semibold text-neutral-900">{value}</dd>
+    </div>
+  )
+}
+
+function bhutanDateInputValue(value: Date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Thimphu',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(value)
+  const part = (type: string) => parts.find((item) => item.type === type)?.value || ''
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
+
+function bhutanTimeInputValue(value: Date) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Thimphu',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(value)
+  const part = (type: string) => parts.find((item) => item.type === type)?.value || ''
+  return `${part('hour')}:${part('minute')}`
+}
+
+function defaultPickupDate() {
+  const now = new Date()
+  const hour = Number(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Thimphu',
+      hour: '2-digit',
+      hourCycle: 'h23',
+    }).format(now),
+  )
+  return bhutanDateInputValue(new Date(now.getTime() + (hour >= 20 ? 86_400_000 : 0)))
+}
+
+function makeBhutanDateTime(date: string, time: string) {
+  return new Date(`${date}T${time}:00+06:00`)
+}
+
+function PickupScheduleModal({
+  request,
+  updating,
+  onClose,
+  onConfirm,
+}: {
+  request: ParcelRequest
+  updating: boolean
+  onClose: () => void
+  onConfirm: (input: PickupScheduleInput) => Promise<void>
+}) {
+  const existingStart = request.pickupWindowStartAt
+    ? new Date(request.pickupWindowStartAt)
+    : null
+  const existingEnd = request.pickupWindowEndAt
+    ? new Date(request.pickupWindowEndAt)
+    : null
+  const [date, setDate] = useState(
+    existingStart && !Number.isNaN(existingStart.getTime())
+      ? bhutanDateInputValue(existingStart)
+      : defaultPickupDate(),
+  )
+  const [startTime, setStartTime] = useState(
+    existingStart && !Number.isNaN(existingStart.getTime())
+      ? bhutanTimeInputValue(existingStart)
+      : '17:30',
+  )
+  const [endTime, setEndTime] = useState(
+    existingEnd && !Number.isNaN(existingEnd.getTime())
+      ? bhutanTimeInputValue(existingEnd)
+      : '20:00',
+  )
+  const [instructions, setInstructions] = useState(
+    request.pickupInstructions ||
+      'Please keep the parcel packed and your phone available.',
+  )
+  const [localError, setLocalError] = useState('')
+
+  const quickWindows = [
+    { label: '5:30–6:30 PM', start: '17:30', end: '18:30' },
+    { label: '6:30–8:00 PM', start: '18:30', end: '20:00' },
+    { label: '5:30–8:00 PM', start: '17:30', end: '20:00' },
+  ]
+
+  async function submit() {
+    if (!date || !startTime || !endTime) {
+      setLocalError('Choose the pickup date, start time and end time.')
+      return
+    }
+
+    const start = makeBhutanDateTime(date, startTime)
+    const end = makeBhutanDateTime(date, endTime)
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      setLocalError('Choose a valid pickup date and time window.')
+      return
+    }
+    if (end.getTime() <= start.getTime()) {
+      setLocalError('Pickup end time must be later than the start time.')
+      return
+    }
+
+    const weekday = new Date(`${date}T12:00:00Z`).getUTCDay()
+    if (weekday >= 1 && weekday <= 5 && startTime < '17:30') {
+      setLocalError('Weekday pickup must start at or after 5:30 PM.')
+      return
+    }
+    if (end.getTime() <= Date.now()) {
+      setLocalError('Choose a pickup window that has not already passed.')
+      return
+    }
+
+    setLocalError('')
+    await onConfirm({
+      pickupWindowStartAt: start.toISOString(),
+      pickupWindowEndAt: end.toISOString(),
+      pickupInstructions: instructions.trim() || undefined,
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-[65] flex items-end justify-center bg-black/40 p-4 sm:items-center">
+      <div className="w-full max-w-lg rounded-3xl bg-white p-4 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-lg font-bold text-neutral-900">Schedule pickup</p>
+            <p className="mt-1 text-sm leading-relaxed text-neutral-500">
+              Confirm a practical pickup window. Weekday pickups should begin after 5:30 PM.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={updating}
+            className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-100 disabled:opacity-50"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="mt-4 rounded-2xl bg-neutral-50 p-3">
+          <p className="text-xs font-bold text-neutral-400">
+            {request.parcelNo || 'Parcel Request'}
+          </p>
+          <p className="mt-1 text-sm font-bold text-neutral-900">
+            {parcelTitle(request)}
+          </p>
+          <p className="mt-1 text-xs text-neutral-500">
+            {request.senderName || 'Customer'} · {request.pickupAddress || 'Pickup address'}
+          </p>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <label className="sm:col-span-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-neutral-600">
+              Pickup date
+            </span>
+            <input
+              type="date"
+              min={bhutanDateInputValue(new Date())}
+              value={date}
+              onChange={(event) => {
+                setDate(event.target.value)
+                setLocalError('')
+              }}
+              className="mt-2 h-11 w-full rounded-2xl border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20"
+            />
+          </label>
+          <label>
+            <span className="text-xs font-bold uppercase tracking-wider text-neutral-600">
+              From
+            </span>
+            <input
+              type="time"
+              value={startTime}
+              onChange={(event) => {
+                setStartTime(event.target.value)
+                setLocalError('')
+              }}
+              className="mt-2 h-11 w-full rounded-2xl border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20"
+            />
+          </label>
+          <label>
+            <span className="text-xs font-bold uppercase tracking-wider text-neutral-600">
+              To
+            </span>
+            <input
+              type="time"
+              value={endTime}
+              onChange={(event) => {
+                setEndTime(event.target.value)
+                setLocalError('')
+              }}
+              className="mt-2 h-11 w-full rounded-2xl border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20"
+            />
+          </label>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {quickWindows.map((window) => (
+            <button
+              key={window.label}
+              type="button"
+              onClick={() => {
+                setStartTime(window.start)
+                setEndTime(window.end)
+                setLocalError('')
+              }}
+              className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100"
+            >
+              {window.label}
+            </button>
+          ))}
+        </div>
+
+        <label className="mt-4 block">
+          <span className="text-xs font-bold uppercase tracking-wider text-neutral-600">
+            Customer instruction
+          </span>
+          <textarea
+            value={instructions}
+            onChange={(event) => setInstructions(event.target.value)}
+            className="mt-2 h-24 w-full resize-none rounded-2xl border border-neutral-200 p-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20"
+            placeholder="Please keep the parcel packed and your phone available."
+          />
+        </label>
+
+        {localError && (
+          <p className="mt-2 text-xs font-semibold text-red-600">{localError}</p>
+        )}
+
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={updating}
+            className="h-11 flex-1 rounded-2xl bg-neutral-100 text-sm font-bold text-neutral-700 disabled:opacity-50"
+          >
+            Not Now
+          </button>
+          <button
+            type="button"
+            onClick={() => void submit()}
+            disabled={updating}
+            className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-600 text-sm font-bold text-white disabled:opacity-60"
+          >
+            <Clock size={16} />
+            {updating ? 'Scheduling...' : 'Confirm Window'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

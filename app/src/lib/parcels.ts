@@ -32,6 +32,13 @@ export type CreateParcelRequestInput = {
   customerNotes?: string
 }
 
+export type ScheduleParcelPickupInput = {
+  requestId: string
+  pickupWindowStartAt: string
+  pickupWindowEndAt: string
+  pickupInstructions?: string
+}
+
 export type CreateParcelTripInput = {
   title?: string
   originLocationId?: string
@@ -76,6 +83,7 @@ const DUPLICATE_PARCEL_WINDOW_MINUTES = 30
 const duplicateParcelStatuses: ParcelRequestStatus[] = [
   'pending',
   'accepted',
+  'pickup_scheduled',
   'picked_up',
   'in_transit',
   'delivered',
@@ -352,8 +360,58 @@ function mapTrackingEvents(row: Row) {
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
 }
 
+function formatBhutanPickupWindow(
+  startValue?: string | null,
+  endValue?: string | null,
+) {
+  if (!startValue || !endValue) return ''
+
+  const start = new Date(startValue)
+  const end = new Date(endValue)
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return ''
+
+  const date = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Thimphu',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(start)
+
+  const timeFormatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Thimphu',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+
+  return `${date}, ${timeFormatter.format(start)}–${timeFormatter.format(end)}`
+}
+
+function pickupScheduleMessage(input: {
+  pickupWindowStartAt?: string | null
+  pickupWindowEndAt?: string | null
+  pickupInstructions?: string | null
+}) {
+  const window = formatBhutanPickupWindow(
+    input.pickupWindowStartAt,
+    input.pickupWindowEndAt,
+  )
+  const instructions = text(input.pickupInstructions)
+
+  if (!window) {
+    return instructions || 'Your evening pickup window has been scheduled.'
+  }
+
+  return `Pickup scheduled for ${window}.${
+    instructions ? ` ${instructions}` : ' Please keep the parcel packed and your phone available.'
+  }`
+}
+
 function parcelStatusTitle(status: ParcelRequestStatus) {
   if (status === 'accepted') return 'Request Accepted'
+  if (status === 'pickup_scheduled') return 'Pickup Scheduled'
   if (status === 'picked_up' || status === 'collected') return 'Picked Up'
   if (status === 'in_transit') return 'In Transit'
   if (status === 'delivered') return 'Delivered'
@@ -366,7 +424,10 @@ function parcelStatusTitle(status: ParcelRequestStatus) {
 function parcelStatusMessage(status: ParcelRequestStatus, adminNotes?: string) {
   if (adminNotes?.trim()) return adminNotes.trim()
 
-  if (status === 'accepted') return 'Your parcel request has been accepted.'
+  if (status === 'accepted')
+    return 'Your parcel request has been accepted. Shop2Bhutan will confirm your evening pickup window separately.'
+  if (status === 'pickup_scheduled')
+    return 'Your evening pickup window has been scheduled.'
   if (status === 'picked_up' || status === 'collected')
     return 'Your parcel has been picked up.'
   if (status === 'in_transit') return 'Your parcel is on the way.'
@@ -427,6 +488,13 @@ async function mapRequest(
 
     customerNotes: row.customer_notes ?? null,
     adminNotes: row.admin_notes ?? null,
+
+    pickupWindowStartAt: row.pickup_window_start_at ?? null,
+    pickupWindowEndAt: row.pickup_window_end_at ?? null,
+    pickupInstructions: row.pickup_instructions ?? null,
+    pickupScheduledAt: row.pickup_scheduled_at ?? null,
+    pickedUpAt: row.picked_up_at ?? null,
+
     declarationConfirmed: Boolean(row.declaration_confirmed),
 
     createdAt: row.created_at ?? '',
@@ -825,6 +893,11 @@ export async function fetchMyActiveParcelRequestsPreview(limit = 2) {
       parcel_size,
       customer_notes,
       admin_notes,
+      pickup_window_start_at,
+      pickup_window_end_at,
+      pickup_instructions,
+      pickup_scheduled_at,
+      picked_up_at,
       declaration_confirmed,
       created_at,
       updated_at,
@@ -840,7 +913,7 @@ export async function fetchMyActiveParcelRequestsPreview(limit = 2) {
       )
     `)
     .eq('user_id', userId)
-    .in('status', ['pending', 'accepted', 'picked_up', 'in_transit'])
+    .in('status', ['pending', 'accepted', 'pickup_scheduled', 'picked_up', 'in_transit'])
     .order('created_at', { ascending: false })
     .limit(limit)
 
@@ -1052,12 +1125,20 @@ export async function updateParcelRequestStatus(
   status: ParcelRequestStatus,
   adminNotes?: string,
 ) {
+  if (status === 'pickup_scheduled') {
+    throw new Error('Use Schedule Pickup to choose the pickup date and evening time window.')
+  }
+
   const payload: Record<string, unknown> = {
     status,
   }
 
   if (adminNotes !== undefined) {
     payload.admin_notes = nullableText(adminNotes)
+  }
+
+  if (status === 'picked_up' || status === 'collected') {
+    payload.picked_up_at = new Date().toISOString()
   }
 
   const { data, error } = await supabase
@@ -1121,6 +1202,90 @@ export async function updateParcelRequestStatus(
   return mapRequest(data)
 }
 
+export async function scheduleParcelPickup(input: ScheduleParcelPickupInput) {
+  const requestId = text(input.requestId)
+  const startAt = new Date(input.pickupWindowStartAt)
+  const endAt = new Date(input.pickupWindowEndAt)
+  const instructions = nullableText(input.pickupInstructions)
+
+  if (!requestId) throw new Error('Parcel request ID is required.')
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+    throw new Error('Choose a valid pickup date and time window.')
+  }
+  if (endAt.getTime() <= startAt.getTime()) {
+    throw new Error('Pickup end time must be later than the start time.')
+  }
+
+  const now = new Date().toISOString()
+  const payload = {
+    status: 'pickup_scheduled' as ParcelRequestStatus,
+    pickup_window_start_at: startAt.toISOString(),
+    pickup_window_end_at: endAt.toISOString(),
+    pickup_instructions: instructions,
+    pickup_scheduled_at: now,
+  }
+
+  const { data, error } = await supabase
+    .from('parcel_requests')
+    .update(payload)
+    .eq('id', requestId)
+    .in('status', ['accepted', 'pickup_scheduled'])
+    .select('*, parcel_trips(*)')
+    .single()
+
+  if (error) throw error
+
+  const trackingMessage = pickupScheduleMessage({
+    pickupWindowStartAt: payload.pickup_window_start_at,
+    pickupWindowEndAt: payload.pickup_window_end_at,
+    pickupInstructions: payload.pickup_instructions,
+  })
+
+  try {
+    const { data: userData } = await supabase.auth.getUser()
+    const { error: trackingError } = await supabase
+      .from('parcel_tracking_events')
+      .insert({
+        parcel_request_id: requestId,
+        status: 'pickup_scheduled',
+        title: parcelStatusTitle('pickup_scheduled'),
+        message: trackingMessage,
+        location: null,
+        visible_to_customer: true,
+        created_by: userData.user?.id ?? null,
+      })
+
+    if (trackingError) {
+      console.warn('[scheduleParcelPickup] Tracking event skipped:', trackingError)
+    }
+  } catch (trackingError) {
+    console.warn('[scheduleParcelPickup] Tracking event skipped:', trackingError)
+  }
+
+  try {
+    await createCustomerParcelStatusNotification({
+      userId: String(data.user_id ?? ''),
+      parcelRequestId: requestId,
+      parcelNo: data.parcel_no ?? null,
+      status: 'pickup_scheduled',
+      packageDescription: data.package_description ?? null,
+      pickupWindowStartAt: payload.pickup_window_start_at,
+      pickupWindowEndAt: payload.pickup_window_end_at,
+      pickupInstructions: payload.pickup_instructions,
+    })
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('shop2bhutan:notifications-updated'))
+      window.dispatchEvent(new CustomEvent('shop2bhutan:parcels-updated'))
+      window.dispatchEvent(new CustomEvent('shop2bhutan:admin-parcels-updated'))
+    }
+  } catch (notificationError) {
+    console.warn('[scheduleParcelPickup] Customer notification skipped:', notificationError)
+  }
+
+  return mapRequest(data)
+}
+
 export async function fetchCustomerParcelBadgeSummary(userId?: string) {
   let activeCount = 0
 
@@ -1129,7 +1294,7 @@ export async function fetchCustomerParcelBadgeSummary(userId?: string) {
       .from('parcel_requests')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
-      .in('status', ['pending', 'accepted', 'picked_up', 'in_transit'])
+      .in('status', ['pending', 'accepted', 'pickup_scheduled', 'picked_up', 'in_transit'])
 
     if (error) throw error
 
