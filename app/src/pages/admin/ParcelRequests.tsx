@@ -1,6 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { MouseEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Check, Package, RefreshCw, Truck, X, XCircle } from 'lucide-react'
+import {
+  CalendarDays,
+  Check,
+  Copy,
+  Eye,
+  MapPin,
+  MoreHorizontal,
+  Package,
+  Phone,
+  RefreshCw,
+  Search,
+  Truck,
+  User,
+  X,
+  XCircle,
+} from 'lucide-react'
 import {
   fetchAdminParcelRequests,
   updateParcelRequestStatus,
@@ -31,45 +47,49 @@ type ReasonModalState = {
 }
 
 function formatDate(value?: string | null) {
-  if (!value) return 'Not set'
+  if (!value) return 'Date not set'
 
-  return new Date(value).toLocaleDateString('en-GB', {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return 'Date not set'
+
+  return parsed.toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   })
 }
 
-function statusClass(status: string) {
+function statusLabel(status: ParcelRequestStatus) {
+  if (status === 'pending') return 'Pending Review'
+  return parcelStatusLabels[status] || status
+}
+
+function statusClass(status: ParcelRequestStatus) {
   if (status === 'pending') {
-    return 'bg-amber-50 text-amber-700 border border-amber-100'
+    return 'border border-amber-100 bg-amber-50 text-amber-700'
   }
 
   if (status === 'accepted') {
-    return 'bg-orange-50 text-orange-700 border border-orange-200'
+    return 'border border-blue-100 bg-blue-50 text-blue-700'
   }
 
   if (status === 'picked_up' || status === 'collected') {
-    return 'bg-blue-50 text-blue-700 border border-blue-100'
+    return 'border border-violet-100 bg-violet-50 text-violet-700'
   }
 
   if (status === 'in_transit') {
-    return 'bg-purple-50 text-purple-700 border border-purple-100'
+    return 'border border-indigo-100 bg-indigo-50 text-indigo-700'
   }
 
   if (status === 'delivered') {
-    return 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+    return 'border border-emerald-100 bg-emerald-50 text-emerald-700'
   }
 
   if (status === 'rejected') {
-    return 'bg-rose-50 text-rose-700 border border-rose-100'
+    return 'border border-rose-100 bg-rose-50 text-rose-700'
   }
 
-  if (status === 'cancelled') {
-    return 'bg-neutral-100 text-neutral-600 border border-neutral-200'
-  }
-
-  return 'bg-neutral-100 text-neutral-600 border border-neutral-200'
+  return 'border border-neutral-200 bg-neutral-100 text-neutral-600'
 }
 
 function tripDisplayTitle(request: ParcelRequest) {
@@ -78,6 +98,10 @@ function tripDisplayTitle(request: ParcelRequest) {
     request.trip?.destination || request.trip?.toLocation || 'Drop-off location'
 
   return `${origin} → ${destination}`
+}
+
+function parcelTitle(request: ParcelRequest) {
+  return request.packageDescription || request.description || 'Parcel request'
 }
 
 function nextStatuses(status: ParcelRequestStatus): ParcelRequestStatus[] {
@@ -94,6 +118,12 @@ function nextStatuses(status: ParcelRequestStatus): ParcelRequestStatus[] {
   return []
 }
 
+function primaryNextStatus(status: ParcelRequestStatus) {
+  return nextStatuses(status).find(
+    (nextStatus) => nextStatus !== 'rejected' && nextStatus !== 'cancelled',
+  )
+}
+
 function actionLabel(status: ParcelRequestStatus) {
   if (status === 'accepted') return 'Accept Request'
   if (status === 'picked_up') return 'Mark Picked Up'
@@ -102,16 +132,16 @@ function actionLabel(status: ParcelRequestStatus) {
   if (status === 'rejected') return 'Reject'
   if (status === 'cancelled') return 'Cancel'
 
-  return parcelStatusLabels[status] || status
+  return statusLabel(status)
 }
 
 function actionClass(status: ParcelRequestStatus) {
   if (status === 'accepted') return 'bg-orange-500 hover:bg-orange-600'
-  if (status === 'picked_up') return 'bg-blue-500 hover:bg-blue-600'
-  if (status === 'in_transit') return 'bg-purple-500 hover:bg-purple-600'
-  if (status === 'delivered') return 'bg-emerald-500 hover:bg-emerald-600'
+  if (status === 'picked_up') return 'bg-violet-600 hover:bg-violet-700'
+  if (status === 'in_transit') return 'bg-indigo-600 hover:bg-indigo-700'
+  if (status === 'delivered') return 'bg-emerald-600 hover:bg-emerald-700'
 
-  return 'bg-red-500 hover:bg-red-600'
+  return 'bg-rose-600 hover:bg-rose-700'
 }
 
 function isFinalStatus(status: ParcelRequestStatus) {
@@ -119,10 +149,30 @@ function isFinalStatus(status: ParcelRequestStatus) {
 }
 
 function finalStatusText(status: ParcelRequestStatus) {
-  if (status === 'delivered') return 'Completed — no further action needed'
-  if (status === 'rejected') return 'Rejected — reason visible to customer'
+  if (status === 'delivered') return 'Completed — no further action required'
+  if (status === 'rejected') return 'Rejected — reason shared with customer'
   if (status === 'cancelled') return 'Cancelled — customer has been notified'
-  return parcelStatusLabels[status] || status
+  return statusLabel(status)
+}
+
+function searchableText(request: ParcelRequest) {
+  return [
+    request.parcelNo,
+    parcelTitle(request),
+    request.senderName,
+    request.senderPhone,
+    request.contactNumber,
+    request.pickupAddress,
+    request.receiverName,
+    request.receiverPhone,
+    request.dropoffAddress,
+    tripDisplayTitle(request),
+    request.parcelType ? parcelTypeLabels[request.parcelType] : '',
+    request.parcelSize ? parcelSizeLabels[request.parcelSize] : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
 }
 
 export default function ParcelRequests() {
@@ -133,10 +183,13 @@ export default function ParcelRequests() {
   const [filter, setFilter] = useState<'all' | ParcelRequestStatus>(
     initialStatus === 'pending' ? 'pending' : 'all',
   )
+  const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState('')
   const [error, setError] = useState('')
   const [reasonModal, setReasonModal] = useState<ReasonModalState | null>(null)
+  const [selectedRequestId, setSelectedRequestId] = useState('')
+  const [openMenuId, setOpenMenuId] = useState('')
 
   const loadRequests = useCallback(async (options?: { silent?: boolean }) => {
     const silent = Boolean(options?.silent)
@@ -212,10 +265,26 @@ export default function ParcelRequests() {
     }
   }, [loadRequests])
 
+  useEffect(() => {
+    if (!openMenuId) return undefined
+
+    const closeMenu = () => setOpenMenuId('')
+    window.addEventListener('click', closeMenu)
+
+    return () => window.removeEventListener('click', closeMenu)
+  }, [openMenuId])
+
   const filtered = useMemo(() => {
-    if (filter === 'all') return requests
-    return requests.filter((request) => request.status === filter)
-  }, [filter, requests])
+    const normalizedQuery = query.trim().toLowerCase()
+
+    return requests.filter((request) => {
+      const statusMatches = filter === 'all' || request.status === filter
+      const searchMatches =
+        !normalizedQuery || searchableText(request).includes(normalizedQuery)
+
+      return statusMatches && searchMatches
+    })
+  }, [filter, query, requests])
 
   const counts = useMemo(() => {
     return requests.reduce<Record<string, number>>(
@@ -228,6 +297,11 @@ export default function ParcelRequests() {
     )
   }, [requests])
 
+  const selectedRequest = useMemo(
+    () => requests.find((request) => request.id === selectedRequestId) || null,
+    [requests, selectedRequestId],
+  )
+
   async function performStatusChange(
     request: ParcelRequest,
     status: ParcelRequestStatus,
@@ -236,6 +310,7 @@ export default function ParcelRequests() {
     try {
       setUpdatingId(request.id)
       setError('')
+      setOpenMenuId('')
 
       await updateParcelRequestStatus(request.id, status, adminNotes)
       await loadRequests({ silent: true })
@@ -256,10 +331,9 @@ export default function ParcelRequests() {
     }
   }
 
-  function changeStatus(
-    request: ParcelRequest,
-    status: ParcelRequestStatus,
-  ) {
+  function changeStatus(request: ParcelRequest, status: ParcelRequestStatus) {
+    setOpenMenuId('')
+
     if (status === 'rejected' || status === 'cancelled') {
       setReasonModal({ request, status })
       return
@@ -280,21 +354,31 @@ export default function ParcelRequests() {
     if (success) setReasonModal(null)
   }
 
+  async function copyPhone(phone?: string | null) {
+    if (!phone) return
+
+    try {
+      await navigator.clipboard.writeText(phone)
+      toast.success('Phone number copied', phone)
+    } catch {
+      toast.error('Unable to copy', 'Copy the phone number manually.')
+    }
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-neutral-900">
-            Parcel Requests
-          </h2>
+          <h2 className="text-xl font-bold text-neutral-900">Parcel Requests</h2>
           <p className="text-sm text-neutral-500">
-            Manage customer parcel bookings and update pickup status.
+            Review bookings, contact customers and update parcel progress.
           </p>
         </div>
 
         <button
+          type="button"
           onClick={() => loadRequests()}
-          className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
         >
           <RefreshCw size={16} />
           Refresh
@@ -307,51 +391,121 @@ export default function ParcelRequests() {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2 rounded-2xl border border-neutral-100 bg-white p-2 shadow-sm">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setFilter(tab.key)}
-            className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
-              filter === tab.key
-                ? 'bg-orange-500 text-white'
-                : 'text-neutral-600 hover:bg-neutral-100'
-            }`}
-          >
-            {tab.label} ({counts[tab.key] ?? 0})
-          </button>
-        ))}
-      </div>
+      <section className="overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-sm">
+        <div className="border-b border-neutral-100 p-3">
+          <div className="relative max-w-xl">
+            <Search
+              size={17}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+            />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search parcel ID, customer, phone or route..."
+              className="h-10 w-full rounded-xl border border-neutral-200 bg-neutral-50 pl-10 pr-10 text-sm text-neutral-800 outline-none transition placeholder:text-neutral-400 focus:border-orange-300 focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                aria-label="Clear search"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto border-b border-neutral-100 p-2">
+          <div className="flex min-w-max gap-1">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setFilter(tab.key)}
+                className={`rounded-xl px-3 py-2 text-xs font-bold transition ${
+                  filter === tab.key
+                    ? 'bg-orange-500 text-white shadow-sm'
+                    : 'text-neutral-600 hover:bg-neutral-100'
+                }`}
+              >
+                {tab.label} ({counts[tab.key] ?? 0})
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 text-xs text-neutral-500">
+          <span>
+            Showing <strong className="text-neutral-800">{filtered.length}</strong> of{' '}
+            <strong className="text-neutral-800">{requests.length}</strong> requests
+          </span>
+          {query && (
+            <span className="max-w-[45%] truncate">
+              Search: <strong className="text-neutral-700">{query}</strong>
+            </span>
+          )}
+        </div>
+      </section>
 
       {loading ? (
         <div className="rounded-2xl border border-neutral-100 bg-white p-8 text-center text-sm text-neutral-500">
           Loading parcel requests...
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-neutral-100 bg-white p-8 text-center">
+        <div className="rounded-2xl border border-neutral-100 bg-white p-10 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-100 text-neutral-400">
             <Package size={24} />
           </div>
 
           <p className="mt-3 text-sm font-semibold text-neutral-700">
-            No parcel requests found
+            {query ? 'No matching parcel requests' : 'No parcel requests found'}
           </p>
 
-          <p className="text-xs text-neutral-400">
-            Customer parcel bookings will appear here.
+          <p className="mt-1 text-xs text-neutral-400">
+            {query
+              ? 'Try a different parcel ID, customer, phone number or route.'
+              : 'Customer parcel bookings will appear here.'}
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {filtered.map((request) => (
-            <ParcelRequestCard
-              key={request.id}
-              request={request}
-              updating={updatingId === request.id}
-              onChangeStatus={(status) => changeStatus(request, status)}
-            />
-          ))}
-        </div>
+        <section className="overflow-visible rounded-2xl border border-neutral-100 bg-white shadow-sm">
+          <div className="hidden grid-cols-[minmax(260px,1.5fr)_minmax(180px,1fr)_minmax(180px,1fr)_150px_210px] gap-4 border-b border-neutral-100 bg-neutral-50/70 px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-neutral-500 xl:grid">
+            <span>Request</span>
+            <span>Pickup</span>
+            <span>Drop-off</span>
+            <span>Status</span>
+            <span className="text-right">Actions</span>
+          </div>
+
+          <div className="divide-y divide-neutral-100">
+            {filtered.map((request) => (
+              <ParcelRequestRow
+                key={request.id}
+                request={request}
+                updating={updatingId === request.id}
+                menuOpen={openMenuId === request.id}
+                onView={() => setSelectedRequestId(request.id)}
+                onToggleMenu={(event) => {
+                  event.stopPropagation()
+                  setOpenMenuId((current) => (current === request.id ? '' : request.id))
+                }}
+                onChangeStatus={(status) => changeStatus(request, status)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {selectedRequest && (
+        <ParcelRequestDrawer
+          request={selectedRequest}
+          updating={updatingId === selectedRequest.id}
+          onClose={() => setSelectedRequestId('')}
+          onCopyPhone={copyPhone}
+          onChangeStatus={(status) => changeStatus(selectedRequest, status)}
+        />
       )}
 
       {reasonModal && (
@@ -367,186 +521,511 @@ export default function ParcelRequests() {
   )
 }
 
-function ParcelRequestCard({
+function ParcelRequestRow({
   request,
   updating,
+  menuOpen,
+  onView,
+  onToggleMenu,
   onChangeStatus,
 }: {
   request: ParcelRequest
   updating: boolean
+  menuOpen: boolean
+  onView: () => void
+  onToggleMenu: (event: MouseEvent<HTMLButtonElement>) => void
   onChangeStatus: (status: ParcelRequestStatus) => void
 }) {
-  const actions = nextStatuses(request.status)
-  const title =
-    request.packageDescription || request.description || 'Parcel request'
-  const final = isFinalStatus(request.status)
+  const title = parcelTitle(request)
+  const primaryStatus = primaryNextStatus(request.status)
+  const destructiveStatuses = nextStatuses(request.status).filter(
+    (status) => status === 'rejected' || status === 'cancelled',
+  )
 
   return (
     <article
-      className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${
-        final ? 'border-neutral-200' : 'border-neutral-100'
-      }`}
+      className="group grid cursor-pointer gap-4 px-4 py-4 transition hover:bg-neutral-50/80 xl:grid-cols-[minmax(260px,1.5fr)_minmax(180px,1fr)_minmax(180px,1fr)_150px_210px] xl:items-center"
+      onClick={onView}
     >
-      <div className="grid gap-4 p-4 lg:grid-cols-[160px_1fr]">
-        <div>
-          {request.parcelPhotoUrl ? (
-            <div className="space-y-2">
-              <img
-                src={request.parcelPhotoUrl}
-                alt={title}
-                className="h-36 w-full rounded-2xl border border-neutral-100 bg-neutral-100 object-cover"
-              />
-
-              <a
-                href={request.parcelPhotoUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="block text-center text-xs font-bold text-orange-600 hover:text-orange-700"
-              >
-                View photo
-              </a>
-            </div>
-          ) : (
-            <div className="flex h-36 w-full items-center justify-center rounded-2xl bg-neutral-100 text-neutral-400">
-              <Package size={28} />
-            </div>
-          )}
-        </div>
+      <div className="flex min-w-0 gap-3">
+        {request.parcelPhotoUrl ? (
+          <img
+            src={request.parcelPhotoUrl}
+            alt={title}
+            className="h-14 w-14 shrink-0 rounded-xl border border-neutral-100 bg-neutral-100 object-cover"
+          />
+        ) : (
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-neutral-400">
+            <Package size={22} />
+          </div>
+        )}
 
         <div className="min-w-0">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="text-xs font-bold text-neutral-400">
-                {request.parcelNo || 'Parcel Request'}
-              </p>
-
-              <h3 className="mt-1 text-base font-bold text-neutral-900">
-                {title}
-              </h3>
-
-              <p className="mt-1 text-xs text-neutral-500">
-                Trip: {tripDisplayTitle(request)} ·{' '}
-                {formatDate(request.trip?.goingDate)}
-              </p>
-            </div>
-
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="truncate text-xs font-bold text-neutral-400">
+              {request.parcelNo || 'Parcel Request'}
+            </p>
             <span
-              className={`inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-bold ${statusClass(
+              className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold xl:hidden ${statusClass(
                 request.status,
               )}`}
             >
-              {parcelStatusLabels[request.status] || request.status}
+              {statusLabel(request.status)}
             </span>
           </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className="rounded-2xl bg-emerald-50/70 p-3">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
-                Pickup
-              </p>
+          <h3 className="mt-1 truncate text-sm font-bold text-neutral-900">{title}</h3>
 
-              <p className="mt-1 text-sm font-semibold text-neutral-900">
-                {request.pickupAddress || 'Pickup address not provided'}
-              </p>
-
-              <p className="text-xs text-neutral-500">
-                {request.senderName || 'Pickup contact'} ·{' '}
-                {request.senderPhone || request.contactNumber || 'Phone'}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-orange-50/70 p-3">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-orange-700">
-                Drop-off
-              </p>
-
-              <p className="mt-1 text-sm font-semibold text-neutral-900">
-                {request.dropoffAddress || 'Drop-off address not provided'}
-              </p>
-
-              <p className="text-xs text-neutral-500">
-                {request.receiverName || 'Receiver'} ·{' '}
-                {request.receiverPhone || 'Phone'}
-              </p>
-            </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-500">
+            <span>{tripDisplayTitle(request)}</span>
+            <span className="text-neutral-300">•</span>
+            <span>{formatDate(request.trip?.goingDate)}</span>
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap gap-1.5">
             {request.parcelType && (
-              <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
                 {parcelTypeLabels[request.parcelType] || request.parcelType}
               </span>
             )}
+            {request.parcelSize && (
+              <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
+                {parcelSizeLabels[request.parcelSize] || request.parcelSize}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
 
-            <span className="rounded-full bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700">
-              {parcelSizeLabels[request.parcelSize] || request.parcelSize}
-            </span>
+      <ContactSummary
+        label="Pickup"
+        address={request.pickupAddress}
+        name={request.senderName}
+        phone={request.senderPhone || request.contactNumber}
+      />
 
-            <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600">
-              {tripDisplayTitle(request)}
-            </span>
+      <ContactSummary
+        label="Drop-off"
+        address={request.dropoffAddress}
+        name={request.receiverName}
+        phone={request.receiverPhone}
+      />
+
+      <div className="hidden xl:block">
+        <span
+          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${statusClass(
+            request.status,
+          )}`}
+        >
+          {statusLabel(request.status)}
+        </span>
+      </div>
+
+      <div
+        className="flex flex-wrap items-center gap-2 xl:justify-end"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onView}
+          className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-bold text-neutral-700 transition hover:bg-neutral-50"
+        >
+          <Eye size={14} />
+          View
+        </button>
+
+        {primaryStatus && (
+          <button
+            type="button"
+            disabled={updating}
+            onClick={() => onChangeStatus(primaryStatus)}
+            className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-bold text-white transition disabled:opacity-60 ${actionClass(
+              primaryStatus,
+            )}`}
+          >
+            {primaryStatus === 'delivered' ? <Check size={14} /> : <Truck size={14} />}
+            {updating ? 'Updating...' : actionLabel(primaryStatus)}
+          </button>
+        )}
+
+        {destructiveStatuses.length > 0 && (
+          <div className="relative">
+            <button
+              type="button"
+              disabled={updating}
+              onClick={onToggleMenu}
+              aria-label="More parcel request actions"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-50"
+            >
+              <MoreHorizontal size={17} />
+            </button>
+
+            {menuOpen && (
+              <div
+                className="absolute right-0 z-30 mt-2 w-44 rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-xl"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {destructiveStatuses.map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => onChangeStatus(status)}
+                    className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-bold transition ${
+                      status === 'rejected'
+                        ? 'text-rose-600 hover:bg-rose-50'
+                        : 'text-neutral-700 hover:bg-neutral-100'
+                    }`}
+                  >
+                    <XCircle size={14} />
+                    {status === 'rejected' ? 'Reject Request' : 'Cancel Request'}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {isFinalStatus(request.status) && (
+          <span className="text-xs font-semibold text-neutral-500">
+            {finalStatusText(request.status)}
+          </span>
+        )}
+      </div>
+    </article>
+  )
+}
+
+function ContactSummary({
+  label,
+  address,
+  name,
+  phone,
+}: {
+  label: string
+  address?: string | null
+  name?: string | null
+  phone?: string | null
+}) {
+  return (
+    <div className="min-w-0 rounded-xl bg-neutral-50 p-3 xl:bg-transparent xl:p-0">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 xl:hidden">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-sm font-semibold text-neutral-800 xl:mt-0">
+        {address || `${label} address not provided`}
+      </p>
+      <p className="mt-0.5 truncate text-xs text-neutral-500">
+        {name || `${label} contact`}
+        {phone ? ` · ${phone}` : ''}
+      </p>
+    </div>
+  )
+}
+
+function ParcelRequestDrawer({
+  request,
+  updating,
+  onClose,
+  onCopyPhone,
+  onChangeStatus,
+}: {
+  request: ParcelRequest
+  updating: boolean
+  onClose: () => void
+  onCopyPhone: (phone?: string | null) => Promise<void>
+  onChangeStatus: (status: ParcelRequestStatus) => void
+}) {
+  const title = parcelTitle(request)
+  const primaryStatus = primaryNextStatus(request.status)
+  const secondaryStatuses = nextStatuses(request.status).filter(
+    (status) => status === 'rejected' || status === 'cancelled',
+  )
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/35" onClick={onClose}>
+      <aside
+        className="flex h-full w-full max-w-xl flex-col bg-white shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="flex items-start justify-between gap-4 border-b border-neutral-100 px-4 py-4 sm:px-5">
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-neutral-400">
+              {request.parcelNo || 'Parcel Request'}
+            </p>
+            <h2 className="mt-1 truncate text-lg font-bold text-neutral-950">{title}</h2>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span
+                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${statusClass(
+                  request.status,
+                )}`}
+              >
+                {statusLabel(request.status)}
+              </span>
+              <span className="text-xs text-neutral-500">
+                {tripDisplayTitle(request)}
+              </span>
+            </div>
           </div>
 
-          {(request.customerNotes || request.instructions) && (
-            <p className="mt-3 rounded-2xl bg-neutral-50 p-3 text-xs text-neutral-600">
-              Customer note: {request.customerNotes || request.instructions}
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-2 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700"
+            aria-label="Close parcel details"
+          >
+            <X size={19} />
+          </button>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-5">
+          {request.parcelPhotoUrl ? (
+            <a href={request.parcelPhotoUrl} target="_blank" rel="noreferrer">
+              <img
+                src={request.parcelPhotoUrl}
+                alt={title}
+                className="h-56 w-full rounded-2xl border border-neutral-100 bg-neutral-100 object-cover"
+              />
+              <span className="mt-2 flex items-center justify-center gap-1.5 text-xs font-bold text-orange-600">
+                <Eye size={14} />
+                Open full photo
+              </span>
+            </a>
+          ) : (
+            <div className="flex h-40 w-full items-center justify-center rounded-2xl bg-neutral-100 text-neutral-400">
+              <Package size={32} />
+            </div>
+          )}
+
+          <section className="mt-5 rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
+            <div className="flex items-start gap-3">
+              <MapPin size={18} className="mt-0.5 shrink-0 text-orange-500" />
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                  Trip
+                </p>
+                <p className="mt-1 text-sm font-bold text-neutral-900">
+                  {tripDisplayTitle(request)}
+                </p>
+                <div className="mt-1 flex items-center gap-1.5 text-xs text-neutral-500">
+                  <CalendarDays size={13} />
+                  {formatDate(request.trip?.goingDate)}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <ContactDetailCard
+              title="Pickup"
+              address={request.pickupAddress}
+              name={request.senderName}
+              phone={request.senderPhone || request.contactNumber}
+              onCopyPhone={onCopyPhone}
+            />
+            <ContactDetailCard
+              title="Drop-off"
+              address={request.dropoffAddress}
+              name={request.receiverName}
+              phone={request.receiverPhone}
+              onCopyPhone={onCopyPhone}
+            />
+          </div>
+
+          <section className="mt-4 rounded-2xl border border-neutral-100 p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+              Parcel information
             </p>
+
+            <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+              <DetailItem
+                label="Parcel type"
+                value={
+                  request.parcelType
+                    ? parcelTypeLabels[request.parcelType] || request.parcelType
+                    : 'Not provided'
+                }
+              />
+              <DetailItem
+                label="Size"
+                value={
+                  request.parcelSize
+                    ? parcelSizeLabels[request.parcelSize] || request.parcelSize
+                    : 'Not provided'
+                }
+              />
+              <div className="sm:col-span-2">
+                <DetailItem label="Description" value={title} />
+              </div>
+            </dl>
+          </section>
+
+          {(request.customerNotes || request.instructions) && (
+            <section className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-blue-700">
+                Customer note
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-blue-900">
+                {request.customerNotes || request.instructions}
+              </p>
+            </section>
           )}
 
           {request.adminNotes && (
-            <div
-              className={`mt-3 rounded-2xl border p-3 text-xs ${
+            <section
+              className={`mt-4 rounded-2xl border p-4 ${
                 request.status === 'rejected'
-                  ? 'border-rose-100 bg-rose-50 text-rose-700'
+                  ? 'border-rose-100 bg-rose-50'
                   : request.status === 'cancelled'
-                    ? 'border-neutral-200 bg-neutral-50 text-neutral-700'
-                    : 'border-amber-100 bg-amber-50 text-amber-700'
+                    ? 'border-neutral-200 bg-neutral-50'
+                    : 'border-amber-100 bg-amber-50'
               }`}
             >
-              <p className="font-bold">
+              <p
+                className={`text-xs font-bold uppercase tracking-wider ${
+                  request.status === 'rejected'
+                    ? 'text-rose-700'
+                    : request.status === 'cancelled'
+                      ? 'text-neutral-600'
+                      : 'text-amber-700'
+                }`}
+              >
                 {request.status === 'rejected'
                   ? 'Rejection reason'
                   : request.status === 'cancelled'
                     ? 'Cancellation note'
                     : 'Admin note'}
               </p>
-              <p className="mt-1 leading-relaxed">{request.adminNotes}</p>
-            </div>
+              <p className="mt-2 text-sm leading-relaxed text-neutral-800">
+                {request.adminNotes}
+              </p>
+            </section>
           )}
+        </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            {actions.length > 0 ? (
-              actions.map((status) => (
+        <footer className="border-t border-neutral-100 bg-white px-4 py-4 sm:px-5">
+          {primaryStatus ? (
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                disabled={updating}
+                onClick={() => onChangeStatus(primaryStatus)}
+                className={`inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl text-sm font-bold text-white transition disabled:opacity-60 ${actionClass(
+                  primaryStatus,
+                )}`}
+              >
+                {primaryStatus === 'delivered' ? <Check size={16} /> : <Truck size={16} />}
+                {updating ? 'Updating...' : actionLabel(primaryStatus)}
+              </button>
+
+              {secondaryStatuses.map((status) => (
                 <button
                   key={status}
+                  type="button"
                   disabled={updating}
                   onClick={() => onChangeStatus(status)}
-                  className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-white disabled:opacity-60 ${actionClass(
-                    status,
-                  )}`}
+                  className={`inline-flex h-11 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-bold transition disabled:opacity-60 ${
+                    status === 'rejected'
+                      ? 'border-rose-200 text-rose-600 hover:bg-rose-50'
+                      : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50'
+                  }`}
                 >
-                  {status === 'delivered' ? (
-                    <Check size={14} />
-                  ) : status === 'rejected' || status === 'cancelled' ? (
-                    <XCircle size={14} />
-                  ) : (
-                    <Truck size={14} />
-                  )}
-
-                  {updating ? 'Updating...' : actionLabel(status)}
+                  <XCircle size={15} />
+                  {status === 'rejected' ? 'Reject' : 'Cancel'}
                 </button>
-              ))
-            ) : (
-              <span
-                className={`rounded-xl px-3 py-2 text-xs font-bold ${statusClass(request.status)}`}
-              >
-                {finalStatusText(request.status)}
-              </span>
-            )}
-          </div>
-        </div>
+              ))}
+            </div>
+          ) : (
+            <div
+              className={`rounded-2xl px-4 py-3 text-center text-sm font-bold ${statusClass(
+                request.status,
+              )}`}
+            >
+              {finalStatusText(request.status)}
+            </div>
+          )}
+        </footer>
+      </aside>
+    </div>
+  )
+}
+
+function ContactDetailCard({
+  title,
+  address,
+  name,
+  phone,
+  onCopyPhone,
+}: {
+  title: string
+  address?: string | null
+  name?: string | null
+  phone?: string | null
+  onCopyPhone: (phone?: string | null) => Promise<void>
+}) {
+  return (
+    <section className="rounded-2xl border border-neutral-100 bg-white p-4">
+      <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+        {title}
+      </p>
+
+      <div className="mt-3 flex items-start gap-2.5">
+        <MapPin size={16} className="mt-0.5 shrink-0 text-neutral-400" />
+        <p className="text-sm font-semibold leading-relaxed text-neutral-900">
+          {address || `${title} address not provided`}
+        </p>
       </div>
-    </article>
+
+      <div className="mt-3 flex items-center gap-2.5">
+        <User size={16} className="shrink-0 text-neutral-400" />
+        <p className="min-w-0 truncate text-sm text-neutral-700">
+          {name || `${title} contact`}
+        </p>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
+        <Phone size={16} className="shrink-0 text-neutral-400" />
+        {phone ? (
+          <>
+            <a
+              href={`tel:${phone}`}
+              className="min-w-0 flex-1 truncate text-sm font-bold text-orange-600 hover:text-orange-700"
+            >
+              {phone}
+            </a>
+            <button
+              type="button"
+              onClick={() => void onCopyPhone(phone)}
+              aria-label={`Copy ${title.toLowerCase()} phone number`}
+              className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+            >
+              <Copy size={14} />
+            </button>
+          </>
+        ) : (
+          <span className="text-sm text-neutral-400">Phone not provided</span>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function DetailItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+        {label}
+      </dt>
+      <dd className="mt-1 text-sm font-semibold text-neutral-900">{value}</dd>
+    </div>
   )
 }
 
@@ -584,7 +1063,7 @@ function StatusReasonModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-4 sm:items-center">
       <div className="w-full max-w-md rounded-3xl bg-white p-4 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -609,10 +1088,11 @@ function StatusReasonModal({
             {request.parcelNo || 'Parcel Request'}
           </p>
           <p className="mt-1 text-sm font-bold text-neutral-900">
-            {request.packageDescription || request.description || 'Parcel'}
+            {parcelTitle(request)}
           </p>
           <p className="mt-1 text-xs text-neutral-500">
-            {request.senderName || 'Customer'} · {request.senderPhone || 'Phone'}
+            {request.senderName || 'Customer'} ·{' '}
+            {request.senderPhone || request.contactNumber || 'Phone'}
           </p>
         </div>
 
@@ -628,15 +1108,13 @@ function StatusReasonModal({
           placeholder={
             isReject
               ? 'Example: Parcel type is not allowed for this trip.'
-              : 'Example: Trip cancelled due to schedule change.'
+              : 'Example: Trip cancelled due to a schedule change.'
           }
           className="mt-2 h-28 w-full resize-none rounded-2xl border border-neutral-200 p-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/20"
         />
 
         {localError && (
-          <p className="mt-2 text-xs font-semibold text-red-600">
-            {localError}
-          </p>
+          <p className="mt-2 text-xs font-semibold text-red-600">{localError}</p>
         )}
 
         <div className="mt-4 flex gap-2">
