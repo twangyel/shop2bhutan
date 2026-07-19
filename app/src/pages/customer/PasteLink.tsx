@@ -113,6 +113,31 @@ function platformLabel(platform?: string) {
   return 'Product';
 }
 
+function platformLogo(platform?: string) {
+  const raw = String(platform ?? '').toLowerCase();
+  return platforms.find((item) => item.key === raw)?.logo || '';
+}
+
+function isUsefulPreviewTitle(value: unknown, platform?: string) {
+  const clean = String(value ?? '').trim().toLowerCase();
+
+  if (clean.length < 5) return false;
+
+  const storeName = platformLabel(platform).toLowerCase();
+
+  if (
+    clean === 'pasted product link' ||
+    clean === 'product' ||
+    clean === `${storeName} product` ||
+    clean === `product from ${storeName}` ||
+    clean.startsWith('product from ')
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 function makeProductName(platform: string) {
   if (!platform || platform === 'other') return 'Pasted product link';
   return `Product from ${platformLabel(platform)}`;
@@ -194,11 +219,15 @@ export default function PasteLink() {
   const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const linkScreenshotInputRef = useRef<HTMLInputElement>(null);
   const linkInputRef = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
   const noticeTimerRef = useRef<number | null>(null);
   const lastNotifiedUrlRef = useRef('');
   const lastHandledShareKeyRef = useRef('');
+  const pendingScreenshotModeRef = useRef<InputMode>('screenshot');
+  const activeModeRef = useRef<InputMode>('link');
+  const activeCleanUrlRef = useRef('');
   const linkNameEditedRef = useRef(
     Boolean(locationState?.sharedTitle?.trim()),
   );
@@ -219,6 +248,33 @@ export default function PasteLink() {
 
   const hasRequestInput =
     mode === 'link' ? Boolean(cleanUrl) : Boolean(screenshotFile);
+
+  const activePreview =
+    preview.data && cleanUrl ? preview.data : null;
+  const activePreviewPlatform =
+    activePreview?.platform ||
+    (cleanUrl ? detectSourcePlatformFromUrl(cleanUrl) : 'other');
+  const activePreviewStoreName =
+    platformLabel(activePreviewPlatform);
+  const activePreviewStoreLogo =
+    platformLogo(activePreviewPlatform);
+  const previewHasUsefulName = Boolean(
+    activePreview &&
+      isUsefulPreviewTitle(
+        activePreview.title,
+        activePreviewPlatform,
+      ),
+  );
+  const previewHasImage = Boolean(activePreview?.image);
+  const previewHasPrice = Boolean(
+    activePreview?.price && activePreview.price > 0,
+  );
+  const previewNeedsManualVerification = Boolean(
+    activePreview &&
+      (!previewHasUsefulName ||
+        !previewHasImage ||
+        !previewHasPrice),
+  );
 
   const showNotice = (nextNotice: NoticeState) => {
     if (noticeTimerRef.current) {
@@ -256,6 +312,11 @@ export default function PasteLink() {
       });
     }, 220);
   };
+
+  useEffect(() => {
+    activeModeRef.current = mode;
+    activeCleanUrlRef.current = cleanUrl;
+  }, [cleanUrl, mode]);
 
   useEffect(() => {
     return () => {
@@ -298,6 +359,10 @@ export default function PasteLink() {
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+
+    if (linkScreenshotInputRef.current) {
+      linkScreenshotInputRef.current.value = '';
     }
 
     void dismissKeyboard();
@@ -368,15 +433,22 @@ export default function PasteLink() {
         void dismissKeyboard();
 
         const detectedPlatform = platformLabel(nextPreview.platform);
-        const detailsFound = Boolean(
-          nextPreview.image || String(nextPreview.title || '').trim(),
+        const usefulName = isUsefulPreviewTitle(
+          nextPreview.title,
+          nextPreview.platform,
         );
+        const hasImage = Boolean(nextPreview.image);
+        const hasPrice = Boolean(
+          nextPreview.price && nextPreview.price > 0,
+        );
+        const allDetailsFound =
+          usefulName && hasImage && hasPrice;
 
         showNotice({
-          title: `${detectedPlatform} link detected`,
-          message: detailsFound
-            ? 'Product details are ready. Price can be verified later.'
-            : 'The link is ready. Shop2Bhutan will verify the details.',
+          title: `${detectedPlatform} link saved`,
+          message: allDetailsFound
+            ? 'Product details were found. Review them before adding the item.'
+            : 'No need to paste the link again. Add a screenshot or continue for manual verification.',
         });
 
         revealResult();
@@ -467,6 +539,7 @@ export default function PasteLink() {
       setUrl(nextUrl);
       setPreview(emptyPreview);
       setLinkProductName('');
+      clearScreenshot();
       linkNameEditedRef.current = false;
       lastNotifiedUrlRef.current = '';
 
@@ -488,48 +561,78 @@ export default function PasteLink() {
     }
   };
 
-  const applyScreenshotFile = useCallback((file: File | null) => {
-    if (!file) return;
+  const applyScreenshotFile = useCallback(
+    (
+      file: File | null,
+      targetMode: InputMode = 'screenshot',
+    ) => {
+      if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      void hapticWarning();
-      setError('Please select an image file.');
-      return;
-    }
+      if (!file.type.startsWith('image/')) {
+        void hapticWarning();
+        setError('Please select an image file.');
+        return;
+      }
 
-    setMode('screenshot');
-    setError('');
-    setSuccessMessage('');
-    setScreenshotFile(file);
+      setMode(targetMode);
+      setError('');
+      setSuccessMessage('');
+      setScreenshotFile(file);
 
-    const reader = new FileReader();
+      const reader = new FileReader();
 
-    reader.onloadend = () => {
-      setScreenshotPreview(String(reader.result || ''));
-    };
+      reader.onloadend = () => {
+        setScreenshotPreview(String(reader.result || ''));
+      };
 
-    reader.readAsDataURL(file);
+      reader.readAsDataURL(file);
 
-    void dismissKeyboard();
+      void dismissKeyboard();
 
-    showNotice({
-      title: 'Screenshot added',
-      message: 'Add a short product name, then place it in your Request Bag.',
-    });
+      showNotice({
+        title: 'Screenshot added',
+        message:
+          targetMode === 'link'
+            ? 'The product link is still saved. This screenshot will help Shop2Bhutan verify the missing details.'
+            : 'Add a short product name, then place it in your Request Bag.',
+      });
 
-    revealResult();
-  }, []);
+      revealResult();
+    },
+    [],
+  );
 
   const handleScreenshotChange = (
     event: ChangeEvent<HTMLInputElement>,
   ) => {
-    applyScreenshotFile(event.target.files?.[0] ?? null);
+    applyScreenshotFile(
+      event.target.files?.[0] ?? null,
+      'screenshot',
+    );
     event.target.value = '';
   };
 
-  const openScreenshotPicker = async () => {
+  const handleLinkScreenshotChange = (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    applyScreenshotFile(
+      event.target.files?.[0] ?? null,
+      'link',
+    );
+    event.target.value = '';
+  };
+
+  const openScreenshotPicker = async (
+    targetMode: InputMode = 'screenshot',
+  ) => {
+    pendingScreenshotModeRef.current = targetMode;
+
     if (!isNativeCameraRuntime()) {
-      fileInputRef.current?.click();
+      if (targetMode === 'link') {
+        linkScreenshotInputRef.current?.click();
+      } else {
+        fileInputRef.current?.click();
+      }
       return;
     }
 
@@ -545,7 +648,7 @@ export default function PasteLink() {
         height: 1800,
       });
 
-      if (file) applyScreenshotFile(file);
+      if (file) applyScreenshotFile(file, targetMode);
     } catch (cameraError) {
       if (!isCameraCancellation(cameraError)) {
         void hapticError();
@@ -571,7 +674,14 @@ export default function PasteLink() {
         );
 
         if (active && file) {
-          applyScreenshotFile(file);
+          const targetMode =
+            pendingScreenshotModeRef.current === 'link' ||
+            (activeModeRef.current === 'link' &&
+              Boolean(activeCleanUrlRef.current))
+              ? 'link'
+              : 'screenshot';
+
+          applyScreenshotFile(file, targetMode);
         }
       } catch (cameraError) {
         if (active && !isCameraCancellation(cameraError)) {
@@ -608,6 +718,10 @@ export default function PasteLink() {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+
+    if (linkScreenshotInputRef.current) {
+      linkScreenshotInputRef.current.value = '';
+    }
   };
 
   const resetForm = () => {
@@ -625,10 +739,11 @@ export default function PasteLink() {
     setSuccessMessage('');
 
     const hasUrl = mode === 'link' && Boolean(cleanUrl);
-    const hasScreenshot =
+    const hasStandaloneScreenshot =
       mode === 'screenshot' && Boolean(screenshotFile);
+    const hasScreenshot = Boolean(screenshotFile);
 
-    if (!hasUrl && !hasScreenshot) {
+    if (!hasUrl && !hasStandaloneScreenshot) {
       void hapticWarning();
       setError(
         mode === 'link'
@@ -961,6 +1076,7 @@ export default function PasteLink() {
                         setError('');
                         setSuccessMessage('');
                         linkNameEditedRef.current = false;
+                        clearScreenshot();
                       }}
                       onPaste={(event) => {
                         const pastedText =
@@ -977,6 +1093,7 @@ export default function PasteLink() {
                           event.preventDefault();
                           setUrl(pastedUrl);
                           setPreview(emptyPreview);
+                          clearScreenshot();
                           lastNotifiedUrlRef.current = '';
                         }
                       }}
@@ -997,6 +1114,7 @@ export default function PasteLink() {
                           setUrl('');
                           setPreview(emptyPreview);
                           setLinkProductName('');
+                          clearScreenshot();
                           linkNameEditedRef.current = false;
                           lastNotifiedUrlRef.current = '';
                           linkInputRef.current?.focus();
@@ -1050,22 +1168,100 @@ export default function PasteLink() {
                   </div>
                 )}
 
-                {preview.data && cleanUrl && (
+                <input
+                  ref={linkScreenshotInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLinkScreenshotChange}
+                  className="hidden"
+                />
+
+                {preview.data && cleanUrl && !preview.loading && (
                   <div
                     ref={resultRef}
                     className="mt-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-3"
                   >
-                    <div className="flex gap-3">
-                      {preview.data.image ? (
+                    <div
+                      className={`flex items-start gap-3 rounded-2xl border p-3 ${
+                        previewNeedsManualVerification
+                          ? 'border-blue-100 bg-blue-50'
+                          : 'border-emerald-100 bg-emerald-50'
+                      }`}
+                    >
+                      <span
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm ${
+                          previewNeedsManualVerification
+                            ? 'text-blue-600'
+                            : 'text-emerald-600'
+                        }`}
+                      >
+                        <CheckCircle size={20} strokeWidth={2.5} />
+                      </span>
+
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className={`text-sm font-extrabold ${
+                            previewNeedsManualVerification
+                              ? 'text-blue-950'
+                              : 'text-emerald-950'
+                          }`}
+                        >
+                          {activePreviewStoreName === 'Product'
+                            ? 'Product link saved'
+                            : `${activePreviewStoreName} link saved`}
+                        </p>
+
+                        <p
+                          className={`mt-1 text-[11px] leading-5 ${
+                            previewNeedsManualVerification
+                              ? 'text-blue-800'
+                              : 'text-emerald-800'
+                          }`}
+                        >
+                          {previewNeedsManualVerification
+                            ? "We couldn't read every product detail automatically. No need to paste the link again."
+                            : 'Product details were found. Review them before adding the item.'}
+                        </p>
+
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <a
+                            href={cleanUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex h-8 items-center gap-1.5 rounded-xl bg-white px-2.5 text-[10px] font-extrabold text-slate-700 shadow-sm ring-1 ring-slate-200"
+                          >
+                            <ExternalLink size={12} strokeWidth={2.4} />
+                            Open product
+                          </a>
+
+                          {previewNeedsManualVerification && (
+                            <span className="inline-flex h-8 items-center rounded-xl bg-white px-2.5 text-[10px] font-extrabold text-blue-700 shadow-sm ring-1 ring-blue-100">
+                              Manual verification
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex gap-3">
+                      {previewHasImage ? (
                         <img
-                          src={preview.data.image}
+                          src={activePreview?.image}
                           alt=""
-                          className="h-[76px] w-[76px] shrink-0 rounded-xl bg-white object-cover ring-1 ring-slate-100"
+                          className="h-[72px] w-[72px] shrink-0 rounded-xl bg-white object-cover ring-1 ring-slate-100"
                         />
+                      ) : activePreviewStoreLogo ? (
+                        <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-xl bg-white p-4 ring-1 ring-slate-100">
+                          <img
+                            src={activePreviewStoreLogo}
+                            alt={`${activePreviewStoreName} logo`}
+                            className="h-full w-full object-contain"
+                          />
+                        </span>
                       ) : (
-                        <span className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-slate-100">
+                        <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-slate-100">
                           <Package
-                            size={25}
+                            size={24}
                             className="text-orange-400"
                             strokeWidth={2}
                           />
@@ -1075,32 +1271,36 @@ export default function PasteLink() {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="rounded-full bg-orange-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-orange-600">
-                            {platformLabel(preview.data.platform)}
+                            {activePreviewStoreName}
                           </span>
 
-                          <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-slate-500 ring-1 ring-slate-100">
-                            {preview.data.price
-                              ? formatPrice(
-                                  preview.data.price,
-                                  preview.data.currency,
-                                )
-                              : 'Price to be verified'}
-                          </span>
+                          {previewHasPrice && (
+                            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 ring-1 ring-slate-100">
+                              {formatPrice(
+                                activePreview?.price,
+                                activePreview?.currency,
+                              )}
+                            </span>
+                          )}
 
-                          {preview.data.originalPrice &&
-                            preview.data.price &&
-                            preview.data.originalPrice > preview.data.price && (
+                          {activePreview?.originalPrice &&
+                            activePreview.price &&
+                            activePreview.originalPrice >
+                              activePreview.price && (
                               <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-400 line-through ring-1 ring-slate-100">
-                                MRP {formatPrice(
-                                  preview.data.originalPrice,
-                                  preview.data.currency,
+                                MRP{' '}
+                                {formatPrice(
+                                  activePreview.originalPrice,
+                                  activePreview.currency,
                                 )}
                               </span>
                             )}
                         </div>
 
                         <p className="mt-2 text-[11px] leading-5 text-slate-500">
-                          Product name is editable before adding it.
+                          {previewHasPrice
+                            ? 'Shop2Bhutan will confirm this displayed price before sending your quotation.'
+                            : 'Shop2Bhutan will confirm the current selling price before sending your quotation.'}
                         </p>
                       </div>
                     </div>
@@ -1121,9 +1321,108 @@ export default function PasteLink() {
                           linkNameEditedRef.current = true;
                           setLinkProductName(event.target.value);
                         }}
-                        placeholder="Product name"
+                        placeholder={`${activePreviewStoreName} product`}
                         className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-bold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10"
                       />
+
+                      <p className="mt-1.5 text-[10px] leading-4 text-slate-400">
+                        {previewHasUsefulName
+                          ? 'Review the detected name and edit it only when needed.'
+                          : 'This is a temporary name. Edit it if you know the product, or leave it for Shop2Bhutan to correct.'}
+                      </p>
+                    </div>
+
+                    {previewNeedsManualVerification && (
+                      <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+                        <div>
+                          <p className="text-xs font-extrabold text-slate-900">
+                            Add product screenshot{' '}
+                            <span className="font-semibold text-slate-400">
+                              (optional)
+                            </span>
+                          </p>
+                          <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                            Recommended when the product image, name, or price
+                            could not be read from the link.
+                          </p>
+                        </div>
+
+                        {!screenshotFile ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void openScreenshotPicker('link')
+                            }
+                            disabled={openingCamera}
+                            className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50 text-xs font-extrabold text-orange-600 transition active:scale-[0.98] disabled:opacity-60"
+                          >
+                            {openingCamera ? (
+                              <Loader2
+                                size={16}
+                                className="animate-spin"
+                              />
+                            ) : (
+                              <Camera size={16} strokeWidth={2.3} />
+                            )}
+                            {openingCamera
+                              ? 'Opening camera or gallery...'
+                              : 'Add product screenshot'}
+                          </button>
+                        ) : (
+                          <div className="mt-3 overflow-hidden rounded-xl border border-emerald-100 bg-emerald-50/50">
+                            <div className="flex items-center gap-3 p-2.5">
+                              <img
+                                src={screenshotPreview}
+                                alt="Optional product screenshot"
+                                className="h-12 w-12 shrink-0 rounded-lg bg-white object-cover ring-1 ring-emerald-100"
+                              />
+
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-extrabold text-emerald-800">
+                                  Screenshot added
+                                </p>
+                                <p className="mt-0.5 truncate text-[10px] text-emerald-700">
+                                  {screenshotFile.name}
+                                </p>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={clearScreenshot}
+                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-slate-400 ring-1 ring-slate-200"
+                                aria-label="Remove optional screenshot"
+                              >
+                                <X size={14} strokeWidth={2.4} />
+                              </button>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void openScreenshotPicker('link')
+                              }
+                              disabled={openingCamera}
+                              className="flex h-9 w-full items-center justify-center gap-1.5 border-t border-emerald-100 bg-white text-[10px] font-extrabold text-slate-600 disabled:opacity-60"
+                            >
+                              <ImageIcon size={13} strokeWidth={2.3} />
+                              Replace screenshot
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="mt-3 flex items-start gap-2 rounded-xl bg-white px-3 py-2.5 ring-1 ring-slate-100">
+                      <CheckCircle
+                        size={14}
+                        className="mt-0.5 shrink-0 text-blue-500"
+                        strokeWidth={2.4}
+                      />
+                      <p className="text-[10px] leading-4 text-slate-500">
+                        {screenshotFile
+                          ? 'The link and screenshot will be saved together for verification.'
+                          : 'You can continue now. Missing details will be verified before quotation.'}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -1141,7 +1440,7 @@ export default function PasteLink() {
                 {!screenshotFile ? (
                   <button
                     type="button"
-                    onClick={() => void openScreenshotPicker()}
+                    onClick={() => void openScreenshotPicker('screenshot')}
                     disabled={openingCamera}
                     className="flex min-h-[148px] w-full flex-col items-center justify-center rounded-2xl border border-dashed border-orange-200 bg-orange-50/40 px-5 text-center transition active:scale-[0.99] active:bg-orange-50"
                   >
@@ -1181,7 +1480,7 @@ export default function PasteLink() {
                         <div className="absolute right-3 top-3 flex gap-2">
                           <button
                             type="button"
-                            onClick={() => void openScreenshotPicker()}
+                            onClick={() => void openScreenshotPicker('screenshot')}
                             disabled={openingCamera}
                             className="flex h-9 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-extrabold text-slate-600 shadow-lg ring-1 ring-slate-200"
                           >
@@ -1305,8 +1604,9 @@ export default function PasteLink() {
           </span>
 
           <p className="text-[11px] leading-5 text-blue-800">
-            Add multiple products before requesting one quotation. Product
-            prices can be verified by Shop2Bhutan later.
+            Add multiple products before requesting one quotation. A saved
+            link is enough to continue; Shop2Bhutan will verify any missing
+            name, image, or price before sending the final quotation.
           </p>
         </section>
       </main>
