@@ -18,6 +18,7 @@ import {
   Megaphone,
   Package,
   RefreshCw,
+  Trash2,
   Truck,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -385,6 +386,8 @@ export default function Notifications() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [clearingAll, setClearingAll] = useState(false);
+  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
   const [error, setError] = useState('');
   const [nativePermission, setNativePermission] = useState('unknown');
   const [nativePermissionBusy, setNativePermissionBusy] = useState(false);
@@ -535,6 +538,40 @@ export default function Notifications() {
     }
   };
 
+
+  const handleClearAll = async () => {
+    if (!user || notifications.length === 0 || clearingAll) return;
+
+    setClearingAll(true);
+    setError('');
+
+    try {
+      const { error: deleteError, count } = await supabase
+        .from('notifications')
+        .delete({ count: 'exact' })
+        .eq('user_id', user.id);
+
+      if (deleteError) throw deleteError;
+
+      if ((count ?? 0) === 0) {
+        throw new Error(
+          'Notifications were not cleared. Please check the Supabase delete policy for notifications.',
+        );
+      }
+
+      setNotifications([]);
+      setShowClearAllConfirm(false);
+      window.dispatchEvent(new CustomEvent('shop2bhutan:notifications-updated'));
+    } catch (err) {
+      console.error('Failed to clear notifications:', err);
+      setError(
+        err instanceof Error ? err.message : 'Unable to clear notifications.',
+      );
+    } finally {
+      setClearingAll(false);
+    }
+  };
+
   const renderNotificationList = (items: AppNotification[], sectionLabel: string) => {
     if (items.length === 0) return null;
 
@@ -594,25 +631,48 @@ export default function Notifications() {
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
               onClick={() => loadNotifications()}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-600 active:scale-95 transition"
+              disabled={busy || clearingAll}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-600 transition active:scale-95 disabled:opacity-50"
               aria-label="Refresh notifications"
             >
               <RefreshCw size={18} strokeWidth={2} />
             </button>
+
             {unreadCount > 0 && (
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || clearingAll}
                 onClick={handleMarkAllRead}
-                className="flex h-10 items-center gap-1.5 rounded-full bg-orange-500 px-3 text-xs font-bold text-white shadow-sm active:scale-95 transition disabled:opacity-60"
-                aria-label="Mark all as read"
+                className="flex h-10 items-center gap-1.5 rounded-full bg-orange-500 px-3 text-xs font-bold text-white shadow-sm transition active:scale-95 disabled:opacity-60"
+                aria-label="Mark all notifications as read"
               >
-                {busy ? <Loader2 size={16} className="animate-spin" /> : <CheckCheck size={16} strokeWidth={2.5} />}
+                {busy ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <CheckCheck size={16} strokeWidth={2.5} />
+                )}
                 <span>Mark all</span>
+              </button>
+            )}
+
+            {notifications.length > 0 && (
+              <button
+                type="button"
+                disabled={busy || clearingAll}
+                onClick={() => setShowClearAllConfirm(true)}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-red-600 active:scale-95 disabled:opacity-50"
+                aria-label="Clear all notifications"
+                title="Clear all notifications"
+              >
+                {clearingAll ? (
+                  <Loader2 size={17} className="animate-spin" />
+                ) : (
+                  <Trash2 size={17} strokeWidth={2.2} />
+                )}
               </button>
             )}
           </div>
@@ -680,6 +740,65 @@ export default function Notifications() {
           </>
         )}
       </main>
+
+      {showClearAllConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 p-4 backdrop-blur-[2px] sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="clear-notifications-title"
+          onClick={() => {
+            if (!clearingAll) setShowClearAllConfirm(false);
+          }}
+        >
+          <div
+            className="w-full max-w-sm rounded-[24px] bg-white p-5 shadow-2xl ring-1 ring-slate-200"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600 ring-1 ring-red-100">
+                <Trash2 size={19} strokeWidth={2.2} />
+              </span>
+              <div className="min-w-0">
+                <h2
+                  id="clear-notifications-title"
+                  className="text-base font-black text-slate-950"
+                >
+                  Clear all notifications?
+                </h2>
+                <p className="mt-1 text-sm leading-5 text-slate-500">
+                  This will permanently remove all {notifications.length}{' '}
+                  {notifications.length === 1 ? 'notification' : 'notifications'} from your activity list.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={clearingAll}
+                onClick={() => setShowClearAllConfirm(false)}
+                className="h-11 rounded-2xl bg-slate-100 text-sm font-bold text-slate-700 transition active:scale-[0.98] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={clearingAll}
+                onClick={() => void handleClearAll()}
+                className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-red-600 text-sm font-bold text-white transition active:scale-[0.98] active:bg-red-700 disabled:opacity-60"
+              >
+                {clearingAll ? (
+                  <Loader2 size={17} className="animate-spin" />
+                ) : (
+                  <Trash2 size={17} strokeWidth={2.2} />
+                )}
+                Clear all
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
