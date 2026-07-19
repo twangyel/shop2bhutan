@@ -128,35 +128,32 @@ function formatCompactPickupWindow(request: ParcelRequest) {
 }
 
 function statusClass(status: string) {
-  if (status === 'pending') {
-    return 'bg-amber-50 text-amber-700 ring-1 ring-amber-100'
+  const normalizedStatus = normalizeStatus(
+    String(status || '')
+      .trim()
+      .toLowerCase(),
+  )
+
+  const classes: Record<string, string> = {
+    pending: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
+    accepted: 'bg-orange-50 text-orange-700 ring-1 ring-orange-200',
+    pickup_scheduled:
+      'bg-violet-50 text-violet-700 ring-1 ring-violet-200',
+    picked_up: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200',
+    in_transit: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
+    out_for_delivery:
+      'bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200',
+    delivered:
+      'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
+    rejected: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
+    cancelled:
+      'bg-neutral-100 text-neutral-700 ring-1 ring-neutral-300',
   }
 
-  if (status === 'accepted') {
-    return 'bg-orange-50 text-orange-700 ring-1 ring-orange-100'
-  }
-
-  if (status === 'pickup_scheduled') {
-    return 'bg-orange-50 text-orange-700 ring-1 ring-orange-200'
-  }
-
-  if (
-    status === 'picked_up' ||
-    status === 'collected' ||
-    status === 'in_transit'
-  ) {
-    return 'bg-slate-100 text-slate-700 ring-1 ring-slate-200'
-  }
-
-  if (status === 'delivered') {
-    return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
-  }
-
-  if (status === 'rejected') {
-    return 'bg-rose-50 text-rose-700 ring-1 ring-rose-100'
-  }
-
-  return 'bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200'
+  return (
+    classes[normalizedStatus] ||
+    'bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200'
+  )
 }
 
 function normalizeStatus(status: string) {
