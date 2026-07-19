@@ -373,9 +373,22 @@ function SwipeableNotification({
                 type="button"
                 className="group mt-2.5 block w-full overflow-hidden rounded-xl border border-slate-100 bg-slate-50 text-left"
                 aria-label={`View image for ${displayCopy.title}`}
-                onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => {
                   event.stopPropagation();
+
+                  // Allow the parent notification row to receive pointer events
+                  // so image promotions can still be swiped left to delete.
+                  // Suppress the image preview when this click follows a swipe.
+                  if (moved.current) {
+                    moved.current = false;
+                    return;
+                  }
+
+                  if (offset < 0) {
+                    resetSwipe();
+                    return;
+                  }
+
                   onImageClick(notification.imageUrl!, displayCopy.title);
                 }}
               >
@@ -383,6 +396,7 @@ function SwipeableNotification({
                   src={notification.imageUrl}
                   alt={displayCopy.title}
                   loading="lazy"
+                  draggable={false}
                   className="aspect-[16/7] w-full object-cover transition duration-200 group-active:scale-[0.99]"
                   onError={(event) => {
                     event.currentTarget.closest('button')?.setAttribute('hidden', '');
