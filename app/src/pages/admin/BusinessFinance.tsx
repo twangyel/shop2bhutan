@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -7,7 +7,6 @@ import {
   CircleDollarSign,
   ClipboardList,
   Fuel,
-  Link2,
   Loader2,
   Plus,
   ReceiptText,
@@ -19,6 +18,7 @@ import {
   TrendingUp,
   Utensils,
   WalletCards,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppToast } from '@/components/shared/AppToast';
@@ -134,10 +134,96 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 function statusClass(status: BusinessTripStatus) {
-  if (status === 'completed') return 'bg-emerald-50 text-emerald-700';
-  if (status === 'in_progress') return 'bg-blue-50 text-blue-700';
-  if (status === 'cancelled') return 'bg-neutral-100 text-neutral-500';
-  return 'bg-amber-50 text-amber-700';
+  if (status === 'completed') {
+    return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100';
+  }
+  if (status === 'in_progress') {
+    return 'bg-sky-50 text-sky-700 ring-1 ring-sky-100';
+  }
+  if (status === 'cancelled') {
+    return 'bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200';
+  }
+  return 'bg-amber-50 text-amber-700 ring-1 ring-amber-100';
+}
+
+function ActionCard({
+  icon,
+  title,
+  description,
+  onClick,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 py-3 text-left transition hover:border-orange-200 hover:bg-orange-50/30 active:scale-[0.995]"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-neutral-600 transition group-hover:bg-orange-100 group-hover:text-orange-600">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-black text-neutral-900">{title}</span>
+        <span className="mt-0.5 block text-[11px] leading-4 text-neutral-500">
+          {description}
+        </span>
+      </span>
+      <ArrowRight
+        size={16}
+        className="shrink-0 text-neutral-300 transition group-hover:translate-x-0.5 group-hover:text-orange-500"
+      />
+    </button>
+  );
+}
+
+function ModalShell({
+  title,
+  description,
+  onClose,
+  children,
+  footer,
+}: {
+  title: string;
+  description: string;
+  onClose: () => void;
+  children: ReactNode;
+  footer: ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[1200] flex items-end justify-center bg-neutral-950/40 p-3 backdrop-blur-[2px] sm:items-center sm:p-5"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section className="max-h-[92vh] w-full max-w-2xl overflow-hidden rounded-[22px] border border-neutral-200 bg-white shadow-2xl">
+        <header className="flex items-start justify-between gap-4 border-b border-neutral-100 px-5 py-4">
+          <div>
+            <h3 className="text-base font-black text-neutral-950">{title}</h3>
+            <p className="mt-1 text-xs leading-5 text-neutral-500">{description}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-neutral-200 text-neutral-500 transition hover:bg-neutral-50"
+            aria-label={`Close ${title}`}
+          >
+            <X size={17} />
+          </button>
+        </header>
+        <div className="max-h-[calc(92vh-150px)] overflow-y-auto px-5 py-4">
+          {children}
+        </div>
+        <footer className="border-t border-neutral-100 bg-neutral-50/70 px-5 py-3">
+          {footer}
+        </footer>
+      </section>
+    </div>
+  );
 }
 
 export default function BusinessFinance() {
@@ -211,6 +297,19 @@ export default function BusinessFinance() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+
+  useEffect(() => {
+    const modalOpen = showTripForm || showExpenseForm || showOrderLinkForm;
+    if (!modalOpen || typeof document === 'undefined') return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showExpenseForm, showOrderLinkForm, showTripForm]);
 
   const linkedOrderIds = useMemo(
     () => new Set((data?.tripOrders ?? []).map((link) => link.orderId)),
@@ -492,20 +591,23 @@ export default function BusinessFinance() {
   };
 
   const summary = data?.summary;
+  const targetProgress = Math.min(
+    100,
+    Math.max(0, summary?.progressPercent ?? 0),
+  );
+  const trips = data?.trips ?? [];
+  const tripOrderLinks = data?.tripOrders ?? [];
 
   return (
-    <div className="space-y-5 pb-10">
+    <div className="space-y-4 pb-10">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-amber-600">
-            Phase 3A
-          </p>
-          <h2 className="mt-1 text-xl font-black text-neutral-950">
-            Profit & Trip Tracker
+          <h2 className="text-xl font-black tracking-tight text-neutral-950">
+            Business Performance
           </h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-neutral-500">
-            Track contribution earned, trip costs, operating expenses, and the
-            actual net result of Shop2Bhutan.
+            Monitor monthly contribution, operating costs, business trips, and
+            actual profit.
           </p>
         </div>
 
@@ -514,7 +616,7 @@ export default function BusinessFinance() {
             type="month"
             value={month}
             onChange={(event) => setMonth(event.target.value)}
-            className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm font-bold text-neutral-700 outline-none focus:border-amber-400"
+            className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm font-bold text-neutral-700 outline-none transition focus:border-orange-300 focus:ring-2 focus:ring-orange-500/10"
           />
           <button
             type="button"
@@ -533,69 +635,71 @@ export default function BusinessFinance() {
       </div>
 
       {pageError && (
-        <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-4">
+        <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3">
           <div className="flex items-start gap-3">
             <AlertTriangle
-              size={20}
+              size={18}
               className="mt-0.5 shrink-0 text-red-600"
             />
             <div>
               <p className="text-sm font-black text-red-800">
                 Profit tracker unavailable
               </p>
-              <p className="mt-1 text-sm leading-6 text-red-700">{pageError}</p>
+              <p className="mt-1 text-xs leading-5 text-red-700">{pageError}</p>
             </div>
           </div>
         </div>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-card">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-bold text-neutral-500">
-                Monthly Contribution
+              <p className="text-[11px] font-black uppercase tracking-[0.1em] text-neutral-400">
+                Contribution
               </p>
-              <p className="mt-2 text-2xl font-black text-neutral-950">
+              <p className="mt-2 text-2xl font-black tracking-tight text-neutral-950">
                 {loading ? '...' : money(summary?.contribution ?? 0)}
               </p>
-              <p className="mt-1 text-xs text-neutral-400">
+              <p className="mt-1 text-xs text-neutral-500">
                 {summary?.eligibleOrderCount ?? 0} paid order
                 {(summary?.eligibleOrderCount ?? 0) === 1 ? '' : 's'} counted
               </p>
             </div>
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-              <TrendingUp size={20} />
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+              <TrendingUp size={18} />
             </span>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-rose-100 bg-white p-4 shadow-card">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-bold text-neutral-500">
-                Business Expenses
+              <p className="text-[11px] font-black uppercase tracking-[0.1em] text-neutral-400">
+                Expenses
               </p>
-              <p className="mt-2 text-2xl font-black text-neutral-950">
+              <p className="mt-2 text-2xl font-black tracking-tight text-neutral-950">
                 {loading ? '...' : money(summary?.expenses ?? 0)}
               </p>
-              <p className="mt-1 text-xs text-neutral-400">
+              <p className="mt-1 text-xs text-neutral-500">
                 {monthExpenses.length} expense record
                 {monthExpenses.length === 1 ? '' : 's'}
               </p>
             </div>
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
-              <ReceiptText size={20} />
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+              <ReceiptText size={18} />
             </span>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-card">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-bold text-neutral-500">Net Profit</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.1em] text-neutral-400">
+                Net Profit
+              </p>
               <p
-                className={`mt-2 text-2xl font-black ${
+                className={`mt-2 text-2xl font-black tracking-tight ${
                   (summary?.netProfit ?? 0) >= 0
                     ? 'text-emerald-700'
                     : 'text-red-700'
@@ -603,53 +707,58 @@ export default function BusinessFinance() {
               >
                 {loading ? '...' : money(summary?.netProfit ?? 0)}
               </p>
-              <p className="mt-1 text-xs text-neutral-400">
+              <p className="mt-1 text-xs text-neutral-500">
                 Contribution minus recorded expenses
               </p>
             </div>
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+            <span
+              className={`flex h-9 w-9 items-center justify-center rounded-xl ${
+                (summary?.netProfit ?? 0) >= 0
+                  ? 'bg-emerald-50 text-emerald-600'
+                  : 'bg-red-50 text-red-600'
+              }`}
+            >
               {(summary?.netProfit ?? 0) >= 0 ? (
-                <CircleDollarSign size={20} />
+                <CircleDollarSign size={18} />
               ) : (
-                <TrendingDown size={20} />
+                <TrendingDown size={18} />
               )}
             </span>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-violet-100 bg-white p-4 shadow-card">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-neutral-500">
+              <p className="text-[11px] font-black uppercase tracking-[0.1em] text-neutral-400">
                 Monthly Target
               </p>
-              <p className="mt-2 text-2xl font-black text-neutral-950">
+              <p className="mt-2 text-2xl font-black tracking-tight text-neutral-950">
                 {loading ? '...' : money(summary?.monthlyTarget ?? 0)}
               </p>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-neutral-100">
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-neutral-100">
                 <div
-                  className="h-full rounded-full bg-violet-500 transition-all"
-                  style={{
-                    width: `${Math.min(100, Math.max(0, summary?.progressPercent ?? 0))}%`,
-                  }}
+                  className="h-full rounded-full bg-orange-500 transition-all"
+                  style={{ width: `${targetProgress}%` }}
                 />
               </div>
-              <p className="mt-1 text-xs font-bold text-violet-600">
-                {summary?.progressPercent ?? 0}% achieved
+              <p className="mt-1.5 text-[11px] font-bold text-neutral-500">
+                {money(summary?.contribution ?? 0)} of{' '}
+                {money(summary?.monthlyTarget ?? 0)} · {targetProgress}%
               </p>
             </div>
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
-              <Target size={20} />
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+              <Target size={18} />
             </span>
           </div>
         </div>
       </div>
 
       {plannedRiskTrips.length > 0 && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <div className="flex items-start gap-3">
             <AlertTriangle
-              size={20}
+              size={18}
               className="mt-0.5 shrink-0 text-amber-700"
             />
             <div>
@@ -657,285 +766,218 @@ export default function BusinessFinance() {
                 {plannedRiskTrips.length} planned trip
                 {plannedRiskTrips.length === 1 ? '' : 's'} may lose money
               </p>
-              <p className="mt-1 text-sm leading-6 text-amber-800">
-                Expected contribution is lower than estimated trip cost. Group
-                more orders or postpone the trip.
+              <p className="mt-1 text-xs leading-5 text-amber-800">
+                Expected contribution is below estimated cost. Add more orders or
+                postpone the trip.
               </p>
             </div>
           </div>
         </div>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
-        <section className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-card">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-4 py-3.5">
             <div>
-              <h3 className="text-base font-black text-neutral-950">
-                Business Trips
-              </h3>
-              <p className="mt-1 text-xs leading-5 text-neutral-500">
-                Compare planned contribution and cost before travelling.
+              <h3 className="text-sm font-black text-neutral-950">Business Trips</h3>
+              <p className="mt-0.5 text-xs text-neutral-500">
+                Compare planned contribution, costs, assigned orders, and actual result.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowTripForm((current) => !current)}
-              className="inline-flex h-9 items-center gap-2 rounded-xl bg-amber-500 px-3 text-xs font-black text-white transition hover:bg-amber-600"
-            >
-              <Plus size={15} />
-              Add Trip
-            </button>
-          </div>
-
-          {showTripForm && (
-            <div className="mt-4 space-y-3 rounded-2xl border border-amber-100 bg-amber-50/40 p-4">
-              {parcelTrips.length > 0 && (
-                <div>
-                  <label className="text-xs font-bold text-neutral-600">
-                    Link an existing parcel trip (optional)
-                  </label>
-                  <select
-                    value={tripForm.parcelTripId}
-                    onChange={(event) =>
-                      handleParcelTripSelection(event.target.value)
-                    }
-                    className="mt-1 h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm"
-                  >
-                    <option value="">Manual business trip</option>
-                    {parcelTrips.map((trip) => (
-                      <option key={trip.id} value={trip.id}>
-                        {tripRoute(trip)} · {formatDate(trip.goingDate)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <input
-                  value={tripForm.title}
-                  onChange={(event) =>
-                    setTripForm((current) => ({
-                      ...current,
-                      title: event.target.value,
-                    }))
-                  }
-                  placeholder="Trip title"
-                  className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm"
-                />
-                <input
-                  value={tripForm.route}
-                  onChange={(event) =>
-                    setTripForm((current) => ({
-                      ...current,
-                      route: event.target.value,
-                    }))
-                  }
-                  placeholder="Route"
-                  className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm"
-                />
-                <input
-                  type="date"
-                  value={tripForm.tripDate}
-                  onChange={(event) =>
-                    setTripForm((current) => ({
-                      ...current,
-                      tripDate: event.target.value,
-                    }))
-                  }
-                  className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm"
-                />
-                <input
-                  type="number"
-                  min="0"
-                  value={tripForm.expectedContribution}
-                  onChange={(event) =>
-                    setTripForm((current) => ({
-                      ...current,
-                      expectedContribution: Number(event.target.value) || 0,
-                    }))
-                  }
-                  placeholder="Expected contribution"
-                  className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm"
-                />
-                <input
-                  type="number"
-                  min="0"
-                  value={tripForm.estimatedCost}
-                  onChange={(event) =>
-                    setTripForm((current) => ({
-                      ...current,
-                      estimatedCost: Number(event.target.value) || 0,
-                    }))
-                  }
-                  placeholder="Estimated trip cost"
-                  className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm"
-                />
-                <input
-                  value={tripForm.notes}
-                  onChange={(event) =>
-                    setTripForm((current) => ({
-                      ...current,
-                      notes: event.target.value,
-                    }))
-                  }
-                  placeholder="Notes"
-                  className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm"
-                />
-              </div>
-
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-black text-neutral-600">
+                {trips.length} {trips.length === 1 ? 'trip' : 'trips'}
+              </span>
               <button
                 type="button"
-                onClick={() => void saveTrip()}
-                disabled={busyAction === 'create-trip'}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-neutral-950 px-4 text-sm font-black text-white disabled:opacity-60"
+                onClick={() => {
+                  setShowExpenseForm(false);
+                  setShowOrderLinkForm(false);
+                  setShowTripForm(true);
+                }}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-orange-500 px-3 text-xs font-black text-white transition hover:bg-orange-600"
               >
-                {busyAction === 'create-trip' ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <CarFront size={16} />
-                )}
-                Save Business Trip
+                <Plus size={15} />
+                Add Trip
               </button>
             </div>
-          )}
+          </div>
 
-          <div className="mt-4 space-y-3">
-            {loading ? (
-              [1, 2].map((item) => (
+          {loading ? (
+            <div className="space-y-2 p-4">
+              {[1, 2, 3].map((item) => (
                 <div
                   key={item}
-                  className="h-40 animate-pulse rounded-2xl bg-neutral-100"
+                  className="h-16 animate-pulse rounded-xl bg-neutral-100"
                 />
-              ))
-            ) : (data?.trips.length ?? 0) === 0 ? (
-              <div className="rounded-2xl border border-dashed border-neutral-200 px-5 py-8 text-center">
-                <Route size={26} className="mx-auto text-neutral-300" />
-                <p className="mt-3 text-sm font-black text-neutral-800">
-                  No business trips recorded
-                </p>
-                <p className="mt-1 text-xs text-neutral-500">
-                  Add a planned trip before travelling.
-                </p>
+              ))}
+            </div>
+          ) : trips.length === 0 ? (
+            <div className="px-5 py-10 text-center">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-100 text-neutral-400">
+                <Route size={23} />
+              </span>
+              <p className="mt-3 text-sm font-black text-neutral-800">
+                No business trips yet
+              </p>
+              <p className="mx-auto mt-1 max-w-sm text-xs leading-5 text-neutral-500">
+                Plan your first trip to group paid orders, estimate travel costs,
+                and measure the final result.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowTripForm(true)}
+                className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-xl border border-orange-200 bg-orange-50 px-3 text-xs font-black text-orange-700"
+              >
+                <Plus size={14} />
+                Add first trip
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div className="hidden grid-cols-[minmax(220px,1.7fr)_105px_105px_105px_105px_130px_42px] gap-3 border-b border-neutral-100 bg-neutral-50/70 px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.1em] text-neutral-400 lg:grid">
+                <span>Trip</span>
+                <span>Planned</span>
+                <span>Cost</span>
+                <span>Linked</span>
+                <span>Net</span>
+                <span>Status</span>
+                <span />
               </div>
-            ) : (
-              data?.trips.map((trip) => {
-                const linkedOrders = (data.tripOrders ?? []).filter(
-                  (link) => link.businessTripId === trip.id,
-                );
 
-                return (
-                  <article
-                    key={trip.id}
-                    className={`rounded-2xl border p-4 ${
-                      trip.isAtRisk
-                        ? 'border-amber-200 bg-amber-50/30'
-                        : 'border-neutral-100 bg-white'
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="text-sm font-black text-neutral-950">
-                            {trip.title}
-                          </h4>
-                          <span
-                            className={`rounded-full px-2.5 py-1 text-[10px] font-black ${statusClass(trip.status)}`}
-                          >
-                            {TRIP_STATUS_LABELS[trip.status]}
-                          </span>
-                          {trip.isAtRisk && (
-                            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black text-amber-800">
-                              At risk
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-1 text-xs font-bold text-neutral-600">
-                          {trip.route}
-                        </p>
-                        <p className="mt-1 text-xs text-neutral-400">
-                          {formatDate(trip.tripDate)}
-                        </p>
-                      </div>
+              <div className="divide-y divide-neutral-100">
+                {trips.map((trip) => {
+                  const linkedOrders = tripOrderLinks.filter(
+                    (link) => link.businessTripId === trip.id,
+                  );
 
-                      <button
-                        type="button"
-                        onClick={() => void removeTrip(trip.id)}
-                        disabled={busyAction === `delete-trip:${trip.id}`}
-                        className="flex h-8 w-8 items-center justify-center rounded-xl text-neutral-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                        aria-label="Delete business trip"
-                      >
-                        {busyAction === `delete-trip:${trip.id}` ? (
-                          <Loader2 size={15} className="animate-spin" />
-                        ) : (
-                          <Trash2 size={15} />
-                        )}
-                      </button>
-                    </div>
-
-                    <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                      <div className="rounded-xl bg-neutral-50 px-3 py-2.5">
-                        <p className="text-[10px] font-bold uppercase text-neutral-400">
-                          Planned contribution
-                        </p>
-                        <p className="mt-1 text-sm font-black text-neutral-900">
-                          {money(trip.expectedContribution)}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-neutral-50 px-3 py-2.5">
-                        <p className="text-[10px] font-bold uppercase text-neutral-400">
-                          Estimated cost
-                        </p>
-                        <p className="mt-1 text-sm font-black text-neutral-900">
-                          {money(trip.estimatedCost)}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-neutral-50 px-3 py-2.5">
-                        <p className="text-[10px] font-bold uppercase text-neutral-400">
-                          Linked contribution
-                        </p>
-                        <p className="mt-1 text-sm font-black text-neutral-900">
-                          {money(trip.linkedContribution)}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-neutral-50 px-3 py-2.5">
-                        <p className="text-[10px] font-bold uppercase text-neutral-400">
-                          Actual net
-                        </p>
-                        <p
-                          className={`mt-1 text-sm font-black ${
-                            trip.netContribution >= 0
-                              ? 'text-emerald-700'
-                              : 'text-red-700'
-                          }`}
-                        >
-                          {money(trip.netContribution)}
-                        </p>
-                      </div>
-                    </div>
-
-                    {linkedOrders.length > 0 && (
-                      <div className="mt-3 space-y-2 rounded-xl border border-neutral-100 bg-neutral-50/70 p-3">
-                        <p className="text-[10px] font-black uppercase tracking-wide text-neutral-400">
-                          Assigned Orders
-                        </p>
-                        {linkedOrders.map((link) => {
-                          const linkedOrder = orders.find(
-                            (order) => order.id === link.orderId,
-                          );
-
-                          return (
-                            <div
-                              key={link.id}
-                              className="flex items-center justify-between gap-3 text-xs"
-                            >
-                              <span className="min-w-0 truncate font-bold text-neutral-700">
-                                #{linkedOrder ? orderNumber(linkedOrder) : link.orderId.slice(0, 8)}
-                                {linkedOrder
-                                  ? ` · ${orderCustomer(linkedOrder)}`
-                                  : ''}
+                  return (
+                    <article
+                      key={trip.id}
+                      className={`px-4 py-3.5 ${
+                        trip.isAtRisk ? 'bg-amber-50/30' : 'bg-white'
+                      }`}
+                    >
+                      <div className="grid gap-3 lg:grid-cols-[minmax(220px,1.7fr)_105px_105px_105px_105px_130px_42px] lg:items-center">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-sm font-black text-neutral-950">
+                              {trip.title}
+                            </p>
+                            {trip.isAtRisk && (
+                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-black uppercase text-amber-800">
+                                At risk
                               </span>
-                              <span className="flex shrink-0 items-center gap-2">
+                            )}
+                          </div>
+                          <p className="mt-0.5 truncate text-xs font-semibold text-neutral-600">
+                            {trip.route}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-neutral-400">
+                            {formatDate(trip.tripDate)} · {linkedOrders.length}{' '}
+                            {linkedOrders.length === 1 ? 'order' : 'orders'}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 lg:block">
+                          <span className="text-[10px] font-black uppercase text-neutral-400 lg:hidden">
+                            Planned
+                          </span>
+                          <span className="text-xs font-black text-neutral-800">
+                            {money(trip.expectedContribution)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 lg:block">
+                          <span className="text-[10px] font-black uppercase text-neutral-400 lg:hidden">
+                            Cost
+                          </span>
+                          <span className="text-xs font-black text-neutral-800">
+                            {money(trip.estimatedCost)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 lg:block">
+                          <span className="text-[10px] font-black uppercase text-neutral-400 lg:hidden">
+                            Linked
+                          </span>
+                          <span className="text-xs font-black text-neutral-800">
+                            {money(trip.linkedContribution)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 lg:block">
+                          <span className="text-[10px] font-black uppercase text-neutral-400 lg:hidden">
+                            Net
+                          </span>
+                          <span
+                            className={`text-xs font-black ${
+                              trip.netContribution >= 0
+                                ? 'text-emerald-700'
+                                : 'text-red-700'
+                            }`}
+                          >
+                            {money(trip.netContribution)}
+                          </span>
+                        </div>
+
+                        <select
+                          value={trip.status}
+                          onChange={(event) =>
+                            void changeTripStatus(
+                              trip.id,
+                              event.target.value as BusinessTripStatus,
+                            )
+                          }
+                          disabled={busyAction === `trip-status:${trip.id}`}
+                          className={`h-9 rounded-xl border-0 px-2.5 text-[11px] font-black outline-none ${statusClass(
+                            trip.status,
+                          )}`}
+                        >
+                          {(
+                            [
+                              'planned',
+                              'in_progress',
+                              'completed',
+                              'cancelled',
+                            ] as BusinessTripStatus[]
+                          ).map((status) => (
+                            <option key={status} value={status}>
+                              {TRIP_STATUS_LABELS[status]}
+                            </option>
+                          ))}
+                        </select>
+
+                        <button
+                          type="button"
+                          onClick={() => void removeTrip(trip.id)}
+                          disabled={busyAction === `delete-trip:${trip.id}`}
+                          className="flex h-9 w-9 items-center justify-center rounded-xl text-neutral-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                          aria-label="Delete business trip"
+                        >
+                          {busyAction === `delete-trip:${trip.id}` ? (
+                            <Loader2 size={15} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={15} />
+                          )}
+                        </button>
+                      </div>
+
+                      {linkedOrders.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5 border-t border-neutral-100 pt-3">
+                          {linkedOrders.map((link) => {
+                            const linkedOrder = orders.find(
+                              (order) => order.id === link.orderId,
+                            );
+
+                            return (
+                              <span
+                                key={link.id}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-100 px-2.5 py-1.5 text-[10px] font-bold text-neutral-600"
+                              >
+                                #{linkedOrder
+                                  ? orderNumber(linkedOrder)
+                                  : link.orderId.slice(0, 8)}
                                 <strong className="text-neutral-900">
                                   {money(link.contributionAmount)}
                                 </strong>
@@ -945,356 +987,158 @@ export default function BusinessFinance() {
                                   disabled={
                                     busyAction === `unlink-order:${link.id}`
                                   }
-                                  className="text-red-500 disabled:opacity-50"
+                                  className="text-neutral-400 transition hover:text-red-600 disabled:opacity-50"
+                                  aria-label="Unassign order"
                                 >
                                   {busyAction === `unlink-order:${link.id}` ? (
-                                    <Loader2
-                                      size={13}
-                                      className="animate-spin"
-                                    />
+                                    <Loader2 size={11} className="animate-spin" />
                                   ) : (
-                                    <Trash2 size={13} />
+                                    <X size={11} />
                                   )}
                                 </button>
                               </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {(
-                        [
-                          'planned',
-                          'in_progress',
-                          'completed',
-                          'cancelled',
-                        ] as BusinessTripStatus[]
-                      ).map((status) => (
-                        <button
-                          key={status}
-                          type="button"
-                          onClick={() =>
-                            void changeTripStatus(trip.id, status)
-                          }
-                          disabled={
-                            trip.status === status ||
-                            busyAction === `trip-status:${trip.id}`
-                          }
-                          className={`rounded-xl px-3 py-2 text-[11px] font-black transition disabled:opacity-40 ${
-                            trip.status === status
-                              ? 'bg-neutral-900 text-white'
-                              : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                          }`}
-                        >
-                          {TRIP_STATUS_LABELS[status]}
-                        </button>
-                      ))}
-                    </div>
-                  </article>
-                );
-              })
-            )}
-          </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </section>
 
-        <div className="space-y-4">
-          <section className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-card">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-base font-black text-neutral-950">
-                  Assign Orders
-                </h3>
-                <p className="mt-1 text-xs leading-5 text-neutral-500">
-                  Link customer orders to a trip to measure that trip’s result.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowOrderLinkForm((current) => !current)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600"
-              >
-                <Link2 size={17} />
-              </button>
+        <aside className="space-y-3 xl:sticky xl:top-5 xl:self-start">
+          <section className="rounded-2xl border border-neutral-200 bg-white p-3">
+            <div className="px-1 pb-3">
+              <h3 className="text-sm font-black text-neutral-950">Quick Actions</h3>
+              <p className="mt-0.5 text-xs text-neutral-500">
+                Open a focused form only when you need it.
+              </p>
             </div>
-
-            {showOrderLinkForm && (
-              <div className="mt-4 space-y-3">
-                <select
-                  value={linkForm.businessTripId}
-                  onChange={(event) =>
-                    setLinkForm((current) => ({
-                      ...current,
-                      businessTripId: event.target.value,
-                    }))
-                  }
-                  className="h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm"
-                >
-                  <option value="">Select business trip</option>
-                  {(data?.trips ?? [])
-                    .filter((trip) => trip.status !== 'cancelled')
-                    .map((trip) => (
-                      <option key={trip.id} value={trip.id}>
-                        {trip.title} · {formatDate(trip.tripDate)}
-                      </option>
-                    ))}
-                </select>
-
-                <select
-                  value={linkForm.orderId}
-                  onChange={(event) => selectOrderForLink(event.target.value)}
-                  className="h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm"
-                >
-                  <option value="">Select order</option>
-                  {contributionOrders.map((order) => (
-                    <option key={order.id} value={order.id}>
-                      #{orderNumber(order)} · {orderCustomer(order)}
-                      {linkedOrderIds.has(order.id) ? ' · already assigned' : ''}
-                    </option>
-                  ))}
-                </select>
-
-                {selectedLinkOrder && (
-                  <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-                    Suggested contribution:{' '}
-                    <strong>
-                      {money(estimatedOrderContribution(selectedLinkOrder))}
-                    </strong>
-                  </div>
-                )}
-
-                <input
-                  type="number"
-                  min="0"
-                  value={linkForm.contributionAmount}
-                  onChange={(event) =>
-                    setLinkForm((current) => ({
-                      ...current,
-                      contributionAmount: Number(event.target.value) || 0,
-                    }))
-                  }
-                  placeholder="Contribution amount"
-                  className="h-10 w-full rounded-xl border border-neutral-200 px-3 text-sm"
-                />
-
-                <input
-                  value={linkForm.notes}
-                  onChange={(event) =>
-                    setLinkForm((current) => ({
-                      ...current,
-                      notes: event.target.value,
-                    }))
-                  }
-                  placeholder="Optional note"
-                  className="h-10 w-full rounded-xl border border-neutral-200 px-3 text-sm"
-                />
-
-                <button
-                  type="button"
-                  onClick={() => void saveOrderLink()}
-                  disabled={busyAction === 'link-order'}
-                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-black text-white disabled:opacity-60"
-                >
-                  {busyAction === 'link-order' ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <ClipboardList size={16} />
-                  )}
-                  Assign Order
-                </button>
-              </div>
-            )}
+            <div className="space-y-2">
+              <ActionCard
+                icon={<CarFront size={17} />}
+                title="Add Business Trip"
+                description="Plan route, date, expected contribution, and cost."
+                onClick={() => {
+                  setShowExpenseForm(false);
+                  setShowOrderLinkForm(false);
+                  setShowTripForm(true);
+                }}
+              />
+              <ActionCard
+                icon={<ClipboardList size={17} />}
+                title="Assign Order"
+                description="Attach a paid order and its contribution to a trip."
+                onClick={() => {
+                  setShowTripForm(false);
+                  setShowExpenseForm(false);
+                  setShowOrderLinkForm(true);
+                }}
+              />
+              <ActionCard
+                icon={<WalletCards size={17} />}
+                title="Record Expense"
+                description="Add fuel, meals, porter, packaging, or other costs."
+                onClick={() => {
+                  setShowTripForm(false);
+                  setShowOrderLinkForm(false);
+                  setShowExpenseForm(true);
+                }}
+              />
+            </div>
           </section>
 
-          <section className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-card">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-base font-black text-neutral-950">
-                  Record Expense
-                </h3>
-                <p className="mt-1 text-xs leading-5 text-neutral-500">
-                  Fuel, meals, porter, refunds, packaging, and other costs.
-                </p>
+          <section className="rounded-2xl border border-neutral-200 bg-white p-4">
+            <h3 className="text-sm font-black text-neutral-950">Month at a glance</h3>
+            <dl className="mt-3 divide-y divide-neutral-100">
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <dt className="text-xs font-semibold text-neutral-500">Trips</dt>
+                <dd className="text-xs font-black text-neutral-900">{trips.length}</dd>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowExpenseForm((current) => !current)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600"
-              >
-                <Plus size={17} />
-              </button>
-            </div>
-
-            {showExpenseForm && (
-              <div className="mt-4 space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="date"
-                    value={expenseForm.expenseDate}
-                    onChange={(event) =>
-                      setExpenseForm((current) => ({
-                        ...current,
-                        expenseDate: event.target.value,
-                      }))
-                    }
-                    className="h-10 rounded-xl border border-neutral-200 px-3 text-sm"
-                  />
-                  <select
-                    value={expenseForm.category}
-                    onChange={(event) =>
-                      setExpenseForm((current) => ({
-                        ...current,
-                        category: event.target
-                          .value as BusinessExpenseCategory,
-                        description:
-                          EXPENSE_CATEGORIES.find(
-                            (category) =>
-                              category.value === event.target.value,
-                          )?.label || current.description,
-                      }))
-                    }
-                    className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm"
-                  >
-                    {EXPENSE_CATEGORIES.map((category) => (
-                      <option key={category.value} value={category.value}>
-                        {category.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <input
-                  type="number"
-                  min="0"
-                  value={expenseForm.amount}
-                  onChange={(event) =>
-                    setExpenseForm((current) => ({
-                      ...current,
-                      amount: Number(event.target.value) || 0,
-                    }))
-                  }
-                  placeholder="Amount"
-                  className="h-10 w-full rounded-xl border border-neutral-200 px-3 text-sm"
-                />
-
-                <input
-                  value={expenseForm.description}
-                  onChange={(event) =>
-                    setExpenseForm((current) => ({
-                      ...current,
-                      description: event.target.value,
-                    }))
-                  }
-                  placeholder="Description"
-                  className="h-10 w-full rounded-xl border border-neutral-200 px-3 text-sm"
-                />
-
-                <select
-                  value={expenseForm.businessTripId}
-                  onChange={(event) =>
-                    setExpenseForm((current) => ({
-                      ...current,
-                      businessTripId: event.target.value,
-                    }))
-                  }
-                  className="h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm"
-                >
-                  <option value="">Not linked to a trip</option>
-                  {(data?.trips ?? []).map((trip) => (
-                    <option key={trip.id} value={trip.id}>
-                      {trip.title} · {formatDate(trip.tripDate)}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={expenseForm.orderId}
-                  onChange={(event) =>
-                    setExpenseForm((current) => ({
-                      ...current,
-                      orderId: event.target.value,
-                    }))
-                  }
-                  className="h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm"
-                >
-                  <option value="">Not linked to an order</option>
-                  {orders.map((order) => (
-                    <option key={order.id} value={order.id}>
-                      #{orderNumber(order)} · {orderCustomer(order)}
-                    </option>
-                  ))}
-                </select>
-
-                <button
-                  type="button"
-                  onClick={() => void saveExpense()}
-                  disabled={busyAction === 'create-expense'}
-                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-rose-600 text-sm font-black text-white disabled:opacity-60"
-                >
-                  {busyAction === 'create-expense' ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <WalletCards size={16} />
-                  )}
-                  Save Expense
-                </button>
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <dt className="text-xs font-semibold text-neutral-500">Assigned orders</dt>
+                <dd className="text-xs font-black text-neutral-900">
+                  {tripOrderLinks.length}
+                </dd>
               </div>
-            )}
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <dt className="text-xs font-semibold text-neutral-500">Expense records</dt>
+                <dd className="text-xs font-black text-neutral-900">
+                  {monthExpenses.length}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <dt className="text-xs font-semibold text-neutral-500">At-risk trips</dt>
+                <dd className="text-xs font-black text-amber-700">
+                  {plannedRiskTrips.length}
+                </dd>
+              </div>
+            </dl>
           </section>
-        </div>
+        </aside>
       </div>
 
-      <section className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-card">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-4 py-3.5">
           <div>
-            <h3 className="text-base font-black text-neutral-950">
-              Expenses for {month}
-            </h3>
-            <p className="mt-1 text-xs text-neutral-500">
-              Every expense reduces the month’s net profit.
+            <h3 className="text-sm font-black text-neutral-950">Monthly Expenses</h3>
+            <p className="mt-0.5 text-xs text-neutral-500">
+              Every expense recorded for {month} reduces the final net profit.
             </p>
           </div>
-          <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700">
-            {money(summary?.expenses ?? 0)}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700">
+              {money(summary?.expenses ?? 0)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowExpenseForm(true)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-black text-neutral-700 transition hover:bg-neutral-50"
+            >
+              <Plus size={14} />
+              Add Expense
+            </button>
+          </div>
         </div>
 
-        <div className="mt-4 overflow-x-auto">
+        <div className="overflow-x-auto">
           <table className="w-full min-w-[720px]">
             <thead>
-              <tr className="border-b border-neutral-100 text-left">
-                <th className="px-3 py-3 text-[10px] font-black uppercase tracking-wide text-neutral-400">
+              <tr className="border-b border-neutral-100 bg-neutral-50/70 text-left">
+                <th className="px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.1em] text-neutral-400">
                   Date
                 </th>
-                <th className="px-3 py-3 text-[10px] font-black uppercase tracking-wide text-neutral-400">
+                <th className="px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.1em] text-neutral-400">
                   Category
                 </th>
-                <th className="px-3 py-3 text-[10px] font-black uppercase tracking-wide text-neutral-400">
+                <th className="px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.1em] text-neutral-400">
                   Description
                 </th>
-                <th className="px-3 py-3 text-[10px] font-black uppercase tracking-wide text-neutral-400">
-                  Trip / Order
+                <th className="px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.1em] text-neutral-400">
+                  Linked To
                 </th>
-                <th className="px-3 py-3 text-right text-[10px] font-black uppercase tracking-wide text-neutral-400">
+                <th className="px-4 py-2.5 text-right text-[10px] font-black uppercase tracking-[0.1em] text-neutral-400">
                   Amount
                 </th>
-                <th className="w-12 px-3 py-3" />
+                <th className="w-12 px-4 py-2.5" />
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-neutral-100">
               {monthExpenses.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}
-                    className="px-3 py-10 text-center text-sm text-neutral-400"
+                    className="px-4 py-10 text-center text-sm text-neutral-400"
                   >
                     No expenses recorded for this month.
                   </td>
                 </tr>
               ) : (
                 monthExpenses.map((expense) => {
-                  const trip = data?.trips.find(
+                  const trip = trips.find(
                     (item) => item.id === expense.businessTripId,
                   );
                   const order = orders.find(
@@ -1306,15 +1150,12 @@ export default function BusinessFinance() {
                     )?.label || expense.category;
 
                   return (
-                    <tr
-                      key={expense.id}
-                      className="border-b border-neutral-50 text-sm"
-                    >
-                      <td className="px-3 py-3 text-neutral-600">
+                    <tr key={expense.id} className="text-sm">
+                      <td className="px-4 py-3 text-xs text-neutral-600">
                         {formatDate(expense.expenseDate)}
                       </td>
-                      <td className="px-3 py-3">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-bold text-neutral-600">
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-100 px-2.5 py-1.5 text-[11px] font-bold text-neutral-600">
                           {expense.category === 'fuel' ? (
                             <Fuel size={13} />
                           ) : expense.category === 'meals' ? (
@@ -1325,29 +1166,30 @@ export default function BusinessFinance() {
                           {categoryLabel}
                         </span>
                       </td>
-                      <td className="px-3 py-3 font-semibold text-neutral-800">
+                      <td className="px-4 py-3 text-xs font-semibold text-neutral-800">
                         {expense.description}
                       </td>
-                      <td className="px-3 py-3 text-xs text-neutral-500">
+                      <td className="px-4 py-3 text-xs text-neutral-500">
                         {trip?.title ||
                           (order ? `#${orderNumber(order)}` : 'General')}
                       </td>
-                      <td className="px-3 py-3 text-right font-black text-neutral-950">
+                      <td className="px-4 py-3 text-right text-xs font-black text-neutral-950">
                         {money(expense.amount)}
                       </td>
-                      <td className="px-3 py-3 text-right">
+                      <td className="px-4 py-3 text-right">
                         <button
                           type="button"
                           onClick={() => void removeExpense(expense.id)}
                           disabled={
                             busyAction === `delete-expense:${expense.id}`
                           }
-                          className="text-neutral-400 transition hover:text-red-600 disabled:opacity-50"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                          aria-label="Delete expense"
                         >
                           {busyAction === `delete-expense:${expense.id}` ? (
-                            <Loader2 size={15} className="animate-spin" />
+                            <Loader2 size={14} className="animate-spin" />
                           ) : (
-                            <Trash2 size={15} />
+                            <Trash2 size={14} />
                           )}
                         </button>
                       </td>
@@ -1360,25 +1202,421 @@ export default function BusinessFinance() {
         </div>
       </section>
 
-      <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-4">
-        <div className="flex items-start gap-3">
-          <CheckCircle2
-            size={20}
-            className="mt-0.5 shrink-0 text-blue-600"
-          />
-          <div>
-            <p className="text-sm font-black text-blue-900">
-              Recommended operating rule
-            </p>
-            <p className="mt-1 text-sm leading-6 text-blue-800">
-              Avoid a Thimphu–Phuentsholing trip for only one or two small
-              orders. Aim for at least Nu. 5,000–6,000 contribution before a
-              trip expected to cost around Nu. 3,000.
-            </p>
-          </div>
-          <ArrowRight size={18} className="ml-auto shrink-0 text-blue-500" />
+      <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+        <CheckCircle2
+          size={18}
+          className="mt-0.5 shrink-0 text-blue-600"
+        />
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.08em] text-blue-800">
+            Operating guide
+          </p>
+          <p className="mt-1 text-xs leading-5 text-blue-700">
+            Aim for at least Nu. 5,000–6,000 contribution before a trip expected
+            to cost around Nu. 3,000. Avoid travelling for only one or two small
+            orders.
+          </p>
         </div>
       </div>
+
+      {showTripForm && (
+        <ModalShell
+          title="Add Business Trip"
+          description="Plan the route, date, contribution target, and estimated travel cost."
+          onClose={() => setShowTripForm(false)}
+          footer={
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowTripForm(false)}
+                className="h-10 rounded-xl border border-neutral-200 bg-white px-4 text-sm font-black text-neutral-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveTrip()}
+                disabled={busyAction === 'create-trip'}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-orange-500 px-4 text-sm font-black text-white disabled:opacity-60"
+              >
+                {busyAction === 'create-trip' ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <CarFront size={16} />
+                )}
+                Save Trip
+              </button>
+            </div>
+          }
+        >
+          <div className="space-y-4">
+            {parcelTrips.length > 0 && (
+              <label className="block">
+                <span className="text-xs font-bold text-neutral-600">
+                  Existing parcel trip <span className="font-medium text-neutral-400">(optional)</span>
+                </span>
+                <select
+                  value={tripForm.parcelTripId}
+                  onChange={(event) =>
+                    handleParcelTripSelection(event.target.value)
+                  }
+                  className="mt-1.5 h-11 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none focus:border-orange-300"
+                >
+                  <option value="">Manual business trip</option>
+                  {parcelTrips.map((trip) => (
+                    <option key={trip.id} value={trip.id}>
+                      {tripRoute(trip)} · {formatDate(trip.goingDate)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label>
+                <span className="text-xs font-bold text-neutral-600">Trip title</span>
+                <input
+                  value={tripForm.title}
+                  onChange={(event) =>
+                    setTripForm((current) => ({
+                      ...current,
+                      title: event.target.value,
+                    }))
+                  }
+                  placeholder="Trip title"
+                  className="mt-1.5 h-11 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-orange-300"
+                />
+              </label>
+              <label>
+                <span className="text-xs font-bold text-neutral-600">Route</span>
+                <input
+                  value={tripForm.route}
+                  onChange={(event) =>
+                    setTripForm((current) => ({
+                      ...current,
+                      route: event.target.value,
+                    }))
+                  }
+                  placeholder="Route"
+                  className="mt-1.5 h-11 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-orange-300"
+                />
+              </label>
+              <label>
+                <span className="text-xs font-bold text-neutral-600">Trip date</span>
+                <input
+                  type="date"
+                  value={tripForm.tripDate}
+                  onChange={(event) =>
+                    setTripForm((current) => ({
+                      ...current,
+                      tripDate: event.target.value,
+                    }))
+                  }
+                  className="mt-1.5 h-11 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-orange-300"
+                />
+              </label>
+              <label>
+                <span className="text-xs font-bold text-neutral-600">Expected contribution</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={tripForm.expectedContribution}
+                  onChange={(event) =>
+                    setTripForm((current) => ({
+                      ...current,
+                      expectedContribution: Number(event.target.value) || 0,
+                    }))
+                  }
+                  className="mt-1.5 h-11 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-orange-300"
+                />
+              </label>
+              <label>
+                <span className="text-xs font-bold text-neutral-600">Estimated cost</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={tripForm.estimatedCost}
+                  onChange={(event) =>
+                    setTripForm((current) => ({
+                      ...current,
+                      estimatedCost: Number(event.target.value) || 0,
+                    }))
+                  }
+                  className="mt-1.5 h-11 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-orange-300"
+                />
+              </label>
+              <label>
+                <span className="text-xs font-bold text-neutral-600">Notes</span>
+                <input
+                  value={tripForm.notes}
+                  onChange={(event) =>
+                    setTripForm((current) => ({
+                      ...current,
+                      notes: event.target.value,
+                    }))
+                  }
+                  placeholder="Optional notes"
+                  className="mt-1.5 h-11 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-orange-300"
+                />
+              </label>
+            </div>
+          </div>
+        </ModalShell>
+      )}
+
+      {showOrderLinkForm && (
+        <ModalShell
+          title="Assign Order to Trip"
+          description="Choose an eligible order and record the contribution allocated to the trip."
+          onClose={() => setShowOrderLinkForm(false)}
+          footer={
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowOrderLinkForm(false)}
+                className="h-10 rounded-xl border border-neutral-200 bg-white px-4 text-sm font-black text-neutral-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveOrderLink()}
+                disabled={busyAction === 'link-order'}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-orange-500 px-4 text-sm font-black text-white disabled:opacity-60"
+              >
+                {busyAction === 'link-order' ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <ClipboardList size={16} />
+                )}
+                Assign Order
+              </button>
+            </div>
+          }
+        >
+          <div className="space-y-4">
+            <label className="block">
+              <span className="text-xs font-bold text-neutral-600">Business trip</span>
+              <select
+                value={linkForm.businessTripId}
+                onChange={(event) =>
+                  setLinkForm((current) => ({
+                    ...current,
+                    businessTripId: event.target.value,
+                  }))
+                }
+                className="mt-1.5 h-11 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none focus:border-orange-300"
+              >
+                <option value="">Select business trip</option>
+                {trips
+                  .filter((trip) => trip.status !== 'cancelled')
+                  .map((trip) => (
+                    <option key={trip.id} value={trip.id}>
+                      {trip.title} · {formatDate(trip.tripDate)}
+                    </option>
+                  ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-bold text-neutral-600">Customer order</span>
+              <select
+                value={linkForm.orderId}
+                onChange={(event) => selectOrderForLink(event.target.value)}
+                className="mt-1.5 h-11 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none focus:border-orange-300"
+              >
+                <option value="">Select order</option>
+                {contributionOrders.map((order) => (
+                  <option key={order.id} value={order.id}>
+                    #{orderNumber(order)} · {orderCustomer(order)}
+                    {linkedOrderIds.has(order.id) ? ' · already assigned' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {selectedLinkOrder && (
+              <div className="rounded-xl border border-orange-100 bg-orange-50 px-3 py-2.5 text-xs text-orange-800">
+                Suggested contribution:{' '}
+                <strong>{money(estimatedOrderContribution(selectedLinkOrder))}</strong>
+              </div>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label>
+                <span className="text-xs font-bold text-neutral-600">Contribution amount</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={linkForm.contributionAmount}
+                  onChange={(event) =>
+                    setLinkForm((current) => ({
+                      ...current,
+                      contributionAmount: Number(event.target.value) || 0,
+                    }))
+                  }
+                  className="mt-1.5 h-11 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-orange-300"
+                />
+              </label>
+              <label>
+                <span className="text-xs font-bold text-neutral-600">Note</span>
+                <input
+                  value={linkForm.notes}
+                  onChange={(event) =>
+                    setLinkForm((current) => ({
+                      ...current,
+                      notes: event.target.value,
+                    }))
+                  }
+                  placeholder="Optional note"
+                  className="mt-1.5 h-11 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-orange-300"
+                />
+              </label>
+            </div>
+          </div>
+        </ModalShell>
+      )}
+
+      {showExpenseForm && (
+        <ModalShell
+          title="Record Business Expense"
+          description="Add an operating cost and optionally link it to a trip or customer order."
+          onClose={() => setShowExpenseForm(false)}
+          footer={
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowExpenseForm(false)}
+                className="h-10 rounded-xl border border-neutral-200 bg-white px-4 text-sm font-black text-neutral-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveExpense()}
+                disabled={busyAction === 'create-expense'}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-orange-500 px-4 text-sm font-black text-white disabled:opacity-60"
+              >
+                {busyAction === 'create-expense' ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <WalletCards size={16} />
+                )}
+                Save Expense
+              </button>
+            </div>
+          }
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label>
+              <span className="text-xs font-bold text-neutral-600">Expense date</span>
+              <input
+                type="date"
+                value={expenseForm.expenseDate}
+                onChange={(event) =>
+                  setExpenseForm((current) => ({
+                    ...current,
+                    expenseDate: event.target.value,
+                  }))
+                }
+                className="mt-1.5 h-11 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-orange-300"
+              />
+            </label>
+            <label>
+              <span className="text-xs font-bold text-neutral-600">Category</span>
+              <select
+                value={expenseForm.category}
+                onChange={(event) =>
+                  setExpenseForm((current) => ({
+                    ...current,
+                    category: event.target.value as BusinessExpenseCategory,
+                    description:
+                      EXPENSE_CATEGORIES.find(
+                        (category) => category.value === event.target.value,
+                      )?.label || current.description,
+                  }))
+                }
+                className="mt-1.5 h-11 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none focus:border-orange-300"
+              >
+                {EXPENSE_CATEGORIES.map((category) => (
+                  <option key={category.value} value={category.value}>
+                    {category.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span className="text-xs font-bold text-neutral-600">Amount</span>
+              <input
+                type="number"
+                min="0"
+                value={expenseForm.amount}
+                onChange={(event) =>
+                  setExpenseForm((current) => ({
+                    ...current,
+                    amount: Number(event.target.value) || 0,
+                  }))
+                }
+                className="mt-1.5 h-11 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-orange-300"
+              />
+            </label>
+            <label>
+              <span className="text-xs font-bold text-neutral-600">Description</span>
+              <input
+                value={expenseForm.description}
+                onChange={(event) =>
+                  setExpenseForm((current) => ({
+                    ...current,
+                    description: event.target.value,
+                  }))
+                }
+                placeholder="Expense description"
+                className="mt-1.5 h-11 w-full rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-orange-300"
+              />
+            </label>
+            <label>
+              <span className="text-xs font-bold text-neutral-600">Business trip</span>
+              <select
+                value={expenseForm.businessTripId}
+                onChange={(event) =>
+                  setExpenseForm((current) => ({
+                    ...current,
+                    businessTripId: event.target.value,
+                  }))
+                }
+                className="mt-1.5 h-11 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none focus:border-orange-300"
+              >
+                <option value="">Not linked to a trip</option>
+                {trips.map((trip) => (
+                  <option key={trip.id} value={trip.id}>
+                    {trip.title} · {formatDate(trip.tripDate)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span className="text-xs font-bold text-neutral-600">Customer order</span>
+              <select
+                value={expenseForm.orderId}
+                onChange={(event) =>
+                  setExpenseForm((current) => ({
+                    ...current,
+                    orderId: event.target.value,
+                  }))
+                }
+                className="mt-1.5 h-11 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none focus:border-orange-300"
+              >
+                <option value="">Not linked to an order</option>
+                {orders.map((order) => (
+                  <option key={order.id} value={order.id}>
+                    #{orderNumber(order)} · {orderCustomer(order)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </ModalShell>
+      )}
     </div>
   );
 }
