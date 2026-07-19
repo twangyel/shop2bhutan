@@ -6,6 +6,7 @@ import {
   useState,
   type PointerEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
@@ -414,6 +415,26 @@ export default function Notifications() {
     return () => window.cancelAnimationFrame(frame);
   }, []);
 
+  useEffect(() => {
+    if (!showClearAllConfirm || typeof document === 'undefined') return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !clearingAll) {
+        setShowClearAllConfirm(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [clearingAll, showClearAllConfirm]);
+
   const refreshNativePermission = useCallback(async () => {
     if (!isNativeNotificationsAvailable()) {
       setNativePermission('granted');
@@ -741,67 +762,72 @@ export default function Notifications() {
         )}
       </main>
 
-      {showClearAllConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 backdrop-blur-[2px] transition-opacity duration-300"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="clear-notifications-title"
-          onClick={() => {
-            if (!clearingAll) setShowClearAllConfirm(false);
-          }}
-        >
+      {showClearAllConfirm &&
+        typeof document !== 'undefined' &&
+        createPortal(
           <div
-            className="w-full max-w-lg translate-y-0 rounded-t-[24px] bg-white p-5 pb-8 shadow-[0_-8px_40px_rgba(0,0,0,0.12)] ring-1 ring-slate-100 transition-transform duration-300 ease-out"
-            onClick={(event) => event.stopPropagation()}
+            className="fixed inset-0 z-[1000] flex items-end justify-center bg-slate-950/40 px-3 pt-3 backdrop-blur-[2px] sm:items-center sm:p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="clear-notifications-title"
+            onClick={() => {
+              if (!clearingAll) setShowClearAllConfirm(false);
+            }}
           >
-            {/* Drag handle */}
-            <div className="mx-auto mb-5 h-1.5 w-10 rounded-full bg-slate-200" />
+            <div
+              className="max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto rounded-t-[26px] bg-white px-5 pt-4 shadow-[0_-12px_48px_rgba(15,23,42,0.18)] ring-1 ring-slate-200 sm:rounded-[26px] sm:p-5"
+              style={{
+                paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.25rem)',
+              }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="mx-auto mb-5 h-1.5 w-10 rounded-full bg-slate-200 sm:hidden" />
 
-            <div className="flex items-start gap-3.5">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600 ring-1 ring-red-100">
-                <Trash2 size={19} strokeWidth={2.2} />
-              </span>
-              <div className="min-w-0">
-                <h2
-                  id="clear-notifications-title"
-                  className="text-base font-black text-slate-950"
+              <div className="flex items-start gap-3.5">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600 ring-1 ring-red-100">
+                  <Trash2 size={19} strokeWidth={2.2} />
+                </span>
+                <div className="min-w-0">
+                  <h2
+                    id="clear-notifications-title"
+                    className="text-base font-black text-slate-950"
+                  >
+                    Clear all notifications?
+                  </h2>
+                  <p className="mt-1 text-sm leading-5 text-slate-500">
+                    This will permanently remove all {notifications.length}{' '}
+                    {notifications.length === 1 ? 'notification' : 'notifications'} from your activity list.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={clearingAll}
+                  onClick={() => setShowClearAllConfirm(false)}
+                  className="h-11 rounded-2xl bg-slate-100 text-sm font-bold text-slate-700 transition active:scale-[0.98] disabled:opacity-50"
                 >
-                  Clear all notifications?
-                </h2>
-                <p className="mt-1 text-sm leading-5 text-slate-500">
-                  This will permanently remove all {notifications.length}{' '}
-                  {notifications.length === 1 ? 'notification' : 'notifications'} from your activity list.
-                </p>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={clearingAll}
+                  onClick={() => void handleClearAll()}
+                  className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-red-600 text-sm font-bold text-white transition active:scale-[0.98] active:bg-red-700 disabled:opacity-60"
+                >
+                  {clearingAll ? (
+                    <Loader2 size={17} className="animate-spin" />
+                  ) : (
+                    <Trash2 size={17} strokeWidth={2.2} />
+                  )}
+                  Clear all
+                </button>
               </div>
             </div>
-
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                disabled={clearingAll}
-                onClick={() => setShowClearAllConfirm(false)}
-                className="h-11 rounded-2xl bg-slate-100 text-sm font-bold text-slate-700 transition active:scale-[0.98] disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={clearingAll}
-                onClick={() => void handleClearAll()}
-                className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-red-600 text-sm font-bold text-white transition active:scale-[0.98] active:bg-red-700 disabled:opacity-60"
-              >
-                {clearingAll ? (
-                  <Loader2 size={17} className="animate-spin" />
-                ) : (
-                  <Trash2 size={17} strokeWidth={2.2} />
-                )}
-                Clear all
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
