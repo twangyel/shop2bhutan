@@ -299,11 +299,17 @@ function imageDrawOperator(
   y: number,
   maxWidth: number,
   maxHeight: number,
+  horizontalAlign: 'left' | 'center' | 'right' = 'center',
 ) {
   const scale = Math.min(maxWidth / image.width, maxHeight / image.height);
   const width = image.width * scale;
   const height = image.height * scale;
-  const drawX = x + (maxWidth - width) / 2;
+  const drawX =
+    horizontalAlign === 'left'
+      ? x
+      : horizontalAlign === 'right'
+        ? x + maxWidth - width
+        : x + (maxWidth - width) / 2;
   const drawY = y + (maxHeight - height) / 2;
 
   return `q ${width.toFixed(2)} 0 0 ${height.toFixed(2)} ${drawX.toFixed(2)} ${drawY.toFixed(2)} cm /${resourceName} Do Q`;
@@ -401,7 +407,7 @@ async function buildReceiptPdf(data: PaymentReceiptData) {
 
   if (logo) {
     contentLines.push(
-      imageDrawOperator('Logo', logo, 48, 735, 190, 58),
+      imageDrawOperator('Logo', logo, 42, 735, 190, 58, 'left'),
     );
   } else {
     contentLines.push(
