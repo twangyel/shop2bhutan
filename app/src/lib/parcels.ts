@@ -1270,6 +1270,7 @@ export async function scheduleParcelPickup(input: ScheduleParcelPickupInput) {
       status: 'pickup_scheduled',
       adminNotes: trackingMessage,
       packageDescription: data.package_description ?? null,
+      eventKey: payload.pickup_scheduled_at,
     })
 
     if (typeof window !== 'undefined') {

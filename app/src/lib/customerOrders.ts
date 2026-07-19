@@ -2309,6 +2309,7 @@ export async function createCustomerParcelStatusNotification(input: {
   status: ParcelNotificationStatus
   adminNotes?: string | null
   packageDescription?: string | null
+  eventKey?: string | null
 }) {
   try {
     const userId = cleanText(input.userId)
@@ -2316,6 +2317,7 @@ export async function createCustomerParcelStatusNotification(input: {
     if (!userId || !parcelRequestId) return
 
     const status = cleanText(input.status).toLowerCase()
+    const eventKey = cleanText(input.eventKey)
     const parcelNo = parcelDisplayNo(input.parcelNo, parcelRequestId)
     const copy = parcelStatusNotificationCopy({
       status,
@@ -2334,7 +2336,9 @@ export async function createCustomerParcelStatusNotification(input: {
       link: historyStatuses.has(status)
         ? '/my-parcels?view=history'
         : '/my-parcels?view=active',
-      dedupeKey: `parcel-status:${parcelRequestId}:${status}`,
+      dedupeKey: eventKey
+        ? `parcel-status:${parcelRequestId}:${status}:${eventKey}`
+        : `parcel-status:${parcelRequestId}:${status}`,
     })
   } catch (error) {
     console.warn('[customerOrders] customer parcel notification skipped:', error)

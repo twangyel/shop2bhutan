@@ -1,22 +1,24 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type ChangeEvent,
 } from 'react';
 import {
-  AlertTriangle,
   ArrowLeft,
+  Camera,
   CheckCircle2,
-  ImageOff,
+  ExternalLink,
   Loader2,
   Minus,
   Package,
   Plus,
   RotateCcw,
-  ShieldCheck,
   ShoppingBag,
   Sparkles,
+  X,
 } from 'lucide-react';
 import {
   useLocation,
@@ -37,6 +39,13 @@ import {
   readWebShareTarget,
   saveShoppingAssistCapture,
 } from '@/lib/shoppingAssist';
+import {
+  consumeRestoredCameraFile,
+  isCameraCancellation,
+  isNativeCameraRuntime,
+  NATIVE_CAMERA_RESTORED_EVENT,
+  pickNativeImageFile,
+} from '@/lib/camera';
 import type {
   ShoppingAssistCapture,
   ShoppingAssistStore,
@@ -54,19 +63,16 @@ function storeLabel(store: ShoppingAssistStore) {
 }
 
 function priceText(value: number) {
-  if (!value || value <= 0) return 'To be verified';
+  if (!value || value <= 0) return 'Price pending';
   return `₹${Math.round(value).toLocaleString('en-IN')}`;
 }
 
+function storeLogo(store: ShoppingAssistStore) {
+  return `/store-logos/${store}.png`;
+}
 
-function priceSourceLabel(value?: string) {
-  if (!value) return 'Page analysis';
-  if (value.includes('_selector')) return 'Store price area';
-  if (value === 'json_ld') return 'Product data';
-  if (value === 'metadata') return 'Page metadata';
-  if (value === 'visible_page') return 'Visible page price';
-  if (value === 'open_graph') return 'Shared link preview';
-  return 'Page analysis';
+function fallbackProductName(store: ShoppingAssistStore) {
+  return `${storeLabel(store)} product`;
 }
 
 function isUsefulTitle(value: string) {
@@ -81,6 +87,14 @@ function isUsefulTitle(value: string) {
       'myntra',
       'meesho',
       's2b shopping assist',
+      'product from amazon',
+      'product from flipkart',
+      'product from myntra',
+      'product from meesho',
+      'amazon product',
+      'flipkart product',
+      'myntra product',
+      'meesho product',
     ].includes(clean)
   ) {
     return false;
@@ -141,6 +155,12 @@ export default function ShoppingAssistReview() {
     initialCapture?.variant ?? '',
   );
   const [quantity, setQuantity] = useState(1);
+  const [screenshotFile, setScreenshotFile] =
+    useState<File | null>(null);
+  const [screenshotPreview, setScreenshotPreview] =
+    useState('');
+  const [openingScreenshot, setOpeningScreenshot] =
+    useState(false);
   const [imageFailed, setImageFailed] =
     useState(false);
   const [checkingFallback, setCheckingFallback] =
@@ -158,6 +178,7 @@ export default function ShoppingAssistReview() {
   const [error, setError] = useState('');
   const [optionReminderOpen, setOptionReminderOpen] = useState(false);
   const variantInputRef = useRef<HTMLInputElement>(null);
+  const screenshotInputRef = useRef<HTMLInputElement>(null);
   const fallbackCheckedRef = useRef(false);
   const lastPreparedUrlRef = useRef('');
 
@@ -170,6 +191,112 @@ export default function ShoppingAssistReview() {
       ? numeric
       : 0;
   }, [price]);
+
+  const applyScreenshotFile = useCallback((file: File | null) => {
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a product screenshot.');
+      return;
+    }
+
+    setError('');
+    setScreenshotFile(file);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setScreenshotPreview(String(reader.result || ''));
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const handleScreenshotChange = (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    applyScreenshotFile(event.target.files?.[0] ?? null);
+    event.target.value = '';
+  };
+
+  const openScreenshotPicker = async () => {
+    if (!isNativeCameraRuntime()) {
+      screenshotInputRef.current?.click();
+      return;
+    }
+
+    setOpeningScreenshot(true);
+    setError('');
+
+    try {
+      const file = await pickNativeImageFile({
+        purpose: 'product-screenshot',
+        fileNamePrefix: 'shopping-assist-product',
+        quality: 86,
+        width: 1800,
+        height: 1800,
+      });
+
+      if (file) applyScreenshotFile(file);
+    } catch (cameraError) {
+      if (!isCameraCancellation(cameraError)) {
+        setError(
+          cameraError instanceof Error
+            ? cameraError.message
+            : 'Unable to open the camera or gallery.',
+        );
+      }
+    } finally {
+      setOpeningScreenshot(false);
+    }
+  };
+
+  const clearScreenshot = () => {
+    setScreenshotFile(null);
+    setScreenshotPreview('');
+
+    if (screenshotInputRef.current) {
+      screenshotInputRef.current.value = '';
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    const restoreCameraResult = async () => {
+      try {
+        const file = await consumeRestoredCameraFile(
+          'product-screenshot',
+          'shopping-assist-product',
+        );
+
+        if (active && file) {
+          applyScreenshotFile(file);
+        }
+      } catch (cameraError) {
+        if (active && !isCameraCancellation(cameraError)) {
+          setError('Unable to restore the selected screenshot.');
+        }
+      }
+    };
+
+    void restoreCameraResult();
+
+    const handleRestoredResult = () => {
+      void restoreCameraResult();
+    };
+
+    window.addEventListener(
+      NATIVE_CAMERA_RESTORED_EVENT,
+      handleRestoredResult,
+    );
+
+    return () => {
+      active = false;
+      window.removeEventListener(
+        NATIVE_CAMERA_RESTORED_EVENT,
+        handleRestoredResult,
+      );
+    };
+  }, [applyScreenshotFile]);
 
   useEffect(() => {
     if (!webShareTarget?.url) {
@@ -206,6 +333,7 @@ export default function ShoppingAssistReview() {
       setPrice('');
       setVariant('');
       setQuantity(1);
+      clearScreenshot();
 
       const detectedPlatform =
         detectSourcePlatformFromUrl(sourceUrl);
@@ -247,7 +375,7 @@ export default function ShoppingAssistReview() {
               : inferProductNameFromUrl(
                   sourceUrl,
                   store,
-                );
+                ) || fallbackProductName(store);
 
         const nextCapture: ShoppingAssistCapture = {
           sourceUrl,
@@ -318,11 +446,40 @@ export default function ShoppingAssistReview() {
           },
         );
       } catch {
-        if (active) {
-          setWebShareError(
-            'The product link was received, but its details could not be checked. Open Paste Link to continue.',
-          );
-        }
+        if (!active) return;
+
+        const nextCapture: ShoppingAssistCapture = {
+          sourceUrl,
+          canonicalUrl: sourceUrl,
+          store,
+          title: fallbackProductName(store),
+          image: '',
+          displayedPrice: 0,
+          currency: 'INR',
+          variant: '',
+          captureMethod: 'page_fallback',
+          confidence: 20,
+          priceConfidence: 0,
+          priceStatus: 'missing',
+          priceSource: '',
+          priceAgreement: 0,
+          priceReason: '',
+          originalPrice: 0,
+          priceDiagnostics: [],
+          capturedAt: sharedTarget.receivedAt,
+        };
+
+        saveShoppingAssistCapture(nextCapture);
+        setCapture(nextCapture);
+        setTitle(nextCapture.title);
+        setPrice('');
+        setVariant('');
+        setImageFailed(false);
+
+        navigate('/shopping-assist/review', {
+          replace: true,
+          state: { capture: nextCapture },
+        });
       } finally {
         if (active) {
           setPreparingWebShare(false);
@@ -401,10 +558,13 @@ export default function ShoppingAssistReview() {
           title:
             isUsefulTitle(captureSnapshot.title)
               ? captureSnapshot.title
-              : preview.title ||
-                inferProductNameFromUrl(
-                  captureSnapshot.sourceUrl,
-                  captureSnapshot.store,
+              : (
+                  isUsefulTitle(preview.title || '')
+                    ? preview.title
+                    : inferProductNameFromUrl(
+                        captureSnapshot.sourceUrl,
+                        captureSnapshot.store,
+                      ) || fallbackProductName(captureSnapshot.store)
                 ),
           image:
             imageFailed
@@ -571,33 +731,18 @@ export default function ShoppingAssistReview() {
     );
   }
 
-  const detectedPriceStatus =
-    capture.priceStatus ??
-    (displayedPrice > 0
-      ? capture.confidence >= 85
-        ? 'high'
-        : 'verify'
-      : 'missing');
-  const detectedPriceConfidence =
-    displayedPrice > 0
-      ? Math.max(
-          0,
-          Math.min(
-            100,
-            capture.priceConfidence ?? capture.confidence,
-          ),
-        )
-      : 0;
-  const detectedOriginalPrice =
-    capture.originalPrice &&
-    capture.originalPrice > displayedPrice
-      ? capture.originalPrice
-      : 0;
-  const priceHighConfidence =
-    detectedPriceStatus === 'high';
-  const priceMissing =
-    detectedPriceStatus === 'missing' ||
-    displayedPrice <= 0;
+  const priceMissing = displayedPrice <= 0;
+  const hasDetectedImage = Boolean(
+    capture.image && !imageFailed,
+  );
+  const needsManualVerification =
+    priceMissing ||
+    !hasDetectedImage ||
+    !isUsefulTitle(title);
+  const activePreviewImage =
+    screenshotPreview ||
+    (hasDetectedImage ? capture.image : '');
+  const previewIsScreenshot = Boolean(screenshotPreview);
 
   const addProductToRequestBag = async () => {
     setError('');
@@ -640,6 +785,7 @@ export default function ShoppingAssistReview() {
           productImage: capture.image,
           price: displayedPrice,
           quantity,
+          screenshotFile: screenshotFile || undefined,
           notes: variant.trim()
             ? `Selected option: ${variant.trim()}`
             : '',
@@ -822,26 +968,122 @@ export default function ShoppingAssistReview() {
       </header>
 
       <main className="mx-auto max-w-lg px-4 pb-[calc(9rem+env(safe-area-inset-bottom))] pt-4">
+        <input
+          ref={screenshotInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleScreenshotChange}
+        />
+
+        <section
+          className={`mb-4 rounded-[22px] border p-4 ${
+            needsManualVerification
+              ? 'border-blue-100 bg-blue-50/60'
+              : 'border-emerald-100 bg-emerald-50/60'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <span
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white shadow-sm ${
+                needsManualVerification
+                  ? 'text-blue-600'
+                  : 'text-emerald-600'
+              }`}
+            >
+              <CheckCircle2 size={20} strokeWidth={2.4} />
+            </span>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2
+                  className={`text-sm font-extrabold ${
+                    needsManualVerification
+                      ? 'text-blue-950'
+                      : 'text-emerald-950'
+                  }`}
+                >
+                  {storeLabel(capture.store)} link saved
+                </h2>
+                <span className="rounded-full bg-white px-2 py-1 text-[9px] font-extrabold text-slate-500 shadow-sm">
+                  {needsManualVerification
+                    ? 'Manual verification'
+                    : 'Details found'}
+                </span>
+              </div>
+
+              <p
+                className={`mt-1.5 text-[11px] leading-5 ${
+                  needsManualVerification
+                    ? 'text-blue-800'
+                    : 'text-emerald-800'
+                }`}
+              >
+                {needsManualVerification
+                  ? 'No need to paste the link again. Add a screenshot for faster verification, or continue and Shop2Bhutan will confirm the missing details.'
+                  : 'Review the detected details below. Shop2Bhutan will still confirm availability and the final price before quotation.'}
+              </p>
+
+              <a
+                href={capture.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] font-extrabold text-orange-600"
+              >
+                Open product link
+                <ExternalLink size={13} />
+              </a>
+            </div>
+          </div>
+        </section>
+
         <section className="overflow-hidden rounded-[26px] border border-slate-100 bg-white shadow-sm shadow-slate-100">
-          <div className="relative flex min-h-[250px] items-center justify-center bg-slate-50">
-            {capture.image && !imageFailed ? (
+          <div
+            className={`relative flex items-center justify-center bg-slate-50 ${
+              activePreviewImage
+                ? 'min-h-[250px]'
+                : 'min-h-[165px]'
+            }`}
+          >
+            {activePreviewImage ? (
               <img
-                src={capture.image}
-                alt=""
-                onError={() => setImageFailed(true)}
-                className="max-h-[330px] w-full object-contain"
+                src={activePreviewImage}
+                alt={
+                  previewIsScreenshot
+                    ? 'Product screenshot'
+                    : title || 'Product preview'
+                }
+                onError={() => {
+                  if (!previewIsScreenshot) setImageFailed(true);
+                }}
+                className={`max-h-[330px] w-full ${
+                  previewIsScreenshot
+                    ? 'object-contain'
+                    : 'object-contain'
+                }`}
               />
             ) : (
-              <div className="flex flex-col items-center text-slate-400">
-                <ImageOff size={34} strokeWidth={1.8} />
-                <p className="mt-2 text-xs font-bold">
-                  Product image unavailable
+              <div className="flex flex-col items-center px-6 text-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white p-2.5 shadow-sm ring-1 ring-slate-100">
+                  <img
+                    src={storeLogo(capture.store)}
+                    alt={`${storeLabel(capture.store)} logo`}
+                    className="h-full w-full object-contain"
+                  />
+                </span>
+                <p className="mt-3 text-xs font-extrabold text-slate-600">
+                  Product image will be verified
+                </p>
+                <p className="mt-1 text-[10px] leading-4 text-slate-400">
+                  The saved product link is enough to continue.
                 </p>
               </div>
             )}
 
             <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1.5 text-[10px] font-extrabold text-slate-700 shadow-sm ring-1 ring-slate-100">
-              {priceText(displayedPrice)}
+              {previewIsScreenshot
+                ? 'Screenshot added'
+                : priceText(displayedPrice)}
             </span>
 
             {checkingFallback && (
@@ -867,31 +1109,47 @@ export default function ShoppingAssistReview() {
                   setTitle(event.target.value)
                 }
                 rows={3}
+                placeholder={`${storeLabel(capture.store)} product`}
                 className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold leading-5 text-slate-900 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10"
               />
+              {!isUsefulTitle(title) && (
+                <p className="mt-1.5 text-[11px] leading-5 text-slate-400">
+                  You may keep this general name or replace it with the exact
+                  product name.
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-[1fr_auto] gap-3">
               <div>
-                <label
-                  htmlFor="assist-price"
-                  className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-500"
-                >
+                <p className="mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-500">
                   Displayed price
-                </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-extrabold text-slate-400">
-                    ₹
-                  </span>
-                  <input
-                    id="assist-price"
-                    value={price}
-                    readOnly
-                    aria-readonly="true"
-                    placeholder="To verify"
-                    className="h-12 w-full cursor-default rounded-2xl border border-slate-200 bg-white pl-8 pr-3 text-sm font-extrabold text-slate-700 outline-none"
-                  />
-                </div>
+                </p>
+
+                {priceMissing ? (
+                  <div className="flex h-12 items-center gap-2.5 rounded-2xl border border-slate-200 bg-slate-50 px-3.5">
+                    <CheckCircle2
+                      size={17}
+                      className="shrink-0 text-blue-500"
+                    />
+                    <span className="text-xs font-extrabold text-slate-700">
+                      Price will be verified
+                    </span>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-extrabold text-slate-400">
+                      ₹
+                    </span>
+                    <input
+                      id="assist-price"
+                      value={price}
+                      readOnly
+                      aria-readonly="true"
+                      className="h-12 w-full cursor-default rounded-2xl border border-slate-200 bg-white pl-8 pr-3 text-sm font-extrabold text-slate-700 outline-none"
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
@@ -907,6 +1165,7 @@ export default function ShoppingAssistReview() {
                       )
                     }
                     className="flex h-full w-11 items-center justify-center text-slate-500"
+                    aria-label="Decrease quantity"
                   >
                     <Minus size={15} />
                   </button>
@@ -921,6 +1180,7 @@ export default function ShoppingAssistReview() {
                       )
                     }
                     className="flex h-full w-11 items-center justify-center text-orange-500"
+                    aria-label="Increase quantity"
                   >
                     <Plus size={15} />
                   </button>
@@ -931,81 +1191,83 @@ export default function ShoppingAssistReview() {
             <div
               className={`flex items-start gap-3 rounded-2xl border p-3.5 ${
                 priceMissing
-                  ? 'border-slate-200 bg-slate-50'
-                  : priceHighConfidence
-                    ? 'border-emerald-100 bg-emerald-50/70'
-                    : 'border-amber-100 bg-amber-50/70'
+                  ? 'border-blue-100 bg-blue-50/50'
+                  : 'border-slate-200 bg-slate-50'
               }`}
             >
               <span
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm ${
                   priceMissing
-                    ? 'text-slate-500'
-                    : priceHighConfidence
-                      ? 'text-emerald-600'
-                      : 'text-amber-600'
+                    ? 'text-blue-600'
+                    : 'text-slate-600'
                 }`}
               >
-                {priceHighConfidence ? (
-                  <ShieldCheck size={17} strokeWidth={2.3} />
-                ) : (
-                  <AlertTriangle size={17} strokeWidth={2.3} />
-                )}
+                <CheckCircle2 size={17} strokeWidth={2.3} />
               </span>
 
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p
-                    className={`text-xs font-extrabold ${
-                      priceMissing
-                        ? 'text-slate-700'
-                        : priceHighConfidence
-                          ? 'text-emerald-800'
-                          : 'text-amber-800'
-                    }`}
-                  >
-                    {priceMissing
-                      ? 'Price not detected'
-                      : priceHighConfidence
-                        ? 'High-confidence price'
-                        : 'Please verify this price'}
-                  </p>
-
-                  {!priceMissing && (
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[9px] font-extrabold text-slate-500 shadow-sm">
-                      {detectedPriceConfidence}%
-                    </span>
-                  )}
-                </div>
-
-                <p
-                  className={`mt-1 text-[11px] leading-5 ${
-                    priceMissing
-                      ? 'text-slate-500'
-                      : priceHighConfidence
-                        ? 'text-emerald-700'
-                        : 'text-amber-700'
-                  }`}
-                >
-                  {capture.priceReason ||
-                    (priceMissing
-                      ? 'Shop2Bhutan could not safely identify the current selling price. It will be verified during quotation.'
-                      : priceHighConfidence
-                        ? 'The current store price was confirmed across the product page.'
-                        : 'The amount appears likely, but the product page showed limited or conflicting evidence.')}
+                <p className="text-xs font-extrabold text-slate-800">
+                  {priceMissing
+                    ? 'Price will be confirmed by Shop2Bhutan'
+                    : 'Detected price is a reference'}
                 </p>
-
-                <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold text-slate-500">
-                  <span>
-                    Source: {priceSourceLabel(capture.priceSource)}
-                  </span>
-                  {detectedOriginalPrice > 0 && (
-                    <span>
-                      MRP: ₹{Math.round(detectedOriginalPrice).toLocaleString('en-IN')}
-                    </span>
-                  )}
-                </div>
+                <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                  {priceMissing
+                    ? 'Continue with this product. We will check the current selling price before preparing your quotation.'
+                    : 'We will confirm the current price, availability and selected option before preparing your quotation.'}
+                </p>
               </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-500">
+                    Product screenshot
+                  </p>
+                  <p className="mt-1 text-[10px] leading-4 text-slate-400">
+                    Optional, but useful when details could not be read.
+                  </p>
+                </div>
+
+                {screenshotFile && (
+                  <button
+                    type="button"
+                    onClick={clearScreenshot}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500"
+                    aria-label="Remove product screenshot"
+                  >
+                    <X size={15} />
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void openScreenshotPicker()}
+                disabled={openingScreenshot}
+                className={`mt-2.5 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border px-4 text-xs font-extrabold transition active:scale-[0.99] disabled:opacity-60 ${
+                  screenshotFile
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : needsManualVerification
+                      ? 'border-blue-200 bg-blue-50 text-blue-700'
+                      : 'border-slate-200 bg-white text-slate-700'
+                }`}
+              >
+                {openingScreenshot ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Opening…
+                  </>
+                ) : (
+                  <>
+                    <Camera size={16} />
+                    {screenshotFile
+                      ? 'Replace product screenshot'
+                      : 'Add product screenshot'}
+                  </>
+                )}
+              </button>
             </div>
 
             <div>
@@ -1033,13 +1295,13 @@ export default function ShoppingAssistReview() {
           </div>
         </section>
 
-        {/* Lighter blue info box */}
-        <section className="mt-4 flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+        <section className="mt-4 flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm">
             <Sparkles size={17} />
           </span>
-          <p className="text-[11px] leading-5 text-blue-800">
-            The displayed store price is a reference. Shop2Bhutan verifies availability, selected option and final charges before you pay.
+          <p className="text-[11px] leading-5 text-slate-600">
+            Shop2Bhutan verifies the product, availability, selected option and
+            final charges before you pay.
           </p>
         </section>
 
@@ -1065,7 +1327,9 @@ export default function ShoppingAssistReview() {
               <ShoppingBag size={18} />
               {!user || isGuest
                 ? 'Sign in to add product'
-                : 'Add to Request Bag'}
+                : needsManualVerification
+                  ? 'Continue to Request Bag'
+                  : 'Add to Request Bag'}
             </>
           )}
         </button>
