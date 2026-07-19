@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Trash2,
   Truck,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -155,11 +156,13 @@ function SwipeableNotification({
   notification,
   onClick,
   onDelete,
+  onImageClick,
   isLast,
 }: {
   notification: AppNotification;
   onClick: () => void;
   onDelete: () => Promise<boolean> | boolean;
+  onImageClick: (url: string, title: string) => void;
   isLast?: boolean;
 }) {
   const [offset, setOffset] = useState(0);
@@ -366,15 +369,29 @@ function SwipeableNotification({
             </div>
 
             {notification.imageUrl && (
-              <img
-                src={notification.imageUrl}
-                alt=""
-                loading="lazy"
-                className="mt-2.5 aspect-[16/7] w-full rounded-xl border border-slate-100 bg-slate-50 object-cover"
-                onError={(event) => {
-                  event.currentTarget.style.display = 'none';
+              <button
+                type="button"
+                className="group mt-2.5 block w-full overflow-hidden rounded-xl border border-slate-100 bg-slate-50 text-left"
+                aria-label={`View image for ${displayCopy.title}`}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onImageClick(notification.imageUrl!, displayCopy.title);
                 }}
-              />
+              >
+                <img
+                  src={notification.imageUrl}
+                  alt={displayCopy.title}
+                  loading="lazy"
+                  className="aspect-[16/7] w-full object-cover transition duration-200 group-active:scale-[0.99]"
+                  onError={(event) => {
+                    event.currentTarget.closest('button')?.setAttribute('hidden', '');
+                  }}
+                />
+                <span className="flex items-center justify-center border-t border-slate-100 bg-white px-3 py-2 text-[11px] font-bold text-slate-500">
+                  Tap to view image
+                </span>
+              </button>
             )}
 
             {displayCopy.message && (
@@ -401,6 +418,10 @@ export default function Notifications() {
   const [busy, setBusy] = useState(false);
   const [clearingAll, setClearingAll] = useState(false);
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{
+    url: string;
+    title: string;
+  } | null>(null);
   const [error, setError] = useState('');
   const [nativePermission, setNativePermission] = useState('unknown');
   const [nativePermissionBusy, setNativePermissionBusy] = useState(false);
@@ -428,13 +449,25 @@ export default function Notifications() {
   }, []);
 
   useEffect(() => {
-    if (!showClearAllConfirm || typeof document === 'undefined') return undefined;
+    if (
+      (!showClearAllConfirm && !previewImage) ||
+      typeof document === 'undefined'
+    ) {
+      return undefined;
+    }
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !clearingAll) {
+      if (event.key !== 'Escape') return;
+
+      if (previewImage) {
+        setPreviewImage(null);
+        return;
+      }
+
+      if (!clearingAll) {
         setShowClearAllConfirm(false);
       }
     };
@@ -445,7 +478,7 @@ export default function Notifications() {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', handleEscape);
     };
-  }, [clearingAll, showClearAllConfirm]);
+  }, [clearingAll, previewImage, showClearAllConfirm]);
 
   const refreshNativePermission = useCallback(async () => {
     if (!isNativeNotificationsAvailable()) {
@@ -619,6 +652,7 @@ export default function Notifications() {
             notification={notification}
             onClick={() => handleNotificationClick(notification)}
             onDelete={() => handleDelete(notification.id)}
+            onImageClick={(url, title) => setPreviewImage({ url, title })}
             isLast={index === items.length - 1 && sectionLabel === 'Earlier'}
           />
         ))}
@@ -773,6 +807,43 @@ export default function Notifications() {
           </>
         )}
       </main>
+
+      {previewImage &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[1100] flex items-center justify-center bg-slate-950/95 p-3 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Image preview: ${previewImage.title}`}
+            onClick={() => setPreviewImage(null)}
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute right-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white ring-1 ring-white/20 backdrop-blur transition active:scale-95"
+              style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}
+              aria-label="Close image preview"
+            >
+              <X size={22} strokeWidth={2.2} />
+            </button>
+
+            <div
+              className="flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col items-center justify-center"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <img
+                src={previewImage.url}
+                alt={previewImage.title}
+                className="max-h-[calc(100dvh-7rem)] max-w-full rounded-2xl bg-white object-contain shadow-2xl"
+              />
+              <p className="mt-3 max-w-full truncate px-4 text-center text-sm font-bold text-white/90">
+                {previewImage.title}
+              </p>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {showClearAllConfirm &&
         typeof document !== 'undefined' &&
