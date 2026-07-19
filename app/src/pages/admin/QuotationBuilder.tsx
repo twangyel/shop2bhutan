@@ -4,8 +4,10 @@ import {
   AlertCircle,
   ArrowLeft,
   CircleMinus,
+  ClipboardPaste,
   ExternalLink,
   Eye,
+  ImageIcon,
   Loader2,
   MapPin,
   RefreshCw,
@@ -29,6 +31,8 @@ import type { DeliveryFeeRule, Order, OrderItem, ServiceChargeRule } from '@/typ
 
 type QuoteItemState = {
   orderItemId: string;
+  requestedProductName: string;
+  requestedProductImage: string;
   productName: string;
   productImage: string;
   sourceUrl?: string;
@@ -96,7 +100,9 @@ function buildQuotationNotes(customerNote: string, excludedItems: QuoteItemState
     EXCLUSION_SECTION_START,
     ...excludedItems.map(
       (item) =>
-        `- ${item.productName} — ${item.exclusionReason.trim() || 'Not included in revised final price'}`,
+        `- ${item.requestedProductName || item.productName} — ${
+          item.exclusionReason.trim() || 'Not included in revised final price'
+        }`,
     ),
     EXCLUSION_SECTION_END,
   ].join('\n');
@@ -112,6 +118,55 @@ function numberValue(value: string | number | undefined | null) {
 function formatAmount(value?: number) {
   if (!value || value <= 0) return 'Nu. 0';
   return `Nu. ${Math.round(value).toLocaleString()}`;
+}
+
+function extractHttpUrl(value: string) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  const candidate =
+    raw.match(/https?:\/\/[^\s<>"']+/i)?.[0]?.replace(/[),.;!?]+$/g, '') ||
+    raw;
+
+  try {
+    const parsed = new URL(candidate);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:'
+      ? parsed.toString()
+      : '';
+  } catch {
+    return '';
+  }
+}
+
+function ProductImagePreview({
+  src,
+  alt,
+}: {
+  src?: string;
+  alt: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  if (!src || failed) {
+    return (
+      <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-300">
+        <ImageIcon size={28} />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onError={() => setFailed(true)}
+      className="h-24 w-24 flex-shrink-0 rounded-xl border border-neutral-100 bg-neutral-50 object-contain"
+    />
+  );
 }
 
 function compactAddressParts(parts: Array<string | undefined>) {
@@ -174,8 +229,10 @@ function buildInitialItems(
 
     return {
       orderItemId: item.id,
+      requestedProductName: item.productName,
+      requestedProductImage: item.productImage || '',
       productName: existingQuoteItem?.productName || item.productName,
-      productImage: existingQuoteItem?.productImage || item.productImage,
+      productImage: existingQuoteItem?.productImage || item.productImage || '',
       sourceUrl: item.sourceUrl,
       sourcePlatform: item.sourcePlatform,
       screenshotUrl: orderItemScreenshot(item),
@@ -231,6 +288,7 @@ export default function QuotationBuilder() {
     'Cancelled by customer',
   );
   const [customExclusionReason, setCustomExclusionReason] = useState('');
+  const [pastingImageItemId, setPastingImageItemId] = useState('');
   const [error, setError] = useState('');
 
   const loadSettings = useCallback(async () => {
@@ -360,6 +418,80 @@ export default function QuotationBuilder() {
     setItems((prev) => prev.map((item) => (item.orderItemId === orderItemId ? { ...item, quotedUnitPrice: price } : item)));
   };
 
+  const updateProductName = (orderItemId: string, value: string) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.orderItemId === orderItemId
+          ? { ...item, productName: value }
+          : item,
+      ),
+    );
+  };
+
+  const updateProductImage = (orderItemId: string, value: string) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.orderItemId === orderItemId
+          ? { ...item, productImage: value.trim() }
+          : item,
+      ),
+    );
+  };
+
+  const restoreRequestedProductDetails = (orderItemId: string) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.orderItemId === orderItemId
+          ? {
+              ...item,
+              productName: item.requestedProductName,
+              productImage: item.requestedProductImage,
+            }
+          : item,
+      ),
+    );
+    setError('');
+  };
+
+  const pasteProductImageUrl = async (orderItemId: string) => {
+    if (pastingImageItemId) return;
+
+    setPastingImageItemId(orderItemId);
+    setError('');
+
+    try {
+      if (!navigator.clipboard?.readText) {
+        throw new Error('Clipboard access is unavailable in this browser.');
+      }
+
+      const clipboardText = await navigator.clipboard.readText();
+      const imageUrl = extractHttpUrl(clipboardText);
+
+      if (!imageUrl) {
+        toast.warning(
+          'Image address not found',
+          'Copy the product image address from the store, then try Paste image URL again.',
+        );
+        return;
+      }
+
+      updateProductImage(orderItemId, imageUrl);
+      toast.success(
+        'Product image updated',
+        'The pasted image will be shown to the customer in the final-price review.',
+      );
+    } catch (err) {
+      toast.warning(
+        'Clipboard access blocked',
+        err instanceof Error
+          ? err.message
+          : 'Paste the image address manually into the product image field.',
+      );
+    } finally {
+      setPastingImageItemId('');
+    }
+  };
+
   const updateAdminNotes = (orderItemId: string, value: string) => {
     setItems((prev) => prev.map((item) => (item.orderItemId === orderItemId ? { ...item, adminNotes: value } : item)));
   };
@@ -443,6 +575,15 @@ export default function QuotationBuilder() {
       return;
     }
 
+    if (includedItems.some((item) => !item.productName.trim())) {
+      setError('Please enter a clear product name for every included item.');
+      toast.warning(
+        'Product names required',
+        'Add a customer-friendly product name before sending the final price.',
+      );
+      return;
+    }
+
     if (includedItems.some((item) => numberValue(item.quotedUnitPrice) <= 0)) {
       setError('Please enter a confirmed unit price for every included item.');
       toast.warning('Confirmed prices required', 'Please price every product included in the final price.');
@@ -463,8 +604,8 @@ export default function QuotationBuilder() {
         orderId: order.id,
         items: includedItems.map((item) => ({
           orderItemId: item.orderItemId,
-          productName: item.productName,
-          productImage: item.productImage,
+          productName: item.productName.trim(),
+          productImage: item.productImage.trim(),
           quantity: Math.max(1, Number(item.quantity) || 1),
           unitPrice: numberValue(item.quotedUnitPrice),
           notes: item.adminNotes.trim(),
@@ -681,10 +822,9 @@ export default function QuotationBuilder() {
                     }`}
                   >
                     <div className={`flex flex-col gap-4 lg:flex-row ${item.isIncluded ? '' : 'opacity-75'}`}>
-                      <img
+                      <ProductImagePreview
                         src={item.productImage}
-                        alt=""
-                        className="w-24 h-24 rounded-xl object-cover bg-neutral-100 flex-shrink-0"
+                        alt={item.productName || `Product ${index + 1}`}
                       />
 
                       <div className="flex-1 min-w-0">
@@ -758,6 +898,114 @@ export default function QuotationBuilder() {
                             </p>
                           </div>
                         )}
+
+                        <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/40 p-3">
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div>
+                              <p className="text-xs font-semibold uppercase text-blue-700">
+                                Customer-facing product details
+                              </p>
+                              <p className="mt-0.5 text-[11px] leading-4 text-blue-600">
+                                Correct unclear names and paste the product image address before sending the final price.
+                              </p>
+                            </div>
+
+                            {(item.productName !== item.requestedProductName ||
+                              item.productImage !== item.requestedProductImage) && (
+                              <button
+                                type="button"
+                                onClick={() => restoreRequestedProductDetails(item.orderItemId)}
+                                disabled={!item.isIncluded || saving}
+                                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-blue-200 bg-white px-2.5 text-[11px] font-semibold text-blue-700 transition hover:bg-blue-50 disabled:opacity-50"
+                              >
+                                <RotateCcw size={13} />
+                                Restore submitted details
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="mt-3">
+                            <label className="text-xs font-semibold uppercase text-neutral-500">
+                              Product Name
+                            </label>
+                            <input
+                              type="text"
+                              value={item.productName}
+                              onChange={(event) =>
+                                updateProductName(
+                                  item.orderItemId,
+                                  event.target.value.slice(0, 300),
+                                )
+                              }
+                              disabled={!item.isIncluded}
+                              placeholder="Paste the correct customer-friendly product name"
+                              className="mt-1 h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none focus:ring-2 focus:ring-blue-500/20 disabled:bg-neutral-100 disabled:text-neutral-400"
+                            />
+                            {item.requestedProductName &&
+                              item.productName.trim() !==
+                                item.requestedProductName.trim() && (
+                                <p className="mt-1 text-[11px] text-neutral-500">
+                                  Customer submitted: {item.requestedProductName}
+                                </p>
+                              )}
+                          </div>
+
+                          <div className="mt-3">
+                            <label className="text-xs font-semibold uppercase text-neutral-500">
+                              Product Image URL
+                            </label>
+                            <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+                              <input
+                                type="url"
+                                value={item.productImage}
+                                onChange={(event) =>
+                                  updateProductImage(
+                                    item.orderItemId,
+                                    event.target.value,
+                                  )
+                                }
+                                disabled={!item.isIncluded}
+                                placeholder="Paste image address from the store"
+                                className="h-10 min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-blue-500/20 disabled:bg-neutral-100 disabled:text-neutral-400"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void pasteProductImageUrl(item.orderItemId)
+                                }
+                                disabled={
+                                  !item.isIncluded ||
+                                  saving ||
+                                  Boolean(pastingImageItemId)
+                                }
+                                className="inline-flex h-10 flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 text-xs font-semibold text-blue-700 transition hover:bg-blue-50 disabled:opacity-50"
+                              >
+                                {pastingImageItemId === item.orderItemId ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <ClipboardPaste size={14} />
+                                )}
+                                Paste image URL
+                              </button>
+                              {item.productImage && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateProductImage(item.orderItemId, '')
+                                  }
+                                  disabled={!item.isIncluded || saving}
+                                  className="inline-flex h-10 flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-50"
+                                >
+                                  <X size={14} />
+                                  Clear
+                                </button>
+                              )}
+                            </div>
+                            <p className="mt-1 text-[11px] leading-4 text-neutral-500">
+                              On the store website, choose “Copy image address.” The original product link remains unchanged.
+                            </p>
+                          </div>
+                        </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
                           <div>
