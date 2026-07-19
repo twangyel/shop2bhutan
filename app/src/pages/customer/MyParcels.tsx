@@ -5,8 +5,8 @@ import { useAppToast } from '@/components/shared/AppToast'
 import {
   Calendar,
   CheckCircle2,
-  Clock,
   ChevronDown,
+  Clock,
   HelpCircle,
   Image as ImageIcon,
   Loader2,
@@ -17,6 +17,7 @@ import {
 import { fetchMyParcelRequests } from '@/lib/parcels'
 import { shareTextContent } from '@/lib/nativeShare'
 import {
+  parcelSizeLabels,
   parcelStatusLabels,
   parcelTypeLabels,
 } from '@/types/parcel'
@@ -47,6 +48,20 @@ function formatDate(value?: string | null) {
   })
 }
 
+function formatShortDate(value?: string | null) {
+  if (!value) return 'Date not fixed'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Date not fixed'
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: BHUTAN_TIME_ZONE,
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(date)
+}
+
 function formatDateTime(value?: string | null) {
   if (!value) return ''
 
@@ -57,8 +72,9 @@ function formatDateTime(value?: string | null) {
     timeZone: BHUTAN_TIME_ZONE,
     day: 'numeric',
     month: 'short',
-    hour: '2-digit',
+    hour: 'numeric',
     minute: '2-digit',
+    hour12: true,
   })} BTT`
 }
 
@@ -76,6 +92,7 @@ function formatPickupWindow(request: ParcelRequest) {
     month: 'long',
     year: 'numeric',
   }).format(start)
+
   const time = new Intl.DateTimeFormat('en-GB', {
     timeZone: BHUTAN_TIME_ZONE,
     hour: 'numeric',
@@ -84,6 +101,30 @@ function formatPickupWindow(request: ParcelRequest) {
   })
 
   return `${date}, ${time.format(start)}–${time.format(end)}`
+}
+
+function formatCompactPickupWindow(request: ParcelRequest) {
+  if (!request.pickupWindowStartAt || !request.pickupWindowEndAt) return ''
+
+  const start = new Date(request.pickupWindowStartAt)
+  const end = new Date(request.pickupWindowEndAt)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return ''
+
+  const date = new Intl.DateTimeFormat('en-GB', {
+    timeZone: BHUTAN_TIME_ZONE,
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).format(start)
+
+  const time = new Intl.DateTimeFormat('en-GB', {
+    timeZone: BHUTAN_TIME_ZONE,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+
+  return `${date} · ${time.format(start)}–${time.format(end)}`
 }
 
 function statusClass(status: string) {
@@ -96,15 +137,15 @@ function statusClass(status: string) {
   }
 
   if (status === 'pickup_scheduled') {
-    return 'bg-blue-50 text-blue-700 ring-1 ring-blue-100'
+    return 'bg-orange-50 text-orange-700 ring-1 ring-orange-200'
   }
 
-  if (status === 'picked_up' || status === 'collected') {
-    return 'bg-blue-50 text-blue-700 ring-1 ring-blue-100'
-  }
-
-  if (status === 'in_transit') {
-    return 'bg-violet-50 text-violet-700 ring-1 ring-violet-100'
+  if (
+    status === 'picked_up' ||
+    status === 'collected' ||
+    status === 'in_transit'
+  ) {
+    return 'bg-slate-100 text-slate-700 ring-1 ring-slate-200'
   }
 
   if (status === 'delivered') {
@@ -113,10 +154,6 @@ function statusClass(status: string) {
 
   if (status === 'rejected') {
     return 'bg-rose-50 text-rose-700 ring-1 ring-rose-100'
-  }
-
-  if (status === 'cancelled') {
-    return 'bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200'
   }
 
   return 'bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200'
@@ -137,7 +174,8 @@ const activeParcelStatuses = new Set([
 ])
 
 function routeTitle(request: ParcelRequest) {
-  const origin = request.trip?.origin || request.trip?.fromLocation || 'Pickup location'
+  const origin =
+    request.trip?.origin || request.trip?.fromLocation || 'Pickup location'
   const destination =
     request.trip?.destination ||
     request.trip?.toLocation ||
@@ -154,6 +192,94 @@ function latestStatusEvent(request: ParcelRequest, status: string) {
         (new Date(b.createdAt).getTime() || 0) -
         (new Date(a.createdAt).getTime() || 0),
     )[0]
+}
+
+function nextStepCopy(request: ParcelRequest) {
+  const note = request.adminNotes?.trim()
+
+  if (request.status === 'pending') {
+    return {
+      title: 'Waiting for review',
+      message:
+        'Shop2Bhutan will review your request and confirm whether it can be accepted for this trip.',
+    }
+  }
+
+  if (request.status === 'accepted') {
+    return {
+      title: 'Pickup time will be confirmed',
+      message:
+        'Your request is accepted. Your evening pickup window will be shared separately.',
+    }
+  }
+
+  if (request.status === 'pickup_scheduled') {
+    return {
+      title: 'Keep the parcel ready',
+      message:
+        request.pickupInstructions?.trim() ||
+        'Keep the parcel packed and your phone available during the confirmed pickup window.',
+    }
+  }
+
+  if (request.status === 'picked_up' || request.status === 'collected') {
+    return {
+      title: 'Parcel collected',
+      message:
+        'Your parcel has been collected and will be prepared for the scheduled trip.',
+    }
+  }
+
+  if (request.status === 'in_transit') {
+    return {
+      title: 'Parcel is on the way',
+      message:
+        'Your parcel is travelling to the destination. You will receive another update after delivery.',
+    }
+  }
+
+  if (request.status === 'delivered') {
+    return {
+      title: 'Delivery completed',
+      message: 'Your parcel has been delivered successfully.',
+    }
+  }
+
+  if (request.status === 'rejected') {
+    return {
+      title: 'Request not accepted',
+      message: note || 'Please review the reason below or contact support for help.',
+    }
+  }
+
+  if (request.status === 'cancelled') {
+    return {
+      title: 'Request cancelled',
+      message: note || 'This parcel request is no longer active.',
+    }
+  }
+
+  return {
+    title: 'Parcel updated',
+    message: 'Open the details below to review the latest parcel information.',
+  }
+}
+
+function collapsedSummary(request: ParcelRequest) {
+  const pickupWindow = formatCompactPickupWindow(request)
+  if (pickupWindow) return pickupWindow
+
+  if (request.status === 'pending') return 'Waiting for review'
+  if (request.status === 'accepted') return 'Waiting for evening pickup window'
+  if (request.status === 'picked_up' || request.status === 'collected') {
+    return 'Parcel collected for the trip'
+  }
+  if (request.status === 'in_transit') return 'Parcel is on the way'
+  if (request.status === 'delivered') return 'Delivery completed'
+  if (request.status === 'rejected') return 'Request not accepted'
+  if (request.status === 'cancelled') return 'Request cancelled'
+
+  return `Trip: ${formatShortDate(request.trip?.goingDate)}`
 }
 
 export default function MyParcels() {
@@ -224,21 +350,22 @@ export default function MyParcels() {
     <div className="min-h-screen bg-white pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
       <header className="sticky top-0 z-20 border-b border-neutral-100 bg-white/95 backdrop-blur">
         <div className="px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
-          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-orange-500">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-orange-500">
             Parcel tracking
           </p>
-          <div className="mt-0.5 flex items-end justify-between gap-3">
+
+          <div className="mt-1 flex items-end justify-between gap-3">
             <div>
               <h1 className="text-xl font-black tracking-tight text-neutral-950">
                 My Parcels
               </h1>
               <p className="mt-0.5 text-xs text-neutral-500">
-                Track every pickup and delivery update
+                Simple pickup and delivery updates
               </p>
             </div>
 
             {!loading && requests.length > 0 && (
-              <span className="shrink-0 rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-bold text-neutral-600">
+              <span className="shrink-0 rounded-full border border-neutral-200 bg-white px-3 py-1 text-[11px] font-bold text-neutral-600">
                 {requests.length} {requests.length === 1 ? 'parcel' : 'parcels'}
               </span>
             )}
@@ -248,12 +375,12 @@ export default function MyParcels() {
 
       <main className="px-4 py-4">
         {error && (
-          <div className="mb-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-            <p className="text-sm font-semibold text-red-700">{error}</p>
+          <div className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3">
+            <p className="text-sm font-semibold text-rose-700">{error}</p>
             <button
               type="button"
               onClick={() => void loadParcels()}
-              className="mt-2 text-xs font-bold text-red-700 underline underline-offset-2"
+              className="mt-2 text-xs font-bold text-rose-700 underline underline-offset-2"
             >
               Try again
             </button>
@@ -261,11 +388,11 @@ export default function MyParcels() {
         )}
 
         {!authLoading && (!user || isGuest) && (
-          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
-            <MapPin size={17} className="mt-0.5 shrink-0 text-blue-500" />
-            <p className="text-xs leading-5 text-blue-700">
-              Guest parcel tracking is saved on this device only. Sign in later
-              for permanent access across devices.
+          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+            <MapPin size={17} className="mt-0.5 shrink-0 text-neutral-500" />
+            <p className="text-xs leading-5 text-neutral-600">
+              Guest tracking is saved on this device only. Sign in later for
+              permanent access across devices.
             </p>
           </div>
         )}
@@ -275,13 +402,13 @@ export default function MyParcels() {
             {[1, 2, 3].map((item) => (
               <div
                 key={item}
-                className="h-36 animate-pulse rounded-[22px] bg-neutral-100"
+                className="h-32 animate-pulse rounded-[22px] bg-neutral-100"
               />
             ))}
           </div>
         ) : requests.length === 0 ? (
-          <div className="rounded-3xl border border-neutral-100 bg-neutral-50 px-6 py-10 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-neutral-400 ring-1 ring-neutral-100">
+          <div className="rounded-3xl border border-neutral-200 bg-neutral-50 px-6 py-10 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-neutral-400 ring-1 ring-neutral-200">
               <Package size={27} />
             </div>
 
@@ -314,7 +441,7 @@ export default function MyParcels() {
                   </p>
                 </div>
 
-                <span className="rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-bold text-orange-700">
+                <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-bold text-neutral-600">
                   {activeRequests.length} active
                 </span>
               </div>
@@ -331,23 +458,23 @@ export default function MyParcels() {
                   ))}
                 </div>
               ) : (
-                <div className="rounded-3xl border border-neutral-100 bg-neutral-50 px-4 py-6 text-center">
+                <div className="rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-6 text-center">
                   <CheckCircle2
                     size={24}
-                    className="mx-auto text-emerald-500"
+                    className="mx-auto text-neutral-500"
                   />
                   <p className="mt-2 text-sm font-bold text-neutral-800">
                     No active parcels
                   </p>
                   <p className="mt-1 text-xs text-neutral-500">
-                    Your completed and closed requests are available below.
+                    Completed and closed requests are available below.
                   </p>
                 </div>
               )}
             </section>
 
             {historyRequests.length > 0 && (
-              <section className="rounded-3xl border border-neutral-100 bg-neutral-50 p-2">
+              <section className="rounded-3xl border border-neutral-200 bg-neutral-50 p-2">
                 <button
                   type="button"
                   onClick={toggleHistory}
@@ -394,6 +521,8 @@ export default function MyParcels() {
   )
 }
 
+type DetailSection = 'tracking' | 'contacts' | 'parcel' | null
+
 function ParcelCard({
   request,
   expanded,
@@ -405,6 +534,7 @@ function ParcelCard({
 }) {
   const { showToast } = useAppToast()
   const [sharing, setSharing] = useState(false)
+  const [openSection, setOpenSection] = useState<DetailSection>(null)
 
   const displayStatus = normalizeStatus(request.status)
   const currentIndex = timeline.indexOf(
@@ -412,18 +542,15 @@ function ParcelCard({
   )
   const isException =
     request.status === 'cancelled' || request.status === 'rejected'
-  const needsHelp = isException
   const title =
     request.packageDescription || request.description || 'Parcel request'
   const currentEvent = latestStatusEvent(request, displayStatus)
-  const progressPercent = isException
-    ? 100
-    : Math.max(
-        12,
-        Math.round(
-          ((Math.max(0, currentIndex) + 1) / timeline.length) * 100,
-        ),
-      )
+  const nextStep = nextStepCopy(request)
+  const eventCount = request.trackingEvents?.length ?? 0
+
+  const toggleSection = (section: Exclude<DetailSection, null>) => {
+    setOpenSection((current) => (current === section ? null : section))
+  }
 
   const shareParcelUpdate = async () => {
     if (sharing) return
@@ -431,17 +558,12 @@ function ParcelCard({
     setSharing(true)
 
     try {
-      const status =
-        parcelStatusLabels[request.status] || request.status
+      const status = parcelStatusLabels[request.status] || request.status
       const result = await shareTextContent({
-        title: `Shop2Bhutan Parcel ${
-          request.parcelNo || 'Update'
-        }`,
+        title: `Shop2Bhutan Parcel ${request.parcelNo || 'Update'}`,
         dialogTitle: 'Share parcel update',
         text: [
-          `Shop2Bhutan Parcel ${
-            request.parcelNo || 'Request'
-          }`,
+          `Shop2Bhutan Parcel ${request.parcelNo || 'Request'}`,
           `Route: ${routeTitle(request)}`,
           `Trip date: ${formatDate(request.trip?.goingDate)}`,
           `Status: ${status}`,
@@ -473,33 +595,34 @@ function ParcelCard({
   }
 
   return (
-    <article className="overflow-hidden rounded-[22px] border border-neutral-100 bg-white shadow-[0_5px_18px_rgba(15,23,42,0.035)]">
-      <div className="p-3">
+    <article className="overflow-hidden rounded-[22px] border border-neutral-200 bg-white shadow-[0_5px_18px_rgba(15,23,42,0.035)]">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full p-3 text-left transition active:bg-neutral-50"
+        aria-expanded={expanded}
+      >
         <div className="flex items-start gap-3">
           {request.parcelPhotoUrl ? (
             <img
               src={request.parcelPhotoUrl}
               alt={title}
-              className="h-[52px] w-[52px] shrink-0 rounded-2xl bg-neutral-100 object-cover ring-1 ring-neutral-200"
+              className="h-14 w-14 shrink-0 rounded-2xl bg-neutral-100 object-cover ring-1 ring-neutral-200"
             />
           ) : (
-            <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-neutral-100 text-neutral-500 ring-1 ring-neutral-200">
               <Package size={21} />
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={onToggle}
-            className="min-w-0 flex-1 text-left"
-          >
+          <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
-              <p className="min-w-0 truncate text-[10px] font-black uppercase tracking-[0.1em] text-neutral-400">
+              <p className="min-w-0 truncate text-[10px] font-bold uppercase tracking-[0.1em] text-neutral-400">
                 {request.parcelNo || 'Parcel Request'}
               </p>
 
               <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${statusClass(
+                className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${statusClass(
                   request.status,
                 )}`}
               >
@@ -515,145 +638,79 @@ function ParcelCard({
               {routeTitle(request)}
             </p>
 
-            <p className="mt-1 flex items-center gap-1.5 text-[11px] text-neutral-500">
-              <Calendar size={12} className="shrink-0 text-neutral-400" />
-              <span className="truncate">
-                {formatDate(request.trip?.goingDate)}
-              </span>
-            </p>
-          </button>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <p className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-neutral-500">
+                {request.pickupWindowStartAt ? (
+                  <Clock size={13} className="shrink-0 text-orange-500" />
+                ) : (
+                  <Calendar size={13} className="shrink-0 text-neutral-400" />
+                )}
+                <span className="truncate">{collapsedSummary(request)}</span>
+              </p>
 
-          <div className="flex shrink-0 flex-col gap-2">
-            <button
-              type="button"
-              onClick={onToggle}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-50 text-neutral-600 ring-1 ring-neutral-100 transition active:scale-95"
-              aria-label={expanded ? 'Hide parcel details' : 'View parcel details'}
-            >
               <ChevronDown
-                size={16}
-                className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
+                size={17}
+                className={`shrink-0 text-neutral-400 transition-transform ${
+                  expanded ? 'rotate-180' : ''
+                }`}
               />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => void shareParcelUpdate()}
-              disabled={sharing}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition active:scale-95 disabled:cursor-wait disabled:opacity-60"
-              aria-label="Share parcel update"
-              title="Share parcel update"
-            >
-              {sharing ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Share2 size={14} strokeWidth={2.3} />
-              )}
-            </button>
+            </div>
           </div>
         </div>
-
-        {!isException ? (
-          <button
-            type="button"
-            onClick={onToggle}
-            className="mt-3 w-full rounded-2xl bg-neutral-50 px-3 py-2.5 text-left ring-1 ring-neutral-100 transition active:scale-[0.99]"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-neutral-400">
-                  Current status
-                </p>
-                <p className="mt-0.5 truncate text-xs font-black text-neutral-800">
-                  {parcelStatusLabels[request.status] || request.status}
-                </p>
-              </div>
-
-              <span className="text-[10px] font-bold text-neutral-400">
-                {progressPercent}%
-              </span>
-            </div>
-
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white ring-1 ring-neutral-100">
-              <div
-                className="h-full rounded-full bg-emerald-500 transition-all"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={onToggle}
-            className={`mt-3 flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-left ${statusClass(
-              request.status,
-            )}`}
-          >
-            <span className="text-xs font-black">
-              {parcelStatusLabels[request.status] || request.status}
-            </span>
-            <ChevronDown
-              size={15}
-              className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
-            />
-          </button>
-        )}
-      </div>
+      </button>
 
       {expanded && (
         <div className="border-t border-neutral-100 px-3 pb-4 pt-3">
-          <div className="rounded-2xl bg-neutral-50 px-3 py-3 ring-1 ring-neutral-100">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-neutral-400">
-                  Latest update
-                </p>
-                <p className="mt-1 text-sm font-black text-neutral-900">
-                  {parcelStatusLabels[request.status] || request.status}
-                </p>
-                {currentEvent && (
-                  <p className="mt-1 text-xs leading-5 text-neutral-500">
-                    {currentEvent.message ||
-                      `Updated ${formatDateTime(currentEvent.createdAt)}`}
-                  </p>
-                )}
-              </div>
-
-              {!isException && (
-                <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100">
-                  {progressPercent}% complete
-                </span>
-              )}
-            </div>
-          </div>
+          <section
+            className={`rounded-2xl border px-3 py-3 ${
+              isException
+                ? request.status === 'rejected'
+                  ? 'border-rose-100 bg-rose-50'
+                  : 'border-neutral-200 bg-neutral-50'
+                : 'border-neutral-200 bg-neutral-50'
+            }`}
+          >
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-neutral-400">
+              What happens next
+            </p>
+            <p className="mt-1 text-sm font-black text-neutral-900">
+              {nextStep.title}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-neutral-600">
+              {nextStep.message}
+            </p>
+            {currentEvent?.createdAt && (
+              <p className="mt-2 text-[10px] font-medium text-neutral-400">
+                Updated {formatDateTime(currentEvent.createdAt)}
+              </p>
+            )}
+          </section>
 
           {request.pickupWindowStartAt && request.pickupWindowEndAt ? (
-            <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 p-3">
+            <section className="mt-3 rounded-2xl border border-orange-100 bg-orange-50/60 p-3">
               <div className="flex items-start gap-2.5">
-                <Clock size={16} className="mt-0.5 shrink-0 text-blue-600" />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-orange-600 ring-1 ring-orange-100">
+                  <Clock size={16} />
+                </div>
                 <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-blue-500">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-orange-600">
                     Confirmed pickup window
                   </p>
-                  <p className="mt-1 text-sm font-black leading-5 text-blue-950">
+                  <p className="mt-1 text-sm font-black leading-5 text-neutral-950">
                     {formatPickupWindow(request)}
                   </p>
-                  <p className="mt-1 text-xs leading-5 text-blue-700">
+                  <p className="mt-1 text-xs leading-5 text-neutral-600">
                     {request.pickupInstructions ||
                       'Please keep the parcel packed and your phone available.'}
                   </p>
                 </div>
               </div>
-            </div>
-          ) : request.status === 'accepted' ? (
-            <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-700">
-              Your request is accepted. Shop2Bhutan will confirm your evening pickup window separately.
-            </div>
+            </section>
           ) : null}
 
-          <div className="mt-3 grid grid-cols-2 divide-x divide-neutral-200 rounded-2xl bg-white px-3 py-2.5 ring-1 ring-neutral-100">
+          <section className="mt-3 grid grid-cols-2 divide-x divide-neutral-200 rounded-2xl border border-neutral-200 bg-white px-3 py-2.5">
             <div className="pr-3">
-              <p className="text-[9px] font-black uppercase tracking-wider text-neutral-400">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-neutral-400">
                 Route
               </p>
               <p className="mt-1 line-clamp-2 text-xs font-bold text-neutral-800">
@@ -661,195 +718,284 @@ function ParcelCard({
               </p>
             </div>
             <div className="pl-3">
-              <p className="text-[9px] font-black uppercase tracking-wider text-neutral-400">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-neutral-400">
                 Trip date
               </p>
               <p className="mt-1 line-clamp-2 text-xs font-bold text-neutral-800">
                 {formatDate(request.trip?.goingDate)}
               </p>
             </div>
-          </div>
+          </section>
 
-          {request.parcelType && (
-            <div className="mt-3 flex items-center justify-between rounded-2xl bg-blue-50 px-3 py-2.5 ring-1 ring-blue-100">
-              <span className="text-[10px] font-black uppercase tracking-wider text-blue-500">
-                Parcel type
-              </span>
-              <span className="text-xs font-black text-blue-700">
-                {parcelTypeLabels[request.parcelType] || request.parcelType}
-              </span>
-            </div>
-          )}
+          <div className="mt-3 overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+            <AccordionButton
+              title="Tracking history"
+              subtitle={`${eventCount} ${eventCount === 1 ? 'update' : 'updates'}`}
+              open={openSection === 'tracking'}
+              onClick={() => toggleSection('tracking')}
+            />
 
-          <div className="mt-3 rounded-2xl border border-neutral-100 p-3">
-            <div className="flex gap-3">
-              <div className="flex flex-col items-center pt-1">
-                <span className="h-3 w-3 rounded-full bg-emerald-500" />
-                <span className="h-12 w-px bg-neutral-200" />
-                <span className="h-3 w-3 rounded-full bg-orange-500" />
-              </div>
-
-              <div className="min-w-0 flex-1 space-y-3">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">
-                    Pickup
+            {openSection === 'tracking' && (
+              <div className="border-t border-neutral-100 px-3 py-3">
+                {isException ? (
+                  <p className="text-sm font-semibold text-neutral-700">
+                    {parcelStatusLabels[request.status] || request.status}
                   </p>
-                  <p className="mt-0.5 text-sm font-semibold text-neutral-900">
-                    {request.pickupAddress || 'Pickup address'}
-                  </p>
-                  <p className="mt-0.5 text-xs text-neutral-500">
-                    {request.senderName || 'Pickup contact'} ·{' '}
-                    {request.senderPhone || request.contactNumber || 'Phone'}
-                  </p>
-                </div>
+                ) : (
+                  <div>
+                    {timeline.map((status, index) => {
+                      const done = currentIndex >= index
+                      const isCurrent = currentIndex === index
+                      const event = latestStatusEvent(request, status)
 
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">
-                    Drop-off
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold text-neutral-900">
-                    {request.dropoffAddress || 'Drop-off address'}
-                  </p>
-                  <p className="mt-0.5 text-xs text-neutral-500">
-                    {request.receiverName || 'Receiver'} ·{' '}
-                    {request.receiverPhone || 'Phone'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {request.parcelPhotoUrl && (
-            <a
-              href={request.parcelPhotoUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700"
-            >
-              <ImageIcon size={14} />
-              View parcel photo
-            </a>
-          )}
-
-          <div className="mt-4">
-            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.12em] text-neutral-400">
-              Tracking journey
-            </p>
-
-            {isException ? (
-              <div
-                className={`rounded-2xl px-3 py-2 text-sm font-semibold ${statusClass(
-                  request.status,
-                )}`}
-              >
-                {parcelStatusLabels[request.status] || request.status}
-              </div>
-            ) : (
-              <div>
-                {timeline.map((status, index) => {
-                  const done = currentIndex >= index
-                  const isCurrent = currentIndex === index
-                  const event = latestStatusEvent(request, status)
-
-                  return (
-                    <div
-                      key={status}
-                      className="relative flex gap-3 pb-4 last:pb-0"
-                    >
-                      {index < timeline.length - 1 && (
-                        <span
-                          className={`absolute left-[13px] top-7 h-full w-px ${
-                            currentIndex > index
-                              ? 'bg-emerald-200'
-                              : 'bg-neutral-200'
-                          }`}
-                        />
-                      )}
-
-                      <div
-                        className={`relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                          done
-                            ? isCurrent
-                              ? 'bg-orange-500 text-white ring-4 ring-orange-100'
-                              : 'bg-emerald-500 text-white'
-                            : 'bg-neutral-100 text-neutral-400'
-                        }`}
-                      >
-                        {done ? (
-                          <CheckCircle2 size={15} />
-                        ) : (
-                          <span className="h-2 w-2 rounded-full bg-current" />
-                        )}
-                      </div>
-
-                      <div className="min-w-0 flex-1 pt-0.5">
-                        <p
-                          className={`text-sm font-bold ${
-                            done ? 'text-neutral-900' : 'text-neutral-400'
-                          }`}
+                      return (
+                        <div
+                          key={status}
+                          className="relative flex gap-3 pb-4 last:pb-0"
                         >
-                          {parcelStatusLabels[status] || status}
-                        </p>
+                          {index < timeline.length - 1 && (
+                            <span
+                              className={`absolute left-[11px] top-6 h-full w-px ${
+                                currentIndex > index
+                                  ? 'bg-neutral-400'
+                                  : 'bg-neutral-200'
+                              }`}
+                            />
+                          )}
 
-                        {event && (
-                          <>
-                            <p className="mt-0.5 text-[11px] font-medium text-neutral-400">
-                              {formatDateTime(event.createdAt)}
+                          <div
+                            className={`relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                              isCurrent
+                                ? 'bg-orange-500 text-white ring-4 ring-orange-100'
+                                : done
+                                  ? 'bg-neutral-800 text-white'
+                                  : 'bg-neutral-100 text-neutral-400'
+                            }`}
+                          >
+                            {done ? (
+                              <CheckCircle2 size={13} />
+                            ) : (
+                              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1 pt-0.5">
+                            <p
+                              className={`text-xs font-bold ${
+                                done ? 'text-neutral-900' : 'text-neutral-400'
+                              }`}
+                            >
+                              {parcelStatusLabels[status] || status}
                             </p>
-                            {event.message && (
+
+                            {event?.createdAt && (
+                              <p className="mt-0.5 text-[10px] font-medium text-neutral-400">
+                                {formatDateTime(event.createdAt)}
+                              </p>
+                            )}
+
+                            {event?.message && isCurrent && (
                               <p className="mt-1 text-xs leading-5 text-neutral-500">
                                 {event.message}
                               </p>
                             )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <AccordionButton
+              title="Pickup & delivery details"
+              open={openSection === 'contacts'}
+              onClick={() => toggleSection('contacts')}
+            />
+
+            {openSection === 'contacts' && (
+              <div className="border-t border-neutral-100 px-3 py-3">
+                <DetailBlock
+                  label="Pickup"
+                  address={request.pickupAddress || 'Pickup address'}
+                  name={request.senderName || 'Pickup contact'}
+                  phone={request.senderPhone || request.contactNumber || 'Phone'}
+                />
+                <div className="my-3 h-px bg-neutral-100" />
+                <DetailBlock
+                  label="Drop-off"
+                  address={request.dropoffAddress || 'Drop-off address'}
+                  name={request.receiverName || 'Receiver'}
+                  phone={request.receiverPhone || 'Phone'}
+                />
+              </div>
+            )}
+
+            <AccordionButton
+              title="Parcel information"
+              open={openSection === 'parcel'}
+              onClick={() => toggleSection('parcel')}
+            />
+
+            {openSection === 'parcel' && (
+              <div className="border-t border-neutral-100 px-3 py-3">
+                <dl className="grid grid-cols-2 gap-3">
+                  <InfoItem
+                    label="Parcel type"
+                    value={
+                      request.parcelType
+                        ? parcelTypeLabels[request.parcelType] || request.parcelType
+                        : 'Not specified'
+                    }
+                  />
+                  <InfoItem
+                    label="Parcel size"
+                    value={
+                      request.parcelSize
+                        ? parcelSizeLabels[request.parcelSize] || request.parcelSize
+                        : 'Not specified'
+                    }
+                  />
+                </dl>
+
+                {request.parcelPhotoUrl && (
+                  <a
+                    href={request.parcelPhotoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-700"
+                  >
+                    <ImageIcon size={14} />
+                    View parcel photo
+                  </a>
+                )}
+
+                {request.adminNotes && (
+                  <div
+                    className={`mt-3 rounded-xl border p-3 text-xs ${
+                      request.status === 'rejected'
+                        ? 'border-rose-100 bg-rose-50 text-rose-700'
+                        : 'border-neutral-200 bg-neutral-50 text-neutral-700'
+                    }`}
+                  >
+                    <p className="font-bold">
+                      {request.status === 'rejected'
+                        ? 'Rejection reason'
+                        : request.status === 'cancelled'
+                          ? 'Cancellation note'
+                          : 'Shop2Bhutan note'}
+                    </p>
+                    <p className="mt-1 leading-5">{request.adminNotes}</p>
+                  </div>
+                )}
+
+                {(request.customerNotes || request.instructions) && (
+                  <div className="mt-3 rounded-xl bg-neutral-50 p-3 text-xs leading-5 text-neutral-600">
+                    <span className="font-bold">Your note:</span>{' '}
+                    {request.customerNotes || request.instructions}
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {request.adminNotes && (
-            <div
-              className={`mt-4 rounded-2xl border p-3 text-xs ${
-                request.status === 'rejected'
-                  ? 'border-rose-100 bg-rose-50 text-rose-700'
-                  : request.status === 'cancelled'
-                    ? 'border-neutral-200 bg-neutral-50 text-neutral-700'
-                    : 'border-amber-100 bg-amber-50 text-amber-700'
-              }`}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void shareParcelUpdate()}
+              disabled={sharing}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-600 transition active:scale-95 disabled:cursor-wait disabled:opacity-60"
             >
-              <p className="font-bold">
-                {request.status === 'rejected'
-                  ? 'Rejection Reason'
-                  : request.status === 'cancelled'
-                    ? 'Cancellation Note'
-                    : 'Admin Note'}
-              </p>
-              <p className="mt-1 leading-5">{request.adminNotes}</p>
-            </div>
-          )}
+              {sharing ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Share2 size={14} />
+              )}
+              Share update
+            </button>
 
-          {(request.customerNotes || request.instructions) && (
-            <p className="mt-3 rounded-2xl bg-neutral-50 p-3 text-xs leading-5 text-neutral-600">
-              <span className="font-bold">Your note:</span>{' '}
-              {request.customerNotes || request.instructions}
-            </p>
-          )}
-
-          {needsHelp && (
-            <a
-              href="/support"
-              className="mt-3 inline-flex items-center gap-1.5 rounded-2xl bg-orange-50 px-3 py-2 text-xs font-bold text-orange-700"
-            >
-              <HelpCircle size={14} />
-              Need help with this parcel?
-            </a>
-          )}
+            {isException && (
+              <a
+                href="/support"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-orange-50 px-3 py-2 text-xs font-bold text-orange-700 ring-1 ring-orange-100"
+              >
+                <HelpCircle size={14} />
+                Get help
+              </a>
+            )}
+          </div>
         </div>
       )}
     </article>
+  )
+}
+
+function AccordionButton({
+  title,
+  subtitle,
+  open,
+  onClick,
+}: {
+  title: string
+  subtitle?: string
+  open: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center justify-between gap-3 border-t border-neutral-100 px-3 py-3 text-left first:border-t-0 transition active:bg-neutral-50"
+      aria-expanded={open}
+    >
+      <div>
+        <p className="text-sm font-bold text-neutral-900">{title}</p>
+        {subtitle && (
+          <p className="mt-0.5 text-[11px] text-neutral-500">{subtitle}</p>
+        )}
+      </div>
+      <ChevronDown
+        size={17}
+        className={`shrink-0 text-neutral-400 transition-transform ${
+          open ? 'rotate-180' : ''
+        }`}
+      />
+    </button>
+  )
+}
+
+function DetailBlock({
+  label,
+  address,
+  name,
+  phone,
+}: {
+  label: string
+  address: string
+  name: string
+  phone: string
+}) {
+  return (
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-bold text-neutral-900">{address}</p>
+      <p className="mt-1 text-xs text-neutral-500">
+        {name} · {phone}
+      </p>
+    </div>
+  )
+}
+
+function InfoItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+        {label}
+      </dt>
+      <dd className="mt-1 text-xs font-bold text-neutral-800">{value}</dd>
+    </div>
   )
 }
