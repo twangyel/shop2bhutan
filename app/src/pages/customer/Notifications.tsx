@@ -743,7 +743,7 @@ export default function Notifications() {
 
       {showClearAllConfirm && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 p-4 backdrop-blur-[2px] sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 backdrop-blur-[2px] transition-opacity duration-300"
           role="dialog"
           aria-modal="true"
           aria-labelledby="clear-notifications-title"
@@ -752,10 +752,13 @@ export default function Notifications() {
           }}
         >
           <div
-            className="w-full max-w-sm rounded-[24px] bg-white p-5 shadow-2xl ring-1 ring-slate-200"
+            className="w-full max-w-lg translate-y-0 rounded-t-[24px] bg-white p-5 pb-8 shadow-[0_-8px_40px_rgba(0,0,0,0.12)] ring-1 ring-slate-100 transition-transform duration-300 ease-out"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start gap-3">
+            {/* Drag handle */}
+            <div className="mx-auto mb-5 h-1.5 w-10 rounded-full bg-slate-200" />
+
+            <div className="flex items-start gap-3.5">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600 ring-1 ring-red-100">
                 <Trash2 size={19} strokeWidth={2.2} />
               </span>
