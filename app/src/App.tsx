@@ -99,6 +99,7 @@ import AdminParcelTrips from '@/pages/admin/ParcelTrips';
 import AdminParcelRequests from '@/pages/admin/ParcelRequests';
 import BusinessFinance from '@/pages/admin/BusinessFinance';
 import AdminNotifications from '@/pages/admin/Notifications';
+import Communications from '@/pages/admin/Communications';
 
 
 type BeforeInstallPromptEvent = Event & {
@@ -1900,6 +1901,7 @@ export default function App() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="notifications" element={<AdminNotifications />} />
+          <Route path="communications" element={<Communications />} />
           <Route path="orders" element={<OrdersPanel />} />
           <Route path="orders/:id" element={<AdminOrderDetail />} />
           <Route path="quotation/:id" element={<QuotationBuilder />} />

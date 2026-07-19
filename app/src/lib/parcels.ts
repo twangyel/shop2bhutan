@@ -1268,10 +1268,8 @@ export async function scheduleParcelPickup(input: ScheduleParcelPickupInput) {
       parcelRequestId: requestId,
       parcelNo: data.parcel_no ?? null,
       status: 'pickup_scheduled',
+      adminNotes: trackingMessage,
       packageDescription: data.package_description ?? null,
-      pickupWindowStartAt: payload.pickup_window_start_at,
-      pickupWindowEndAt: payload.pickup_window_end_at,
-      pickupInstructions: payload.pickup_instructions,
     })
 
     if (typeof window !== 'undefined') {

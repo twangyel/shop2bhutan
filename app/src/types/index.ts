@@ -367,6 +367,7 @@ export interface Notification {
   title: string;
   message: string;
   link?: string;
+  imageUrl?: string;
   isRead: boolean;
   readAt?: string;
   dedupeKey?: string;

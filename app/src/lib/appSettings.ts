@@ -422,6 +422,18 @@ type AnyError = { message?: string; code?: string };
 const SETTINGS_TABLE = 'app_settings';
 const APP_ASSETS_BUCKET = 'app-assets';
 
+
+const HOME_ANNOUNCEMENT_SETTING_KEYS = new Set([
+  'home_announcement_enabled',
+  'home_announcement_type',
+  'home_announcement_title',
+  'home_announcement_text',
+  'home_announcement_cta_label',
+  'home_announcement_link',
+  'home_announcement_start_at',
+  'home_announcement_end_at',
+]);
+
 function cleanText(value: unknown, fallback = '') {
   const text = String(value ?? '').trim();
   return text || fallback;
@@ -738,6 +750,66 @@ export async function assertNewShoppingRequestsAllowed(): Promise<AppSettings> {
   return settings;
 }
 
+
+
+export async function saveCoreAppSettings(
+  settings: AppSettings,
+  userId?: string | null,
+): Promise<AppSettings> {
+  const businessHoursError = validateBusinessHoursSchedule(
+    settings.businessSchedule,
+  );
+
+  if (businessHoursError) {
+    throw new Error(businessHoursError);
+  }
+
+  const rows = toRows(settings, userId).filter(
+    (row) => !HOME_ANNOUNCEMENT_SETTING_KEYS.has(row.key),
+  );
+
+  const { error } = await supabase
+    .from(SETTINGS_TABLE)
+    .upsert(rows, { onConflict: 'key' });
+
+  if (error) {
+    if (isMissingSettingsTableError(error)) {
+      throw new Error('App settings table is missing. Please run the Step 05 App Settings SQL first.');
+    }
+    throw error;
+  }
+
+  window.dispatchEvent(new CustomEvent('shop2bhutan:app-settings-updated'));
+  return fetchPublicAppSettings();
+}
+
+export async function saveHomeAnnouncementSettings(
+  settings: AppSettings,
+  userId?: string | null,
+): Promise<AppSettings> {
+  const announcementError = validateHomeAnnouncement(settings);
+  if (announcementError) {
+    throw new Error(announcementError);
+  }
+
+  const rows = toRows(settings, userId).filter((row) =>
+    HOME_ANNOUNCEMENT_SETTING_KEYS.has(row.key),
+  );
+
+  const { error } = await supabase
+    .from(SETTINGS_TABLE)
+    .upsert(rows, { onConflict: 'key' });
+
+  if (error) {
+    if (isMissingSettingsTableError(error)) {
+      throw new Error('App settings table is missing. Please run the Step 05 App Settings SQL first.');
+    }
+    throw error;
+  }
+
+  window.dispatchEvent(new CustomEvent('shop2bhutan:app-settings-updated'));
+  return fetchPublicAppSettings();
+}
 
 export async function saveAppSettings(settings: AppSettings, userId?: string | null): Promise<AppSettings> {
   const businessHoursError = validateBusinessHoursSchedule(

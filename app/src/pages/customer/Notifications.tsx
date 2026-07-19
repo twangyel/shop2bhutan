@@ -298,7 +298,7 @@ function SwipeableNotification({
   return (
     <div
       className={`relative overflow-hidden select-none transition-[max-height,opacity,margin,transform] duration-300 ease-out ${
-        deleting ? 'max-h-0 -translate-x-2 opacity-0' : 'max-h-72 opacity-100'
+        deleting ? 'max-h-0 -translate-x-2 opacity-0' : 'max-h-[520px] opacity-100'
       }`}
     >
       {/* Delete background */}
@@ -364,6 +364,18 @@ function SwipeableNotification({
                 {formatRelativeTime(notification.createdAt)}
               </span>
             </div>
+
+            {notification.imageUrl && (
+              <img
+                src={notification.imageUrl}
+                alt=""
+                loading="lazy"
+                className="mt-2.5 aspect-[16/7] w-full rounded-xl border border-slate-100 bg-slate-50 object-cover"
+                onError={(event) => {
+                  event.currentTarget.style.display = 'none';
+                }}
+              />
+            )}
 
             {displayCopy.message && (
               <p className={`mt-1.5 text-sm leading-[1.5] ${isRead ? 'text-slate-400' : 'text-slate-600'}`}>

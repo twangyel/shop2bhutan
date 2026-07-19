@@ -1,18 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type ElementType, type ReactNode } from 'react';
 import {
   AlertCircle,
-  ArrowUpRight,
   ChevronDown,
-  BellRing,
   Bot,
   CircleDollarSign,
   Clock,
   Image,
   Loader2,
-  Megaphone,
   Phone,
   Save,
-  Send,
   Sparkles,
   Settings,
   ShoppingBag,
@@ -28,10 +24,9 @@ import {
   DEFAULT_APP_SETTINGS,
   fetchPublicAppSettings,
   formatBusinessHoursSummary,
-  saveAppSettings,
+  saveCoreAppSettings,
   uploadAppLogo,
   validateBusinessHoursSchedule,
-  validateHomeAnnouncement,
 } from '@/lib/appSettings';
 import {
   DEFAULT_ADMIN_AI_SETTINGS,
@@ -48,7 +43,6 @@ import type {
   AppSettings as AppSettingsType,
   BusinessDayHours,
   BusinessDayKey,
-  HomeAnnouncementType,
 } from '@/types';
 
 type ProfitSettings = {
@@ -177,38 +171,6 @@ async function saveProfitSettings(
 }
 
 
-type AdminDigestSettings = {
-  enabled: boolean;
-  hourBtt: number;
-  sendOnlyWhenActions: boolean;
-  quotationWarningHours: number;
-  paymentWarningHours: number;
-  parcelWarningHours: number;
-};
-
-type AppSettingRow = {
-  key: string;
-  value: unknown;
-};
-
-const DEFAULT_ADMIN_DIGEST_SETTINGS: AdminDigestSettings = {
-  enabled: true,
-  hourBtt: 18,
-  sendOnlyWhenActions: true,
-  quotationWarningHours: 12,
-  paymentWarningHours: 12,
-  parcelWarningHours: 12,
-};
-
-const ADMIN_DIGEST_SETTING_KEYS = {
-  enabled: 'admin_digest_enabled',
-  hourBtt: 'admin_digest_hour_btt',
-  sendOnlyWhenActions: 'admin_digest_send_only_when_actions',
-  quotationWarningHours: 'admin_digest_quotation_warning_hours',
-  paymentWarningHours: 'admin_digest_payment_warning_hours',
-  parcelWarningHours: 'admin_digest_parcel_warning_hours',
-} as const;
-
 function boundedNumber(
   value: unknown,
   fallback: number,
@@ -220,121 +182,6 @@ function boundedNumber(
   return Math.min(maximum, Math.max(minimum, Math.round(numeric)));
 }
 
-async function fetchAdminDigestSettings(): Promise<AdminDigestSettings> {
-  const { data, error } = await supabase
-    .from('app_settings')
-    .select('key,value')
-    .in('key', Object.values(ADMIN_DIGEST_SETTING_KEYS));
-
-  if (error) {
-    if (error.code === '42P01' || error.code === 'PGRST205') {
-      return DEFAULT_ADMIN_DIGEST_SETTINGS;
-    }
-    throw error;
-  }
-
-  const rows = (data ?? []) as AppSettingRow[];
-  const valueFor = (key: string) =>
-    rows.find((row) => row.key === key)?.value;
-
-  return {
-    enabled: booleanValue(
-      valueFor(ADMIN_DIGEST_SETTING_KEYS.enabled),
-      DEFAULT_ADMIN_DIGEST_SETTINGS.enabled,
-    ),
-    hourBtt: boundedNumber(
-      valueFor(ADMIN_DIGEST_SETTING_KEYS.hourBtt),
-      DEFAULT_ADMIN_DIGEST_SETTINGS.hourBtt,
-      0,
-      23,
-    ),
-    sendOnlyWhenActions: booleanValue(
-      valueFor(ADMIN_DIGEST_SETTING_KEYS.sendOnlyWhenActions),
-      DEFAULT_ADMIN_DIGEST_SETTINGS.sendOnlyWhenActions,
-    ),
-    quotationWarningHours: boundedNumber(
-      valueFor(ADMIN_DIGEST_SETTING_KEYS.quotationWarningHours),
-      DEFAULT_ADMIN_DIGEST_SETTINGS.quotationWarningHours,
-      1,
-      168,
-    ),
-    paymentWarningHours: boundedNumber(
-      valueFor(ADMIN_DIGEST_SETTING_KEYS.paymentWarningHours),
-      DEFAULT_ADMIN_DIGEST_SETTINGS.paymentWarningHours,
-      1,
-      168,
-    ),
-    parcelWarningHours: boundedNumber(
-      valueFor(ADMIN_DIGEST_SETTING_KEYS.parcelWarningHours),
-      DEFAULT_ADMIN_DIGEST_SETTINGS.parcelWarningHours,
-      1,
-      168,
-    ),
-  };
-}
-
-async function saveAdminDigestSettings(
-  digestSettings: AdminDigestSettings,
-  userId?: string | null,
-) {
-  const updatedAt = new Date().toISOString();
-  const rows = [
-    {
-      key: ADMIN_DIGEST_SETTING_KEYS.enabled,
-      value: digestSettings.enabled,
-      updated_at: updatedAt,
-      updated_by: userId || null,
-    },
-    {
-      key: ADMIN_DIGEST_SETTING_KEYS.hourBtt,
-      value: boundedNumber(digestSettings.hourBtt, 18, 0, 23),
-      updated_at: updatedAt,
-      updated_by: userId || null,
-    },
-    {
-      key: ADMIN_DIGEST_SETTING_KEYS.sendOnlyWhenActions,
-      value: digestSettings.sendOnlyWhenActions,
-      updated_at: updatedAt,
-      updated_by: userId || null,
-    },
-    {
-      key: ADMIN_DIGEST_SETTING_KEYS.quotationWarningHours,
-      value: boundedNumber(digestSettings.quotationWarningHours, 12, 1, 168),
-      updated_at: updatedAt,
-      updated_by: userId || null,
-    },
-    {
-      key: ADMIN_DIGEST_SETTING_KEYS.paymentWarningHours,
-      value: boundedNumber(digestSettings.paymentWarningHours, 12, 1, 168),
-      updated_at: updatedAt,
-      updated_by: userId || null,
-    },
-    {
-      key: ADMIN_DIGEST_SETTING_KEYS.parcelWarningHours,
-      value: boundedNumber(digestSettings.parcelWarningHours, 12, 1, 168),
-      updated_at: updatedAt,
-      updated_by: userId || null,
-    },
-  ];
-
-  const { error } = await supabase
-    .from('app_settings')
-    .upsert(rows, { onConflict: 'key' });
-
-  if (error) throw error;
-}
-
-function digestHourLabel(hour: number) {
-  const normalized = boundedNumber(hour, 18, 0, 23);
-  const date = new Date(2026, 0, 1, normalized, 0, 0);
-
-  return new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(date);
-}
-
 const platformOptions: Array<{ key: AcceptedPlatformKey; label: string }> = [
   { key: 'amazon', label: 'Amazon' },
   { key: 'flipkart', label: 'Flipkart' },
@@ -342,63 +189,6 @@ const platformOptions: Array<{ key: AcceptedPlatformKey; label: string }> = [
   { key: 'meesho', label: 'Meesho' },
 ];
 
-
-const announcementTypeOptions: Array<{
-  value: HomeAnnouncementType;
-  label: string;
-  description: string;
-  cardClass: string;
-  iconClass: string;
-  badgeClass: string;
-}> = [
-  {
-    value: 'announcement',
-    label: 'Announcement',
-    description: 'General service news or customer information.',
-    cardClass: 'border-blue-100 bg-blue-50',
-    iconClass: 'bg-white text-blue-600 ring-blue-100',
-    badgeClass: 'bg-blue-100 text-blue-700',
-  },
-  {
-    value: 'promotion',
-    label: 'Promotion',
-    description: 'Offers, discounts, launches, or campaigns.',
-    cardClass: 'border-orange-100 bg-orange-50',
-    iconClass: 'bg-white text-orange-600 ring-orange-100',
-    badgeClass: 'bg-orange-100 text-orange-700',
-  },
-  {
-    value: 'warning',
-    label: 'Warning',
-    description: 'Delays, service limitations, or urgent notices.',
-    cardClass: 'border-amber-200 bg-amber-50',
-    iconClass: 'bg-white text-amber-700 ring-amber-100',
-    badgeClass: 'bg-amber-100 text-amber-800',
-  },
-  {
-    value: 'advertisement',
-    label: 'Advertisement',
-    description: 'A promotional or sponsored partner card.',
-    cardClass: 'border-violet-100 bg-violet-50',
-    iconClass: 'bg-white text-violet-600 ring-violet-100',
-    badgeClass: 'bg-violet-100 text-violet-700',
-  },
-];
-
-function toDateTimeLocal(value: string) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-
-  const pad = (part: number) => String(part).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function fromDateTimeLocal(value: string) {
-  if (!value) return '';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '' : date.toISOString();
-}
 
 function numberValue(value: string, fallback: number) {
   const numeric = Number(value);
@@ -536,7 +326,6 @@ export default function AppSettings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [settings, setSettings] = useState<AppSettingsType>(DEFAULT_APP_SETTINGS);
   const [profitSettings, setProfitSettings] = useState<ProfitSettings>(DEFAULT_PROFIT_SETTINGS);
-  const [adminDigestSettings, setAdminDigestSettings] = useState<AdminDigestSettings>(DEFAULT_ADMIN_DIGEST_SETTINGS);
   const [adminAiSettings, setAdminAiSettings] = useState<AdminAiSettings>(DEFAULT_ADMIN_AI_SETTINGS);
   const [adminAiUsage, setAdminAiUsage] = useState<AdminAiUsage | null>(null);
   const [adminAiUsageError, setAdminAiUsageError] = useState('');
@@ -545,7 +334,6 @@ export default function AppSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [testingDigest, setTestingDigest] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
 
@@ -578,17 +366,14 @@ export default function AppSettings() {
       const [
         loaded,
         loadedProfitSettings,
-        loadedAdminDigestSettings,
         loadedAdminAiSettings,
       ] = await Promise.all([
         fetchPublicAppSettings(),
         fetchProfitSettings(),
-        fetchAdminDigestSettings(),
         fetchAdminAiSettings(),
       ]);
       setSettings(loaded);
       setProfitSettings(loadedProfitSettings);
-      setAdminDigestSettings(loadedAdminDigestSettings);
       setAdminAiSettings(loadedAdminAiSettings);
 
       try {
@@ -627,15 +412,6 @@ export default function AppSettings() {
     value: ProfitSettings[K],
   ) => {
     setProfitSettings((current) => ({ ...current, [key]: value }));
-    setSuccess('');
-    setError('');
-  };
-
-  const updateAdminDigestSetting = <K extends keyof AdminDigestSettings>(
-    key: K,
-    value: AdminDigestSettings[K],
-  ) => {
-    setAdminDigestSettings((current) => ({ ...current, [key]: value }));
     setSuccess('');
     setError('');
   };
@@ -723,22 +499,14 @@ export default function AppSettings() {
       return;
     }
 
-    const announcementError = validateHomeAnnouncement(settings);
-    if (announcementError) {
-      setSuccess('');
-      setError(announcementError);
-      return;
-    }
-
     setSaving(true);
     setSuccess('');
     setError('');
 
     try {
       const [saved] = await Promise.all([
-        saveAppSettings(settings, user?.id),
+        saveCoreAppSettings(settings, user?.id),
         saveProfitSettings(profitSettings, user?.id),
-        saveAdminDigestSettings(adminDigestSettings, user?.id),
         saveAdminAiSettings(adminAiSettings, user?.id),
       ]);
       setSettings(saved);
@@ -748,54 +516,6 @@ export default function AppSettings() {
       setError(err instanceof Error ? err.message : 'Unable to save app settings.');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleSendTestDigest = async () => {
-    if (testingDigest) return;
-
-    setTestingDigest(true);
-    setSuccess('');
-    setError('');
-
-    try {
-      await saveAdminDigestSettings(adminDigestSettings, user?.id);
-
-      const { data, error: invokeError } = await supabase.functions.invoke(
-        'admin-digest',
-        {
-          body: {
-            force: true,
-            source: 'admin_settings',
-          },
-        },
-      );
-
-      if (invokeError) throw invokeError;
-
-      const sent = Number((data as { sent?: number } | null)?.sent ?? 0);
-      const reason = String(
-        (data as { reason?: string } | null)?.reason ?? '',
-      ).trim();
-
-      if (sent > 0) {
-        setSuccess(
-          `Test admin brief created for ${sent} admin account${sent === 1 ? '' : 's'}.`,
-        );
-      } else {
-        setSuccess(
-          reason || 'The test completed, but no active admin notification target was found.',
-        );
-      }
-    } catch (err) {
-      console.error('Failed to send admin brief test:', err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Unable to send the test admin brief.',
-      );
-    } finally {
-      setTestingDigest(false);
     }
   };
 
@@ -886,7 +606,7 @@ export default function AppSettings() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">App Settings</h2>
-          <p className="text-sm text-neutral-500">Control global Shop2Bhutan behavior from one place. Tap any section to expand or collapse it.</p>
+          <p className="text-sm text-neutral-500">Control core Shop2Bhutan behavior. Customer communications are managed from Notifications & Promotions.</p>
         </div>
         <button
           type="button"
@@ -1294,379 +1014,6 @@ export default function AppSettings() {
               className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
             />
           </div>
-        </div>
-      </SettingCard>
-
-      <SettingCard title="Announcements & Promotions" icon={Megaphone}>
-        <div className="flex items-center justify-between gap-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3">
-          <div>
-            <p className="text-sm font-semibold text-gray-900">Show Customer Card</p>
-            <p className="text-xs leading-5 text-neutral-500">
-              Use one dynamic home card for announcements, offers, warnings, or advertisements.
-            </p>
-          </div>
-          <ToggleSwitch
-            checked={settings.homeAnnouncementEnabled}
-            onChange={(value) => updateSetting('homeAnnouncementEnabled', value)}
-          />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="text-sm font-medium text-gray-700">Card Type</label>
-            <select
-              value={settings.homeAnnouncementType}
-              onChange={(event) =>
-                updateSetting(
-                  'homeAnnouncementType',
-                  event.target.value as HomeAnnouncementType,
-                )
-              }
-              className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-            >
-              {announcementTypeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-neutral-500">
-              {announcementTypeOptions.find((option) => option.value === settings.homeAnnouncementType)?.description}
-            </p>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-700">Card Title</label>
-            <input
-              type="text"
-              value={settings.homeAnnouncementTitle}
-              onChange={(event) =>
-                updateSetting('homeAnnouncementTitle', event.target.value)
-              }
-              placeholder="50% off service charges"
-              className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="text-sm font-medium text-gray-700">Message</label>
-          <textarea
-            value={settings.homeAnnouncementText}
-            onChange={(event) => updateSetting('homeAnnouncementText', event.target.value)}
-            rows={3}
-            placeholder="Add clear details, eligibility, or validity information."
-            className="mt-1.5 w-full resize-none rounded-lg border border-neutral-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-          />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="text-sm font-medium text-gray-700">Button Label <span className="font-normal text-neutral-400">(optional)</span></label>
-            <input
-              type="text"
-              value={settings.homeAnnouncementCtaLabel}
-              onChange={(event) =>
-                updateSetting('homeAnnouncementCtaLabel', event.target.value)
-              }
-              placeholder="Shop now"
-              className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">Button Destination <span className="font-normal text-neutral-400">(optional)</span></label>
-            <input
-              type="text"
-              value={settings.homeAnnouncementLink}
-              onChange={(event) =>
-                updateSetting('homeAnnouncementLink', event.target.value)
-              }
-              placeholder="/shop or https://example.com"
-              className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-            />
-            <p className="mt-1 text-xs text-neutral-500">
-              Internal destinations begin with /. External destinations must use https://.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="text-sm font-medium text-gray-700">Starts At <span className="font-normal text-neutral-400">(optional)</span></label>
-            <input
-              type="datetime-local"
-              value={toDateTimeLocal(settings.homeAnnouncementStartAt)}
-              onChange={(event) =>
-                updateSetting(
-                  'homeAnnouncementStartAt',
-                  fromDateTimeLocal(event.target.value),
-                )
-              }
-              className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">Ends At <span className="font-normal text-neutral-400">(optional)</span></label>
-            <input
-              type="datetime-local"
-              value={toDateTimeLocal(settings.homeAnnouncementEndAt)}
-              onChange={(event) =>
-                updateSetting(
-                  'homeAnnouncementEndAt',
-                  fromDateTimeLocal(event.target.value),
-                )
-              }
-              className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-            />
-          </div>
-        </div>
-        <p className="text-xs leading-5 text-neutral-500">
-          Leave both dates blank to keep the card active until you turn it off. Scheduled and expired cards hide automatically.
-        </p>
-
-        {(() => {
-          const preview =
-            announcementTypeOptions.find(
-              (option) => option.value === settings.homeAnnouncementType,
-            ) || announcementTypeOptions[0];
-
-          return (
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">Customer Preview</p>
-              <div className={`rounded-2xl border p-4 ${preview.cardClass}`}>
-                <div className="flex items-start gap-3">
-                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${preview.iconClass}`}>
-                    <Megaphone size={18} strokeWidth={2.2} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${preview.badgeClass}`}>
-                        {preview.label}
-                      </span>
-                      {settings.homeAnnouncementType === 'advertisement' && (
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Sponsored</span>
-                      )}
-                    </div>
-                    <p className="mt-2 text-sm font-bold text-neutral-950">
-                      {settings.homeAnnouncementTitle || 'Card title'}
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-neutral-600">
-                      {settings.homeAnnouncementText || 'Card message will appear here.'}
-                    </p>
-                    {settings.homeAnnouncementCtaLabel && settings.homeAnnouncementLink && (
-                      <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-neutral-900">
-                        {settings.homeAnnouncementCtaLabel}
-                        <ArrowUpRight size={13} />
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-      </SettingCard>
-
-      <SettingCard title="Admin Brief & Reminders" icon={BellRing}>
-        <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-            Built for your 9–5 schedule
-          </p>
-          <p className="mt-1 text-sm font-bold text-gray-900">
-            Receive one concise Shop2Bhutan action summary in Bhutan Time.
-          </p>
-          <p className="mt-1 text-xs leading-5 text-neutral-600">
-            The brief checks quotations, pending payment proofs, delayed orders,
-            and parcel requests. Opening the notification takes you directly to
-            the Admin Action Centre.
-          </p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3">
-            <div className="pr-4">
-              <p className="text-sm font-semibold text-gray-900">
-                Daily Admin Brief
-              </p>
-              <p className="text-xs text-neutral-500">
-                Create one in-app and push notification each day.
-              </p>
-            </div>
-            <ToggleSwitch
-              checked={adminDigestSettings.enabled}
-              onChange={(value) =>
-                updateAdminDigestSetting('enabled', value)
-              }
-            />
-          </div>
-
-          <div className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3">
-            <div className="pr-4">
-              <p className="text-sm font-semibold text-gray-900">
-                Only When Action Is Needed
-              </p>
-              <p className="text-xs text-neutral-500">
-                Skip quiet days when there is nothing pending.
-              </p>
-            </div>
-            <ToggleSwitch
-              checked={adminDigestSettings.sendOnlyWhenActions}
-              onChange={(value) =>
-                updateAdminDigestSetting('sendOnlyWhenActions', value)
-              }
-            />
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="text-sm font-medium text-gray-700">
-              Brief Delivery Time
-            </label>
-            <select
-              value={adminDigestSettings.hourBtt}
-              onChange={(event) =>
-                updateAdminDigestSetting(
-                  'hourBtt',
-                  boundedNumber(event.target.value, 18, 0, 23),
-                )
-              }
-              className="mt-1.5 h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-            >
-              {Array.from({ length: 24 }, (_, hour) => (
-                <option key={hour} value={hour}>
-                  {digestHourLabel(hour)} BTT
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-neutral-500">
-              Recommended: 6:00 PM BTT, after your office hours.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-              Current schedule
-            </p>
-            <p className="mt-1 text-sm font-bold text-gray-900">
-              {adminDigestSettings.enabled
-                ? `${digestHourLabel(adminDigestSettings.hourBtt)} BTT daily`
-                : 'Daily brief disabled'}
-            </p>
-            <p className="mt-1 text-xs leading-5 text-neutral-600">
-              Supabase checks hourly, but sends only once on the configured
-              Bhutan date and hour.
-            </p>
-          </div>
-        </div>
-
-        <div>
-          <p className="text-sm font-semibold text-gray-900">
-            Reminder thresholds
-          </p>
-          <p className="mt-0.5 text-xs text-neutral-500">
-            These decide when pending work is highlighted as overdue in the
-            daily brief.
-          </p>
-
-          <div className="mt-3 grid gap-4 md:grid-cols-3">
-            <label>
-              <span className="text-xs font-medium text-neutral-600">
-                Quotation waiting
-              </span>
-              <div className="relative mt-1.5">
-                <input
-                  type="number"
-                  min="1"
-                  max="168"
-                  value={adminDigestSettings.quotationWarningHours}
-                  onChange={(event) =>
-                    updateAdminDigestSetting(
-                      'quotationWarningHours',
-                      boundedNumber(event.target.value, 12, 1, 168),
-                    )
-                  }
-                  className="h-10 w-full rounded-lg border border-neutral-200 px-3 pr-14 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
-                  hours
-                </span>
-              </div>
-            </label>
-
-            <label>
-              <span className="text-xs font-medium text-neutral-600">
-                Payment proof waiting
-              </span>
-              <div className="relative mt-1.5">
-                <input
-                  type="number"
-                  min="1"
-                  max="168"
-                  value={adminDigestSettings.paymentWarningHours}
-                  onChange={(event) =>
-                    updateAdminDigestSetting(
-                      'paymentWarningHours',
-                      boundedNumber(event.target.value, 12, 1, 168),
-                    )
-                  }
-                  className="h-10 w-full rounded-lg border border-neutral-200 px-3 pr-14 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
-                  hours
-                </span>
-              </div>
-            </label>
-
-            <label>
-              <span className="text-xs font-medium text-neutral-600">
-                Parcel request waiting
-              </span>
-              <div className="relative mt-1.5">
-                <input
-                  type="number"
-                  min="1"
-                  max="168"
-                  value={adminDigestSettings.parcelWarningHours}
-                  onChange={(event) =>
-                    updateAdminDigestSetting(
-                      'parcelWarningHours',
-                      boundedNumber(event.target.value, 12, 1, 168),
-                    )
-                  }
-                  className="h-10 w-full rounded-lg border border-neutral-200 px-3 pr-14 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
-                  hours
-                </span>
-              </div>
-            </label>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 rounded-xl border border-orange-100 bg-orange-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-gray-900">
-              Test the complete flow
-            </p>
-            <p className="text-xs leading-5 text-neutral-500">
-              Saves these brief settings, runs the Edge Function, creates an
-              admin notification, and uses your existing push webhook.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleSendTestDigest}
-            disabled={testingDigest || saving}
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 text-sm font-semibold text-white transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {testingDigest ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Send size={16} />
-            )}
-            {testingDigest ? 'Sending...' : 'Send Test Brief'}
-          </button>
         </div>
       </SettingCard>
 

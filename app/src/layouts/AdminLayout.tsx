@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Search,
   Bell,
+  Megaphone,
   ClipboardCheck,
   Menu,
   X,
@@ -73,6 +74,7 @@ const navGroups = [
       { path: '/admin/payments', label: 'Payments', icon: CreditCard },
       { path: '/admin/business', label: 'Profit & Trips', icon: CircleDollarSign },
       { path: '/admin/customers', label: 'Customers', icon: Users },
+      { path: '/admin/communications', label: 'Notifications & Promotions', icon: Megaphone },
     ],
   },
   {
@@ -118,6 +120,7 @@ type AdminSearchResult = {
 const ADMIN_NAV_ALIASES: Record<string, string> = {
   '/admin': 'action centre priorities tasks home overview statistics collections profit',
   '/admin/notifications': 'notifications alerts unread updates orders payments parcels customers activity',
+  '/admin/communications': 'send broadcast customer notifications promotions announcements advertisements admin brief reminders communication history',
   '/admin/orders': 'shopping requests quotations quote order final price',
   '/admin/parcels': 'parcel trips routes schedule',
   '/admin/parcel-requests': 'parcel booking requests delivery',
@@ -575,7 +578,7 @@ export default function AdminLayout() {
   const adminInitial = (adminDisplayName || 'A').charAt(0).toUpperCase()
 
   const pageTitle = location.pathname.startsWith('/admin/notifications')
-    ? 'Notifications'
+    ? 'Admin Activity'
     : navGroups
         .flatMap((g) => g.items)
         .find(
