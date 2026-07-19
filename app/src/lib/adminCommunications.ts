@@ -229,10 +229,31 @@ export async function sendTestAdminDigest() {
 }
 
 export async function fetchCommunicationCustomers(): Promise<CommunicationCustomer[]> {
+  // user_roles has two foreign keys back to profiles (user_id and created_by).
+  // Querying it as an embedded relation is therefore ambiguous in PostgREST.
+  // Load customer IDs first, then fetch the matching active profiles.
+  const { data: roleRows, error: roleError } = await supabase
+    .from('user_roles')
+    .select('user_id')
+    .eq('role', 'customer')
+    .limit(1000);
+
+  if (roleError) throw roleError;
+
+  const customerIds = Array.from(
+    new Set(
+      ((roleRows ?? []) as AnyRow[])
+        .map((row) => cleanText(row.user_id))
+        .filter(Boolean),
+    ),
+  );
+
+  if (customerIds.length === 0) return [];
+
   const { data, error } = await supabase
     .from('profiles')
-    .select('id,full_name,phone,email,user_roles!inner(role)')
-    .eq('user_roles.role', 'customer')
+    .select('id,full_name,phone,email')
+    .in('id', customerIds)
     .eq('is_active', true)
     .eq('account_status', 'active')
     .order('full_name', { ascending: true })

@@ -56,6 +56,18 @@ import type {
 type TabKey = 'send' | 'announcement' | 'brief' | 'history';
 type BroadcastType = Extract<NotificationType, 'promotion' | 'system'>;
 
+
+function readableErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim()) return error.message;
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = String((error as { message?: unknown }).message ?? '').trim();
+    if (message) return message;
+  }
+
+  return fallback;
+}
+
 const tabs: Array<{
   key: TabKey;
   label: string;
@@ -262,10 +274,10 @@ export default function Communications() {
       showToast({
         type: 'error',
         title: 'Unable to load communications',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Please check the database migration and try again.',
+        message: readableErrorMessage(
+          error,
+          'Please check the database migration and try again.',
+        ),
       });
     } finally {
       setLoading(false);
