@@ -113,6 +113,7 @@ if (hasRequiredConfig) {
       body,
       icon: data.icon || '/brand/logo-mark.png',
       badge: data.badge || '/notification-badge-96.png',
+      image: data.image || undefined,
       tag: data.tag || data.notification_id || undefined,
       renotify: false,
       data: {

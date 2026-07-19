@@ -300,20 +300,33 @@ async function getWebMessagingContext() {
         const tag = String(
           data.tag || data.notification_id || '',
         ).trim()
+        const image = String(
+          data.image ||
+            (notification as { image?: string }).image ||
+            '',
+        ).trim()
+
+        const notificationOptions: NotificationOptions & {
+          image?: string
+        } = {
+          body,
+          icon: String(data.icon || WEB_NOTIFICATION_ICON),
+          badge: String(data.badge || WEB_NOTIFICATION_BADGE),
+          tag: tag || undefined,
+          data: {
+            ...data,
+            link: link.startsWith('/') && !link.startsWith('//')
+              ? link
+              : '/notifications',
+          },
+        }
+
+        if (image) {
+          notificationOptions.image = image
+        }
 
         void serviceWorkerRegistration
-          .showNotification(title, {
-            body,
-            icon: String(data.icon || WEB_NOTIFICATION_ICON),
-            badge: String(data.badge || WEB_NOTIFICATION_BADGE),
-            tag: tag || undefined,
-            data: {
-              ...data,
-              link: link.startsWith('/') && !link.startsWith('//')
-                ? link
-                : '/notifications',
-            },
-          })
+          .showNotification(title, notificationOptions)
           .catch((error) => {
             console.warn(
               '[pushNotifications] Foreground notification display failed:',
