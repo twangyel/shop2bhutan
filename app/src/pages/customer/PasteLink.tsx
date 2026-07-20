@@ -49,6 +49,8 @@ import {
   NATIVE_CAMERA_RESTORED_EVENT,
   pickNativeImageFile,
 } from '@/lib/camera';
+import { openShoppingAssist } from '@/lib/shoppingAssist';
+import type { ShoppingAssistStore } from '@/types';
 
 const platforms = [
   {
@@ -213,6 +215,8 @@ export default function PasteLink() {
   const [screenshotPreview, setScreenshotPreview] = useState('');
   const [adding, setAdding] = useState(false);
   const [openingCamera, setOpeningCamera] = useState(false);
+  const [openingStore, setOpeningStore] =
+    useState<ShoppingAssistStore | null>(null);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [notice, setNotice] = useState<NoticeState | null>(null);
@@ -287,6 +291,54 @@ export default function PasteLink() {
       setNotice(null);
       noticeTimerRef.current = null;
     }, 2400);
+  };
+
+  const openAcceptedStore = async (
+    platform: (typeof platforms)[number],
+  ) => {
+    if (openingStore) return;
+
+    const store = platform.key as ShoppingAssistStore;
+
+    setError('');
+    setSuccessMessage('');
+
+    if (!Capacitor.isNativePlatform()) {
+      const opened = window.open(
+        platform.url,
+        '_blank',
+        'noopener,noreferrer',
+      );
+
+      if (!opened) {
+        showNotice({
+          title: `Unable to open ${platform.name}`,
+          message:
+            'Your browser blocked the store tab. Allow pop-ups and try again.',
+        });
+      }
+
+      return;
+    }
+
+    setOpeningStore(store);
+
+    try {
+      const opened = await openShoppingAssist({ store });
+
+      if (!opened) {
+        navigate('/shopping-assist');
+      }
+    } catch (storeError) {
+      console.warn(
+        '[PasteLink] Unable to open native Shopping Assist:',
+        storeError,
+      );
+
+      navigate('/shopping-assist');
+    } finally {
+      setOpeningStore(null);
+    }
   };
 
   const dismissKeyboard = async () => {
@@ -990,28 +1042,42 @@ export default function PasteLink() {
             </div>
 
             <div className="mt-2 grid grid-cols-4 gap-2">
-              {visiblePlatforms.map((platform) => (
-                <a
-                  key={platform.name}
-                  href={platform.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex min-w-0 flex-col items-center gap-1.5 rounded-xl border border-slate-100 bg-white px-1 py-2.5 transition active:scale-95"
-                >
-                  <span className="flex h-8 w-8 items-center justify-center">
-                    <img
-                      src={platform.logo}
-                      alt={platform.name}
-                      className="h-full w-full object-contain"
-                      loading="lazy"
-                    />
-                  </span>
+              {visiblePlatforms.map((platform) => {
+                const opening =
+                  openingStore === platform.key;
 
-                  <span className="truncate text-[10px] font-bold text-slate-600">
-                    {platform.name}
-                  </span>
-                </a>
-              ))}
+                return (
+                  <button
+                    key={platform.name}
+                    type="button"
+                    onClick={() =>
+                      void openAcceptedStore(platform)
+                    }
+                    disabled={Boolean(openingStore)}
+                    className="flex min-w-0 flex-col items-center gap-1.5 rounded-xl border border-slate-100 bg-white px-1 py-2.5 transition active:scale-95 disabled:opacity-60"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center">
+                      {opening ? (
+                        <Loader2
+                          size={17}
+                          className="animate-spin text-orange-500"
+                        />
+                      ) : (
+                        <img
+                          src={platform.logo}
+                          alt={platform.name}
+                          className="h-full w-full object-contain"
+                          loading="lazy"
+                        />
+                      )}
+                    </span>
+
+                    <span className="w-full truncate text-[10px] font-bold text-slate-600">
+                      {platform.name}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </section>
         )}

@@ -115,6 +115,13 @@ export type ParcelRequest = {
   parcelPhotoPath?: string | null
   parcelPhotoUrl?: string | null
 
+  deliveryProofPath?: string | null
+  deliveryProofUrl?: string | null
+  deliveryReceiverName?: string | null
+  deliveryNote?: string | null
+  deliveredAt?: string | null
+  deliveredBy?: string | null
+
   estimatedFee?: number | null
   finalFee?: number | null
 

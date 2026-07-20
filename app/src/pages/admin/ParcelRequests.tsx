@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   CalendarDays,
+  Camera,
   Check,
   Clock,
   Copy,
   Eye,
+  Image as ImageIcon,
+  Loader2,
   MapPin,
   MoreHorizontal,
   Package,
@@ -19,6 +22,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import {
+  completeParcelDelivery,
   fetchAdminParcelRequests,
   scheduleParcelPickup,
   updateParcelRequestStatus,
@@ -31,6 +35,13 @@ import {
 import type { ParcelRequest, ParcelRequestStatus } from '@/types/parcel'
 import { supabase } from '@/lib/supabase'
 import { useAppToast } from '@/components/shared/AppToast'
+import {
+  consumeRestoredCameraFile,
+  isCameraCancellation,
+  isNativeCameraRuntime,
+  NATIVE_CAMERA_RESTORED_EVENT,
+  pickNativeImageFile,
+} from '@/lib/camera'
 
 const tabs: { key: 'all' | ParcelRequestStatus; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -55,6 +66,12 @@ type PickupScheduleInput = {
   pickupInstructions?: string
 }
 
+type DeliveryProofInput = {
+  deliveryProofFile: File
+  receiverName: string
+  deliveryNote?: string
+}
+
 function formatDate(value?: string | null) {
   if (!value) return 'Date not set'
 
@@ -66,6 +83,23 @@ function formatDate(value?: string | null) {
     month: 'short',
     year: 'numeric',
   })
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return 'Date not set'
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return 'Date not set'
+
+  return `${parsed.toLocaleString('en-GB', {
+    timeZone: 'Asia/Thimphu',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })} BTT`
 }
 
 function formatPickupWindow(request: ParcelRequest) {
@@ -232,6 +266,7 @@ export default function ParcelRequests() {
   const [error, setError] = useState('')
   const [reasonModal, setReasonModal] = useState<ReasonModalState | null>(null)
   const [scheduleModal, setScheduleModal] = useState<ParcelRequest | null>(null)
+  const [deliveryModal, setDeliveryModal] = useState<ParcelRequest | null>(null)
   const [selectedRequestId, setSelectedRequestId] = useState('')
   const [openMenuId, setOpenMenuId] = useState('')
 
@@ -383,6 +418,11 @@ export default function ParcelRequests() {
       return
     }
 
+    if (status === 'delivered') {
+      setDeliveryModal(request)
+      return
+    }
+
     if (status === 'rejected' || status === 'cancelled') {
       setReasonModal({ request, status })
       return
@@ -429,6 +469,43 @@ export default function ParcelRequests() {
       setUpdatingId('')
     }
   }
+
+async function confirmDelivery(input: DeliveryProofInput) {
+  if (!deliveryModal) return
+
+  try {
+    setUpdatingId(deliveryModal.id)
+    setError('')
+
+    await completeParcelDelivery({
+      requestId: deliveryModal.id,
+      deliveryProofFile: input.deliveryProofFile,
+      receiverName: input.receiverName,
+      deliveryNote: input.deliveryNote,
+    })
+
+    await loadRequests({ silent: true })
+    window.dispatchEvent(
+      new CustomEvent('shop2bhutan:admin-parcels-updated'),
+    )
+    window.dispatchEvent(
+      new CustomEvent('shop2bhutan:parcels-updated'),
+    )
+    toast.success(
+      'Parcel delivered',
+      'Proof of delivery was saved and the sender has been notified.',
+    )
+    setDeliveryModal(null)
+  } catch (err) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : 'Failed to complete parcel delivery.'
+    toast.error('Delivery confirmation failed', message)
+  } finally {
+    setUpdatingId('')
+  }
+}
 
   async function copyPhone(phone?: string | null) {
     if (!phone) return
@@ -600,6 +677,15 @@ export default function ParcelRequests() {
           updating={updatingId === scheduleModal.id}
           onClose={() => setScheduleModal(null)}
           onConfirm={confirmPickupSchedule}
+        />
+      )}
+
+      {deliveryModal && (
+        <DeliveryProofModal
+          request={deliveryModal}
+          updating={updatingId === deliveryModal.id}
+          onClose={() => setDeliveryModal(null)}
+          onConfirm={confirmDelivery}
         />
       )}
     </div>
@@ -915,6 +1001,56 @@ function ParcelRequestDrawer({
             </div>
           )}
 
+          {request.deliveryProofUrl && (
+            <section className="mt-5 overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50">
+              <a
+                href={request.deliveryProofUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="block"
+              >
+                <img
+                  src={request.deliveryProofUrl}
+                  alt="Proof of parcel delivery"
+                  className="h-52 w-full bg-neutral-100 object-cover"
+                />
+              </a>
+              <div className="p-4">
+                <div className="flex items-center gap-2 text-emerald-700">
+                  <Check size={16} />
+                  <p className="text-xs font-bold uppercase tracking-wider">
+                    Proof of delivery
+                  </p>
+                </div>
+                <p className="mt-2 text-sm font-bold text-emerald-950">
+                  Handed to{' '}
+                  {request.deliveryReceiverName ||
+                    request.receiverName ||
+                    'receiver'}
+                </p>
+                {request.deliveredAt && (
+                  <p className="mt-1 text-xs text-emerald-700">
+                    {formatDateTime(request.deliveredAt)}
+                  </p>
+                )}
+                {request.deliveryNote && (
+                  <p className="mt-2 text-xs leading-5 text-emerald-800">
+                    {request.deliveryNote}
+                  </p>
+                )}
+                <a
+                  href={request.deliveryProofUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-bold text-emerald-700 ring-1 ring-emerald-100"
+                >
+                  <ImageIcon size={14} />
+                  Open full photo
+                </a>
+              </div>
+            </section>
+          )}
+
           <section className="mt-5 rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
             <div className="flex items-start gap-3">
               <MapPin size={18} className="mt-0.5 shrink-0 text-orange-500" />
@@ -1213,6 +1349,312 @@ function defaultPickupDate() {
 
 function makeBhutanDateTime(date: string, time: string) {
   return new Date(`${date}T${time}:00+06:00`)
+}
+
+function DeliveryProofModal({
+  request,
+  updating,
+  onClose,
+  onConfirm,
+}: {
+  request: ParcelRequest
+  updating: boolean
+  onClose: () => void
+  onConfirm: (input: DeliveryProofInput) => Promise<void>
+}) {
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState('')
+  const [receiverName, setReceiverName] = useState(
+    request.receiverName || '',
+  )
+  const [deliveryNote, setDeliveryNote] = useState('')
+  const [openingCamera, setOpeningCamera] = useState(false)
+  const [localError, setLocalError] = useState('')
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoPreviewUrl('')
+      return undefined
+    }
+
+    const previewUrl = URL.createObjectURL(photoFile)
+    setPhotoPreviewUrl(previewUrl)
+
+    return () => URL.revokeObjectURL(previewUrl)
+  }, [photoFile])
+
+  function applyPhoto(file: File | null) {
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setPhotoFile(null)
+      setLocalError('Please select a valid image file.')
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoFile(null)
+      setLocalError('Delivery photo must be below 5 MB.')
+      return
+    }
+
+    setPhotoFile(file)
+    setLocalError('')
+  }
+
+  async function openPhotoPicker() {
+    if (!isNativeCameraRuntime()) {
+      photoInputRef.current?.click()
+      return
+    }
+
+    setOpeningCamera(true)
+    setLocalError('')
+
+    try {
+      const file = await pickNativeImageFile({
+        purpose: 'parcel-delivery-proof',
+        fileNamePrefix: 'parcel-delivery-proof',
+        quality: 86,
+        width: 1800,
+        height: 1800,
+      })
+
+      if (file) applyPhoto(file)
+    } catch (cameraError) {
+      if (!isCameraCancellation(cameraError)) {
+        setLocalError(
+          cameraError instanceof Error
+            ? cameraError.message
+            : 'Unable to open the camera or gallery.',
+        )
+      }
+    } finally {
+      setOpeningCamera(false)
+    }
+  }
+
+  useEffect(() => {
+    let active = true
+
+    const restoreCameraResult = async () => {
+      try {
+        const file = await consumeRestoredCameraFile(
+          'parcel-delivery-proof',
+          'parcel-delivery-proof',
+        )
+
+        if (active && file) applyPhoto(file)
+      } catch (cameraError) {
+        if (active && !isCameraCancellation(cameraError)) {
+          setLocalError('Unable to restore the delivery photo.')
+        }
+      }
+    }
+
+    void restoreCameraResult()
+
+    const handleRestoredResult = () => {
+      void restoreCameraResult()
+    }
+
+    window.addEventListener(
+      NATIVE_CAMERA_RESTORED_EVENT,
+      handleRestoredResult,
+    )
+
+    return () => {
+      active = false
+      window.removeEventListener(
+        NATIVE_CAMERA_RESTORED_EVENT,
+        handleRestoredResult,
+      )
+    }
+  }, [])
+
+  async function submit() {
+    const cleanedReceiver = receiverName.trim()
+
+    if (!photoFile) {
+      setLocalError('Take or select a delivery photo before confirming.')
+      return
+    }
+
+    if (!cleanedReceiver) {
+      setLocalError('Receiver name is required.')
+      return
+    }
+
+    setLocalError('')
+    await onConfirm({
+      deliveryProofFile: photoFile,
+      receiverName: cleanedReceiver,
+      deliveryNote: deliveryNote.trim() || undefined,
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/45 p-4 sm:items-center">
+      <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-4 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-lg font-bold text-neutral-900">
+              Confirm parcel delivery
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-neutral-500">
+              Add a handover photo. The sender will see it as proof of delivery.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={updating}
+            className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-100 disabled:opacity-50"
+            aria-label="Close delivery confirmation"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="mt-4 rounded-2xl bg-neutral-50 p-3">
+          <p className="text-xs font-bold text-neutral-400">
+            {request.parcelNo || 'Parcel Request'}
+          </p>
+          <p className="mt-1 text-sm font-bold text-neutral-900">
+            {parcelTitle(request)}
+          </p>
+          <p className="mt-1 text-xs text-neutral-500">
+            Deliver to {request.receiverName || 'receiver'} ·{' '}
+            {request.receiverPhone || 'Phone'}
+          </p>
+        </div>
+
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(event) => {
+            applyPhoto(event.target.files?.[0] ?? null)
+            event.target.value = ''
+          }}
+        />
+
+        <div className="mt-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-neutral-600">
+            Delivery photo <span className="text-rose-500">*</span>
+          </p>
+
+          {photoPreviewUrl ? (
+            <div className="mt-2 overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50">
+              <img
+                src={photoPreviewUrl}
+                alt="Delivery proof preview"
+                className="h-56 w-full bg-neutral-100 object-cover"
+              />
+              <div className="flex gap-2 p-3">
+                <button
+                  type="button"
+                  onClick={() => void openPhotoPicker()}
+                  disabled={updating || openingCamera}
+                  className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-white text-xs font-bold text-emerald-700 ring-1 ring-emerald-100 disabled:opacity-60"
+                >
+                  <Camera size={15} />
+                  Retake
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPhotoFile(null)}
+                  disabled={updating}
+                  className="h-10 flex-1 rounded-xl bg-white text-xs font-bold text-neutral-600 ring-1 ring-neutral-200 disabled:opacity-60"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void openPhotoPicker()}
+              disabled={updating || openingCamera}
+              className="mt-2 flex h-36 w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-emerald-300 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-60"
+            >
+              {openingCamera ? (
+                <Loader2 size={24} className="animate-spin" />
+              ) : (
+                <Camera size={26} />
+              )}
+              <span className="text-sm font-bold">
+                {openingCamera ? 'Opening camera...' : 'Take delivery photo'}
+              </span>
+              <span className="text-[11px] text-emerald-600">
+                Camera or gallery · Maximum 5 MB
+              </span>
+            </button>
+          )}
+        </div>
+
+        <label className="mt-4 block">
+          <span className="text-xs font-bold uppercase tracking-wider text-neutral-600">
+            Received by
+          </span>
+          <input
+            value={receiverName}
+            onChange={(event) => {
+              setReceiverName(event.target.value)
+              setLocalError('')
+            }}
+            className="mt-2 h-11 w-full rounded-2xl border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
+            placeholder="Receiver name"
+          />
+        </label>
+
+        <label className="mt-4 block">
+          <span className="text-xs font-bold uppercase tracking-wider text-neutral-600">
+            Delivery note <span className="normal-case text-neutral-400">(optional)</span>
+          </span>
+          <textarea
+            value={deliveryNote}
+            onChange={(event) => setDeliveryNote(event.target.value)}
+            className="mt-2 h-24 w-full resize-none rounded-2xl border border-neutral-200 p-3 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
+            placeholder="Example: Parcel handed over in good condition."
+          />
+        </label>
+
+        {localError && (
+          <p className="mt-3 text-xs font-semibold text-red-600">
+            {localError}
+          </p>
+        )}
+
+        <div className="mt-5 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={updating}
+            className="h-11 flex-1 rounded-2xl bg-neutral-100 text-sm font-bold text-neutral-700 disabled:opacity-50"
+          >
+            Not Now
+          </button>
+          <button
+            type="button"
+            onClick={() => void submit()}
+            disabled={updating || openingCamera}
+            className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-600 text-sm font-bold text-white disabled:opacity-60"
+          >
+            {updating ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Check size={16} />
+            )}
+            {updating ? 'Saving proof...' : 'Confirm Delivery'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function PickupScheduleModal({

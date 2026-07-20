@@ -20,6 +20,7 @@ export type NativeImagePurpose =
   | 'product-screenshot'
   | 'payment-proof'
   | 'parcel-photo'
+  | 'parcel-delivery-proof'
   | 'profile-avatar';
 
 type StoredCameraResult = {

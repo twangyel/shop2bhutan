@@ -39,6 +39,13 @@ export type ScheduleParcelPickupInput = {
   pickupInstructions?: string
 }
 
+export type CompleteParcelDeliveryInput = {
+  requestId: string
+  deliveryProofFile: File
+  receiverName?: string
+  deliveryNote?: string
+}
+
 export type CreateParcelTripInput = {
   title?: string
   originLocationId?: string
@@ -328,6 +335,45 @@ async function uploadParcelPhoto(userId: string, file: File) {
   return path
 }
 
+async function uploadParcelDeliveryProof(
+  adminUserId: string,
+  requestId: string,
+  file: File,
+) {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Please upload a valid delivery photo.')
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error('Delivery proof photo must be below 5 MB.')
+  }
+
+  const path = `${adminUserId}/delivery-proofs/${requestId}/${makePhotoName(file)}`
+
+  const { error } = await supabase.storage
+    .from('parcel-photos')
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+    })
+
+  if (error) throw error
+
+  return path
+}
+
+async function removeParcelPhoto(path?: string | null) {
+  if (!path) return
+
+  const { error } = await supabase.storage
+    .from('parcel-photos')
+    .remove([path])
+
+  if (error) {
+    console.warn('[removeParcelPhoto] Unable to remove unused photo:', error)
+  }
+}
+
 async function getSignedPhotoUrl(path?: string | null) {
   if (!path) return null
 
@@ -449,8 +495,14 @@ async function mapRequest(
   const trip = mapTrip(row.parcel_trips)
 
   const photoPath = row.parcel_photo_path ?? null
+  const deliveryProofPath = row.delivery_proof_path ?? null
   const shouldLoadPhotoUrl = options.includePhotoUrl ?? true
-  const photoUrl = shouldLoadPhotoUrl ? await getSignedPhotoUrl(photoPath) : null
+  const [photoUrl, deliveryProofUrl] = shouldLoadPhotoUrl
+    ? await Promise.all([
+        getSignedPhotoUrl(photoPath),
+        getSignedPhotoUrl(deliveryProofPath),
+      ])
+    : [null, null]
 
   return {
     id: String(row.id),
@@ -476,6 +528,13 @@ async function mapRequest(
 
     parcelPhotoPath: photoPath,
     parcelPhotoUrl: photoUrl,
+
+    deliveryProofPath,
+    deliveryProofUrl,
+    deliveryReceiverName: row.delivery_receiver_name ?? null,
+    deliveryNote: row.delivery_note ?? null,
+    deliveredAt: row.delivered_at ?? null,
+    deliveredBy: row.delivered_by ?? null,
 
     estimatedFee:
       row.estimated_fee === null || row.estimated_fee === undefined
@@ -1129,6 +1188,10 @@ export async function updateParcelRequestStatus(
     throw new Error('Use Schedule Pickup to choose the pickup date and evening time window.')
   }
 
+  if (status === 'delivered') {
+    throw new Error('Use Proof of Delivery to mark this parcel as delivered.')
+  }
+
   const payload: Record<string, unknown> = {
     status,
   }
@@ -1195,6 +1258,137 @@ export async function updateParcelRequestStatus(
   } catch (notificationError) {
     console.warn(
       '[updateParcelRequestStatus] Customer parcel notification skipped:',
+      notificationError,
+    )
+  }
+
+  return mapRequest(data)
+}
+
+export async function completeParcelDelivery(
+  input: CompleteParcelDeliveryInput,
+) {
+  const requestId = text(input.requestId)
+  const receiverName = text(input.receiverName)
+  const deliveryNote = nullableText(input.deliveryNote)
+
+  if (!requestId) {
+    throw new Error('Parcel request ID is required.')
+  }
+
+  if (!input.deliveryProofFile) {
+    throw new Error('Delivery proof photo is required.')
+  }
+
+  const adminUserId = await getUserId()
+
+  const { data: request, error: requestError } = await supabase
+    .from('parcel_requests')
+    .select(
+      'id, user_id, parcel_no, status, receiver_name, package_description',
+    )
+    .eq('id', requestId)
+    .single()
+
+  if (requestError) throw requestError
+
+  if (request.status !== 'in_transit') {
+    throw new Error(
+      request.status === 'delivered'
+        ? 'This parcel has already been marked as delivered.'
+        : 'Only an in-transit parcel can be marked as delivered.',
+    )
+  }
+
+  const confirmedReceiverName =
+    receiverName || text(request.receiver_name) || 'Receiver'
+  const deliveredAt = new Date().toISOString()
+  const deliveryProofPath = await uploadParcelDeliveryProof(
+    adminUserId,
+    requestId,
+    input.deliveryProofFile,
+  )
+
+  const payload = {
+    status: 'delivered' as ParcelRequestStatus,
+    delivery_proof_path: deliveryProofPath,
+    delivery_receiver_name: confirmedReceiverName,
+    delivery_note: deliveryNote,
+    delivered_at: deliveredAt,
+    delivered_by: adminUserId,
+  }
+
+  const { data, error } = await supabase
+    .from('parcel_requests')
+    .update(payload)
+    .eq('id', requestId)
+    .eq('status', 'in_transit')
+    .select('*, parcel_trips(*)')
+    .single()
+
+  if (error) {
+    await removeParcelPhoto(deliveryProofPath)
+    throw error
+  }
+
+  const deliveryMessage = [
+    `Delivered to ${confirmedReceiverName}.`,
+    'Proof of delivery is available in My Parcels.',
+    deliveryNote ? `Note: ${deliveryNote}` : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  try {
+    const { error: trackingError } = await supabase
+      .from('parcel_tracking_events')
+      .insert({
+        parcel_request_id: requestId,
+        status: 'delivered',
+        title: parcelStatusTitle('delivered'),
+        message: deliveryMessage,
+        location: null,
+        visible_to_customer: true,
+        created_by: adminUserId,
+      })
+
+    if (trackingError) {
+      console.warn(
+        '[completeParcelDelivery] Tracking event skipped:',
+        trackingError,
+      )
+    }
+  } catch (trackingError) {
+    console.warn(
+      '[completeParcelDelivery] Tracking event skipped:',
+      trackingError,
+    )
+  }
+
+  try {
+    await createCustomerParcelStatusNotification({
+      userId: String(data.user_id ?? request.user_id ?? ''),
+      parcelRequestId: requestId,
+      parcelNo: data.parcel_no ?? request.parcel_no ?? null,
+      status: 'delivered',
+      adminNotes: deliveryMessage,
+      packageDescription:
+        data.package_description ?? request.package_description ?? null,
+      eventKey: deliveredAt,
+    })
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('shop2bhutan:notifications-updated'),
+      )
+      window.dispatchEvent(new CustomEvent('shop2bhutan:parcels-updated'))
+      window.dispatchEvent(
+        new CustomEvent('shop2bhutan:admin-parcels-updated'),
+      )
+    }
+  } catch (notificationError) {
+    console.warn(
+      '[completeParcelDelivery] Customer notification skipped:',
       notificationError,
     )
   }
