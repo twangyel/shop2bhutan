@@ -10,6 +10,7 @@ import {
   ImageIcon,
   Loader2,
   MapPin,
+  MessageSquareText,
   RefreshCw,
   RotateCcw,
   Send,
@@ -201,6 +202,22 @@ function validUntilFromHours(hours: number) {
   const date = new Date();
   date.setHours(date.getHours() + hours);
   return date.toISOString();
+}
+
+function formatCustomerResponseTime(value?: string) {
+  if (!value) return '';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Thimphu',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
 }
 
 function orderItemNotes(item: OrderItem) {
@@ -410,6 +427,8 @@ export default function QuotationBuilder() {
   const totalAmount = payableProductTotal + serviceCharge + deliveryFee + safeAdditionalCharge;
   const deliveryAddressText = order ? fullDeliveryAddress(order) : '';
   const fulfillmentDisplay = order ? getFulfillmentDisplay(order) : null;
+  const customerRevisionRemark = order?.quotation?.customerResponseRemark?.trim() || '';
+  const customerRevisionTime = formatCustomerResponseTime(order?.quotation?.customerRespondedAt);
   const deliveryFeeLabel = order && isSelfPickupOrder(order) && !isJaigaonPickupOrder(order)
     ? 'Pickup / Handover Fee'
     : 'Delivery Fee';
@@ -754,6 +773,36 @@ export default function QuotationBuilder() {
             {settingsAmounts.deliveryNeedsManualQuote && 'Delivery destination requires manual pricing or is inactive. Use additional charges only if required.'}
           </span>
         </div>
+      )}
+
+      {customerRevisionRemark && (
+        <section className="overflow-hidden rounded-xl border border-violet-200 bg-white shadow-card">
+          <div className="flex items-start gap-3 bg-violet-50 px-5 py-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-violet-600 shadow-sm ring-1 ring-violet-100">
+              <MessageSquareText size={19} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-violet-700">
+                    Latest customer revision request
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-violet-600">
+                    Review this remark before preparing and resending the revised final price.
+                  </p>
+                </div>
+                {customerRevisionTime && (
+                  <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-600 ring-1 ring-violet-100">
+                    {customerRevisionTime}
+                  </span>
+                )}
+              </div>
+              <p className="mt-3 whitespace-pre-wrap rounded-xl border border-violet-100 bg-white px-3.5 py-3 text-sm font-medium leading-6 text-gray-900">
+                {customerRevisionRemark}
+              </p>
+            </div>
+          </div>
+        </section>
       )}
 
       <SmartQuotationReview

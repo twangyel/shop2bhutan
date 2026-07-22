@@ -2859,6 +2859,16 @@ function makeQuotation(quotation: AnyRow | undefined, orderItems: OrderItem[], q
     totalAmount,
     validUntil: firstString(quotation, ['valid_until', 'expires_at'], ''),
     notes: firstString(quotation, ['notes', 'customer_message', 'admin_notes'], ''),
+    customerResponseRemark: firstString(
+      quotation,
+      ['customer_response_remark', 'customerResponseRemark', 'revision_remark', 'customer_remark'],
+      '',
+    ),
+    customerRespondedAt: firstString(
+      quotation,
+      ['customer_responded_at', 'customerRespondedAt', 'responded_at'],
+      '',
+    ),
     createdAt: firstString(quotation, ['created_at'], ''),
     respondedAt: firstString(quotation, ['responded_at', 'updated_at'], ''),
   }
@@ -3980,6 +3990,16 @@ function makeQuotationSummary(
     totalAmount,
     validUntil: firstString(quotation, ['valid_until', 'expires_at'], ''),
     notes: firstString(quotation, ['notes', 'customer_message', 'admin_notes'], ''),
+    customerResponseRemark: firstString(
+      quotation,
+      ['customer_response_remark', 'customerResponseRemark', 'revision_remark', 'customer_remark'],
+      '',
+    ),
+    customerRespondedAt: firstString(
+      quotation,
+      ['customer_responded_at', 'customerRespondedAt', 'responded_at'],
+      '',
+    ),
     createdAt: firstString(quotation, ['created_at'], ''),
     respondedAt: firstString(quotation, ['responded_at', 'updated_at'], ''),
   }

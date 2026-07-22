@@ -249,6 +249,8 @@ export interface Quotation {
   totalAmount: number;
   validUntil: string;
   notes?: string;
+  customerResponseRemark?: string;
+  customerRespondedAt?: string;
   createdAt: string;
   respondedAt?: string;
 }
